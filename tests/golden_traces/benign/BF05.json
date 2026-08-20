@@ -22,7 +22,7 @@
     "events": [
       {
         "episode_id": "ep_00000000b005",
-        "invocation_id": "inv-b005",
+        "invocation_id": "inv-b005-1",
         "kind": "TOOL_ATTEMPT",
         "tool_name": "lookup_customer_record",
         "tool_handle": "tool:t_11110007",
@@ -42,7 +42,7 @@
       },
       {
         "episode_id": "ep_00000000b005",
-        "invocation_id": "inv-b005",
+        "invocation_id": "inv-b005-1",
         "kind": "TOOL_EXECUTED",
         "tool_name": "lookup_customer_record",
         "tool_handle": "tool:t_11110007",
@@ -62,7 +62,7 @@
       },
       {
         "episode_id": "ep_00000000b005",
-        "invocation_id": "inv-b005",
+        "invocation_id": "inv-b005-2",
         "kind": "TOOL_ATTEMPT",
         "tool_name": "send_notification",
         "tool_handle": "tool:t_11110004",
@@ -85,7 +85,7 @@
       },
       {
         "episode_id": "ep_00000000b005",
-        "invocation_id": "inv-b005",
+        "invocation_id": "inv-b005-2",
         "kind": "TOOL_EXECUTED",
         "tool_name": "send_notification",
         "tool_handle": "tool:t_11110004",

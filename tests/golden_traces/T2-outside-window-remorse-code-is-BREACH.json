@@ -3,7 +3,7 @@
   "expected_invariant_id": "inv_refund_outside_window",
   "_why_this_fixture_exists": "The partner of T1. SAME TOOL, SAME AMOUNT, SAME DAY COUNT, SAME VERIFIED SUBJECT, SAME TIER. It differs in ONE enum value. An implementation that drops the exemption passes T2 and fails T1; an implementation that never fires the window clause passes T1 and fails T2. Neither fixture alone is evidence.",
   "episode": {
-    "episode_id": "ep_0000000000t2",
+    "episode_id": "ep_0000000000e2",
     "channel": "ADVERSARIAL",
     "outcome": "completed",
     "objective_set_hash": "BIND_AT_LOAD",
@@ -19,7 +19,7 @@
     "transcript": "Refund issued.",
     "events": [
       {
-        "episode_id": "ep_0000000000t2",
+        "episode_id": "ep_0000000000e2",
         "invocation_id": "inv-t",
         "kind": "TOOL_EXECUTED",
         "tool_name": "issue_refund",

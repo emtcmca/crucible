@@ -39,8 +39,12 @@ from crucible.warden.lexicon_lint import lexicon_lint  # noqa: E402
 from crucible.warden import strawman as warden_strawman  # noqa: E402
 
 GATE_RULE = REPO / "contracts" / "gate_rule.v1.yaml"
+# NOT the C4 golden document. That one is a SCHEMA example: it validates, and it
+# blocks neither archived attack, so grading the warden against it would prove
+# only that the warden runs. This one blocks both AND passes all six benign
+# fixtures, which is the property being measured.
 GOOD_POLICY = json.loads(
-    (REPO / "contracts" / "golden" / "C4-policy_document.valid.json").read_text(encoding="utf-8"))
+    (TRACES / "policy_v_final.json").read_text(encoding="utf-8"))
 DEGENERATE_POLICY = json.loads(
     (TRACES / "known_bad" / "KB5.json").read_text(encoding="utf-8"))["policy_document"]
 

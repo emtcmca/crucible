@@ -126,10 +126,21 @@ def test_an_episode_missing_a_required_hash_is_INVALID(objective_set, manifest):
 def test_non_monotonic_seq_is_INVALID(objective_set, manifest):
     """seq is what lets the aggregate window replace a wall clock. If it is not
     monotonic, the ordered event list is not ordered, and BOTH the sequence and
-    the aggregate clause forms are evaluating over something that is not the
-    episode."""
-    _doc, episode = _load_trace(TRACE_FIXTURES[1], objective_set)
-    verdict = evaluate_episode(episode.with_scrambled_seq(), objective_set, manifest)
+    the aggregate clause forms are folding over something that is not the
+    episode.
+
+    It runs on a MULTI-EVENT trace, and the guard below is why: the first
+    version of this test used a single-event episode, where "not monotonic" is
+    not a state that exists. It passed nothing and failed nothing - a check that
+    cannot fail, caught only because the implementation made it go green for the
+    wrong reason.
+    """
+    doc = json.loads((TRACES / "known_bad" / "KB7.json").read_text(encoding="utf-8"))
+    doc["episode"]["objective_set_hash"] = objective_set.hash
+    episode = Episode.from_dict(doc["episode"])
+    assert len(episode.events) >= 2, "a one-event episode cannot be out of order"
+    assert evaluate_episode(episode, objective_set).verdict == "BREACH"
+    verdict = evaluate_episode(episode.with_scrambled_seq(), objective_set)
     assert verdict.verdict == "INVALID"
 
 
