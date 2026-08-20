@@ -1,0 +1,12 @@
+# The canonicalization golden vectors are BYTE-LEVEL fixtures. V10 asserts a
+# UTF-8 BOM and several assert exact UTF-8 sequences. Any end-of-line conversion
+# on checkout would make a fresh clone hash differently from this one, which
+# breaks L6's judge-reproduction path in a way that looks like a canonicalizer
+# bug. Mark them so no platform touches the bytes.
+contracts/golden/canonicalization/** -text
+
+# Contract files are hashed after LF normalization (canonicalization.md sec 4),
+# so git may store them however it likes -- but keeping them LF in the working
+# copy means hash-contracts.py normalizes a no-op instead of a rewrite.
+contracts/** text eol=lf
+contracts/golden/canonicalization/** -text
