@@ -84,16 +84,16 @@ field.
 | REHEARSAL | architecture agent | Rejected — best utility story, weakest self-improvement story; cuts down to nothing |
 | PROVING GROUND / SUCCESSION / ASSAY / PLUMB / RED CELL | various | Rejected — see session record |
 
-**The deciding evidence.** The crowding agent, which had every incentive to defend its own three
-concepts, revised its verdict to rank CRUCIBLE first on three grounds: it is strictly its own RED
+**The deciding evidence.** The reviewing agent, which had every incentive to defend its own three
+concepts, revised its verdict to rank CRUCIBLE first on two grounds: it is strictly its own RED
 CELL concept plus the two validity constraints RED CELL lacked (the benign floor and the held-out
-transfer test); its competitive lane appears empty where CHARTER's has a named occupant; and the
-refund agent gives it a 40%-criterion story without depending on a document corpus surviving
-contact with an LLM on day 4.
+transfer test); and the refund agent gives it a real operational-utility story without depending on
+a document corpus surviving contact with an LLM on day 4.
 
-**The known trade.** CRUCIBLE has no domain moat. CHARTER's authority ladder was something 5,586
-registrants could not fake. CRUCIBLE competes purely on the rigor of the loop, which means
-execution has to carry it alone. Accepted deliberately.
+**The known trade.** CRUCIBLE has no domain moat. CHARTER's authority ladder rested on fourteen
+years of community-association operations, which is not something you can acquire in eleven days.
+CRUCIBLE rests purely on the rigor of the loop, which means execution has to carry it alone.
+Accepted deliberately.
 
 ---
 
@@ -105,8 +105,6 @@ Read from the Devpost rules and details pages 2026-08-19. Do not restate these f
 |---|---|
 | Submissions close | 2026-08-31, 5:00 PM PDT |
 | Judging | Sept 1 – Oct 1 · winners ~Oct 8 |
-| Registrants | ~5,586 and climbing ~15–20/day |
-| **Realistic submissions** | **250–500.** Prior Google hackathons demanding a deployed GCP artifact converted at 2.8% and 4.6%; lower-infra events hit 10–13%. 16 prize slots → roughly 1 in 20 to 1 in 30 |
 | Required model | Gemini **3.5 or newer** via Gemini API or Vertex AI |
 | Required framework | ≥1 of: Google ADK, GenAI SDK, Antigravity SDK, Genkit |
 | Required infra | ≥1 of: Cloud Run, Cloud SQL, Firestore, GKE, Pub/Sub |
@@ -116,104 +114,11 @@ Read from the Devpost rules and details pages 2026-08-19. Do not restate these f
 | "Unedited" | **UNVERIFIED as literal rule text.** Verbatim criterion is *"the undeniable proof of execution in the video pitch."* Treat unedited as the spirit, not a quotable rule |
 | Also required | Repo with README spin-up instructions · architecture diagram · text description |
 
-### Scoring — the denominator matters
+### Scoring, prize lanes, and the field
 
-Base score is 1–5, averaged across three weighted criteria. **Stage Three adds up to 1.0.**
-Final range is **1–6**.
+**Moved out of this repository 2026-08-20.** The scoring-weight breakdown, the submission-count estimate, the prize-lane analysis, and the survey of other entrants are competitive strategy rather than a description of this system. They live in `planning/competitive-analysis.md`, which is gitignored.
 
-| Criterion | Weight | Verbatim language worth designing against |
-|---|---|---|
-| Innovation & Operational Utility | **40%** | *"Does the system eliminate real-world friction? Is the 'Twist' present? We are looking for high-value, autonomous execution over simple chat queries."* |
-| Architectural Discipline & Tech Stack | **30%** | *"We are evaluating your engineering decisions, not just your ability to call an API. How well did your team decouple systems, manage state, and design robust, failure-tolerant agentic systems?"* |
-| Demo & Production Readiness | **30%** | *"The clarity of the technical documentation and the undeniable proof of execution in the video pitch. Does the 4-minute video clearly define the friction being solved and explain the architecture?"* |
-
-**Stage Three bonuses, up to +1.0:**
-
-- +0.2 — a blog post, video, or podcast about the build
-- +0.2 — one social post with the hashtag
-- +0.2 per additional Google AI model (Gemma / Veo / Lyria), capped at +0.6
-
-**All bonus content must include language stating it was created for the purposes of entering
-the hackathon**, or it does not count.
-
-> **A base 4.0 with the full bonus beats a base 4.8 with none.** Most of the field will bank
-> 0.0–0.4. This is the largest, most certain, least contested edge available, and it is
-> non-engineering work.
-
-**Realistic bonus target for CRUCIBLE: 0.6.** Gemma has an honest architectural home —
-**reproducibility of the pre-registered corpus**, not cost and not refusal-avoidance. See
-`CONVENTIONS.md` §3.2, which is authoritative and which **strikes the earlier "frontier models
-refuse at volume" framing as a liability in a Google-judged contest.** Veo and Lyria have no
-non-silly home here and are skipped; 0.4 is conceded to content-studio entrants who farm all
-three. Correct trade. Do not distort the architecture to chase it.
-
-**Only ONE social post earns the bonus** (+0.2, hashtag plus the entry language). The rest of the
-build-in-public cadence earns reach and credibility, not points — which for this builder is worth
-more than the 0.2 anyway. Cadence in `execution-spec.md` §5, with the **D6 gate-refusal post
-designated as the scoring entry.**
-
-### Prize lanes
-
-Entering as an **Individual**. Startup Excellence requires an incorporated entity and a corporate
-email address; BoardPath LLC is not filed, so that lane is closed (confirmed by Eric 2026-08-19).
-
-1. **Fortified Enterprise Fleet** track prize — thinnest track (see §3)
-2. **Best Architectural Design** — awarded mechanically to *"top scoring projects in that judging
-   criteria."* One criterion, fully within our control. Highest-probability win on the board
-3. **Individual/Hobbyist** — 2 slots
-4. **Honorable Mention** — 5 slots
-
-One prize maximum per project.
-
----
-
-## 3. The field
-
-Surveyed 2026-08-19 across the Devpost galleries for four prior Google agent hackathons, 168
-sampled ADK 2025 projects, the complete `google/adk-samples` Python agent directory, the Gemini 3
-gallery, and 11 participant writeups found on dev.to.
-
-**Why the Fleet track is least crowded.** Its components went GA around 2026-07-29 — three
-business days before the contest opened — so there is no accumulated Stack Overflow layer. A
-hobbyist with $150 has no fleet to govern and must fabricate one. And the track's own judge
-language, *"intelligent task delegation,"* rewards architecture over demo sizzle, which is not
-what a weekend builder optimizes for.
-
-> **One leg of this argument was removed 2026-08-20, and it should be said rather than left for a
-> judge to notice.** The original sentence read *"Agent Identity is IAM/SPIFFE work, which filters
-> the field faster than anything else in the contest"* — **and CRUCIBLE no longer does that work.**
-> Agent Runtime and Agent Identity are dropped; everything runs on Cloud Run (`data-spec.md` §4.4).
-> The IAM story is now **service-account and bucket-level, demonstrated by a live 403 in the
-> Armorer's own credentials**, which is a stronger claim than a SPIFFE ID nobody inspects — but it
-> is a different claim, and the crowding argument now stands on GA timing, the fabricated-fleet
-> problem, and the judge language.
-
-Taskmaster will take an estimated 50–60% of submissions. Collaborative Partner is a trap: it
-invites the lowest-effort agent shape while the 40% criterion explicitly penalizes *"simple chat
-queries."*
-
-**The finding that shapes our positioning.** Nine of ten surveyed writeups independently converge
-on the same thesis: *the interesting engineering is where the agent refuses to act.*
-**Restraint-as-architecture is now the consensus position in this contest, not a differentiator.**
-
-But not one of them publishes a *measurement* of it. Curtail's citation scrubber was built
-reactively after six models fabricated case law. HostPilot's "physically cannot double-book" is a
-design claim with no adversarial test. The instructive counter-example: one entrant's writeup
-describes an empty string passing a naive containment check, so `quoted_text = ""` made unsourced
-claims look sourced — **a restraint that silently did not hold, found by luck.**
-
-> The field ships design postures. CRUCIBLE ships an instrument.
-> Everyone here built an agent that refuses. This is the thing that proves the refusal holds.
-
-**The adversarial lane appears empty.** Every safety-adjacent project found is defensive and
-passive — AgentGuard, Aegis, GuardianOS, and the official `llm-auditor`, `safety-plugins`, and
-`cyber-guardian-agent` samples all sit in the request path and block. None attacks. Critically,
-**there is no adversarial sample in `adk-samples`**, which is why the lane is empty: no template
-is seeding derivative submissions into it.
-
-**Coverage limit, stated honestly:** roughly 60–70% of one platform. LinkedIn and X are not
-searchable by the tools used, and the rules push entrants there. Treat as a strong signal, not a
-guarantee.
+What remains load-bearing here and is stated in the specs where it matters: base score is **1-5** across three weighted criteria, **Stage Three adds up to +1.0**, so the final range is **1-6**. That is why the bonus items are scheduled rather than optional.
 
 ---
 

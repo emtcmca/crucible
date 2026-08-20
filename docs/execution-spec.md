@@ -603,31 +603,16 @@ SEALED 2026-08-24 · UNSEALED 2026-08-28 · NEVER SEEN BY ARMORER
 
 ## 5. Content and bonus calendar
 
-Ceiling +1.0. Realistic target **+0.6**: blog (+0.2), social with hashtag (+0.2), one additional Google model (+0.2, Gemma). **Veo and Lyria have no honest architectural home here** — generated video or a soundtrack in a security-harness demo reads as padding to a judge scoring architectural discipline. **+0.4 of the +0.6 is writing, the highest-return non-engineering hour you have.**
+**Moved out of this repository 2026-08-20.** The post schedule, the draft copy, and the bonus-point arithmetic are promotion planning rather than a description of this system. They live in `planning/competitive-analysis.md`, which is gitignored.
 
-**Every bonus artifact must carry the entry language, or it does not count.** Same place every time, visible, not in a footer:
+Two things from it stay here because they bind the build:
 
-> *This post was created for the purposes of entering the Google "All Things Agentic" hackathon (Fortified Enterprise Fleet track).*
+1. **Gemma carries +0.2 of the +0.6 additional-model bonus**, which is why it has a real architectural home rather than a bolted-on one (`CONVENTIONS.md` 3.2, 3.3).
+2. **Every bonus artifact must carry the entry language, visibly and not in a footer:**
 
-> **Only ONE post earns the bonus.** Everything else earns reach and credibility. For this
-> builder that is worth more than the 0.2 anyway — eleven days of shipping evidence on the surface
-> where the job search actually happens, and it matches the standing note to lead with a build or
-> a mechanism rather than a critique of someone's list.
->
-> **Two rules for the whole cadence:** the entry language goes on the designated post, visible
-> without scrolling; and **nothing is posted that isn't true yet.** A build-in-public thread that
-> describes work as done before it is done is the same defect this project exists to catch, and
-> someone will notice.
+   > *This post was created for the purposes of entering the Google "All Things Agentic" hackathon (Fortified Enterprise Fleet track).*
 
-| When | Time | Piece | Angle |
-|---|---|---|---|
-| **Day 1 eve, Thu 08-20** | 20 min | **Social #1 — the spike** | *"Before writing any code I fired 20 shots at the hardest assumption in the build: can a Flash-tier model spell a DSL I just invented? Here's the number, and here's the decision rule I wrote down before I looked at it."* **Works whichever way the number lands** — which is the point |
-| **Day 2 eve, Fri 08-21** | 25 min | **Social #2 — the 403** | **"The component that writes the fix cannot read the sealed test set. Here's the 403."** Screenshot the real denial beside the two SA bindings. **The strongest visual of the whole build** — one image, an architecture argument, no jargon, and almost nobody else in this contest will have anything like it |
-| **Day 3 eve, Sat 08-22** | 15 min | **Social #3 — the freeze** | *"I hashed the agent under test today — and the definition of 'breach' along with it. Anything it does on camera in eight days has to be true now, because if I improve it later, every number I've taken becomes a comparison between two different systems."* **The Objective Set freeze is the better half of this post and it was the thing nobody was hashing** |
-| **Day 6 eve, Tue 08-25** | 20 min | **Social #4 — ⭐ THE SCORING ENTRY** | The gate refusing to promote. One screenshot of `PROMOTION REFUSED` with the benign pass rate. *A patch that stops every attack and breaks one real customer is an outage, not a fix.* **Hashtag + entry language go here, visible without scrolling** |
-| **Day 9 eve, Fri 08-28** | 90 min | **The blog post — the +0.2, and the artifact that outlives the hackathon** | **"A guardrail that memorizes your attacks isn't a guardrail. Here's how I tried to prove mine didn't."** Problem → the loop → the design decision worth stealing (CORONER blindness in a schema and an IAM policy, not a prompt) → the sealed family and why it was sealed *before* any patch existed → the actual number → **what it does not prove.** Supporting example: `ambient-expense-agent` puts its money decision in deterministic graph nodes outside the model's reach while `customer-service` puts it in a prompt plus callbacks — same argument, in Google's own repo, not your code, **which makes it more persuasive, not less** |
-| **Day 10, Sat 08-29** | 15 min | **Social #5** | Link blog and repo. **Image = the corpus regenerating from the pinned Gemma version and seed to a matching hash.** *(Corrected 2026-08-20 on two counts: this was labelled "Social #3" twice, and its image was the Gemma-vs-refusal pair — **do not capture or publish that pair**, it stages the struck framing as evidence.)* No new argument |
-| **Day 11, Sun 08-30** | 10 min | Verify | Every bonus link resolves in incognito, entry language visible without scrolling |
+The claim discipline below is NOT promotion planning. It governs what may be said about the results anywhere, on any surface, and it stays in the repository.
 
 ### Claim discipline
 

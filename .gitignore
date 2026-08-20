@@ -46,3 +46,8 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+# Competitive and promotion strategy. Moved out when the repo went public
+# 2026-08-20. Every other doc describes the system; this one describes the
+# contest. Not secret, just not part of the artifact.
+planning/
