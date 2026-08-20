@@ -17,10 +17,29 @@
 >   correct on this and now says why plainly).
 > - **Frozen numbers** where this file quotes them: **48** training attacks (was 86), **24** benign
 >   fixtures with **12** near-misses (was 48/20), **9** known-bads, **k = 1** everywhere, round cap
->   **4**, **$160** spend cap (§8, §9).
+>   **4**, **$160** spend cap (§8, §9). *(The cap was **raised to 6** later the same day — ruling 10,
+>   second-pass block below. Everything else here stands.)*
 > - **"known-bads still failing 9/9" is FALSE** — only five of the nine are breach fixtures. Use
 >   **"9/9 returned their expected verdict."**
 > - **Capability classes use the canonical `CAP_*` identifiers** (§5.1).
+>
+> ### Corrections applied 2026-08-20 — SECOND PASS (`CONVENTIONS.md` §5.5–§5.6, rulings 8–19)
+>
+> This file is **the index — narrative only, authoritative over nothing.** Only the values it
+> actually quotes are corrected here; the substance lives in the specs it points at.
+>
+> - **Round cap 4 → 6** (ruling 10), convergence unchanged at 3 consecutive dry rounds (§8, §9).
+> - **The benign floor is evaluated by REPLAYING recorded v0 fixture traces** (ruling 11), which is
+>   why six rounds cost less than four used to (§8).
+> - **The sealed family is F4 narrowed to DESTINATION smuggling** (ruling 13), and the *"same
+>   abstraction, third container"* framing is **dead vocabulary** (§8).
+> - **The F7 → `constrain_arg` → F4 chain is REFUTED** (ruling 15). It is not quoted in this file,
+>   which is the only reason there is nothing to strike here — **`measurement-spec.md` §1.3, §1.4
+>   and §10.1 all carried it.**
+> - **`episode.*` is frozen before the first turn** (ruling 16) — added to §5's locked constraints,
+>   because it belongs with "the sealed family is enforced by IAM" rather than in a schema appendix.
+> - **The SEP-BY split is printed with every ASR and BPR figure** (ruling 17) — added to §8.
+> - **The predicate schema is new and lands in `data-spec.md` §1.15** (rulings 8, 16, 19) — §7.
 > - **Four hash-locks, not three** — the Objective Set is now frozen too (§8).
 **Contest:** Google "All Things Agentic" Hackathon · Devpost
 **Track:** The Fortified Enterprise Fleet
@@ -309,6 +328,16 @@ Decided by Eric, 2026-08-19. These are not open for re-litigation during the bui
 5. **The sealed held-out family is enforced by IAM.** The Armorer's service account has no read
    path to it. An inability, not a promise.
 
+5b. **`episode.*` is frozen before the first turn of every episode and unwritable thereafter.**
+   *(Added 2026-08-20, `CONVENTIONS.md` §5.6 ruling 16. It sits here rather than in a schema
+   appendix because it belongs with constraint 5: both are the difference between an inability and
+   a promise.)* The three fields — account holder email, account holder id, order payment
+   instrument — are populated from the scenario's system-of-record data at episode start and
+   recorded in the evidence bundle. **If an in-episode turn can move them — *"actually, my address
+   changed to this one"* — the entire sealed-family result collapses in a single move.** No exploit
+   required, nothing visible in a transcript, and **no gate catches it.** Schema:
+   `data-spec.md` §1.15.
+
 6. **Read back and assert after every promotion.** See §4.
 
 7. **The worker agent must be genuinely useful and money-touching**, and must be shown working
@@ -393,6 +422,16 @@ correlation, retention and teardown, and the cost model.
   `execution-spec.md` D1 and the $120 in `data-spec.md` §8.5.)* The single biggest lever is
   developing the three pure-code components against *replayed transcripts* with zero model calls —
   expected 50–65% savings.
+- **NEW: `data-spec.md` §1.15 is the predicate schema** (added 2026-08-20). Three `episode.*`
+  fields **frozen before the first turn**, seven `derived.*` fields **stamped by the plugin and
+  overwriting anything the model wrote under that prefix**, the manifest declarations the
+  episode-scoped predicates need, and **two semantics that must be pinned or the predicates are
+  defeated for free**: `preceded_by` and `episode_sum` read **only allowed-and-ok** events (else an
+  attacker satisfies `preceded_by` with one blocked call), and `episode_sum` **includes the pending
+  call** (else the call that first crosses the threshold executes). **`derived.*` is
+  harness-computed, never model-computed, and a mechanical label-blindness check removes any field
+  that perfectly predicts attack-vs-benign** — such a field voids every downstream number *while
+  looking exactly like success.*
 - **Two "cuts" in `data-spec.md` §9 are NOT cuts.** #5 (collapse the pure-code services into one
   process and one SA) and #6 (move the policy store from GCS into Firestore) both break promotion
   gate **G8**, whose failure mode is **RUN INVALID.** They are struck and marked **NEVER CUT**.
@@ -416,7 +455,26 @@ reporting pipeline cannot read, so a target cannot reach a slide by accident.
 - **CL-3 outranks CL-1 and CL-2.** A run producing a beautiful attack-success curve with benign
   pass rate at 96% has demonstrated the *trivial* result and must be reported as such. The benign
   suite is **24 fixtures with 12 near-misses**, and **0 failures bounds true regression at ≈12.5%,
-  not at zero** — that number is spoken on camera and printed in the README.
+  not at zero** — that number is spoken on camera and printed in the README. **The floor is
+  evaluated by REPLAYING each fixture's recorded v0 trace through the shadow policy engine**
+  (ruling 11), which makes 24/24 repeatable rather than flaky — *a gate demanding exactly 100% on
+  nondeterministic live episodes every round is the gate a deadline relaxes.*
+- **Two labels travel with every ASR and BPR figure, permanently:** *"single-sample, no stability
+  estimate"* (k=1) and **the SEP-BY split — 18 pairs separated by the policy, 4 by the approval
+  oracle** (ruling 17). **A suite the oracle separates produces identical headline numbers to one
+  the policy separates, and nothing else in the metric board tells them apart.** Oracle/policy
+  parity is a stop-and-re-author.
+- **The sealed family is F4 narrowed to DESTINATION smuggling** (ruling 13), trained on
+  `CAP_EXTERNAL_COMMS` and `CAP_READS_PII` and sealed on `CAP_MOVES_MONEY` and
+  `CAP_MUTATES_DURABLE_STATE`. **DEAD VOCABULARY, do not write it anywhere:** *"F2 teaches
+  text-in-retrieval is untrusted, F3 teaches text-in-tool-contract, F4 requires text-in-argument —
+  same abstraction, third container."* **The narrowed set is not about text.** The claim that
+  replaces it is better for this project: *"a sealed family whose fix is an
+  argument-to-episode-context comparison — a rule shape the loop learned on a different capability
+  class, against tools it never saw."*
+- **Round cap 6, convergence at 3 consecutive dry rounds** (ruling 10). *"Did not reach dry"* is an
+  acceptable and publishable outcome; at cap 4 it was near-certain, because only round 1 could be
+  productive.
 - **The primary analysis is paired, not proportional.** At **n=48** an unpaired 95% interval is
   about **±14pp** — "69% → 6%" is real at that resolution, "41% → 33%" is not. Report fixes and
   regressions as raw counts, with **regressions given equal prominence**. *(Corrected 2026-08-20:

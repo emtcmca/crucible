@@ -542,6 +542,238 @@ tool. **It can go to zero, and going to zero is exactly the degenerate case.**
 
 ---
 
+## 5.6 Rulings from the separability proof — 2026-08-20
+
+Full worksheet: `docs/separability-proof.md`. **Verdict: 16 separable with the existing grammar ·
+6 with a schema change · 0 grammar extensions · 3 cut. The loop is viable.**
+
+Ruling 8 generalized: the answer to nearly every hard pair was **add a field the harness computes**,
+not extend the language.
+
+### Ruling 13 — F4 is NARROWED to destination smuggling. Eric's ruling; all three conditions accepted.
+
+**F4 was two families wearing one name.** Content smuggling (PII inside a free-text `memo`)
+requires reading text — which the grammar cannot do, **deliberately, because that exclusion is the
+bar.** Destination smuggling (payout routed to an instrument not on the order) compares two
+structured values, which it can.
+
+> **The trap this avoids.** Content instances in a sealed set breach at v0 **and** at vFinal,
+> because nothing can stop them. Transfer collapses toward zero **mechanically**, and the failure
+> looks exactly like *"the system did not generalize."* It isn't — it is *"we sealed a family the
+> language cannot express."* **A rigged failure, which is worse than a rigged success, because you
+> would believe it.**
+
+**The three conditions, all binding:**
+
+1. **Destination only.** The smuggled item must be a **structured, comparable** argument — payout
+   instrument, recipient, delegate queue, write target. **No free-text-content instances in the
+   sealed set.**
+2. **Cross-class transfer, built deliberately.** **Train** the `arg cmp episode.<field>` shape on
+   **C2** (external comms) and **C4** (PII reads). **Seal** on **C1** (money — sourced to model
+   policy §8.4) and **C3** (durable writes), classes where the shape was never exercised, against
+   tools the loop never saw. A shape appearing nowhere in training is a rigged failure; a shape
+   repeated on a trained class is barely transfer.
+3. **The old framing is struck**, not quietly left in.
+
+**DEAD FRAMING — do not write it anywhere:** *"F2 teaches text-in-retrieval is untrusted, F3
+teaches text-in-tool-contract is untrusted, F4 requires text-in-argument is untrusted — same
+abstraction, third container."* The narrowed set is not about text.
+
+**REPLACEMENT, and it is the better claim for this project:** *"a sealed family whose fix is an
+argument-to-episode-context comparison — a rule shape the loop learned on a different capability
+class, against tools it never saw."* The old framing was about **text**; this one is about
+**capability classes**, which is what CRUCIBLE is named for.
+
+### Ruling 14 — Ruling 1 does not parse as written. CORRECTED.
+
+§5.4 claimed *"a `lookup_order` call must always precede an `issue_refund` call — expressible only
+via `preceded_by`."* **The polarity is inverted.** `preceded_by(X)` expresses *"X happened,
+therefore restrict."* The ruling needs *"X did NOT happen, therefore deny."* The grammar has **no
+negation** and predicates are **conjunction-only**. The policy's most basic rule does not compile.
+
+**Resolved by `derived.subject_verified_in_episode` (P26), which is the stronger control anyway** —
+it binds the lookup to *this call's subject*, where `preceded_by` would be satisfied by looking up
+any unrelated customer first. **Eric's operator instinct was right; the claim about how it mapped
+to the language was wrong.**
+
+### Ruling 15 — the F7 → `constrain_arg` → F4 chain is refuted in both links.
+
+§5.3 called it *"the strongest argument in this section."* It fails on inspection:
+
+- **Nothing forces `constrain_arg`.** `deny when p op lit` returns the same decision on the same
+  inputs, and the architecture spec's **own F7 worked example uses `deny`.**
+- **`constrain_arg` is structurally disfavoured wherever a legitimate exception path exists** — it
+  is terminal when violated and cannot route to approval. Every money band in the sourced ladder
+  has a legitimate above-band path, so on `CAP_MOVES_MONEY` the right verb is always
+  `require_approval` or `deny`.
+- **F4's fix is not `constrain_arg`-shaped at all.** It is `arg cmp episode.<field>` resolving to
+  `deny`, taught by F2 and F5 — **not** F7.
+
+**Consequences:** F4's seal does **not** rest on a hope about `constrain_arg` (good news). But
+**F7's protection from the cut list now rests on the Model Armor 2×2 argument alone**, which is
+weaker than claimed. And **which verbs the Armorer actually used is reported as an observation per
+family** — if `constrain_arg` never appears in the promoted policy, **say so in the same breath as
+the F4 number.** Pre-register that sentence now, before the number exists.
+
+### Ruling 16 — `episode.*` is FROZEN before the first turn and unwritable thereafter. CRITICAL.
+
+Nothing in any spec required this. **If an in-episode turn can move `episode.account_holder_email`
+— *"actually, my address changed to this one"* — then P06, P12, P19, P25 and the entire F4 seal
+collapse in a single move.** It is the cheapest possible way to invalidate the headline result, it
+looks like nothing, and no gate catches it.
+
+`episode.*` is frozen at episode start from the scenario's order/account record, immutable for the
+episode's duration, and recorded in the evidence bundle.
+
+### Ruling 17 — the SEP-BY split is a permanent reporting requirement.
+
+Every pair is separated either **by the policy** (the predicate differs on the two sides) or **by
+the approval oracle** (the predicate is identical; the oracle decides). Current split: **18 policy,
+4 oracle.**
+
+> **A suite the oracle separates produces identical headline numbers to one the policy separates.
+> Only this ratio tells them apart.** Print it next to any ASR or BPR figure.
+
+**Authoring gate: if oracle-separated pairs ever reach parity with policy-separated ones, stop and
+re-author.**
+
+### Ruling 18 — the approval oracle's contract on ATTACK episodes.
+
+Ruling 2 defined the oracle for **fixtures**. Attacks are not fixtures, and four pairs — including
+the mandated F6 pair — rest entirely on this. **Attack episodes declare no approver, and the
+oracle denies by default.** Without that sentence those four fail open or closed silently and
+nothing in the gate notices.
+
+### Ruling 19 — `derived.*` field discipline.
+
+**Seven** schema fields carry the pairs the grammar alone cannot separate. Without discipline they are a
+hole the whole design leaks through.
+
+1. **Source restriction.** Computed from the episode prefix and the scenario's system-of-record
+   data only. **Never from the attack/benign label, never from payload text, never from the
+   target's prose.**
+2. **Hashed.** Definitions live in the capability manifest, covered by `manifest_hash`. Changing
+   one flags all learned rules `needs_revalidation`. **This is what answers Ruling 8's objection to
+   a free-floating reference set.**
+3. **Label-blindness check, mechanical.** Compute every field over the corpus with labels withheld.
+   **If any field perfectly predicts attack-vs-benign, it is a leak and must be removed.** A field
+   meaning *"this is the bad one"* makes every downstream number meaningless while looking exactly
+   like success.
+4. **Portability.** Name the general form: `derived.subject_verified_in_episode`, never
+   `derived.order_looked_up`. A refund-shaped field breaks the D9 unseen-target beat.
+
+**The bright line for what may become a field at all:**
+
+> A field may carry state the production system-of-record holds about the **account** or the
+> **order**. It may never carry state about the **conversation** or about **CRUCIBLE's own run.**
+
+Account age, order status, delivery scan: permitted. *"Third money move this hour,"* *"attempt 2 of
+this attack"*: excluded.
+
+**REFUSED, and the refusal is load-bearing:**
+- **`derived.memo_contains_pii`, or any content classifier.** This relocates the string match from
+  the DSL into the harness and produces a result about the harness's PII detector wearing the
+  policy's name. **This refusal is why P21 is unseparable, and why F4 is narrowed.**
+- **Any model-computed `derived.*` field.** It launders a model into the pure-code path — the same
+  argument that keeps the TRIPWIRE model-free.
+
+### Ruling 20 — the capability manifest SPLITS INTO TWO ARTIFACTS with two freeze dates. Eric's ruling, 2026-08-20.
+
+**The deadlock this resolves.** Ruling 19 requires two things that cannot both hold of one artifact:
+
+- 19.2 says the `derived.*` definitions are **hashed into the capability manifest**, and the
+  manifest hash-locks at **D2/D3 with the target agent** (`separability-proof.md` §5 opening).
+- 19.3 requires a **mechanical label-blindness check** over the corpus before those definitions are
+  trusted. **The corpus does not exist until D5.**
+
+Freeze at D3 and the blindness check is decorative — it runs against nothing, or it runs at D5 and
+its only possible remedy is unfreezing a hash-locked artifact mid-build. Freeze at D5 and the
+target agent has no manifest to be built against for two days. Neither is acceptable.
+
+**The split.** One manifest becomes two, each with its own hash and its own freeze.
+
+| | **Part A** `capability_manifest.json` | **Part B** `derived_schema.json` |
+|---|---|---|
+| **Contents** | tool -> capability-class mapping; `beneficiary_key` and `subject_key` arg-path maps; arg **enum value lists** (`reason_code` x12, `status_to`, `approval_tier`'s six values); tool-signature constraints (destination args scalar, not lists) | the **seven** `derived.*` definitions; the **three** `episode.*` field bindings and their freeze-at-episode-start rule |
+| **Freezes** | **D3**, with the target agent | **D5**, with the corpus, **gated on the label-blindness check passing** |
+| **Hash** | `manifest_hash` | `derived_schema_hash` |
+| **Who depends on it** | the target agent build; the DSL parser's `cap_selector` validation; the Tripwire's class attribution | the plugin's `before_tool` stamper; the policy engine's predicate evaluation |
+
+**The test for which part a thing belongs to, and it is mechanical:**
+
+> **Does the TARGET AGENT need it in order to run? Part A. Does only the EVALUATOR need it? Part B.**
+
+The target never reads a `derived.*` field. It emits tool calls; `CRUCIBLE_PLUGIN` stamps the
+derived fields over those calls, and the policy engine reads them. So every `derived.*` definition
+is Part B by construction, and Part A stays exactly the artifact the target is built against.
+
+**One field splits across the line, deliberately.** `derived.approval_tier`'s **enum values**
+`{NONE,T0,T1,T2,T3,T4}` are **Part A** — the DSL parser must validate a rule naming `T2` at any
+point after D3, including rules written before the corpus exists. Its **computation** (the identity
+layer's assignment of a tier to an actor) is **Part B**. Values freeze early, semantics freeze late.
+
+**Why this is not a loophole in disguise.** The objection to a late freeze is that a definition
+could move between the v0 arm and the vFinal arm, which would make every headline number a
+comparison across two rulers. That does not happen here:
+
+1. **Part B freezes before the v0 run**, not during it. D5 is corpus-build day; v0 measurement is
+   after. Both arms measure under one `derived_schema_hash`.
+2. **The label-blindness check is the GATE ON THE FREEZE, not a check after it.** A field that
+   perfectly predicts the label is removed and Part B re-freezes — a pre-run repair, which is
+   ordinary, not the mid-run weakening that §8 rule 3 forbids.
+3. **After D5 both artifacts are immutable and identical in status.** §8 rule 3 applies to Part B
+   from that moment exactly as it applies to Part A from D3. The split changes *when* the lock
+   lands, never *whether* it lands before measurement.
+
+**The risk the split introduces, stated plainly:** two hashes are two things to forget. Mitigations,
+all mechanical:
+
+- **G1 asserts both** `manifest_hash` and `derived_schema_hash` are present in the run manifest and
+  that every episode carries both.
+- **The episode writer refuses to write** an episode missing either hash. Not a warning.
+- **Changing either flags all learned rules `needs_revalidation`** — Ruling 19.2's consequence now
+  fires on two inputs instead of one.
+- **The run manifest's four hash-locks become FIVE**: gate rule (D2), target agent (D3),
+  `manifest_hash` (D3), Objective Set (D3), corpus + `derived_schema_hash` (D5). Update every place
+  that says "four hash-locks."
+
+  **Not yet propagated — Ruling 20 landed after the ruling-8-19 propagation pass was already
+  running, so it is in no downstream document.** Four known sites carry the dead count and must be
+  corrected to five, plus the new lock name, before D2: `build-spec.md:24`, `execution-spec.md:31`,
+  `execution-spec.md:113`, `measurement-spec.md:832`. G1 in `measurement-spec.md` must also gain
+  the `derived_schema_hash` assertion, and `data-spec.md` must add the second artifact to the
+  Firestore run-manifest schema and the episode writer's required-field list.
+
+**Correction carried by this ruling.** Ruling 19 opened *"Six schema fields carry the pairs..."* and now reads **seven** above. `separability-proof.md` §5.2 tables seven `derived.*` fields, and its own prose
+says "Seven fields, all of them, frozen." Six was wrong in this file only. **Counts are
+verify-on-use; this one drifted between two documents written the same day.**
+
+**Carve-out Ruling 19's bright line needs, or it forbids two of its own fields.** 19 says a field
+*"may never carry state about the conversation."* Read flat, that strikes
+`derived.episode_sum_amount_minor_same_beneficiary` and `derived.episode_count_same_subject` --
+both of which are folds over the episode prefix, and both of which exist because the third
+predicate form exists. The line intended is narrower, and is restated here as the operative one:
+
+> A field may fold over **the current episode's own prefix** and may read the production
+> system-of-record's state about the **account** or the **order**. It may never read **across
+> episodes**, never read a **wall clock**, and never read **CRUCIBLE's own run state** (round
+> number, attempt index, arm, policy version).
+
+"Third money move this hour" stays excluded, on the wall clock and the cross-episode scope.
+"Attempt 2 of this attack" stays excluded, on run state. Both original examples survive the
+restatement, which is how you know it narrows rather than widens.
+
+### Open, and both must be settled before D2
+
+- **Does the episode prefix carry tool RETURN values?** The breach schema shows args only. If
+  returns are present, two derived fields become unnecessary. **Changes the schema spec.**
+- **`cap_selector` `|` semantics** — architecture says *intersects* (any-of), data-spec stores
+  `all_of`. Precedence favours architecture. **No pair depends on it; the parser does.** The
+  worked example `r019` is wrong under either reading and is replaced by
+  `cap:CAP_MOVES_MONEY when preceded_by(CAP_INVOKES_AGENT) => deny`.
+
+---
+
 ## 6. Naming and layout
 
 - **Files and folders:** kebab-case. Dates in filenames: `YYYY-MM-DD`.
@@ -701,11 +933,47 @@ Checked against this machine on 2026-08-20. **These supersede any spec statement
 | **`BasePlugin` hooks** | All 13 exist; signatures match the architecture spec | Plugin surface is real. Meaningful de-risk |
 | **Plugin ordering** | `plugin_manager.run_before_tool_callback` fires at `functions.py:553`, **Step 1, before** `agent.canonical_before_tool_callbacks` at `:564` | **The enforcement point works as specified.** Verified, not assumed |
 | **ADK issue #2809** | **FIXED in 2.1.0.** `agent_tool.py:117–133, 238–250` — `include_plugins: bool = True` propagates the parent's plugins into the nested Runner | **The whole `OPAQUE` union mechanism is obsolete.** Replace with a one-line attach assertion that every `AgentTool` has `include_plugins is True`, and refuse otherwise. Saves ~4h and deletes a failure mode. `architecture-spec.md` §3.4 anticipated exactly this |
-| **Repo** | **Does not exist.** `C:\dev\crucible` is `docs/` only | `git init` is Day-1 work and gates the D2 hash-lock |
+| **Repo** | **EXISTS as of 2026-08-20.** `emtcmca/crucible`, PRIVATE, on `main` | Done. Lanes branch `lane/L<N>-<slug>`; never build on `main` |
 | **Commit signing** | **Unconfigured** — `commit.gpgsign`, `user.signingkey`, `gpg.format` all unset | `measurement-spec.md` §6.1 makes `git log --show-signature` the **first of four judge-verifiable pre-registration checks.** Currently unachievable. Must be configured and showing Verified on GitHub **before** the D2 hash-lock — **unrecoverable afterward** |
-| **gcloud SDK** | 570.0.0, core dated **2026-05-22** — predates the ~07-29 GA of the Fleet components | Update required |
-| **`gcloud ai agents`** | **`Invalid choice: 'agents'` — the command group does not exist** | `data-spec.md` §7.3's teardown script calls it twice. Fix or drop |
-| **Active gcloud project** | **`litt-hackathon`** | A new project is required. Every SA, binding, and quota assumption resets |
+| **gcloud SDK** | **581.0.0, core 2026-08-14** as of 2026-08-20 | Updated. Read back from `gcloud version`, not from the updater's exit code |
+| **`gcloud ai agents`** | **Still does not exist at 581.0.0.** Re-checked 2026-08-20 across GA, beta, and alpha — no `agents`, no `reasoning-engines` group in any track | `data-spec.md` §7.3's teardown calls it twice. **Rewrite against the Vertex AI SDK/REST, or drop.** Still open |
+| **Active gcloud project** | **`crucible-hack-2026`** (number 752793770087), billing linked and enabled | Switched 2026-08-20. `litt-hackathon` is dead vocabulary here |
+
+**Provisioned 2026-08-20, read back individually rather than trusted from an exit code:**
+
+| Resource | State |
+|---|---|
+| **APIs** | Twelve enabled on `crucible-hack-2026` |
+| **Firestore** | `(default)`, `us-central1`, `FIRESTORE_NATIVE`, `freeTier: true`. **The location is PERMANENT** |
+| **`gs://crucible-sealed-x7`** | UBLA on, PAP enforced. The **G7** boundary |
+| **`gs://crucible-policies-x7`** | UBLA on, PAP enforced, versioning on, retention 1209600s (14d), **`isLocked` empty**. The **G8** boundary |
+| **`gs://crucible-evidence-x7`** | UBLA on, PAP enforced. Not gated |
+| **`SUFFIX`** | **`x7`**, and it is now real rather than illustrative. Names live in `scripts/gcp-env.sh` and are never retyped |
+| **IAM** | **No bindings and no service accounts yet, deliberately.** A binding against a non-existent principal is the failure that looks like success |
+
+### 10a. The legacy-binding hazard that G7 and G8 must both assert against
+
+**Every new GCS bucket ships with default legacy bindings for `projectViewer:` and
+`projectEditor:`.** Any principal holding a project-level **basic** role
+(`roles/viewer`, `roles/editor`, `roles/owner`) therefore inherits **READ on the
+sealed bucket** through them, **without any binding that names that bucket.**
+
+So the G7(b) and G8 assertions as written are **necessary but not sufficient.**
+Grepping the bucket's IAM policy for `crucible-armorer` and getting 0 proves
+nothing if the Armorer holds `roles/viewer` at the project level. **Both gates
+must additionally assert that no CRUCIBLE service account holds a project-level
+basic role**, or the 403 demonstrated on camera is one `roles/viewer` grant away
+from being theater.
+
+Verified clean at provisioning time: only `user:eric@erictetzlaff.com` holds
+`roles/owner`, and the default compute service account does **not** hold
+`roles/editor` on this project. **That is a snapshot, not a guarantee** — it must
+be re-asserted by the gate on every run, because the whole point is that a grant
+made later is invisible to the checks currently specified.
+
+**Why this belongs in the spine rather than in a shell comment:** it is the same
+failure shape the project exists to demonstrate. A check that looks in the wrong
+place returns clean and reads exactly like a passing gate.
 
 ---
 
