@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crucible.invalid/contracts/breach_record.schema.json",
+  "title": "C5 - BreachRecord / Autopsy",
+  "description": "The CORONER's output. Produced by L5 (coroner); consumed by L5 (armorer, THROUGH AN ADAPTER) and L6. Frozen at the W0 contract hash. THE CORONER DIAGNOSES AND IS STRUCTURALLY BARRED FROM PROPOSING THE FIX - there is no fix, recommendation, or mitigation field, and additionalProperties is false, so one cannot be added without breaking the hash.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "autopsy_id",
+    "breach_id",
+    "run_id",
+    "round_index",
+    "attack_id",
+    "capability_classes_involved",
+    "offending_tool_calls",
+    "invariant_id",
+    "objective_set_hash",
+    "manifest_hash",
+    "derived_schema_hash"
+  ],
+  "properties": {
+    "autopsy_id": {
+      "type": "string",
+      "pattern": "^aut_[a-z0-9_]+$",
+      "$comment": "aut_ + the breach_id suffix. 1:1 WITH A BREACH. A CORONER re-run OVERWRITES; it can never fork the record."
+    },
+    "breach_id": { "type": "string", "pattern": "^br_[a-z0-9_]+$" },
+    "run_id": { "type": "string", "pattern": "^run_[0-9]{8}_[0-9]{6}_[0-9a-f]{6}$" },
+    "round_index": { "type": "integer", "minimum": 1, "maximum": 6 },
+    "attack_id": { "type": "string", "pattern": "^atk_[0-9a-f]{12}$" },
+    "attack_family_id": { "type": "string", "pattern": "^fam_[a-z0-9_]+$" },
+
+    "capability_classes_involved": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CAP_MOVES_MONEY", "CAP_EXTERNAL_COMMS", "CAP_MUTATES_DURABLE_STATE",
+          "CAP_READS_PII", "CAP_ESCALATES_PRIVILEGE", "CAP_INVOKES_AGENT", "UNCLASSIFIED"
+        ]
+      }
+    },
+
+    "offending_tool_calls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "tool_handle", "capability_classes", "args_redacted", "args_hash", "policy_decision", "status"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 0 },
+          "tool_handle": { "type": "string", "pattern": "^tool:t_[0-9a-f]{8}$" },
+          "capability_classes": { "type": "array", "items": { "type": "string" } },
+          "args_redacted": {
+            "type": "object",
+            "$comment": "ARGS ONLY, AND POST-STAMP (ruling 21). No tool return value appears here or anywhere in the evaluator-visible prefix. These reflect the args AFTER the plugin stamped the seven derived.* fields, so replay reads stamped values rather than recomputing them from returns the bundle does not carry."
+          },
+          "args_hash": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
+          "role": { "type": "string", "$comment": "Recorded, not evaluated (ruling 25)." },
+          "policy_decision": { "enum": ["allow", "deny", "approval_required"] },
+          "denied_by_rule_id": { "type": "string", "pattern": "^r_[0-9a-f]{12}$" },
+          "status": { "enum": ["ok", "error"] },
+          "latency_ms": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+
+    "invariant_id": { "type": "string", "pattern": "^inv_[a-z0-9_]+$" },
+    "objective_set_hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "manifest_hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "derived_schema_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "$comment": "BOTH manifest hashes are required, per ruling 20. The episode writer REFUSES to write a record missing either - not a warning."
+    },
+
+    "amount_minor_moved": {
+      "type": "integer",
+      "$comment": "INT64 minor units. NO FLOATS ANYWHERE IN A HASHED PAYLOAD."
+    },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+
+    "human_only": {
+      "type": "object",
+      "$comment": "THE ONLY PLACE FREE TEXT MAY LIVE, and it is STRUCTURALLY UNREACHABLE by the ARMORER's input adapter. Prose stays in the record for humans and for the replay viewer. L5's exit criteria require BOTH an adversarial blindness test (feed the CORONER a free-text field containing a 'recommended fix' string; assert the ARMORER's input dict does not contain it) AND a second test asserting the adapter CANNOT ADDRESS human_only.* AT ALL - the prescriptive-language lint alone is insufficient, because a hypothesis phrased as a description passes it."
+    }
+  },
+
+  "$defs": {
+    "NO_FIX_FIELD": {
+      "$comment": [
+        "WHY THERE IS NO fix / recommendation / mitigation FIELD, AND WHY additionalProperties",
+        "IS false.",
+        "",
+        "DETECTION AND REMEDIATION ARE SEPARATE ROLES. The CORONER diagnoses; the ARMORER patches.",
+        "If the CORONER can write the fix, the ARMORER degrades into a transcriber and the",
+        "producer/verifier split collapses into ONE ROLE WEARING TWO NAMES.",
+        "",
+        "THE SPEC'S OWN EXAMPLE WAS THE DEFECT. autopsies.generalization_hypothesis read:",
+        "  'Any composition of CAP_INVOKES_AGENT followed by CAP_MOVES_MONEY is reachable...'",
+        "which IS rule r019, in prose. It passed the modal-verb lint, and because it was a NAMED",
+        "TYPED FIELD the 'adapter reads named fields only' defence carried it straight through.",
+        "That falsifies the CORONER separation ON A FILE A JUDGE CAN OPEN.",
+        "",
+        "THE FIX IS STRUCTURAL, NOT A LINT: the ARMORER's input adapter takes an ENUMERATED",
+        "PROJECTION WITH NO FREE-TEXT FIELD AT ALL. See ARMORER_PROJECTION below."
+      ]
+    },
+    "ARMORER_PROJECTION": {
+      "$comment": [
+        "WHAT THE ARMORER RECEIVES - an enumerated projection of this record, nothing else:",
+        "",
+        "  { capability_classes_involved: [...],           # enum members only",
+        "    offending_tool_calls: [ { tool_handle, capability_classes, seq,",
+        "                              args_redacted, policy_decision, status } ],",
+        "    invariant_id: 'inv_...',                      # enum-shaped id",
+        "    round_index: N,",
+        "    autopsy_id: 'aut_...' }                       # for the provenance citation G6 requires",
+        "",
+        "NO free text. NO attack payload. NO natural-language rationale. NO fixture id and NO",
+        "fixture contents. NO human_only subtree - the adapter has no field that could hold it.",
+        "",
+        "BLINDNESS IS ENFORCED BY THE SHAPE OF THE INPUT, NOT BY INSTRUCTION. NL rationale is",
+        "precisely the material from which a string filter is written; remove it and the only",
+        "thing left to bind against is (capability, arg predicate).",
+        "",
+        "BLINDNESS TO THE FIXTURES IS THE LESS OBVIOUS AND MORE IMPORTANT ONE: an ARMORER that",
+        "can read the benign suite will carve an exception shaped EXACTLY LIKE FIXTURE #7 and",
+        "pass the Warden WITHOUT GENERALIZING. Blindness forces the patch to be a RULE rather",
+        "than a LOOKUP.",
+        "",
+        "HONESTY BOUND - state this and never overstate it: fixture blindness is APPLICATION",
+        "CONVENTION PLUS A CODE CHECK, NOT IAM. The ARMORER holds datastore.user and Firestore",
+        "IAM has NO per-collection granularity, so nothing at the platform layer stops it reading",
+        "a fixture collection. NEVER CALL THIS ONE ENFORCED ON CAMERA.",
+        "",
+        "THE ONE BLINDNESS THAT IS REAL IAM: the sealed family. The ARMORER holds NO GCS or",
+        "BigQuery role of any kind, and the sealed family exists ONLY in GCS and BigQuery. That",
+        "one may be called structural, and it is proven by a live 403 captured to",
+        "docs/proof/armorer-403.txt.",
+        "",
+        "FEEDBACK ON A REJECTED ROUND IS COUNTS AND CLASSES, NEVER IDs OR CONTENTS:",
+        "  { benign_failures: 2, classes: ['CAP_MOVES_MONEY', 'CAP_INVOKES_AGENT'] }",
+        "The 8.3 demo beat originally handed the ARMORER 'the two failing fixture IDs', which",
+        "would demonstrate, ON CAMERA, the loop doing the exact thing the design exists to prevent."
+      ]
+    }
+  }
+}

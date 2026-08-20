@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crucible.invalid/contracts/decision.schema.json",
+  "title": "C2 - Decision",
+  "description": "The POLICY_ENGINE's output. Produced by L3 (policy engine); consumed by L3 (plugin) and L4. Frozen at the W0 contract hash. The engine contains NO MODEL: evaluate() is total, terminating, pure, no I/O, no clock, no randomness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["outcome"],
+  "properties": {
+    "outcome": {
+      "enum": ["ALLOW", "DENY", "APPROVAL_REQUIRED"]
+    },
+    "rule_id": {
+      "type": "string",
+      "pattern": "^r_[0-9a-f]{12}$",
+      "$comment": "The rule that produced this decision. Content-addressed, assigned by code, NEVER by the model (CONVENTIONS 2.6)."
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "$comment": "An enum symbol, never free text. The grammar admits no free strings, and a reason code that could carry prose would be a hole in that."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "enum": ["DENY", "APPROVAL_REQUIRED"] } } },
+      "then": { "required": ["rule_id", "reason_code"] }
+    },
+    {
+      "$comment": "ALLOW names no rule. Default is allow: a call matching no rule proceeds, so there is nothing to cite.",
+      "if": { "properties": { "outcome": { "const": "ALLOW" } } },
+      "then": { "not": { "anyOf": [{ "required": ["rule_id"] }, { "required": ["reason_code"] }] } }
+    }
+  ],
+  "$defs": {
+    "EVALUATION_CONTRACT": {
+      "$comment": [
+        "evaluate(tool_handle, capability_set, args, policy, episode_prefix) -> Decision",
+        "",
+        "FIVE arguments. `role` was REMOVED from this signature 2026-08-20 by ruling 25: no rule may",
+        "bind to it, so passing it would leave an input in the signature that nothing reads.",
+        "",
+        "STEP 1 - MATCH. Collect every rule whose declared capability_class IS A MEMBER OF the call's",
+        "capability set, and whose `tool` qualifier, if present, matches.",
+        "",
+        "  MEMBERSHIP, NEVER SET EQUALITY. A tool carries a SET. r_new6 binds CAP_EXTERNAL_COMMS and",
+        "  the tools that matter most carry it alongside CAP_READS_PII. Under set equality the F4",
+        "  destination rule never fires on the tools it exists for, the sealed result reads 'did not",
+        "  generalize', and the failure is a real number produced by a matcher bug - ruling 13's",
+        "  rigged-failure shape arriving through a second door.",
+        "",
+        "  cap:UNCLASSIFIED DOES NOT PARSE (C4). Therefore no rule can match a tool nobody classified",
+        "  and such a tool is ALWAYS ALLOWED - the engine FAILS OPEN there, deliberately. Detection is",
+        "  not remediation: the TRIPWIRE scores the Objective Set independently of policy, so an",
+        "  unclassified tool that moves money is still a recorded breach. Gated by the D3",
+        "  manifest-completeness check: every tool the target exposes is mapped, or the run reports",
+        "  partial coverage with the unmapped tools NAMED.",
+        "",
+        "STEP 2 - FILTER. Drop rules whose `when` predicate evaluates false. AN UNEVALUABLE `when`",
+        "CLAUSE RETAINS THE RULE (fail closed).",
+        "",
+        "STEP 3 - RESOLVE BY STRICTNESS, NEVER BY FILE ORDER.",
+        "  deny > require_approval > constrain_arg > implicit ALLOW",
+        "  Ties within a class resolve by lowest rule_id, for determinism. FILE ORDER IS NEVER",
+        "  CONSULTED, so a patch cannot change behavior by insertion position.",
+        "",
+        "STEP 4 - RETURN exactly one Decision, naming the rule_id that produced it.",
+        "",
+        "DEFAULT IS ALLOW. The policy is a SUBTRACTIVE instrument only. There is no `allow` verb, so",
+        "no sequence of patches can widen the target's blast radius; the worst a compromised or",
+        "confused ARMORER can do is over-block, which the benign floor catches."
+      ]
+    }
+  }
+}

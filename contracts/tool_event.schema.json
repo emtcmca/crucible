@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crucible.invalid/contracts/tool_event.schema.json",
+  "title": "C1 - ToolEvent",
+  "description": "The ordered execution record. Produced by L3 (CRUCIBLE_PLUGIN); consumed by L4 (TRIPWIRE) and L6 (replay viewer). This is the ground truth the breach predicate is evaluated over. Frozen at the W0 contract hash.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "episode_id",
+    "invocation_id",
+    "kind",
+    "tool_name",
+    "tool_handle",
+    "capability_classes",
+    "args",
+    "role",
+    "derived_overwrites",
+    "seq",
+    "ts_monotonic"
+  ],
+  "properties": {
+    "episode_id": {
+      "type": "string",
+      "pattern": "^ep_[0-9a-f]{12}$"
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": ["TOOL_ATTEMPT", "TOOL_EXECUTED", "TOOL_ERROR"],
+      "$comment": "TOOL_EXECUTED, and ONLY TOOL_EXECUTED, is what the TRIPWIRE scores on. TOOL_ATTEMPT is emitted at before_tool before the policy decision is honored; a DENY produces an ATTEMPT with no matching EXECUTED, which is exactly how enforcement is proven from the record alone."
+    },
+    "tool_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool_handle": {
+      "type": "string",
+      "pattern": "^tool:t_[0-9a-f]{8}$",
+      "$comment": "Opaque. The ARMORER sees handles, never product tool names - which is what the product-lexicon denylist backstops."
+    },
+    "capability_classes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CAP_MOVES_MONEY",
+          "CAP_EXTERNAL_COMMS",
+          "CAP_MUTATES_DURABLE_STATE",
+          "CAP_READS_PII",
+          "CAP_ESCALATES_PRIVILEGE",
+          "CAP_INVOKES_AGENT",
+          "UNCLASSIFIED"
+        ]
+      },
+      "$comment": "A TOOL CARRIES A SET. Matching against a rule is MEMBERSHIP, never set equality (ruling 22) - under equality a single-class rule silently stops firing on exactly the multi-capability tools that matter most. UNCLASSIFIED is DISTINCT FROM THE EMPTY SET: empty means inert, UNCLASSIFIED means we do not know, and an agent with any UNCLASSIFIED tool is reported as partially covered with the uncovered tools named. Sorted ascending at construction (canonicalization rule 6)."
+    },
+    "args": {
+      "type": "object",
+      "$comment": "POST-STAMP (ruling 21). These are the args AFTER CRUCIBLE_PLUGIN wrote the seven derived.* fields in before_tool. Replay READS these values rather than recomputing them; pre-stamp args would leave the bundle carrying neither the tool returns nor the values derived from them, and replay could not reproduce the decision - which is the sole reason episode-scoped predicates are allowed to count as pure. NO TOOL RETURN VALUE APPEARS HERE."
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1,
+      "$comment": "RECORDED, NOT EVALUATED (ruling 25). Resolved from the invoking agent name at before_tool. NO RULE MAY BIND TO IT - role: was removed from the C4 grammar because role_name was the only plain-text product identifier the grammar admitted, and it was not covered by the product-lexicon denylist. Present here for the TRIPWIRE, for the evidence bundle, and so replay stays sound if role binding is ever restored on evidence."
+    },
+    "result_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "$comment": "REPLAY-INTEGRITY ONLY. EXPLICITLY NOT EVALUABLE BY THE POLICY ENGINE. A hash, not a value - which is what settled ruling 21: the HARNESS sees tool returns and the EVALUATOR does not. Reading a return into the evaluator's input would make derived.memo_contains_pii computable again and degrade CL-2 from structural to chosen. Optional: absent on TOOL_ATTEMPT and TOOL_ERROR."
+    },
+    "error_class": {
+      "type": "string",
+      "minLength": 1,
+      "$comment": "Present only on TOOL_ERROR. The target's own exception propagates unchanged; on_tool_error_callback returns None ALWAYS, because suppressing a target error would let CRUCIBLE convert a crash into a clean non-breach."
+    },
+    "derived_overwrites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "model_value"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^derived\\.[a-z0-9_]+$"
+          },
+          "model_value": {
+            "$comment": "Whatever the model wrote. Recorded verbatim as evidence. Never read by the policy engine."
+          }
+        }
+      },
+      "$comment": "DIAGNOSTIC ONLY, NOT EVALUABLE - same status as result_digest. Empty array in the normal case. The plugin already discards anything the model writes under derived.; recording only post-stamp args would throw that detection away. A MODEL WRITING derived.subject_verified_in_episode IS AN AGENT FORGING THE HARNESS'S OWN VERIFICATION FIELD, which is a higher-quality breach signal than most of what the corpus manufactures deliberately. The CORONER should see it."
+    },
+    "policy_decision": {
+      "enum": ["ALLOW", "DENY", "APPROVAL_REQUIRED"],
+      "$comment": "Mirrors C2. Present on TOOL_ATTEMPT."
+    },
+    "denied_by_rule_id": {
+      "type": "string",
+      "pattern": "^r_[0-9a-f]{12}$"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "$comment": "Monotonic within the episode. This is what lets aggregate(window_by_seq) replace a wall clock: KB3's 'six transfers in 90 seconds' becomes 'within one episode', and NO CLOCK ENTERS THE EVALUATOR."
+    },
+    "ts_monotonic": {
+      "type": "integer",
+      "minimum": 0,
+      "$comment": "Integer nanoseconds. Recorded for humans and for latency reporting. NEVER an evaluator input - a clock would make the evaluator impure and the TRIPWIRE's boolean irreproducible."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "TOOL_ERROR must carry error_class.",
+      "if": { "properties": { "kind": { "const": "TOOL_ERROR" } } },
+      "then": { "required": ["error_class"] }
+    },
+    {
+      "$comment": "TOOL_ATTEMPT must carry the policy decision that was reached for it.",
+      "if": { "properties": { "kind": { "const": "TOOL_ATTEMPT" } } },
+      "then": { "required": ["policy_decision"] }
+    },
+    {
+      "$comment": "A DENY or APPROVAL_REQUIRED must name the rule that produced it. A decision no rule is accountable for is not auditable.",
+      "if": {
+        "properties": { "policy_decision": { "enum": ["DENY", "APPROVAL_REQUIRED"] } },
+        "required": ["policy_decision"]
+      },
+      "then": { "required": ["denied_by_rule_id"] }
+    }
+  ]
+}
