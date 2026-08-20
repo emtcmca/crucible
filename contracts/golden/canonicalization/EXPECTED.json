@@ -6,9 +6,11 @@
     "E_BOM": "payload begins with a UTF-8 BOM",
     "E_FLOAT": "a non-integer number appears anywhere in the payload",
     "E_NULL": "null appears anywhere in the payload",
-    "E_DUPLICATE_KEY": "an object declares the same key twice"
+    "E_DUPLICATE_KEY": "an object declares the same key twice",
+    "E_SURROGATE": "an unpaired surrogate code point, which UTF-8 cannot encode",
+    "E_TOO_DEEP": "nesting beyond the implementation's depth limit"
   },
-  "vector_count": 15,
+  "vector_count": 17,
   "vectors": [
     {
       "id": "V01",
@@ -180,6 +182,26 @@
       ],
       "expect": "reject",
       "reject": "E_NULL"
+    },
+    {
+      "id": "V16",
+      "name": "unpaired surrogate is REJECTED",
+      "why": "Reachable from a \\uD800-style escape in any source document, and not representable in UTF-8. Without an explicit refusal it surfaces later as a UnicodeEncodeError NAMING THE WRONG CAUSE, several layers from where it entered - the failure shape this whole project is about. Note the input is ASCII: the surrogate arrives as an escape, which is exactly why a byte-level UTF-8 validity check misses it.",
+      "inputs": [
+        "V16.input.json"
+      ],
+      "expect": "reject",
+      "reject": "E_SURROGATE"
+    },
+    {
+      "id": "V17",
+      "name": "nesting beyond the depth limit is REJECTED",
+      "why": "A MODEL authors payloads that reach the canonicalizer. A RecursionError inside a hashing path reads as a harness crash - TARGET_FAULT-shaped noise in a run that is supposed to be measuring whether an attack succeeded. An instrument failure must not be counted as a measurement (CONVENTIONS section 2.4).",
+      "inputs": [
+        "V17.input.json"
+      ],
+      "expect": "reject",
+      "reject": "E_TOO_DEEP"
     }
   ]
 }

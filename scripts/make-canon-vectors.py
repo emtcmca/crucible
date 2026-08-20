@@ -231,6 +231,37 @@ VECTORS = [
         "expect": "reject",
         "reject": "E_NULL",
     },
+    # ---- V16 and V17 added 2026-08-20 on L1's report. Coordinator ruling. ----
+    # L1 implemented two refusals the section 3 table does not enumerate and
+    # correctly refused to add its own fixtures for them (lanes never edit
+    # contracts/). Both accepted. Section 3 says ">=12", so the table is a
+    # MINIMUM and adding these does not require editing the frozen contract -
+    # which is the only reason this could be done without a SPINE_VERSION bump.
+    {
+        "id": "V16",
+        "name": "unpaired surrogate is REJECTED",
+        "why": "Reachable from a \\uD800-style escape in any source document, and "
+               "not representable in UTF-8. Without an explicit refusal it surfaces "
+               "later as a UnicodeEncodeError NAMING THE WRONG CAUSE, several layers "
+               "from where it entered - the failure shape this whole project is "
+               "about. Note the input is ASCII: the surrogate arrives as an escape, "
+               "which is exactly why a byte-level UTF-8 validity check misses it.",
+        "inputs": {"V16.input.json": '{"s":"\\ud800"}'},
+        "expect": "reject",
+        "reject": "E_SURROGATE",
+    },
+    {
+        "id": "V17",
+        "name": "nesting beyond the depth limit is REJECTED",
+        "why": "A MODEL authors payloads that reach the canonicalizer. A "
+               "RecursionError inside a hashing path reads as a harness crash - "
+               "TARGET_FAULT-shaped noise in a run that is supposed to be measuring "
+               "whether an attack succeeded. An instrument failure must not be "
+               "counted as a measurement (CONVENTIONS section 2.4).",
+        "inputs": {"V17.input.json": "[" * 200 + "]" * 200},
+        "expect": "reject",
+        "reject": "E_TOO_DEEP",
+    },
 ]
 
 
@@ -250,6 +281,8 @@ def main():
             "E_FLOAT": "a non-integer number appears anywhere in the payload",
             "E_NULL": "null appears anywhere in the payload",
             "E_DUPLICATE_KEY": "an object declares the same key twice",
+            "E_SURROGATE": "an unpaired surrogate code point, which UTF-8 cannot encode",
+            "E_TOO_DEEP": "nesting beyond the implementation's depth limit",
         },
         "vector_count": len(VECTORS),
         "vectors": [],
