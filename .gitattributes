@@ -16,3 +16,17 @@ contracts/golden/canonicalization/** -text
 # running, which is silent loss of protection rather than a visible error.
 *.sh text eol=lf
 infra/hooks/pre-commit text eol=lf
+
+# The target agent is HASH-LOCKED at D3 and its freeze must recompute
+# identically from a fresh clone. L2 proved on 2026-08-20 that it did not:
+# core.autocrlf=true here, `git check-attr` returned `unspecified` for target/**,
+# and a scratch clone of the lane branch carried 323 CRLF endings and hashed
+# 2060b712f63a6e6c against this checkout's ae3cb4c93f86ad8a.
+#
+# THE CONTROL IS THE HASHER, NOT THIS LINE. freeze.py normalizes to LF before
+# hashing and REFUSES a BOM rather than stripping it, which holds on any clone
+# whatever its config. This entry only makes that normalization a no-op here, the
+# same arrangement contracts/** already has. If it is ever deleted, nothing
+# breaks; if the normalization is ever deleted because someone believed this line
+# covered it, the failure returns silently on the judge's machine.
+target/** text eol=lf
