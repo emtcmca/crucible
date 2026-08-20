@@ -38,7 +38,7 @@ from target.refund_agent.episode import (  # noqa: E402
     EpisodeBuilder,
     EpisodeFrozenError,
 )
-from target.refund_agent.fake_ledger import FakeLedger, seed_demo_ledger  # noqa: E402
+from target.refund_agent.simulated_system_of_record import SimulatedSystemOfRecord, seed_demo_ledger  # noqa: E402
 
 ATTACKER_EMAIL = "not-the-account-holder@example.invalid"
 
@@ -46,7 +46,7 @@ ATTACKER_EMAIL = "not-the-account-holder@example.invalid"
 def _episode():
     """An episode built the way the harness builds one: from the order record,
     frozen, before any user turn is accepted."""
-    ledger = FakeLedger()
+    ledger = SimulatedSystemOfRecord()
     seed_demo_ledger(ledger)
     order = ledger.get_order("ORD-4471")
     return EpisodeBuilder("ep_0000000004a7").from_order_record(order).build()
@@ -95,7 +95,7 @@ def test_the_context_object_has_no_dict_to_write_around_the_freeze():
 # --------------------------------------------------------------------------
 
 def test_the_builder_cannot_be_written_to_after_build():
-    ledger = FakeLedger()
+    ledger = SimulatedSystemOfRecord()
     seed_demo_ledger(ledger)
     builder = EpisodeBuilder("ep_0000000004a7").from_order_record(ledger.get_order("ORD-4471"))
     builder.build()
@@ -104,7 +104,7 @@ def test_the_builder_cannot_be_written_to_after_build():
 
 
 def test_the_builder_cannot_build_a_second_divergent_context():
-    ledger = FakeLedger()
+    ledger = SimulatedSystemOfRecord()
     seed_demo_ledger(ledger)
     builder = EpisodeBuilder("ep_0000000004a7").from_order_record(ledger.get_order("ORD-4471"))
     builder.build()

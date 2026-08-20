@@ -102,3 +102,98 @@ def test_renaming_a_tool_parameter_moves_the_freeze_hash():
                            "beneficiary_id", "instrument_id", "note"]
     from crucible.canon import hash_full
     assert hash_full(payload)[:16] != before
+
+
+# --------------------------------------------------------------------------
+# The lock must cover BEHAVIOUR, not just names. Added by the coordinator
+# 2026-08-20 after the lock was demonstrated not to lock anything.
+# --------------------------------------------------------------------------
+
+def test_target_agent_hash_moves_when_a_TOOL_BODY_changes(tmp_path, monkeypatch):
+    """The defect this test exists for was real and was measured, not imagined.
+
+    Before `runtime_source` entered the payload, inserting a statement into a
+    tool body left target_agent_hash at edade2064be9b50f -- unchanged. A target
+    could be frozen at D3, rewritten to approve everything, and every number
+    produced afterwards would still cite the same target hash.
+    """
+    import hashlib
+    import pathlib
+
+    from target.refund_agent import freeze
+
+    before = freeze.compute()["target_agent_hash"]
+    tools_py = pathlib.Path(freeze.tools.__file__)
+    original = tools_py.read_bytes()
+    try:
+        src = original.decode("utf-8")
+        i = src.index("def ")
+        j = src.index("\n", src.index(":", i))
+        tools_py.write_bytes(
+            (src[:j] + "\n    _INJECTED = True" + src[j:]).encode("utf-8"))
+        after = freeze.compute()["target_agent_hash"]
+    finally:
+        tools_py.write_bytes(original)
+
+    assert before != after, (
+        "a statement was inserted into a tool body and the target hash did not "
+        "move. The D3 freeze would lock tool NAMES while the target's behaviour "
+        "stayed editable, and every result would cite a hash that no longer "
+        "describes what ran.")
+    assert freeze.compute()["target_agent_hash"] == before, "restore failed"
+
+
+def test_a_new_module_in_the_target_package_is_refused(tmp_path):
+    """The direction that is easy to skip. A .py added to the package would run
+    inside the frozen target while sitting outside its hash."""
+    import pathlib
+
+    import pytest as _pytest
+
+    from target.refund_agent import freeze
+
+    intruder = pathlib.Path(freeze.HERE) / "sneaky_helper.py"
+    intruder.write_text("VALUE = 1\n", encoding="utf-8")
+    try:
+        with _pytest.raises(RuntimeError) as ei:
+            freeze.runtime_source_hashes()
+        assert "sneaky_helper.py" in str(ei.value)
+        assert "RUNTIME_MODULES" in str(ei.value)
+    finally:
+        intruder.unlink()
+
+
+def test_a_declared_module_missing_from_disk_is_refused(monkeypatch):
+    """The other direction. A rename must not silently drop a file out of the
+    lock -- which is exactly what a rename did on 2026-08-20."""
+    import pytest as _pytest
+
+    from target.refund_agent import freeze
+
+    monkeypatch.setattr(freeze, "RUNTIME_MODULES",
+                        freeze.RUNTIME_MODULES + ("renamed_away.py",))
+    with _pytest.raises(RuntimeError) as ei:
+        freeze.runtime_source_hashes()
+    assert "renamed_away.py" in str(ei.value)
+
+
+def test_manifest_hash_does_NOT_move_on_a_body_change():
+    """Part A describes the tool SURFACE. If it moved on every body edit it would
+    stop being the thing the plugin is built against, and the two hashes would
+    carry the same information -- which would make one of them pointless."""
+    import pathlib
+
+    from target.refund_agent import freeze
+
+    before = freeze.compute()["manifest_hash"]
+    tools_py = pathlib.Path(freeze.tools.__file__)
+    original = tools_py.read_bytes()
+    try:
+        src = original.decode("utf-8")
+        i = src.index("def ")
+        j = src.index("\n", src.index(":", i))
+        tools_py.write_bytes(
+            (src[:j] + "\n    _INJECTED = True" + src[j:]).encode("utf-8"))
+        assert freeze.compute()["manifest_hash"] == before
+    finally:
+        tools_py.write_bytes(original)

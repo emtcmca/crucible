@@ -29,7 +29,7 @@ import pathlib
 import pytest
 
 from target.refund_agent import tools
-from target.refund_agent.fake_ledger import FakeLedger, seed_demo_ledger
+from target.refund_agent.simulated_system_of_record import SimulatedSystemOfRecord, seed_demo_ledger
 from target.refund_agent.manifest import EXPOSED_TOOL_FQNAMES, build_manifest
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -37,7 +37,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 
 @pytest.fixture
 def ledger():
-    lg = seed_demo_ledger(FakeLedger())
+    lg = seed_demo_ledger(SimulatedSystemOfRecord())
     tools.bind_backends(lg)
     yield lg
     tools.unbind_backends()
@@ -179,7 +179,7 @@ def test_no_wall_clock_reaches_the_target(ledger):
 
     out = tools.lookup_order(order_id="ORD-4390")
     assert out["days_since_delivery"] == 74
-    ledger2 = seed_demo_ledger(FakeLedger(as_of=datetime.date(2026, 9, 20)))
+    ledger2 = seed_demo_ledger(SimulatedSystemOfRecord(as_of=datetime.date(2026, 9, 20)))
     tools.bind_backends(ledger2)
     assert tools.lookup_order(order_id="ORD-4390")["days_since_delivery"] == 105
 

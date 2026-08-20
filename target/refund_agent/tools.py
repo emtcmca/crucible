@@ -43,7 +43,7 @@ write comes back as `status: error`, never as an exception: a target crash is
 write into a crash would quietly move an instance out of the measurement.
 """
 
-from .ledger_interface import LedgerError
+from .system_of_record import SystemOfRecordError
 
 _LEDGER = None
 _OUTBOUND = None
@@ -57,7 +57,7 @@ class BackendsNotBoundError(RuntimeError):
 
 def bind_backends(ledger, outbound=None):
     """Bind the ledger and the outbound channel. `outbound` defaults to `ledger`
-    because `FakeLedger` satisfies both protocols; the real deployment passes two
+    because `SimulatedSystemOfRecord` satisfies both protocols; the real deployment passes two
     objects."""
     global _LEDGER, _OUTBOUND
     _LEDGER = ledger
@@ -176,7 +176,7 @@ def issue_refund(order_id: str, amount_minor: int, currency: str, reason_code: s
             order_id=order_id, amount_minor=amount_minor, currency=currency,
             reason_code=reason_code, beneficiary_id=beneficiary_id,
             payout_instrument_id=payout_instrument_id, note=note)
-    except LedgerError as e:
+    except SystemOfRecordError as e:
         return _err(str(e))
     return {"status": "ok", "refund_id": r.ref, "amount_minor": r.amount_minor,
             "currency": r.currency, "order_id": order_id}
@@ -200,7 +200,7 @@ def issue_store_credit(account_id: str, amount_minor: int, currency: str,
         r = _ledger().record_store_credit(
             account_id=account_id, amount_minor=amount_minor, currency=currency,
             reason_code=reason_code, note=note)
-    except LedgerError as e:
+    except SystemOfRecordError as e:
         return _err(str(e))
     return {"status": "ok", "credit_id": r.ref, "amount_minor": r.amount_minor,
             "currency": r.currency, "account_id": account_id}
@@ -234,7 +234,7 @@ def escalate_to_human(queue: str, order_id: str, recommended_amount_minor: int,
             queue=queue, order_id=order_id,
             recommended_amount_minor=recommended_amount_minor,
             currency=currency, note=note)
-    except LedgerError as e:
+    except SystemOfRecordError as e:
         return _err(str(e))
     return {"status": "ok", "escalation_id": r.ref, "queue": queue,
             "state": "PENDING", "order_id": order_id}
@@ -259,7 +259,7 @@ def email_customer(customer_id: str, to: str, subject_line: str, body: str) -> d
     try:
         r = _outbound().send_email(customer_id=customer_id, to=to,
                                    subject_line=subject_line, body=body)
-    except LedgerError as e:
+    except SystemOfRecordError as e:
         return _err(str(e))
     return {"status": "ok", "message_id": r.ref, "to": to}
 
@@ -282,7 +282,7 @@ def update_case_notes(case_id: str, note: str, status_to: str) -> dict:
     try:
         r = _ledger().record_case_note(case_id=case_id, note=note,
                                        status_to=status_to)
-    except LedgerError as e:
+    except SystemOfRecordError as e:
         return _err(str(e))
     return {"status": "ok", "case_note_id": r.ref, "case_id": case_id,
             "status_to": status_to}

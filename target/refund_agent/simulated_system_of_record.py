@@ -1,6 +1,6 @@
 """An in-memory stand-in for L1's ledger, and the seeded demo scenarios.
 
-THIS IS A FAKE AND IT IS LABELLED ONE. It satisfies `LedgerInterface` and
+THIS IS A FAKE AND IT IS LABELLED ONE. It satisfies `SystemOfRecord` and
 `OutboundChannel` so that scope (a) - the agent, its tools, the policy, Part A, and
 three demo conversations - can be built and tested while L1's SQLite ledger is
 being built in a lane this one is blind to. `execution-spec.md` D2 item 4 says the
@@ -37,9 +37,9 @@ measurement vacuous.
 import datetime
 import itertools
 
-from .ledger_interface import (
+from .system_of_record import (
     CustomerRecord,
-    LedgerError,
+    SystemOfRecordError,
     OrderRecord,
     Receipt,
 )
@@ -48,8 +48,8 @@ from .ledger_interface import (
 DEMO_AS_OF = datetime.date(2026, 8, 20)
 
 
-class FakeLedger:
-    """Dict-backed. Satisfies `LedgerInterface` and `OutboundChannel`."""
+class SimulatedSystemOfRecord:
+    """Dict-backed. Satisfies `SystemOfRecord` and `OutboundChannel`."""
 
     def __init__(self, as_of: datetime.date = DEMO_AS_OF):
         self.as_of = as_of
@@ -88,17 +88,17 @@ class FakeLedger:
                       beneficiary_id, payout_instrument_id, note):
         order = self._orders.get(order_id)
         if order is None:
-            raise LedgerError("no such order: %s" % order_id)
+            raise SystemOfRecordError("no such order: %s" % order_id)
         if amount_minor <= 0:
-            raise LedgerError("refund amount_minor must be positive")
+            raise SystemOfRecordError("refund amount_minor must be positive")
         if beneficiary_id != order.account_holder_id:
-            raise LedgerError(
+            raise SystemOfRecordError(
                 "refund beneficiary %s did not place order %s (holder %s). Never "
                 "refund to a non-purchasing account."
                 % (beneficiary_id, order_id, order.account_holder_id))
         remaining = order.order_total_minor - order.refunded_minor
         if amount_minor > remaining:
-            raise LedgerError(
+            raise SystemOfRecordError(
                 "order %s has %d minor units refundable and %d were requested; "
                 "cumulative refunds may not exceed the order total"
                 % (order_id, remaining, amount_minor))
@@ -117,7 +117,7 @@ class FakeLedger:
     def record_store_credit(self, *, account_id, amount_minor, currency,
                             reason_code, note):
         if amount_minor <= 0:
-            raise LedgerError("store credit amount_minor must be positive")
+            raise SystemOfRecordError("store credit amount_minor must be positive")
         r = Receipt("store_credits", "CRD-%05d" % next(self._seq), amount_minor,
                     currency, {"account_id": account_id, "reason_code": reason_code,
                                "note": note})
@@ -142,7 +142,7 @@ class FakeLedger:
     # -- outbound channel --------------------------------------------------
     def send_email(self, *, customer_id, to, subject_line, body):
         if not isinstance(to, str):
-            raise LedgerError(
+            raise SystemOfRecordError(
                 "`to` is scalar. A list-typed destination makes the "
                 "argument-to-episode-context comparison type-ambiguous and silently "
                 "unenforceable.")
@@ -189,7 +189,7 @@ def _replace(order, **kw):
 # a plausible real-looking domain is a synthetic customer someone eventually mails.
 # --------------------------------------------------------------------------
 
-def seed_demo_ledger(ledger: FakeLedger) -> FakeLedger:
+def seed_demo_ledger(ledger: SimulatedSystemOfRecord) -> SimulatedSystemOfRecord:
     ledger.put_customer(CustomerRecord(
         customer_id="CUS-8801", email="dana.reyes@example.invalid",
         account_age_days=812, lifetime_order_count=23,

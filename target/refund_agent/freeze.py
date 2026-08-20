@@ -39,8 +39,8 @@ HASHING USES `crucible.canon`. This is the one place the target package reaches
 into CRUCIBLE, and it is deliberate: reimplementing canonicalization here would be
 a second source of truth for the operation every hash claim in the build depends
 on. The freeze is a CRUCIBLE operation performed ON the target, not part of the
-target's runtime - `agent.py`, `tools.py`, `episode.py`, `ledger_interface.py` and
-`fake_ledger.py` import nothing from `crucible/` and the agent runs without it.
+target's runtime - `agent.py`, `tools.py`, `episode.py`, `system_of_record.py` and
+`simulated_system_of_record.py` import nothing from `crucible/` and the agent runs without it.
 
 VERIFY, DO NOT TRUST. `--check` recomputes and compares against the committed
 `FROZEN.json`. It prints the recomputed hash so the postcondition is asserted from
@@ -109,6 +109,73 @@ def policy_sha256() -> str:
     return hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
 
 
+# Every Python module that is part of the target's runtime. The freeze hashes
+# their BYTES, and the list is asserted against what is on disk in BOTH
+# directions -- see runtime_source_hashes().
+RUNTIME_MODULES = (
+    "__init__.py",
+    "agent.py",
+    "capabilities.py",
+    "episode.py",
+    "freeze.py",
+    "manifest.py",
+    "simulated_system_of_record.py",
+    "system_of_record.py",
+    "tools.py",
+)
+
+
+def runtime_source_hashes() -> dict:
+    """SHA-256 of each runtime module's bytes, LF-normalized.
+
+    ADDED 2026-08-20 BY THE COORDINATOR, AFTER THE LOCK WAS DEMONSTRATED NOT TO
+    LOCK ANYTHING. `target_agent_hash` previously covered the capability
+    manifest, the target descriptor, the policy hash, and `tool_signatures()` --
+    which is tool NAMES plus PARAMETER NAMES. It did not cover one line of tool
+    BODY.
+
+    Proven rather than argued: a statement inserted into a tool body left
+    `target_agent_hash` at `edade2064be9b50f`, unchanged. So a target could be
+    frozen at D3, rewritten to approve everything, and every result produced
+    afterwards would still cite the same target hash. CONVENTIONS lists the
+    target hash as one of five hash-locks precisely so a number can name the
+    thing it was measured against. A lock on names is not that.
+
+    THE LIST IS ASSERTED IN BOTH DIRECTIONS, which is the half that is easy to
+    skip. A module named here and absent from disk is an error, so a rename
+    cannot silently drop a file out of the lock. A `.py` on disk and absent from
+    here is ALSO an error, so a new module cannot be added outside it. One
+    direction alone gives a lock that shrinks quietly.
+
+    LF-normalized, BOM refused, for the same reason `policy_sha256` is: the
+    hasher must hold on any clone whatever its config, and `.gitattributes` is
+    comfort rather than control.
+    """
+    on_disk = {p.name for p in HERE.glob("*.py")}
+    declared = set(RUNTIME_MODULES)
+
+    missing = sorted(declared - on_disk)
+    if missing:
+        raise RuntimeError(
+            "RUNTIME_MODULES names %s, which is not on disk. A rename must not "
+            "silently drop a file out of the freeze." % missing)
+    undeclared = sorted(on_disk - declared)
+    if undeclared:
+        raise RuntimeError(
+            "%s is in the target package and not in RUNTIME_MODULES, so it would "
+            "run inside the frozen target without being covered by its hash. Add "
+            "it deliberately or move it out." % undeclared)
+
+    out = {}
+    for name in sorted(declared):
+        raw = (HERE / name).read_bytes()
+        if raw[:3] == b"\xef\xbb\xbf":
+            raise RuntimeError(
+                "%s carries a UTF-8 BOM. Refused rather than stripped." % name)
+        out[name] = hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+    return out
+
+
 def freeze_payload() -> dict:
     """The exact object that gets hashed. No timestamps, no run id, no paths - a
     payload carrying any of those hashes differently on two machines, and the
@@ -118,6 +185,7 @@ def freeze_payload() -> dict:
         "target_descriptor": target_descriptor(),
         "policy_sha256": policy_sha256(),
         "tool_signatures": tool_signatures(),
+        "runtime_source": runtime_source_hashes(),
     }
 
 

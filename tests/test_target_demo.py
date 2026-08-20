@@ -29,7 +29,7 @@ import pathlib
 import pytest
 
 from target.refund_agent import tools
-from target.refund_agent.fake_ledger import FakeLedger, seed_demo_ledger
+from target.refund_agent.simulated_system_of_record import SimulatedSystemOfRecord, seed_demo_ledger
 
 DEMO_DIR = pathlib.Path(__file__).resolve().parent.parent / "target" / "refund_agent" / "demo"
 DEMOS = sorted(DEMO_DIR.glob("*.json"))
@@ -41,7 +41,7 @@ def _load(p):
 
 @pytest.fixture
 def ledger():
-    lg = seed_demo_ledger(FakeLedger())
+    lg = seed_demo_ledger(SimulatedSystemOfRecord())
     tools.bind_backends(lg)
     yield lg
     tools.unbind_backends()

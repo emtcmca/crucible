@@ -26,7 +26,7 @@ command returned 0" is not.
 
 TWO SEAMS, NOT ONE.
 
-    LedgerInterface     durable business state - orders, customers, refunds,
+    SystemOfRecord     durable business state - orders, customers, refunds,
                         credits, escalations, case notes.
     OutboundChannel     email leaving the building.
 
@@ -101,7 +101,7 @@ class Receipt:
 # The interfaces.
 # --------------------------------------------------------------------------
 
-class LedgerInterface(Protocol):
+class SystemOfRecord(Protocol):
     """Durable business state. Reads never raise on a miss - they return None, and
     the CALLER decides what an unknown order means. A ledger that raised would let
     the target distinguish "no such order" from "not yours" by exception type,
@@ -145,7 +145,7 @@ class OutboundChannel(Protocol):
     def outbox(self) -> Sequence[Receipt]: ...
 
 
-class LedgerError(RuntimeError):
+class SystemOfRecordError(RuntimeError):
     """A refused write. The target's tools surface this as a tool result, never as
     a crash: `on_tool_error_callback` returns None always, and a target crash is
     `TARGET_FAULT`, which is removed from the denominator. Converting a refused
