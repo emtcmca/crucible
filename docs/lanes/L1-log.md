@@ -131,3 +131,63 @@ Result: **3/3**, `docs/proof/armorer-403.txt`.
 do not exist. A binding against a non-existent principal or resource is the
 failure that looks like success. The `data-spec.md` §4.3 layer-3 IAM **Deny**
 policy is still open, pending assumption A3.
+
+---
+
+## Work item 3 — ledger, lineage chain, promotion gate. Iterations: 2 failed.
+
+| # | What failed | Why it mattered |
+|---|---|---|
+| 1 | `sqlite3.OperationalError: near "'lineage chain exists to detect...'"` | SQLite has **no adjacent-string-literal concatenation**. Two quoted strings side by side are a syntax error, not one string |
+| 2 | `sqlite3.OperationalError: near "||"` | The obvious fix for (1) is also wrong: **`RAISE(ABORT, ...)` takes a string LITERAL, not an expression**, so `\|\|` is rejected inside it. Hence the long single-line literals. **Wrapping them breaks the trigger, and a trigger that fails to create leaves the table silently mutable** — the failure mode is a store that looks append-only and is not |
+
+### `data-spec.md` §2.3 is ambiguous about the chain's operand types, and it is pinned
+
+`||` is concatenation, but §2.3 never says what type each operand is.
+`policy_hash_full` is *defined* as `hex(SHA256(...))`, so text. `":"` is text.
+`uint32_be(n)` is explicitly binary. `lineage_hash_{n-1}` is SHA-256's output,
+which is raw bytes unless something hexes it. And the **stored** field is 16 hex
+characters, a truncation of neither operand form without saying so.
+
+**Three self-consistent readings exist and they produce different chains.** Left
+unpinned, two implementations agree on every other test and disagree here — and
+the disagreement surfaces as `lineage_ok: false` on a chain nobody tampered with.
+
+Pinned in `crucible/ledger/lineage.py`, each operand in the form the spec
+literally gives it, and frozen by vectors in `tests/test_ledger_gate.py`.
+**Reported as a contract clarification; a lane does not edit `data-spec.md`.**
+
+### The read-back is the exit criterion, and it was verified red first
+
+`test_a_deliberately_corrupted_readback_is_caught` corrupts one digit of one
+threshold. The payload still parses, still validates, still looks like a policy —
+and enforces a **different rule** than the one promoted.
+
+Swapping in the naive gate (`recomputed = policy_hash_full`, i.e. compare the
+stored hash to itself) produced:
+
+```
+E       Failed: DID NOT RAISE <class 'crucible.gate.promote.PromotionError'>
+FAILED tests/test_ledger_gate.py::test_a_deliberately_corrupted_readback_is_caught
+FAILED tests/test_ledger_gate.py::test_a_readback_that_returns_the_wrong_object_is_caught
+```
+
+The real gate: 20/20. **That is what "recomputing from bytes is the point" buys,
+and the naive version passes on a truncated write, a partial write, and a
+corrupted read alike, because it compares a value to a copy of itself.**
+
+### The census could not see finished work — and it is trivially gameable
+
+`conformance-sweep.py` reported **0 built** while all four L1 checks existed. It
+greps `tests/` for a check token, and the tests never mentioned the tokens. Same
+shape as the W0 finding, inverted: **a search that reports a gap may simply be
+unable to see the thing that fills it.**
+
+Fixed by `tests/conformance_map.py`, which maps each token to a **resolvable
+reference** — module plus callable — and `test_conformance_map.py`, which imports
+each one and fails if the name does not exist.
+
+**The weakness is stated rather than hidden:** writing `# L1-neg4` in any comment
+still turns the census green. The map narrows that to "a check is reported built
+and no code by that name exists." It cannot judge whether the referenced test is
+any good, and nothing mechanical can. **Census now reads 4 built of 35.**
