@@ -1,0 +1,26 @@
+{
+  "_must_fail_because": [
+    "derived.memo_contains_pii is a CONTENT CLASSIFIER - it relocates the string match from the DSL into the harness and produces a result about the harness's PII detector wearing the policy's name. This refusal is WHY P21 is unseparable and WHY F4 is narrowed",
+    "eight derived fields, not seven",
+    "blindness_check result FAIL must block the freeze, not be recorded and ignored",
+    "max_predictive_accuracy 1.0 means a field PERFECTLY PREDICTS THE LABEL - the exact leak ruling 19.3 exists to catch, and it looks exactly like success"
+  ],
+  "schema_version": 1,
+  "episode_fields": [],
+  "derived_fields": [
+    {
+      "name": "derived.memo_contains_pii",
+      "type": "boolean",
+      "computed_from": "episode_prefix",
+      "separates_pair": [
+        "P21"
+      ]
+    }
+  ],
+  "blindness_check": {
+    "run_at": "D5_before_freeze",
+    "labels_withheld": true,
+    "max_predictive_accuracy": 1.0,
+    "result": "FAIL"
+  }
+}

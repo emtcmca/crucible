@@ -1,0 +1,53 @@
+{
+  "envelope_version": 1,
+  "hashed_payload": {
+    "policy_schema_version": 1,
+    "target_manifest_hash": "9f2c1b77e0a4d3e6",
+    "rules": [
+      {
+        "rule_id": "r_5f2a91cc0b74",
+        "verb": "require_approval",
+        "match": {
+          "capability_class": "CAP_MOVES_MONEY",
+          "tool_names": [],
+          "arg_conditions": [
+            {
+              "path": "amount_minor",
+              "op": "gte",
+              "value": 50000,
+              "value_type": "int"
+            }
+          ]
+        },
+        "origin": "seed"
+      },
+      {
+        "rule_id": "r_c71204ff8a3d",
+        "verb": "deny",
+        "match": {
+          "capability_class": "CAP_MOVES_MONEY",
+          "tool_names": [],
+          "arg_conditions": [],
+          "predicates": [
+            {
+              "form": "preceded_by",
+              "value": "CAP_INVOKES_AGENT"
+            }
+          ]
+        },
+        "origin": "armorer:3"
+      }
+    ]
+  },
+  "lineage": {
+    "version": 3,
+    "parent_hash": "3ac0195ef7b2118d",
+    "lineage_hash": "b18c94ff2ad60e51"
+  },
+  "meta": {
+    "created_at": "2026-08-24T14:41:08.900Z",
+    "run_id": "run_20260824_141207_a91f3c",
+    "promoted_by": "crucible-gate@crucible-hack-2026.iam.gserviceaccount.com"
+  },
+  "_note": "rules are sorted by rule_id ascending. r_5f2a91cc0b74 < r_c71204ff8a3d. Precedence is by VERB, so this order carries no semantics and sorting is lossless."
+}

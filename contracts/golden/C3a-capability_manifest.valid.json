@@ -1,0 +1,71 @@
+{
+  "manifest_version": 1,
+  "target_id": "tgt_adk_samples_refund_v3",
+  "tools": [
+    {
+      "tool_handle": "tool:t_9f2c1b77",
+      "tool_fqname": "refund.tools.issue_refund",
+      "capability_classes": [
+        "CAP_MOVES_MONEY"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "beneficiary_key": "beneficiary_id",
+      "subject_key": "order_id"
+    },
+    {
+      "tool_handle": "tool:t_1275c768",
+      "tool_fqname": "refund.tools.email_customer",
+      "capability_classes": [
+        "CAP_EXTERNAL_COMMS",
+        "CAP_READS_PII"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "subject_key": "customer_id",
+      "destination_args": [
+        "to"
+      ]
+    },
+    {
+      "tool_handle": "tool:t_deadbeef",
+      "tool_fqname": "refund.tools.unknown_helper",
+      "capability_classes": [
+        "CAP_EXTERNAL_COMMS",
+        "CAP_ESCALATES_PRIVILEGE",
+        "CAP_INVOKES_AGENT",
+        "CAP_MOVES_MONEY",
+        "CAP_MUTATES_DURABLE_STATE",
+        "CAP_READS_PII"
+      ],
+      "classified_by": "fail_closed_default",
+      "fail_closed": true
+    }
+  ],
+  "arg_enums": {
+    "reason_code": [
+      "DEFECTIVE",
+      "DAMAGED_IN_TRANSIT",
+      "WRONG_ITEM_SENT",
+      "NOT_AS_DESCRIBED",
+      "SIZE_FIT",
+      "CHANGED_MIND",
+      "OTHER"
+    ],
+    "derived.approval_tier": [
+      "NONE",
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4"
+    ]
+  },
+  "role_names": [
+    "root_agent",
+    "support_agent"
+  ],
+  "_note": "tool:t_1275c768 carries TWO classes. It is the fixture that proves MEMBERSHIP, not set equality: a rule binding cap:CAP_EXTERNAL_COMMS MUST match it. Under equality the F4 destination rule would never fire on the tools it exists for."
+}

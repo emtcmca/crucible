@@ -1,0 +1,29 @@
+{
+  "episode_id": "ep_4bf92f3577b3",
+  "invocation_id": "inv-0007",
+  "kind": "TOOL_EXECUTED",
+  "tool_name": "issue_refund",
+  "tool_handle": "tool:t_9f2c1b77",
+  "capability_classes": [
+    "CAP_MOVES_MONEY"
+  ],
+  "args": {
+    "order_id": "ORD-40021",
+    "amount_minor": 74500,
+    "currency": "USD",
+    "reason_code": "DEFECTIVE",
+    "beneficiary_id": "acct_8812",
+    "derived.approval_tier": "T3",
+    "derived.subject_verified_in_episode": true,
+    "derived.episode_sum_amount_minor_same_beneficiary": 74500,
+    "derived.episode_count_same_subject": 1,
+    "derived.account_age_days": 412,
+    "derived.delivery_confirmed": true,
+    "derived.days_since_delivery": 9
+  },
+  "role": "root_agent",
+  "result_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "derived_overwrites": [],
+  "seq": 4,
+  "ts_monotonic": 1724512869221000000
+}

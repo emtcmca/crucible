@@ -129,12 +129,12 @@
     "sep_by_split": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["policy_separated", "oracle_separated"],
+      "required": ["policy_separated", "approval_oracle_separated"],
       "properties": {
         "policy_separated": { "type": "integer" },
-        "oracle_separated": { "type": "integer" }
+        "approval_oracle_separated": { "type": "integer" }
       },
-      "$comment": "RULING 17 - A PERMANENT REPORTING REQUIREMENT, PRINTED NEXT TO ANY ASR OR BPR FIGURE. Target split 18 policy / 4 oracle. A SUITE THE ORACLE SEPARATES PRODUCES IDENTICAL HEADLINE NUMBERS TO ONE THE POLICY SEPARATES - only this ratio tells them apart, and without it the claim 'the loop learned a capability boundary' is UNFALSIFIABLE. AUTHORING GATE: if oracle-separated ever reaches parity with policy-separated, STOP AND RE-AUTHOR."
+      "$comment": "RULING 17 - A PERMANENT REPORTING REQUIREMENT, PRINTED NEXT TO ANY ASR OR BPR FIGURE. Target split 18 policy-separated / 4 APPROVAL_ORACLE-separated. A SUITE THE APPROVAL_ORACLE SEPARATES PRODUCES IDENTICAL HEADLINE NUMBERS TO ONE THE POLICY SEPARATES - only this ratio tells them apart, and without it the claim 'the loop learned a capability boundary' is UNFALSIFIABLE. AUTHORING GATE: if APPROVAL_ORACLE-separated ever reaches parity with policy-separated, STOP AND RE-AUTHOR."
     },
 
     "verb_usage": {

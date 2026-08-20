@@ -1,0 +1,21 @@
+{
+  "_must_fail_because": [
+    "a CAP_MOVES_MONEY tool with no beneficiary_key - episode_sum cannot group, so F7 becomes silently unmeasurable",
+    "fail_closed:true with fewer than six classes - that is not what fail-closed means",
+    "destination_args declared as a LIST-typed arg makes the episode-context comparison type-ambiguous and silently unenforceable"
+  ],
+  "manifest_version": 1,
+  "target_id": "tgt_broken",
+  "tools": [
+    {
+      "tool_handle": "tool:t_00000001",
+      "tool_fqname": "x.pay",
+      "capability_classes": [
+        "CAP_MOVES_MONEY"
+      ],
+      "classified_by": "fail_closed_default",
+      "fail_closed": true
+    }
+  ],
+  "arg_enums": {}
+}

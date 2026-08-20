@@ -1,0 +1,27 @@
+{
+  "_must_fail_because": [
+    "args are PRE-STAMP: no derived.* fields present, so replay cannot reproduce the decision",
+    "carries `result` (a VALUE) instead of `result_digest` (a HASH) - ruling 21",
+    "`role` is absent, so an evaluator input is missing from the record",
+    "`derived_overwrites` is absent",
+    "additionalProperties:false rejects `result`"
+  ],
+  "episode_id": "ep_4bf92f3577b3",
+  "invocation_id": "inv-0007",
+  "kind": "TOOL_EXECUTED",
+  "tool_name": "issue_refund",
+  "tool_handle": "tool:t_9f2c1b77",
+  "capability_classes": [
+    "CAP_MOVES_MONEY"
+  ],
+  "args": {
+    "order_id": "ORD-40021",
+    "amount_minor": 74500
+  },
+  "result": {
+    "ok": true,
+    "customer_email": "real.person@example.invalid"
+  },
+  "seq": 4,
+  "ts_monotonic": 1724512869221000000
+}

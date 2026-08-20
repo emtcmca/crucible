@@ -67,9 +67,12 @@
         },
         "allOf": [
           {
-            "$comment": "Any money-moving tool must declare who the money goes to, or episode_sum cannot group and F7 becomes unmeasurable.",
+            "$comment": "Any money-moving tool must declare who the money goes to, or episode_sum cannot group and F7 becomes unmeasurable. EXCEPT a fail_closed tool: fail-closed means WE DO NOT KNOW WHAT THIS TOOL DOES, so we cannot know its beneficiary arg path either - and demanding one would force an author to INVENT a mapping for an unclassified tool, which is worse than the gap. The compensating control is that a fail_closed tool carries ALL SIX classes and is therefore maximally restricted; the D3 manifest-completeness check counts it and NAMES it. Found by a golden fixture on 2026-08-20 - the fail-closed tool in C3a-capability_manifest.valid.json could not satisfy the original rule.",
             "if": {
-              "properties": { "capability_classes": { "contains": { "const": "CAP_MOVES_MONEY" } } }
+              "allOf": [
+                { "properties": { "capability_classes": { "contains": { "const": "CAP_MOVES_MONEY" } } } },
+                { "not": { "properties": { "fail_closed": { "const": true } }, "required": ["fail_closed"] } }
+              ]
             },
             "then": { "required": ["beneficiary_key"] }
           },

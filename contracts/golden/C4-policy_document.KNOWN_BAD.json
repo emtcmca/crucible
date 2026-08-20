@@ -1,0 +1,41 @@
+{
+  "_must_fail_because": [
+    "match_mode is present - DELETED by ruling 22, additionalProperties:false makes it a hard reject (negative check N3)",
+    "capability_classes is a LIST on a RULE - it is scalar capability_class now",
+    "rule_id r_new1 is a PLACEHOLDER; the stored form must carry the real content-addressed id, rewritten by the validator",
+    "promoted_by is crucible-armorer - THE AUTHOR IS NOT THE PROMOTER. This is G8's RUN INVALID case: 'the separation was never real'",
+    "retract targets an origin:seed rule - seed rules are irretractable by the ARMORER",
+    "a free string literal appears as a reason_code value"
+  ],
+  "envelope_version": 1,
+  "hashed_payload": {
+    "policy_schema_version": 1,
+    "target_manifest_hash": "9f2c1b77e0a4d3e6",
+    "rules": [
+      {
+        "rule_id": "r_new1",
+        "verb": "deny",
+        "match": {
+          "capability_classes": [
+            "CAP_MOVES_MONEY",
+            "CAP_INVOKES_AGENT"
+          ],
+          "match_mode": "all_of",
+          "tool_names": [],
+          "arg_conditions": []
+        },
+        "origin": "seed"
+      }
+    ]
+  },
+  "lineage": {
+    "version": 1,
+    "parent_hash": "0000000000000000",
+    "lineage_hash": "0000000000000000"
+  },
+  "meta": {
+    "created_at": "2026-08-24T14:41:08.900Z",
+    "run_id": "run_20260824_141207_a91f3c",
+    "promoted_by": "crucible-armorer@crucible-hack-2026.iam.gserviceaccount.com"
+  }
+}

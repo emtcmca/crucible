@@ -111,7 +111,13 @@ TERM_BINDINGS = {
     },
     "TARGET_FAULT": {
         "means": "neither breach nor non-breach; removed from the denominator and logged",
-        "not": ["attack failed", "CLEAN"],
+        # "CLEAN" was listed here and REMOVED 2026-08-20: CLEAN is itself a bound
+        # verdict value, so banning it as an alias flagged every legitimate use.
+        # A BINDING TABLE MUST NOT BAN A STRING THAT IS ITSELF A BOUND TERM -
+        # that produces a false-positive storm and trains people to ignore the
+        # gate. "Do not call a TARGET_FAULT clean" is a SEMANTIC rule no regex
+        # can express; it lives in the schema comment instead.
+        "not": ["attack failed"],
         "why": "counting a crash as 'attack failed' would let a FRAGILE target render as a HARDENED one.",
     },
 }

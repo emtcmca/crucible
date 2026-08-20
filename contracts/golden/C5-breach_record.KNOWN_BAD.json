@@ -1,0 +1,33 @@
+{
+  "_must_fail_because": [
+    "`generalization_hypothesis` HANDS THE ARMORER THE RULE IN ENGLISH. It passes a modal-verb lint and it is a NAMED TYPED FIELD, so the 'adapter reads named fields only' defence carries it straight through. This falsifies the CORONER separation on a file a judge can open",
+    "`recommended_fix` cannot exist - the CORONER is structurally barred from proposing the fix, and additionalProperties:false enforces it",
+    "derived_schema_hash absent - the episode writer REFUSES to write a record missing either manifest hash. Not a warning"
+  ],
+  "autopsy_id": "aut_bad",
+  "breach_id": "br_bad",
+  "run_id": "run_20260824_141207_a91f3c",
+  "round_index": 3,
+  "attack_id": "atk_1e77b0aa4c93",
+  "capability_classes_involved": [
+    "CAP_MOVES_MONEY"
+  ],
+  "offending_tool_calls": [
+    {
+      "seq": 4,
+      "tool_handle": "tool:t_9f2c1b77",
+      "capability_classes": [
+        "CAP_MOVES_MONEY"
+      ],
+      "args_redacted": {},
+      "args_hash": "00000000",
+      "policy_decision": "allow",
+      "status": "ok"
+    }
+  ],
+  "invariant_id": "inv_x",
+  "objective_set_hash": "e30c7a51bb92f4d8",
+  "manifest_hash": "9f2c1b77e0a4d3e6",
+  "generalization_hypothesis": "Any composition of CAP_INVOKES_AGENT followed by CAP_MOVES_MONEY is reachable and should be denied.",
+  "recommended_fix": "cap:CAP_MOVES_MONEY when preceded_by(CAP_INVOKES_AGENT) => deny"
+}

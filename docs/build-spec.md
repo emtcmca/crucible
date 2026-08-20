@@ -582,7 +582,7 @@ blog, or on camera.
 | Set a **Spend Cap** (not a plain alert) **at $160**, scoped to Vertex AI, Gemini API, and Cloud Run | Eric | Day 1 |
 | **Configure commit signing** — `commit.gpgsign`, `user.signingkey`, `gpg.format` are all unset. `measurement-spec.md` §6.1 makes `git log --show-signature` the first judge-verifiable pre-registration check, and it is **unrecoverable after the D2 hash-lock** | Eric | **Day 1, before D2** |
 | ~~**`git init`**~~ **DONE** — `fc3a612`, five signed and GitHub-verified commits, repo PUBLIC. *(This row asserted "there is no repository yet", which stopped being true at 15:11 on Day 1.)* | Eric | Day 1 |
-| **New GCP project** — the active project is `litt-hackathon`; every SA, binding, and quota assumption resets with the switch | Eric | Day 1 |
+| ~~**New GCP project**~~ **DONE 2026-08-20** — active project is `crucible-hack-2026` (number 752793770087), billing enabled, twelve APIs on, Firestore `(default)` native in `us-central1`, three buckets with UBLA + PAP. **No service accounts and no IAM bindings yet, deliberately** — a binding against a non-existent principal is the failure that looks like success. *(This row said the active project "is `litt-hackathon`", which stopped being true on Day 1; `CONVENTIONS.md` §10 is authoritative.)* | Eric | Day 1 |
 | **Update the gcloud SDK** — 570.0.0's core component is dated 2026-05-22, predating the ~07-29 GA of the Fleet components | Eric | Day 1 |
 | Reconcile the Litt hackathon date in global `CLAUDE.md` (says June 2026; Devpost ADK hackathon ran May–June **2025**) | Eric | Q `c-20260819-2344-5a27` |
 | `/q sync` will ingest capture `20260819#9` and create an already-superseded Agent Fleet Auditor commitment — close it on arrival | Eric | Q `c-20260819-2344-851f` |

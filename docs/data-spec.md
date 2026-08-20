@@ -1354,7 +1354,8 @@ crucible verify-chain --run $RUN_ID | Out-File -Encoding utf8 ./local-evidence/c
 
 # ── PHASE 2: STOP THE METERS (highest burn rate first) ─────────────────────────
 # NOTE 2026-08-20: `gcloud ai agents ...` DOES NOT EXIST in the installed SDK
-# (570.0.0) -- it returns `Invalid choice: 'agents'`. Two calls in this script used
+# (570.0.0 at the time; still absent at 581.0.0, re-checked 2026-08-20 across GA, beta,  <!-- sweep-ok: teardown comment naming the SDK version the defect was found on -->
+# and alpha) -- it returns `Invalid choice: 'agents'`. Two calls in this script used
 # it. Both are dropped: Agent Runtime is no longer used, so there is no agent
 # resource to delete (see 4.4). If a future SDK adds the group, VERIFY THE COMMAND
 # SURFACE FIRST -- `gcloud ai --help` -- rather than reinstating this line.

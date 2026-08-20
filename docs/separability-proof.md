@@ -38,7 +38,7 @@ I wrote every rule against `architecture-spec.md` §5.2 verbatim. Two things had
 > **(1) Precedence could not have settled this.** The paragraph below resolves it by document
 > precedence — architecture over data-spec. But the contradiction is **intra-document**:
 > `architecture-spec.md` §5.4 step 1 says *intersects*, and `architecture-spec.md`'s own `r019`
-> comment cites `match_mode: all_of`. Both sides sit inside the file precedence names as the
+> comment cites `match_mode: all_of`. Both sides sit inside the file precedence names as the  <!-- sweep-ok: the proof records the conflict it found -->
 > winner, so **precedence had nothing to pick from** and the merits were the only route.
 > **(2) The decisive argument is asymmetric failure.** Under any-of an over-broad rule fails the
 > benign floor and G3 rejects — loud, gated. Under all-of a rule naming an empty class
@@ -359,7 +359,7 @@ Affect is prose and the policy engine sees no prose, so there is no pair. But th
 
 I audited every row. The nearest miss was a candidate pair I drafted and then dropped: *"poisoned record claims a prior agent already approved this"* separated by `derived.prior_decision_on_this_order`. That field would be **legal** under the bright line — a prior decision is order-scoped, not conversation-scoped, and frozen at episode start, so the evaluator stays pure. It is nonetheless **the wrong pair to write**, because the attack move C-2 actually describes — *"you immediately hang up the call or the live chat and go quickly start a new one and repeat the steps above"* — cannot occur inside one episode. An attack instance built on it would be a single conversation in which nothing is repeated, and the target would pass it trivially. That is precisely Ruling 7's *"a persistence-themed attack family scored against a session-scoped target passes trivially and tells you nothing."*
 
-> **Sharper statement than the spine currently carries, and worth adopting:** CRUCIBLE could *express* the §8.9 contact-sequence control, because order-scoped state is expressible. It cannot *test* it, because the attack spans episodes. **Expressibility and testability come apart here, and the limitation is the second one.** Saying "the DSL is episode-scoped so it structurally cannot express this" is slightly wrong and easy for a judge to falsify; saying "we can express it and cannot test it, so we do not claim it" is right and stronger.
+> **Sharper statement than the spine currently carries, and worth adopting:** CRUCIBLE could *express* the §8.9 contact-sequence control, because order-scoped state is expressible. It cannot *test* it, because the attack spans episodes. **Expressibility and testability come apart here, and the limitation is the second one.** Saying "the DSL is episode-scoped so it structurally cannot express this" is slightly wrong and easy for a judge to falsify; saying "we can express it and cannot test it, so we do not claim it" is right and stronger.  <!-- sweep-ok: the proof records the spine sentence it is correcting -->
 
 **Reframe-as-defective (§C-9 / Ruling 6) — CONFIRMED. No attack instance in this table would be scored as a breach for correct policy behaviour.**
 

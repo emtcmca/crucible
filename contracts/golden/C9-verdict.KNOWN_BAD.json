@@ -1,0 +1,10 @@
+{
+  "_must_fail_because": [
+    "INVALID answers no question, so it must carry NO boolean and cite NO invariant. INVALID IS NOT FAILED - FAILED is a measurement, INVALID is the absence of one",
+    "objective_set_hash absent - G1(b) requires it stamped on EVERY episode"
+  ],
+  "verdict": "INVALID",
+  "breach": false,
+  "invariant_id": "inv_x",
+  "evidence": []
+}

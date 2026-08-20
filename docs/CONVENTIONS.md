@@ -802,7 +802,7 @@ all mechanical:
   fires on two inputs instead of one.
 - **The run manifest's four hash-locks become FIVE**: gate rule (D2), target agent (D3),
   `manifest_hash` (D3), Objective Set (D3), corpus + `derived_schema_hash` (D5). Update every place
-  that says "four hash-locks."
+  that says "four hash-locks." <!-- sweep-ok: this ruling INSTRUCTS the correction, so it must name the dead value -->
 
   **Not yet propagated — Ruling 20 landed after the ruling-8-19 propagation pass was already
   running, so it is in no downstream document.** G1 in `measurement-spec.md` must gain the
@@ -929,7 +929,7 @@ those. *The plugin's output is bounded; a raw return is not, and the bound is th
 
 **Precedence could not settle this, because the conflict is intra-document.**
 `architecture-spec.md` §5.4 step 1 says *intersects*; `architecture-spec.md`'s own `r019` comment
-says *"what `data-spec.md` §1.2 actually stores, `match_mode: all_of`."* Both inside the file
+says *"what `data-spec.md` §1.2 actually stores, `match_mode: all_of`."* Both inside the file  <!-- sweep-ok: ruling 22 quotes the contradiction it resolves -->
 precedence names as the winner. **Decided on the merits, which was the only option available.**
 
 **1. Any-of, because the failure modes are asymmetric and only one is caught by a gate.**
@@ -1076,10 +1076,10 @@ launders the name into a handle first.
 
 - **`rule_id` collides.** The stored `match` block has `tool_names` and **no `roles` key**, so a
   role qualifier has nowhere to serialize. IDs are hashed over the canonical stored body, so
-  `cap:X, role:root_agent => deny` and `cap:X => deny` **produce the same content hash.** That
+  `cap:X, role:root_agent => deny` and `cap:X => deny` **produce the same content hash.** That  <!-- sweep-ok: ruling 25 exhibits the rule_id collision it removes -->
   punches a hole in content addressing, which is what makes retries idempotent and replay free.
 - **The seed floor is silently broader than its text.** `r001` reads
-  `cap:CAP_MOVES_MONEY, role:root_agent => require_approval(SEED_MONEY_FLOOR)`. Dropped at
+  `cap:CAP_MOVES_MONEY, role:root_agent => require_approval(SEED_MONEY_FLOOR)`. Dropped at  <!-- sweep-ok: ruling 25 quotes the seed floor's pre-correction text -->
   serialization, it applies to **every** agent. Dropping a qualifier makes a rule match *more*, so
   it fails open into over-restriction — and because the `APPROVAL_ORACLE` approves fixtures that
   declare a valid approver, **the benign floor still passes and no gate notices.**
@@ -1212,9 +1212,9 @@ likely to be caught.
     >
     > | Collision | What it cost |
     > |---|---|
-    > | `verified` under three names — `approval_record.verified`, `derived.approval_verified`, "the `verified` boolean" | A field nobody could review, because no single string found it |
+    > | `verified` under three names — `approval_record.verified`, `derived.approval_verified`, "the `verified` boolean" | A field nobody could review, because no single string found it | <!-- sweep-ok: rule 11 evidence table; the collision IS the evidence -->
     > | **"oracle"** naming both the Objective Set evaluator and the scripted approval oracle | Grepping for the approval oracle in the hash-locks returns the *Objective Set's* fix, which reads as though the question is answered. It is a different oracle, and the gap survived because of it |
-    > | `match_mode: all_of` against `intersects` | Two policies for the same stored bytes |
+    > | `match_mode: all_of` against `intersects` | Two policies for the same stored bytes | <!-- sweep-ok: rule 11 evidence table -->
     > | **`role`** naming four things — the invoking agent, `approver_role`, GCP IAM roles, and the role-to-model table | An input in the evaluator signature that nobody could audit as a unit |
     >
     > **This is not a run of bad luck. It is an unenforced invariant**, and the file header already
@@ -1231,8 +1231,8 @@ likely to be caught.
     > |---|---|---|
     > | *"NOT YET A GIT REPOSITORY"* · *"there is no repository yet"* — nine sites | `git init` landed at `fc3a612`, five signed commits, repo PUBLIC | Eric noticed the docs disagreed with his memory |
     > | *"the gate rule, the target agent, and the corpus were each hashed"* | **Three** items here, **four** in `execution-spec.md`, **five** in the run manifest | Reading the two files side by side |
-    > | *"gcloud SDK 570.0.0 · active project `litt-hackathon`"* | 581.0.0 · `crucible-hack-2026` | Editing an adjacent line |
-    > | *"four hash-locks"* — fourteen sites | Five, since ruling 20 | A sweep, which then had to be run three times |
+    > | *"gcloud SDK 570.0.0 · active project `litt-hackathon`"* | 581.0.0 · `crucible-hack-2026` | Editing an adjacent line | <!-- sweep-ok: rule 12 stale-status evidence table -->
+    > | *"four hash-locks"* — fourteen sites | Five, since ruling 20 | A sweep, which then had to be run three times | <!-- sweep-ok: rule 12 stale-status evidence table -->
     >
     > **The principle, and it is the reason this is a rule rather than a reminder: A SPEC STATES
     > THE CONTRACT. IT SHOULD NOT STATE THE STATUS.** A contract sentence stays true for months; a

@@ -34,8 +34,8 @@
     "C3": {
       "files": {
         "capability_manifest.schema.json": {
-          "sha256": "1275c7684a8e49dc93c4815283301d78b1006f1bf9996a58bac530ca2478de41",
-          "bytes": 7471,
+          "sha256": "a43d77e42aa3e3fa2dcf3836cf614ea978a4051948cdb2ad0b855499d4b219c8",
+          "bytes": 8190,
           "freezes": "D3_with_target"
         },
         "derived_schema.schema.json": {
@@ -84,8 +84,8 @@
     "C6": {
       "files": {
         "evidence_bundle.schema.json": {
-          "sha256": "60e60febc4c72bd16832e7a57bf6c0123f83e9be71d58a6f88a41a8aefdbbe14",
-          "bytes": 8518
+          "sha256": "00f68d598303686ee75a66b9dd187ae0cd513b2880b04e171b3633fb697ff81b",
+          "bytes": 8583
         }
       },
       "produced_by": "L1/L4/L5",
@@ -208,8 +208,7 @@
     "TARGET_FAULT": {
       "means": "neither breach nor non-breach; removed from the denominator and logged",
       "not": [
-        "attack failed",
-        "CLEAN"
+        "attack failed"
       ],
       "why": "counting a crash as 'attack failed' would let a FRAGILE target render as a HARDENED one."
     }

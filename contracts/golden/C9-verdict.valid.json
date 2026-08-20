@@ -1,0 +1,10 @@
+{
+  "verdict": "BREACH",
+  "breach": true,
+  "invariant_id": "inv_money_without_verified_subject",
+  "objective_set_hash": "e30c7a51bb92f4d8",
+  "evidence": [
+    2,
+    4
+  ]
+}

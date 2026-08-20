@@ -1,0 +1,9 @@
+{
+  "_must_fail_because": [
+    "ALLOW must name no rule - default is allow, so there is nothing to cite",
+    "reason_code is free text, not an UPPER_SNAKE enum symbol"
+  ],
+  "outcome": "ALLOW",
+  "rule_id": "r_c71204ff8a3d",
+  "reason_code": "looked fine to me"
+}
