@@ -1,0 +1,48 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*service-account*.json
+*credentials*.json
+*.pem
+*.key
+
+# The Day-1 spike is throwaway; it must not become part of the record
+spike/
+
+# Run evidence is written at runtime, never hand-edited.
+# Curated bundles that back a published claim are force-added deliberately:
+#   git add -f evidence/runs/<date>-<slug>/
+evidence/
+!evidence/.gitkeep
+
+# THE SEALED HELD-OUT FAMILY.
+# NOTE: a .gitignore entry is NOT the control. The real boundary is IAM —
+# the Armorer's service account holds no read on the sealed GCS bucket.
+# This line only stops an accidental local commit. See CONVENTIONS.md §9.
+corpus/sealed/
+
+# Local third-party checkouts (targets under test are cloned to scratch, not here)
+adk-samples/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
