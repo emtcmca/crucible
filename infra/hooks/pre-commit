@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# CRUCIBLE pre-commit hook. Refuses any commit that stages a path under
+# corpus/sealed/.
+#
+# WHY THIS EXISTS, AND WHY .gitignore IS NOT ENOUGH
+# ------------------------------------------------
+# corpus/sealed/ is in .gitignore. That stops `git add`. It does NOT stop
+# `git add -f`, and it does not stop a path that was tracked before it was
+# ignored. This hook stops both.
+#
+# The repo is PUBLIC (CONVENTIONS.md section 10). A sealed-corpus file that
+# reaches a public commit is permanent and cloneable - `git push --force` after
+# a history rewrite does not recall what a stranger already fetched, and GitHub
+# serves orphaned objects by SHA for a long time. It would invalidate the
+# sealed-family claim outright, which is the single headline number this project
+# produces.
+#
+# THE REAL BOUNDARY IS IAM, NOT THIS HOOK. The red-team service account cannot
+# read the sealed bucket. This hook is the local half: it stops the mistake that
+# IAM cannot see, because a file on the developer's own disk was never subject
+# to a bucket permission.
+#
+# Install:  bash infra/hooks/install.sh
+# Bypass:   there is deliberately no bypass flag. `git commit --no-verify`
+#           exists and cannot be disabled from inside a hook - which is exactly
+#           why the sealed-family claim also rests on IAM and on the D5 hash.
+
+set -u
+
+# --allow-empty and the initial commit both need a valid comparison point.
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  AGAINST=HEAD
+else
+  AGAINST=$(git hash-object -t tree /dev/null)
+fi
+
+# -z plus a NUL-delimited read: a path with a space or a quote must not split.
+BLOCKED=""
+while IFS= read -r -d '' path; do
+  case "$path" in
+    corpus/sealed/*|corpus/sealed)
+      BLOCKED="${BLOCKED}  ${path}"$'\n' ;;
+  esac
+done < <(git diff --cached --name-only -z --diff-filter=ACMR "$AGAINST")
+
+if [ -n "$BLOCKED" ]; then
+  echo "" >&2
+  echo "COMMIT REFUSED - sealed corpus staged" >&2
+  echo "" >&2
+  echo "$BLOCKED" >&2
+  echo "This repository is public. A sealed-corpus file in a public commit is" >&2
+  echo "permanent and cloneable, and it invalidates the sealed-family result" >&2
+  echo "outright - the single headline number this project produces." >&2
+  echo "" >&2
+  echo "Unstage it:  git restore --staged <path>" >&2
+  echo "" >&2
+  echo "If you believe the file is genuinely not sealed material, it is in the" >&2
+  echo "wrong directory. Move it. Do not route around this check: weakening a" >&2
+  echo "gate is a stop condition, not a repair (CONVENTIONS.md section 8)." >&2
+  echo "" >&2
+  exit 1
+fi
+
+exit 0
