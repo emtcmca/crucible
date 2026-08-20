@@ -50,7 +50,18 @@ NAIVE_MUST_FAIL = {
            "manufactured ourselves.",
     "V14": "same hole as V11, and proves nothing recurses.",
     "V15": "same hole as V12, and proves nothing walks into arrays.",
+    "V16": "crashes with UnicodeEncodeError instead of refusing with a code. The "
+           "right instinct, at the wrong layer, naming the wrong cause.",
+    "V17": "no depth limit, so it produces output where it owed a rejection.",
 }
+
+# A note on the six reject vectors above: for a NEGATIVE vector the bar is low,
+# because any output at all is already a divergence from a required refusal. That
+# is real discrimination and not a trick - "produces bytes where the contract says
+# refuse" is exactly the bug - but it is weaker evidence than the positive
+# vectors, where the strawman must produce DIFFERENT CORRECT-LOOKING bytes. Said
+# out loud so nobody later reads eight entries here as eight equally strong
+# results.
 
 # NOT in the list above, and the reason is recorded rather than left implicit:
 #   V01, V04, V05, V06, V07, V08 - json.dumps gets these right. Python ints are

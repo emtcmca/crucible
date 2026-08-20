@@ -67,9 +67,10 @@ def sha(b: bytes) -> str:
 # --------------------------------------------------------------------------
 
 def test_fixture_set_is_intact():
-    assert INDEX["vector_count"] == len(INDEX["vectors"]) == 15
+    assert INDEX["vector_count"] == len(INDEX["vectors"]) == 17
     assert len(POSITIVE) == 9, "canonicalization.md sec 3 lists nine positive vectors"
-    assert len(NEGATIVE) == 6, "three from the sec 3 table plus three recursion probes"
+    assert len(NEGATIVE) == 8, ("three from the sec 3 table, three recursion probes, "
+                                "and V16/V17 added by coordinator ruling on L1's report")
     for v in INDEX["vectors"]:
         for f in v["inputs"]:
             assert (VECTORS / f).exists(), "%s missing input %s" % (v["id"], f)

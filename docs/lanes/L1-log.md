@@ -33,7 +33,21 @@ visible: **the vector is sound, our ability to prove it here is not.**
 
 ## Open for the coordinator — three items. Not worked around.
 
-### 1. Two refusals have no contract vector
+### 1. ~~Two refusals have no contract vector~~ — **RULED 2026-08-20. Both accepted as V16 and V17.**
+
+The coordinator added them at `d59c187`. `canonicalization.md` §3 says
+"**≥12** fixtures", so the table is a minimum and the additions are compatible
+with the frozen contract — no edit to `canonicalization.md`, no `SPINE_VERSION`
+bump, no contract hash change. The fifteen existing vectors regenerated to
+byte-identical files, verified by hash on read-back.
+
+Picking the ruling up broke two of this lane's guards, **which is the guards
+working**: `test_fixture_set_is_intact` refused the new count and
+`test_every_vector_is_killed_by_at_least_one_strawman` refused to let V16/V17
+enter the tree without a declared discriminator. Neither could have been added
+silently. Original report follows.
+
+
 
 `crucible/canon/canonical.py` refuses two more things than
 `contracts/canonicalization.md` §3 enumerates. Both are pinned by tests in
@@ -63,3 +77,10 @@ conversion on a fresh clone would make the judge's hashes disagree with ours and
 in-memory path, which has no parser to hook. Deleting either one leaves a live
 hole: `canonicalize_bytes` is not the only entry point, and `rule_id()` reaches
 `_emit` directly with a dict that was never JSON text.
+
+**Honest caveat on the eight naive-strawman entries.** For a NEGATIVE vector the
+bar is low: any output at all already diverges from a required refusal. That is
+real discrimination -- "produces bytes where the contract says refuse" is exactly
+the bug -- but it is weaker evidence than a positive vector, where the strawman
+must produce different *correct-looking* bytes. Recorded so nobody later reads
+eight entries as eight equally strong results.
