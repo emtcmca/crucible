@@ -1178,6 +1178,84 @@ surfaces at integration on a day with no slack. The instrument for that is a
 `lanes-spec.md`'s "C-level" phrasing is the defect and is struck; **nine
 contracts stays nine.**
 
+### Ruling 29 — "ledger" names TWO different components. Ruling 27 assumed one and is AMENDED.
+
+**Found while implementing ruling 27, and it invalidates that ruling's premise.**
+Ruling 27 ordered a conformance suite run against "`FakeLedger` and the real
+`Ledger`". There is no such pairing. The two objects share **zero methods**:
+
+| | `crucible/ledger/` (L1) | `target/refund_agent/ledger_interface.py` (L2) |
+|---|---|---|
+| holds | `runs`, `policy_versions`, the lineage chain | orders, customers, refunds, store credits, escalations, case notes, outbox |
+| answers | *which policy was in force, in what order* | *what the business did* |
+
+They are two components sharing one word, which is **exactly** the collision
+§8 rule 11 was written for — on the same day, four rulings earlier.
+
+**The cost was concrete and was one integration step away.** L2's own report
+reads *"L1's SQLite ledger replaces the fake; one file changes."* Wiring
+`crucible.ledger.Ledger` into `target/refund_agent` finds no `get_order`, no
+`record_refund`, nothing — on a day with no slack. And `lanes-spec.md:355`, the
+project's canonical statement of *assert the postcondition*, says **"the blocked
+tool produced no row in the ledger"** meaning the **business** one, while
+`crucible/ledger/` is the **run** one. The sentence that teaches the discipline
+is written in the ambiguous term.
+
+**Bound, and these are the names:**
+
+- **RUN LEDGER** — `crucible/ledger/`. Runs, policy versions, lineage. L1's.
+- **SYSTEM OF RECORD** — the target's business state. L2's.
+
+**Bare "ledger" is ambiguous and must be qualified in new prose.**
+
+**And `FakeLedger` is not a fake.** `data-spec.md` §4.1 row 3 states the target's
+money-moving tools **are simulated and touch no real payment system** — so the
+simulated store *is* the article, not a placeholder for one. Naming it "fake"
+invites precisely the wrong repair: replacing it with the run ledger. Renamed
+`SimulatedSystemOfRecord`, in `target/refund_agent/system_of_record.py`.
+
+**Ruling 27 stands where it was right** — the SYSTEM OF RECORD is not a contract,
+there is no C10, and a conformance suite is the instrument. It is amended only in
+what that suite runs against: the SYSTEM OF RECORD's implementations. **The RUN
+LEDGER needs none**, because no lane builds against an assumed shape of it — L1
+owns it and L1 is its only caller.
+
+### Ruling 30 — `target_agent_hash` did not cover one line of tool body. **The lock did not lock.**
+
+**Found by fixing ruling 29, and measured rather than argued.** The rename in
+ruling 29 rewrote imports in `tools.py` and `target_agent_hash` **did not move.**
+Probing further: a statement inserted into a tool body left it at
+`edade2064be9b50f`, unchanged.
+
+The freeze payload covered the capability manifest, the target descriptor, the
+policy hash, and `tool_signatures()` — **tool names plus parameter names.** So a
+target could be frozen at D3, rewritten to approve everything, and **every result
+produced afterwards would still cite the same target hash.**
+
+`target_hash` is one of the five hash-locks precisely so a number can name the
+thing it was measured against. **A lock on names is not that**, and the failure is
+the shape this project exists to demonstrate: a check that reports intact because
+it is looking at the part nobody changed.
+
+**Fixed:** the payload now carries `runtime_source` — SHA-256 of every runtime
+module's bytes, LF-normalized, BOM refused. `74116412b733db47`, moving to
+`b22f4c904c8f92a1` on the body edit and back.
+
+**The module list is asserted in BOTH directions**, and that is the half that gets
+skipped. A module declared and missing from disk is an error, so **a rename
+cannot silently drop a file out of the lock** — which is what a rename had just
+done. A `.py` on disk and undeclared is **also** an error, so a new module cannot
+be added outside it. One direction alone gives a lock that shrinks quietly.
+
+`manifest_hash` deliberately does **not** move on a body change, and that is
+tested too. Part A describes the tool **surface**; if it moved on every body edit
+the two hashes would carry the same information and one of them would be
+pointless.
+
+**Generalize this.** Every hash-lock in the build should be asked the same
+question before D3: *what change would this fail to notice?* A lock is only worth
+the surface it covers, and the surface is never obvious from the field name.
+
 ### Ruling 28 — `capability_classes: minItems 1` leaves the INERT set unencodable. Noted, not changed.
 
 L2 observed that `capability_manifest.schema.json` sets `minItems: 1`, so the
