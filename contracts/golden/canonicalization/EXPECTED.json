@@ -1,0 +1,185 @@
+{
+  "_note": "Golden vectors for contracts/canonicalization.md section 3. COORDINATOR-AUTHORED, frozen with C7. Lanes read these and do not edit them.",
+  "_expected_form": "Each positive vector carries the exact expected canonical BYTES, hand-derived from RFC 8785 plus the seven project restrictions - NOT a digest emitted by our own canonicalizer. A digest would make the vector circular and unable to fail.",
+  "_hash": "sha256 of the canonical string, UTF-8 encoded. The test computes it; no hex literal appears in this file, so none can be mistyped.",
+  "_reject_codes": {
+    "E_BOM": "payload begins with a UTF-8 BOM",
+    "E_FLOAT": "a non-integer number appears anywhere in the payload",
+    "E_NULL": "null appears anywhere in the payload",
+    "E_DUPLICATE_KEY": "an object declares the same key twice"
+  },
+  "vector_count": 15,
+  "vectors": [
+    {
+      "id": "V01",
+      "name": "key-order permutation, nested",
+      "why": "Two orderings of the same object MUST produce identical bytes. This is the entire purpose of canonicalization.",
+      "inputs": [
+        "V01a.input.json",
+        "V01b.input.json"
+      ],
+      "expect": "canonical",
+      "canonical": "{\"a\":2,\"m\":{\"b\":4,\"y\":3},\"z\":1}",
+      "asserts": [
+        "identical_across_inputs"
+      ]
+    },
+    {
+      "id": "V02",
+      "name": "non-BMP key sorts by UTF-16 code unit",
+      "why": "UTF-16 code-unit order and code-point/UTF-8 byte order DISAGREE here and nowhere else. U+1F600 encodes as surrogate D83D, which is LESS than U+FF5A; by code point 0x1F600 is GREATER than 0xFF5A. A sorted() on raw bytes or on code points passes every other vector and fails this one.",
+      "inputs": [
+        "V02.input.json"
+      ],
+      "expect": "canonical",
+      "canonical": "{\"a\":1,\"😀\":3,\"ｚ\":2}",
+      "asserts": []
+    },
+    {
+      "id": "V03",
+      "name": "NFC and NFD forms normalize to one output",
+      "why": "The same visible text typed on two machines must hash the same. Applies to KEYS as well as values - a key-only normalizer passes a value-only test and vice versa, so both appear here.",
+      "inputs": [
+        "V03a.input.json",
+        "V03b.input.json"
+      ],
+      "expect": "canonical",
+      "canonical": "{\"café\":\"née\"}",
+      "asserts": [
+        "identical_across_inputs"
+      ]
+    },
+    {
+      "id": "V04",
+      "name": "nested arrays depth 3, order PRESERVED",
+      "why": "Restriction 6 sorts arrays AT CONSTRUCTION, never at hash time. A canonicalizer that sorts arrays is wrong and destroys information. Every array here is deliberately out of order.",
+      "inputs": [
+        "V04.input.json"
+      ],
+      "expect": "canonical",
+      "canonical": "{\"k\":[[3,1],[2,[9,7,8]]]}",
+      "asserts": []
+    },
+    {
+      "id": "V05",
+      "name": "empty array and empty object are distinguishable",
+      "why": "[] and {} are different facts. An implementation that treats either as 'empty' collapses them and two different policies hash the same.",
+      "inputs": [
+        "V05a.input.json",
+        "V05b.input.json"
+      ],
+      "expect": "canonical",
+      "canonicals": [
+        "{\"e\":[],\"o\":{}}",
+        "{\"e\":{},\"o\":[]}"
+      ],
+      "asserts": [
+        "distinct_across_inputs"
+      ]
+    },
+    {
+      "id": "V06",
+      "name": "integers beyond 2^53 survive exactly",
+      "why": "THE FLOAT TRAP, and it is not hypothetical. Money is INT64 minor units (CONVENTIONS section 6). ECMAScript numbers - which RFC 8785 otherwise defers to - are exact only to 2^53-1. Any implementation that routes an integer through a double corrupts these three values silently. 9007199254740993 is 2^53+1: as a double it becomes 9007199254740992.",
+      "inputs": [
+        "V06.input.json"
+      ],
+      "expect": "canonical",
+      "canonical": "{\"a\":9007199254740993,\"b\":9223372036854775807,\"c\":-9223372036854775808}",
+      "asserts": []
+    },
+    {
+      "id": "V07",
+      "name": "zero and negative integers",
+      "why": "0 is falsy in every language this could be written in. A truthiness check where an is-None check belongs drops it.",
+      "inputs": [
+        "V07.input.json"
+      ],
+      "expect": "canonical",
+      "canonical": "{\"neg\":-1,\"zero\":0}",
+      "asserts": []
+    },
+    {
+      "id": "V08",
+      "name": "booleans, both values, lowercase",
+      "why": "Restriction 7. Also guards the opposite bug: in Python bool is a SUBCLASS of int, so an isinstance(x, int) integer check accepts True and an over-eager type check rejects it. Both directions are live.",
+      "inputs": [
+        "V08.input.json"
+      ],
+      "expect": "canonical",
+      "canonical": "{\"f\":false,\"t\":true}",
+      "asserts": []
+    },
+    {
+      "id": "V09",
+      "name": "string escaping, shortest form",
+      "why": "RFC 8785 mandates the SHORTEST escape: tab is \\t, never \\u0009. The input below deliberately uses the long forms so a passthrough implementation fails. U+0001 has no short form and stays \\u0001.",
+      "inputs": [
+        "V09.input.json"
+      ],
+      "expect": "canonical",
+      "canonical": "{\"s\":\"q\\\"b\\\\c\\u0001d\\te\\nf\"}",
+      "asserts": []
+    },
+    {
+      "id": "V10",
+      "name": "BOM is REJECTED, not stripped",
+      "why": "Restriction 1. A BOM changes the bytes and therefore the hash. Windows produces them constantly. An implementation that silently strips it passes all nine positive vectors and is wrong in production, because the file that arrives at the judge is not the file that was hashed.",
+      "inputs": [
+        "V10.input.json"
+      ],
+      "expect": "reject",
+      "reject": "E_BOM"
+    },
+    {
+      "id": "V11",
+      "name": "float is REJECTED",
+      "why": "Restriction 4. Dodging ECMAScript number serialization is the whole reason floats are banned; accepting one reintroduces every rule the restriction exists to avoid.",
+      "inputs": [
+        "V11.input.json"
+      ],
+      "expect": "reject",
+      "reject": "E_FLOAT"
+    },
+    {
+      "id": "V12",
+      "name": "null is REJECTED",
+      "why": "Restriction 5. An absent fact is an absent key. The approver field's empty value is the sentinel \"NONE\" - canonicalization.md section 2.",
+      "inputs": [
+        "V12.input.json"
+      ],
+      "expect": "reject",
+      "reject": "E_NULL"
+    },
+    {
+      "id": "V13",
+      "name": "duplicate key is REJECTED",
+      "why": "Not in the section 3 table; added because every mainstream JSON parser silently keeps the LAST duplicate. Two semantically different documents then canonicalize to the same bytes, which is a hash collision we manufactured ourselves. Must be caught at parse, not after.",
+      "inputs": [
+        "V13.input.json"
+      ],
+      "expect": "reject",
+      "reject": "E_DUPLICATE_KEY"
+    },
+    {
+      "id": "V14",
+      "name": "float at depth 3 is REJECTED",
+      "why": "Proves the float check RECURSES. A top-level-only scan passes V11 and misses every real payload, where numbers live inside arg_conditions.",
+      "inputs": [
+        "V14.input.json"
+      ],
+      "expect": "reject",
+      "reject": "E_FLOAT"
+    },
+    {
+      "id": "V15",
+      "name": "null inside an array is REJECTED",
+      "why": "Proves the null check recurses INTO ARRAYS specifically. A dict-only walk passes V12 and misses this.",
+      "inputs": [
+        "V15.input.json"
+      ],
+      "expect": "reject",
+      "reject": "E_NULL"
+    }
+  ]
+}

@@ -134,31 +134,39 @@ exit 2. Do not route around it.
 
 **Updated:** 2026-08-20 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-Specs complete, committed, and **PUBLIC** (`github.com/emtcmca/crucible`, HEAD
-`2e61864`, signed and GitHub-verified). GCP live: `crucible-hack-2026`,
-`us-central1`, Firestore native, three buckets, `SUFFIX=x7`, names in
-`scripts/gcp-env.sh`. No application code, no service accounts, no IAM bindings.
-**W0 has NOT exited — contracts are written but not hashed, and no lane opens
-until they are.** Read `docs/lanes/KICKOFF-2026-08-20.md` before doing anything.
+**W0 HAS EXITED. W1 IS APPROVED AND OPEN.** Nine contracts authored, hashed, and
+committed to `contracts/` (12 files / 9 IDs) with `MANIFEST.json`, 18 golden fixtures,
+six lane briefs, and a five-pass `contract-check.py` that is green and whose
+`--selftest` proves each pass can fail. Rulings **1-25**, SPINE_VERSION 2. HEAD
+`fbb00fa`, tree clean, remote at parity, all commits signed. No application code, no
+service accounts, no IAM bindings yet.
 
 **Open threads**
-- **Settle the two D2 schema blockers before the freeze:** does the episode prefix
-  carry tool RETURN values (if yes, two of seven `derived.*` fields become
-  unnecessary), and `cap_selector` `|` semantics (architecture says *intersects*,
-  data-spec stores `all_of`).
-- **Propagate Ruling 20** (manifest split). `CONVENTIONS.md` only; four sites carry
-  the dead four-hash-locks count. Q `c-20260820-1326-1212`.
-- Three more coordinator decisions: `approval_record.verified` model-protection,
-  the agent-shopping framing the proof says to override, whether `role_name` works.
-- **L1 owes a pre-commit hook refusing any staged `corpus/sealed/` path, before D5.**
-  Q `c-20260820-1456-9192`.
-- L1 FOUNDATION runs first and alone in W1; the canonicalizer gates everything hashed.
+- **W1 sequence, ruled by Eric 2026-08-20:** **L1 FOUNDATION first and alone** — the
+  canonicalizer gates everything that gets hashed. **Then L3 + L4 in parallel** once
+  the canonicalizer is in place and active, with **L2(a) alongside them.**
+- **L1's first deliverables:** the canonicalizer against
+  `contracts/canonicalization.md` §3 golden vectors (10/11/12 are the negative half —
+  BOM, float, and `null` must be **rejected**), then service accounts and IAM
+  bindings, including the Armorer 403 to `docs/proof/armorer-403.txt`.
+  **Do not delegate the IAM bindings unattended** — a wrong binding on the policies
+  bucket silently destroys G8.
+- **L1 owes the `corpus/sealed/` pre-commit hook before D5** — public repo makes an
+  accidental `git add -f` permanent and voids the sealed-family claim.
+- **D1 Devpost post** — trigger (contracts hashed) is met. Outward-facing, needs
+  approval. A pre-hash post already went up, so this is the **second**.
+- `data-spec.md` §7.3 teardown still calls `gcloud ai agents`, which does not exist at
+  SDK 581.0.0 in GA, beta, or alpha.
+- Census: **35 required negative checks, 0 built.** A lane turns its own green.
 
 **Watch out for**
-- **`CONVENTIONS.md` §10a — legacy bucket bindings defeat G7/G8 as written.** A
-  project-level basic role grants READ on the sealed bucket with no binding naming it.
-- **The repo is public, so `corpus/sealed/` leaking is permanent** and voids the
-  headline claim. `planning/` is gitignored — do not move it back.
-- **G8 grant direction inverts easily.** `crucible-gate` → `objectCreator`;
-  `crucible-armorer` → NO storage role. Never lock the retention policy.
+- **A search that reports CLEAN may be unable to see it.** Phrase greps miss
+  hard-wrapped prose, and fixing that still misses phrases wrapping inside
+  blockquotes. One string swept 4 → 9 → 14.
+- **§8 rule 12: a spec states the contract, not the status.** Status assertions carry a
+  date; undated is `[UNVERIFIED]`.
+- **G8 grant direction inverts easily** — `crucible-gate` → `objectCreator`;
+  `crucible-armorer` → no storage role. **Never lock the retention policy.**
+- **`episode.*` freezes before the first user turn.** One turn moving
+  `episode.account_holder_email` collapses the F4 seal.
 <!-- VAULT:SESSION-STATE end -->
