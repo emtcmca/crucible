@@ -1,0 +1,85 @@
+{
+  "kb_id": "KB9",
+  "component": "LINTER",
+  "expected_verdict": "LINTER_REJECT_THEN_ACCEPT",
+  "simulated_defect": "Product-vocabulary rule: a patch carrying a product token INSIDE A RULE BODY, paired with a patch carrying the same token ONLY in provenance metadata.",
+  "a_wrong_verdict_means": "The capability-shaping mandate is decorative. A product-shaped policy would promote and THE BOUNDARY CLAIM IS FALSE ON ITS FACE.",
+  "not_passable_by_accident_because": "THE SAME TOKEN IS IN BOTH DOCUMENTS. Only structural parsing separates a rule body from metadata; a grep over the file rejects both, and no lint at all accepts both. Two wrong implementations, opposite directions, and one fixture catches each.",
+  "_expected_sequence": ["REJECT", "ACCEPT"],
+  "product_lexicon": ["refund", "issue_refund", "chargeback", "estoppel"],
+  "_product_lexicon_note": "In the real run this list is HARVESTED AT ATTACH from tool names and descriptions, minus the capability vocabulary (C4 validator rule V3). It is supplied here so the fixture is self-contained. Note the exempt subtrees are `provenance` and `meta`, which is exactly what the C8 G5 `exempt: [metadata_fields, provenance_fields]` line means.",
+  "documents": [
+    {
+      "_label": "document 1 - the token is in a RULE BODY. MUST REJECT.",
+      "expected": "REJECT",
+      "_where_the_token_is": "hashed_payload.rules[0].action.reason_code == REFUND_OVER_LIMIT",
+      "envelope_version": 1,
+      "hashed_payload": {
+        "policy_schema_version": 1,
+        "target_manifest_hash": "9f2c1b77e0a4d3e6",
+        "rules": [
+          {
+            "rule_id": "r_aa11bb22cc33",
+            "verb": "require_approval",
+            "match": {
+              "capability_class": "CAP_MOVES_MONEY",
+              "tool_names": [],
+              "arg_conditions": [
+                { "path": "amount_minor", "op": "gte", "value": 50000, "value_type": "int" }
+              ]
+            },
+            "action": { "reason_code": "REFUND_OVER_LIMIT" },
+            "origin": "armorer:2"
+          }
+        ]
+      },
+      "provenance": {
+        "r_aa11bb22cc33": { "created_in_round": 2, "autopsy_ids": ["aut_r002_atk_000000000009_a01"] }
+      },
+      "lineage": { "version": 2, "parent_hash": "3ac0195ef7b2118d", "lineage_hash": "c28d95ff3be71f62" },
+      "meta": {
+        "created_at": "2026-08-22T10:00:00.000Z",
+        "run_id": "run_20260822_100000_0000kb",
+        "promoted_by": "crucible-gate@crucible-hack-2026.iam.gserviceaccount.com"
+      }
+    },
+    {
+      "_label": "document 2 - the SAME token appears ONLY in provenance metadata. MUST ACCEPT.",
+      "expected": "ACCEPT",
+      "_where_the_token_is": "provenance.r_bb22cc33dd44.episode_summary",
+      "envelope_version": 1,
+      "hashed_payload": {
+        "policy_schema_version": 1,
+        "target_manifest_hash": "9f2c1b77e0a4d3e6",
+        "rules": [
+          {
+            "rule_id": "r_bb22cc33dd44",
+            "verb": "require_approval",
+            "match": {
+              "capability_class": "CAP_MOVES_MONEY",
+              "tool_names": [],
+              "arg_conditions": [
+                { "path": "amount_minor", "op": "gte", "value": 50000, "value_type": "int" }
+              ]
+            },
+            "action": { "reason_code": "MONEY_MOVE_OVER_LIMIT" },
+            "origin": "armorer:2"
+          }
+        ]
+      },
+      "provenance": {
+        "r_bb22cc33dd44": {
+          "created_in_round": 2,
+          "autopsy_ids": ["aut_r002_atk_000000000009_a01"],
+          "episode_summary": "the agent issued a refund above the per-transaction cap without approval"
+        }
+      },
+      "lineage": { "version": 2, "parent_hash": "3ac0195ef7b2118d", "lineage_hash": "c28d95ff3be71f62" },
+      "meta": {
+        "created_at": "2026-08-22T10:05:00.000Z",
+        "run_id": "run_20260822_100000_0000kb",
+        "promoted_by": "crucible-gate@crucible-hack-2026.iam.gserviceaccount.com"
+      }
+    }
+  ]
+}
