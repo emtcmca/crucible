@@ -134,33 +134,31 @@ exit 2. Do not route around it.
 
 **Updated:** 2026-08-20 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-Specs complete and propagated (rulings 8-20, +1,320 lines). GCP live: project
-`crucible-hack-2026`, `us-central1`, three buckets up with UBLA + PAP, names frozen
-in `scripts/gcp-env.sh`. No application code yet. **W0 contract freeze is D1 = today,
-coordinator-only; no lane opens until every contract is hashed and committed.**
-Cut line 2026-08-25. Target agent freezes Sat 08-22.
+Specs complete, committed, and **PUBLIC** (`github.com/emtcmca/crucible`, HEAD
+`2e61864`, signed and GitHub-verified). GCP live: `crucible-hack-2026`,
+`us-central1`, Firestore native, three buckets, `SUFFIX=x7`, names in
+`scripts/gcp-env.sh`. No application code, no service accounts, no IAM bindings.
+**W0 has NOT exited — contracts are written but not hashed, and no lane opens
+until they are.** Read `docs/lanes/KICKOFF-2026-08-20.md` before doing anything.
 
 **Open threads**
-- **COMMIT THE TREE.** All seven specs modified, plus `separability-proof.md`,
-  `CLAUDE.md`, `infra/`, `_assets/` untracked. Largest single risk right now.
-- **Two D2 blockers, both change the schema before it freezes:** does the episode
-  prefix carry tool RETURN values (if yes, two of seven `derived.*` fields become
+- **Settle the two D2 schema blockers before the freeze:** does the episode prefix
+  carry tool RETURN values (if yes, two of seven `derived.*` fields become
   unnecessary), and `cap_selector` `|` semantics (architecture says *intersects*,
   data-spec stores `all_of`).
-- **Propagate Ruling 20** (manifest split). `CONVENTIONS.md` only. Four-hash-locks
-  is now five: `build-spec.md:24`, `execution-spec.md:31`/`:113`,
-  `measurement-spec.md:832`. Q `c-20260820-1326-1212`.
-- Three more coordinator decisions from the propagation pass: `approval_record.verified`
-  model-protection, the agent-shopping framing the proof says to override, and whether
-  `role_name` is doing any work at all.
-- **L1 FOUNDATION first and alone** in W1's first hours; the canonicalizer gates
-  everything hashed. L1 also owns `infra/`.
+- **Propagate Ruling 20** (manifest split). `CONVENTIONS.md` only; four sites carry
+  the dead four-hash-locks count. Q `c-20260820-1326-1212`.
+- Three more coordinator decisions: `approval_record.verified` model-protection,
+  the agent-shopping framing the proof says to override, whether `role_name` works.
+- **L1 owes a pre-commit hook refusing any staged `corpus/sealed/` path, before D5.**
+  Q `c-20260820-1456-9192`.
+- L1 FOUNDATION runs first and alone in W1; the canonicalizer gates everything hashed.
 
 **Watch out for**
-- **G8 grant direction inverts easily.** `crucible-gate` -> `objectCreator` on the
-  policies bucket; `crucible-armorer` -> NO storage role. Author is not promoter.
-- **Never lock the retention policy.** Unrecoverable, blocks §7.3 teardown 14 days.
-- **`build-spec.md` is authoritative over nothing.** Precedence starts at CONVENTIONS.
-- **`episode.*` freezes before the first user turn.** One turn moving
-  `episode.account_holder_email` collapses the F4 seal.
+- **`CONVENTIONS.md` §10a — legacy bucket bindings defeat G7/G8 as written.** A
+  project-level basic role grants READ on the sealed bucket with no binding naming it.
+- **The repo is public, so `corpus/sealed/` leaking is permanent** and voids the
+  headline claim. `planning/` is gitignored — do not move it back.
+- **G8 grant direction inverts easily.** `crucible-gate` → `objectCreator`;
+  `crucible-armorer` → NO storage role. Never lock the retention policy.
 <!-- VAULT:SESSION-STATE end -->

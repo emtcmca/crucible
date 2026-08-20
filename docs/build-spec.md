@@ -477,6 +477,13 @@ file.
 
 ## 9. Execution → `execution-spec.md`
 
+**Evidence production is scheduled, not improvised.** `execution-spec.md` §5a fixes a five-post
+Devpost update log triggered by the four hash-locks plus the result — the mechanism that makes the
+pre-registration claim checkable without a judge reading `git log`. **Each post fires on the
+artifact landing, never on the calendar date**, because a freeze announced before it happened is
+the exact failure the log exists to disprove.
+
+
 Day-by-day plan with verification steps, the cut line, the 4-minute demo script, the bonus
 calendar, the submission checklist, and the risk register. **Re-anchored to real dates: Day 1 =
 Thu 2026-08-20, Day 11 = Sun 08-30 (submit), Mon 08-31 = pure buffer.**

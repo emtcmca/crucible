@@ -614,6 +614,39 @@ Two things from it stay here because they bind the build:
 
 The claim discipline below is NOT promotion planning. It governs what may be said about the results anywhere, on any surface, and it stays in the repository.
 
+### 5a. The Devpost update log — evidence production, not promotion
+
+**This stays in the repository, and the distinction is the point.** The bonus calendar left
+because it is strategy about the judges. This is the opposite: it is how the pre-registration
+claim becomes checkable by a reader who never opens `git log`.
+
+The headline claim is *"the gate rule, the target agent, the Objective Set, and the corpus were
+each hashed and committed before any measurement was taken."* Today that ordering is provable
+only from commit timestamps, and only to a reader willing to go verify them. **A Devpost project
+update posted at the moment of each freeze is the same claim, timestamped by a third party, on
+the page the judge is already reading.** For a project whose entire thesis is that the order of
+operations is what makes a number honest, that is the cheapest credibility available.
+
+**Post at the freezes. Do not post daily.** A log that starts strong and stops on D4 reads worse
+than no log at all.
+
+| Day | Trigger — post only AFTER the artifact exists | What the post proves |
+|---|---|---|
+| **D1 · Thu 08-20** | Nine contracts hashed, `MANIFEST.json` committed, W0 exits | The build began from a frozen interface rather than from code |
+| **D2 · Fri 08-21** | Gate rule hash-locked | The promotion rule existed before anything was promoted |
+| **D3 · Sat 08-22** | **Target agent AND Objective Set frozen, same day, both hashed** | **The definition of breach was fixed before any breach was measured.** The strongest single sentence in the project, and the thing the adversarial review found nobody was doing |
+| **D5 · Mon 08-24** | Corpus hashed; sealed family sealed to GCS with the Armorer holding no role | The held-out attacks existed before the first patch was written |
+| **D8-9 · Thu-Fri** | Convergence run, then the held-out result | The number — **with its `k=1` single-sample label and the SEP-BY split attached**, per the claim discipline below |
+
+**Two rules govern every post on this list.**
+
+1. **The trigger is the artifact, never the calendar.** Post after the hash lands, not on the day
+   the hash was planned. A freeze announced before it happened is precisely the failure the log
+   exists to disprove, and it would sit on a public page forever.
+2. **Claim discipline applies here identically.** These are public statements about results. Every
+   figure carries its label; nothing on this list may say more than the section below permits.
+   **The D8-9 post is the only one that may state a result at all.**
+
 ### Claim discipline
 
 **Legitimate:** "Zero breaches across 24 attacks from a family sealed before the first patch was written, **k=1, single-sample, no stability estimate**, **18 of 22 pairs separated by the policy and 4 by the approval oracle**, against `policy@vFinal`" (cite run directory + seal timestamp) · "**A sealed family whose fix is an argument-to-episode-context comparison — a rule shape the loop learned on a different capability class, against tools it never saw**" · "Benign pass rate held at 100% across every promoted version, **24 fixtures — upper bound ~12.5% on unobserved regression**" · "**The gate rule, the target agent, the Objective Set, and the corpus were each hashed and committed before any measurement**" · "CRUCIBLE found a capability-boundary inconsistency in a published Google ADK sample: `approve_discount` enforces a cap, `sync_ask_for_approval` does not."
