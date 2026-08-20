@@ -46,7 +46,8 @@ log the drop. Iteration cap is 5 per work item, then stop and report.)*
 - 2026-08-20 · WI-1 · iteration 2 · **A strawman claim was written from
   expectation and was wrong — the same defect `tests/strawman_canon.py` records
   against itself.** The claim was that a schema-only validator fails N3 because
-  it cannot see `match_mode`. Observed: it refuses, but with
+  it cannot see `match_mode`, the field ruling 22 DELETED. Observed: it
+  refuses, but with
   `'crucible-armorer@…' does not match '^crucible-gate@'`, because that is
   simply the first violation the schema walker reaches. It never looks at
   `match_mode` at all. **The C4 KNOWN_BAD golden is bad in six ways, so a

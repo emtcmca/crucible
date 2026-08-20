@@ -111,6 +111,12 @@ class ParsedRule:
     origin: Optional[str] = None
     line: int = 0
     source_text: str = ""
+    # The selector-through-action tokens ONLY: no `rule`, no rule_id, no
+    # `origin` clause. V3's product-lexicon denylist and V7's payload-substring
+    # lint both run over this rather than over `source_text`, because KB9
+    # exempts metadata and provenance fields - a rule id is not something the
+    # ARMORER chose, and an origin is a fact about the round.
+    body_text: str = ""
 
 
 @dataclass
