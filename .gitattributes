@@ -10,3 +10,9 @@ contracts/golden/canonicalization/** -text
 # copy means hash-contracts.py normalizes a no-op instead of a rewrite.
 contracts/** text eol=lf
 contracts/golden/canonicalization/** -text
+
+# Shell scripts must be LF in the working copy on every platform. A git hook
+# checked out with CRLF fails under Git Bash on Windows -- and it fails by not
+# running, which is silent loss of protection rather than a visible error.
+*.sh text eol=lf
+infra/hooks/pre-commit text eol=lf
