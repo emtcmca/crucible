@@ -15,9 +15,13 @@
 > - **The known-bad exit criterion is per-fixture expected verdicts, not "all 9 fail"** — only
 >   five of the nine are breach fixtures; **KB5 → `REJECT`, KB6 → `INVALID`, KB8 → `CLEAN`, KB9 →
 >   a linter verdict** (§3 L4, §5.2).
-> - **FOUR hash-locks, not three** — gate rule, target agent, **Objective Set**, corpus. The
->   Objective Set is the definition of breach and was the only unfrozen input to the oracle
->   (§2 C7, §3 L5).
+> - **FIVE hash-locks** — gate rule (D2), target agent (D3), **`manifest_hash` (D3)**,
+>   **Objective Set (D3)**, and **corpus + `derived_schema_hash` (D5)**. The Objective Set is the
+>   definition of breach and was the only unfrozen input to the `OBJECTIVE_EVALUATOR`
+>   (§2 C7, §3 L5). *(Read "FOUR, not three" until 2026-08-20; ruling 20 split the capability
+>   manifest into Part A, frozen D3 with the TARGET, and Part B, frozen D5 with the CORPUS and
+>   gated on the label-blindness check. **Ruling 20's own propagation list named four sites and
+>   missed this file entirely — both C6 and C7 carried the dead count.**)*
 > - **Contract C4 gains three episode-scoped predicate forms**, and C9's verdict is a predicate
 >   over the episode's **ordered event list**, not an existential over single events (§2).
 > - **Contract C3 carries the canonical `CAP_*` identifiers** plus `UNCLASSIFIED` — already
@@ -89,13 +93,13 @@ Committed to `contracts/`, each canonicalized and hashed. The hashes go in `cont
 
 | # | Contract | Producers | Consumers |
 |---|---|---|---|
-| **C1** | `tool_event.schema.json` — the ordered execution record: `{episode_id, invocation_id, kind: TOOL_ATTEMPT\|TOOL_EXECUTED\|TOOL_ERROR, tool_name, args, result_digest?, error_class?, seq, ts_monotonic}` | L3 (plugin) | L4 (tripwire), L6 (replay) |
-| **C2** | `decision.schema.json` — `ALLOW \| DENY(rule_id, reason_code) \| APPROVAL_REQUIRED(rule_id, reason_code)` | L3 (policy engine) | L3 (plugin), L4 |
+| **C1** | `tool_event.schema.json` — the ordered execution record: `{episode_id, invocation_id, kind: TOOL_ATTEMPT\|TOOL_EXECUTED\|TOOL_ERROR, tool_name, args, role, result_digest?, error_class?, derived_overwrites, seq, ts_monotonic}`. **Three additions 2026-08-20 (rulings 21, 25), and the contract must state each in words, not just in the shape:** **(1) `args` are POST-STAMP** — the `derived.*` values the plugin wrote are IN the record and replay READS them; pre-stamp args would leave the bundle carrying neither the returns nor the values derived from them, and **replay could not reproduce the decision**, which is the sole reason episode-scoped predicates count as pure. **(2) `result_digest?` is REPLAY-INTEGRITY ONLY and explicitly NOT EVALUABLE** by the policy engine — it is a hash, not a value, which is what settled ruling 21: the harness sees returns, the evaluator does not. **(3) `role` is RECORDED, NOT EVALUATED**, and `derived_overwrites: [{path, model_value}]` is **diagnostic only, same status as `result_digest`** — a model writing under `derived.` is an agent forging the harness's own verification field, and recording only post-stamp args would throw that detection away | L3 (plugin) | L4 (tripwire), L6 (replay) |
+| **C2** | `decision.schema.json` — `ALLOW \| DENY(rule_id, reason_code) \| APPROVAL_REQUIRED(rule_id, reason_code)`. **Matching is MEMBERSHIP, never set equality (ruling 22):** `rule.capability_class IN call.capability_set`. A tool carries a *set*; under equality a single-class rule silently stops firing on exactly the multi-capability tools that matter most, and **the sealed F4 result would read "did not generalize" — a real number produced by a matcher bug.** `role` is **not** an argument to `evaluate` | L3 (policy engine) | L3 (plugin), L4 |
 | **C3** | `capability_manifest.schema.json` — tools → capability classes, with the **six canonical class identifiers** and the `UNCLASSIFIED` sentinel. **PLUS the predicate schema, added 2026-08-20 — full definitions in `data-spec.md` §1.15, and all of it is covered by `manifest_hash`:** three **`episode.*`** fields (`account_holder_email`, `account_holder_id`, `order_payment_instrument_id`), **frozen before the first turn and unwritable thereafter**; seven **`derived.*`** fields stamped by the plugin in `before_tool`, **overwriting anything the model wrote under that prefix**; per-tool **`beneficiary_key`** and **`subject_key`**; arg **enum declarations** for `reason_code` / `status_to` / `approval_tier`; and **destination-bearing arguments declared SCALAR, never lists** — a list makes the comparison type-ambiguous and silently unenforceable. **Because C3 is hashed, changing any of this flags every learned rule `needs_revalidation`** — which is the property that made a harness-computed field acceptable where a mutable reference set was not (ruling 8) | L2 | L3, L4, L5 |
-| **C4** | `policy.ebnf` + `policy_document.schema.json` — the 3-verb grammar, the **required-and-first `cap_selector`**, rule shape, precedence-by-verb, the enum-only literal rule, and **the three episode-scoped predicate forms** (`preceded_by`, `episode_sum`, `arg_path <cmp_op> episode.<field>`) added 2026-08-20 | L1 (canonicalization), L3 (parser) | L4 (warden), L5 (armorer) |
+| **C4** | `policy.ebnf` + `policy_document.schema.json` — the 3-verb grammar, the **required-and-first `cap_selector`**, rule shape, precedence-by-verb, the enum-only literal rule, and **the three episode-scoped predicate forms** (`preceded_by`, `episode_sum`, `arg_path <cmp_op> episode.<field>`). **Rulings 22 and 25, 2026-08-20 — four changes, and the first three are DELETIONS:** **(a) `\|` is removed** — `cap_selector` names **exactly one** class; under any-of with verb precedence and no file order it was pure sugar, and ambiguous sugar, so `cap:A\|B` is now a **parse error**, never a silently-accepted alternative. **(b) `match_mode` is removed** from the schema with `additionalProperties: false`; stored form is scalar `capability_class`. **(c) the `role:` qualifier is removed** — `role_name` was the only **plain-text product identifier** the grammar admitted, and it was not covered by the product-lexicon denylist, so it was an escape hatch out of *"every learned rule generalizes to a capability class."* **(d) `cap:UNCLASSIFIED` must be rejected explicitly**, not by omission from the production list — on an unseen target every tool is `UNCLASSIFIED` until mapped, so one such rule reports **100% transfer, manufactured** | L1 (canonicalization), L3 (parser) | L4 (warden), L5 (armorer) |
 | **C5** | `breach_record.schema.json` — the CORONER's output. **`additionalProperties: false` and no `fix`/`recommendation`/`mitigation` field exists** | L5 (coroner) | L5 (armorer), L6 |
-| **C6** | `evidence_bundle.schema.json` — the run-of-record: attacks, verdicts, autopsies, patches, gate decisions, the policy chain, cost, **the four hashes**, **the recorded `episode_prefix` for every episode** (without it the episode-scoped predicates cannot be replayed, and replay soundness is what keeps them pure), **the frozen `episode.*` block per episode** (ruling 16), and **the recorded v0 benign fixture traces** that G3 replays every round (ruling 11) | L1, L4, L5 | L6 (replay viewer), the demo |
-| **C7** | `run_manifest.schema.json` + `canonicalization.md` — what is hashed (**`run_id` is NOT in the policy `hashed_payload`**), JCS rules, integers-only, key ordering, **the FOUR hash-locks: gate rule, target agent, `objective_set_hash`, corpus**, and the frozen parameters (**round cap 6** — raised from 4 by ruling 10 — 6 attacks/round, k=1, 3 consecutive dry rounds) | L1 | everyone |
+| **C6** | `evidence_bundle.schema.json` — the run-of-record: attacks, verdicts, autopsies, patches, gate decisions, the policy chain, cost, **the FIVE hashes** *(gate rule, target agent, `manifest_hash`, `objective_set_hash`, and `derived_schema_hash` — read "the four hashes" until 2026-08-20, ruling 20)*, **the recorded `episode_prefix` for every episode** (without it the episode-scoped predicates cannot be replayed, and replay soundness is what keeps them pure), **the frozen `episode.*` block per episode** (ruling 16), and **the recorded v0 benign fixture traces** that G3 replays every round (ruling 11) | L1, L4, L5 | L6 (replay viewer), the demo |
+| **C7** | `run_manifest.schema.json` + `canonicalization.md` — what is hashed (**`run_id` is NOT in the policy `hashed_payload`**), JCS rules, integers-only, key ordering, **the FIVE hash-locks: gate rule (D2), target agent (D3), `manifest_hash` (D3), `objective_set_hash` (D3), and corpus + `derived_schema_hash` (D5)** *(this read FOUR until 2026-08-20; ruling 20's manifest split, and **this file was not on that ruling's propagation list**)*, and the frozen parameters (**round cap 6** — raised from 4 by ruling 10 — 6 attacks/round, k=1, 3 consecutive dry rounds, and **`approval_oracle_default: "deny_unless_fixture_declares"`** — ruling 23 froze ruling 18 as a *parameter inside this already-hash-locked artifact* rather than adding a sixth lock, because two hashes were already called two things to forget. The `APPROVAL_ORACLE`'s **data** is inside the corpus hash; only its **default behavior** was unhashed prose, and four pairs including the mandated F6 pair rest on it) | L1 | everyone |
 | **C8** | `gate_rule.v1.yaml` — the promotion rule, **hash-locked D2, not editable after** | L1 | L4, L5 |
 | **C9** | `verdict.schema.json` — `{breach: bool, invariant_id, evidence: [tool_call_index]}` and the `BREACH \| CLEAN \| INVALID` trichotomy. **The predicate behind `breach` is evaluated over the episode's ORDERED EVENT LIST** with three clause forms (`per_event`, `sequence`, `aggregate(window_by_seq)`) — corrected 2026-08-20, because KB3 and KB7 are not expressible over a single event | L4 (tripwire) | L5, L6 |
 
@@ -162,7 +166,7 @@ Each lane has: an exclusive path set, a scope boundary, its input fixtures, its 
 **Owns:** `crucible/coroner/`, `crucible/armorer/`, `crucible/red/`, `crucible/conductor/`, `crucible/governor/`
 **Scope:** CORONER (schema-locked, **no fix field**, prescriptive-language lint, **and free-text findings confined to a `human_only` subtree**) · ARMORER (blind to attacker prose **and** to the benign fixtures — **its input is an ENUMERATED PROJECTION with no free-text field on any path**; note the fixture half is **application convention plus a code check, never IAM**, because Firestore has no per-collection granularity) · RED STRATEGIST · budget governor (**$160 cap, 40M token ceiling, round cap 6** — raised from 4 by ruling 10, affordable because ruling 11 took ~24 live benign episodes out of every round) · round conductor, **last**.
 **Fixtures in:** hand-written `BreachRecord`s (C5), hand-written `ToolEvent` traces (C1), the capability manifest (C3).
-**Exit:** adversarial blindness test — feed the CORONER a free-text field containing a "recommended fix" string, assert the ARMORER's input dict does not contain it, **and a second test asserting the adapter cannot address `human_only.*` at all** (the lint alone is insufficient: a hypothesis phrased as a description passes it) · governor aborts on a low ceiling and **logs the abort as a first-class result, not an exception** · a campaign runs unattended producing bundles carrying **all four hashes**.
+**Exit:** adversarial blindness test — feed the CORONER a free-text field containing a "recommended fix" string, assert the ARMORER's input dict does not contain it, **and a second test asserting the adapter cannot address `human_only.*` at all** (the lint alone is insufficient: a hypothesis phrased as a description passes it) · governor aborts on a low ceiling and **logs the abort as a first-class result, not an exception** · a campaign runs unattended producing bundles carrying **all five hashes** *(four until 2026-08-20 — ruling 20)*.
 **Starts W3.** Depends on C1/C3/C5 only, never on L4's code.
 
 ### L6 — EVIDENCE + PRESENTATION
@@ -454,6 +458,42 @@ The execution spec's Day 1 is money, kill switch, and canonicalizer. **Parallel 
 1. **Write and hash the nine contracts** into `contracts/` + `MANIFEST.json`.
 2. **Hand-author one golden fixture per contract** — the input fixtures every lane develops against. This is the single highest-leverage hour in the whole build: it is what decouples the lanes.
 3. **Write `contract-check.py` and `conformance-sweep.py`**, including the negative-check census.
-4. **Write the six lane briefs** into `docs/lanes/`, each with scope, owned paths, fixtures, exit criteria, and stop conditions.
+   **Four requirements on the dead-value sweep, every one of them paid for on 2026-08-20** — a
+   sweep that misses any of these reports CLEAN on prose that carries the dead value, which is the
+   most expensive kind of passing check:
+   - **Normalize hard wrapping.** Every spec wraps at ~95 chars, so a multi-word phrase spans a
+     newline and a line-oriented `grep` cannot see it. *Four of fourteen sites were invisible this
+     way.*
+   - **Strip blockquote continuation markers before collapsing whitespace.** A phrase wrapping
+     *inside* a blockquote leaves `> ` mid-phrase, which survives a plain whitespace collapse.
+     `CONVENTIONS.md` is mostly blockquotes. *Found only because a verifier reported FAIL on text
+     that was demonstrably present.*
+   - **Run at COMMIT time, not only at authoring time.** A parallel session mints sites faster than
+     a one-time sweep retires them: `build-spec.md:481` was written at 15:52 on 2026-08-20,
+     *after* ruling 20 already existed. Same reason the global canon gate hooks `git commit` and
+     not only `Edit`.
+   - **Carry an exemption rule**, or every correction note in the spec set reports itself as drift.
+     **A site ASSERTING a dead value and a site STRIKING one are not the same site.** This exact
+     defect was already caught once by `canon-check --selftest`.
+
+   **And a fifth, which is about coverage rather than matching:** the patterns must cover **claim
+   sentences, the §10 environment table, and STATUS ASSERTIONS**, not only schema identifiers.
+   **All three categories drifted on 2026-08-20 and none of them was in any pattern** — the
+   pre-registration claim was carrying *three* items in one file and *four* in another while every
+   mechanical check passed, and nine sites said *"there is no repository yet"* about a repository
+   holding five signed commits.
+
+4. **The STATUS pass — `CONVENTIONS.md` §8 rule 12, and it is a separate mode, not another
+   pattern.** Flag present-tense existence claims — *"does not exist"*, *"not yet"*, *"is
+   currently"*, *"there is no"*, *"still unconfigured"* — that carry **no verification date**.
+   **Undated status is `[UNVERIFIED]`, never fact.**
+
+   **This pass must run at COMMIT time.** Edit-time alone would have caught **zero** of the four
+   stale-status defects found on 2026-08-20, because **nobody edited those files while the facts
+   moved.** `build-spec.md`'s repo line was wrong in *both directions on the same day* — first
+   asserting a repository that did not exist, then denying one that did, four hours apart. **A
+   spec states the contract; it should not state the status**, and where status is unavoidable it
+   has one owner and a date.
+5. **Write the six lane briefs** into `docs/lanes/`, each with scope, owned paths, fixtures, exit criteria, and stop conditions.
 
 **Cost: roughly half a day.** It comes out of D1's slack and pushes the canonicalizer to D1 evening. That is the correct trade — a day of contract work buys three to four days of lane parallelism, and without it the lanes silently build against divergent assumptions and integration on D8 finds out.

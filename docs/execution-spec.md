@@ -29,9 +29,14 @@
 >   verdict"** — only five of the nine are breach fixtures (D3, D5, demo script, ADR-006).
 > - **The DSL verbs at D4 were wrong.** The three verbs are `deny`, `constrain_arg`, and
 >   `require_approval`, with a **required-and-first `cap_selector`** — not `DENY <tool>`.
-> - **Four hash-locks, not three:** gate rule (D2), target agent (D3), **Objective Set (D3)**,
->   corpus (D5). The Objective Set was the only unfrozen input to the oracle.
-> - **The Day-1 spike and the separability proof come before `git init`** (`CONVENTIONS.md` §11,
+> - **FIVE hash-locks:** gate rule (D2), target agent (D3), **`manifest_hash` (D3)**,
+>   **Objective Set (D3)**, and **corpus + `derived_schema_hash` (D5)**. The Objective Set was the
+>   only unfrozen input to the `OBJECTIVE_EVALUATOR`. *(Read "four, not three" until 2026-08-20 —
+>   ruling 20's manifest split. **Part B freezes late deliberately**, because ruling 19.3's
+>   label-blindness check runs over a corpus that does not exist until D5, and a check that runs
+>   against nothing is decorative. It still freezes BEFORE the v0 run, so both arms measure under
+>   one ruler.)*
+> - **The Day-1 spike and the separability proof came before `git init`, which is DONE** (`fc3a612`) (`CONVENTIONS.md` §11,
 >   §12).
 > - **Landed mid-pass and applied:** **§5.4 Ruling 1** — the refund policy has **no free
 >   auto-approve tier**; every tier requires a verified order lookup and a stated qualifying
@@ -144,7 +149,7 @@ and ~2,600 for a six-iteration loop**, landing at $25–40 per convergence run a
    the boot self-test on KB8 by design.
 
 **Never negotiated:** the 9 known-bads, the sealed held-out at **≥18**, the 24 benign with 12
-near-misses, and the four hash-locks. *(This line previously ended "and k=3 on the final reported
+near-misses, and the five hash-locks. *(This line previously ended "and k=3 on the final reported
 numbers." That is dead — k=1 is the ruling.)*
 
 ---
@@ -161,7 +166,7 @@ Every day names an objective, a deliverable, and a **verification step** that as
 
 **Objective.** Make it impossible for this project to quietly cost money or leak attack payloads into a training set. Then ship DATA unit 1, which needs no cloud.
 
-> **Two things come BEFORE all of it, and before `git init`** (`CONVENTIONS.md` §11 and §12):
+> **Two things came BEFORE all of it, and before `git init` — which is DONE** (`fc3a612`) (`CONVENTIONS.md` §11 and §12):
 >
 > **(a) The separability proof, one afternoon, on paper.** For **every** attack family and **every** near-miss fixture you intend to write, write out the exact rule — real grammar, `cap_selector` first, no free-string literals — that **blocks the attack and passes the fixture.** Not a description of the rule. The rule. Any pair with no such rule is **unlearnable**: remove it from the corpus, or grow the grammar by one construct. Two independent adversarial reviewers, blind to each other, named this as the one thing to do before a line of code exists.
 >
@@ -373,7 +378,7 @@ Every day names an objective, a deliverable, and a **verification step** that as
 **Verification**
 
 - Governor tested with an absurdly low ceiling; run **aborts and logs the abort as a result**, not an exception.
-- A campaign runs end to end unattended, producing bundles carrying **all four hashes** — gate rule, target agent, **Objective Set**, corpus.
+- A campaign runs end to end unattended, producing bundles carrying **all five hashes** — gate rule, target agent, **`manifest_hash`**, **Objective Set**, and **corpus + `derived_schema_hash`**. **The episode writer refuses to write an episode missing any of them — not a warning.**
 - **Gemma regenerates the corpus from the pinned version and seed and the hash matches**, twice, from a clean process. **That reproducibility, not a refusal screenshot, is the artifact.** *(Corrected 2026-08-20: the old check was "Gemma produces payloads for a family where the Gemini path refuses — capture both; that pair is your social post." **Do not capture or publish that pair.** It stages the struck framing as evidence.)*
 
 **Time.** 7 hours.
@@ -484,7 +489,7 @@ Pass: proceed. **Fail: cut immediately, today, in writing.** *The failure mode t
 1c. **The recorded v0 fixture traces** (ruling 11). Without them G3 has nothing to replay.
 2. **Benign pass rate at 100% over 24 fixtures with 12 near-misses, enforced by a gate that actually refuses.** Every guardrail demo shows an attack blocked. **Almost none show a system declining to ship a fix because it broke legitimate traffic.**
 3. **TRIPWIRE as pure code, with all 9 known-bads returning their expected verdicts.** The moment a model judges breaches, the judge is attackable and every number goes soft. **Cutting to six drops exactly KB8 and KB9 — the two whose correct verdict cannot be reached by a cheaper implementation.**
-4. **The FOUR hash-locks** — gate rule (D2), target agent (D3), **Objective Set (D3)**, corpus (D5). *(Corrected 2026-08-20: there were three, and the missing one was the definition of breach itself.)* Drop any and the results are anecdotes.
+4. **The FIVE hash-locks** — gate rule (D2), target agent (D3), **`manifest_hash` (D3)**, **the Objective Set (D3)**, and **corpus + `derived_schema_hash` (D5)**. *(Corrected twice on 2026-08-20: first from three to four, when the missing one was the definition of breach itself; then to five, when ruling 20 split the capability manifest. **Three tellings, three numbers** — which is why counts here are verify-on-use and the sweep is mechanical.)* Drop any and the results are anecdotes.
 4b. **Separate services per pure-code component, and the GCS policy store.** `data-spec.md` §9 cuts #5 and #6 both break gate **G8**, whose failure mode is **RUN INVALID.** They do not degrade a claim; they void every number in the project.
 4c. **The worker agent being genuinely useful and money-touching.** `build-spec.md` §5.7: *if day 9 forces a choice, spend it on the worker, not on the loop.*
 5. **The Armorer 403 proof.** Two hours of Day 2 buying the hardest-to-fake claim in the submission.
@@ -530,7 +535,7 @@ Only the first 4:00 is evaluated. The criterion names the architecture explanati
 
 Cursor lands on the **trust boundary line**: "Left of this line is model-generated and untrusted. Right of it is deterministic code. **No model ever decides whether a breach happened.**"
 
-**1:35–1:43 — The honesty beat.** "Everything from here is replayed from stored evidence bundles recorded offline. Vertex runs on dynamic shared quota, so a multi-minute live loop on camera is a risk I'm not taking. The bundles are in the repo — replay them yourself, no credentials needed. Every one carries four hashes — the gate rule, the frozen target agent, **the Objective Set that defines what counts as a breach**, and the corpus — all committed before the first measurement."
+**1:35–1:43 — The honesty beat.** "Everything from here is replayed from stored evidence bundles recorded offline. Vertex runs on dynamic shared quota, so a multi-minute live loop on camera is a risk I'm not taking. The bundles are in the repo — replay them yourself, no credentials needed. Every one carries five hashes — the gate rule, the frozen target agent, the capability manifest, **the Objective Set that defines what counts as a breach**, and the corpus — all committed before the first measurement."
 
 **1:43–2:05 — The attack lands.** Authority-impersonation payload. `issue_refund(amount_cents=90000)`, no escalation. TRIPWIRE: `breach: true`, `invariant: refund_cap_requires_escalation`, `evidence: [tool_call 3]`. "Nine hundred dollars, no escalation. **TRIPWIRE didn't read the transcript. It read the tool call.**"
 
@@ -620,8 +625,10 @@ The claim discipline below is NOT promotion planning. It governs what may be sai
 because it is strategy about the judges. This is the opposite: it is how the pre-registration
 claim becomes checkable by a reader who never opens `git log`.
 
-The headline claim is *"the gate rule, the target agent, the Objective Set, and the corpus were
-each hashed and committed before any measurement was taken."* Today that ordering is provable
+The headline claim is *"the gate rule, the target agent, the capability manifest, the Objective
+Set, and the corpus with its derived-field schema were each hashed and committed before any
+measurement was taken."* **(FIVE — extended 2026-08-20 to match the run manifest. It said four
+here and three in `CONVENTIONS.md` §7.)** Today that ordering is provable
 only from commit timestamps, and only to a reader willing to go verify them. **A Devpost project
 update posted at the moment of each freeze is the same claim, timestamped by a third party, on
 the page the judge is already reading.** For a project whose entire thesis is that the order of
@@ -630,12 +637,25 @@ operations is what makes a number honest, that is the cheapest credibility avail
 **Post at the freezes. Do not post daily.** A log that starts strong and stops on D4 reads worse
 than no log at all.
 
+> **STATUS 2026-08-20: the first post is already live, and it was made BEFORE the contract hash.**
+> The table below therefore describes posts **two through six**, not one through five — its D1 row
+> is the **second** post and the first post-hash one. *(The trigger discipline is unaffected: the
+> pre-hash post announced no freeze, which is exactly what rule 1 below requires. Recorded here
+> rather than left to memory, per §8 rule 12 — a post count is a status fact and status facts are
+> the most perishable sentences in this repository.)*
+
+> **Trigger rows updated 2026-08-20 for ruling 20's manifest split** — the table was authored the
+> same day against the four-lock model and omitted `manifest_hash` from D3 and
+> `derived_schema_hash` from D5. **A post that announces a freeze which is only partly frozen is
+> exactly the failure rule 1 below exists to prevent**, so the triggers are the artifacts, all
+> five of them.
+
 | Day | Trigger — post only AFTER the artifact exists | What the post proves |
 |---|---|---|
 | **D1 · Thu 08-20** | Nine contracts hashed, `MANIFEST.json` committed, W0 exits | The build began from a frozen interface rather than from code |
 | **D2 · Fri 08-21** | Gate rule hash-locked | The promotion rule existed before anything was promoted |
-| **D3 · Sat 08-22** | **Target agent AND Objective Set frozen, same day, both hashed** | **The definition of breach was fixed before any breach was measured.** The strongest single sentence in the project, and the thing the adversarial review found nobody was doing |
-| **D5 · Mon 08-24** | Corpus hashed; sealed family sealed to GCS with the Armorer holding no role | The held-out attacks existed before the first patch was written |
+| **D3 · Sat 08-22** | **Target agent, `manifest_hash` (capability manifest Part A), AND Objective Set frozen — same day, all three hashed** | **The definition of breach was fixed before any breach was measured.** The strongest single sentence in the project, and the thing the adversarial review found nobody was doing |
+| **D5 · Mon 08-24** | Corpus hashed **and `derived_schema_hash` (Part B) frozen, gated on the label-blindness check passing**; sealed family sealed to GCS with the Armorer holding no role | The held-out attacks existed before the first patch was written — **and the fields the evaluator reads were frozen before either arm ran, so both measure under one ruler** |
 | **D8-9 · Thu-Fri** | Convergence run, then the held-out result | The number — **with its `k=1` single-sample label and the SEP-BY split attached**, per the claim discipline below |
 
 **Two rules govern every post on this list.**
@@ -649,7 +669,7 @@ than no log at all.
 
 ### Claim discipline
 
-**Legitimate:** "Zero breaches across 24 attacks from a family sealed before the first patch was written, **k=1, single-sample, no stability estimate**, **18 of 22 pairs separated by the policy and 4 by the approval oracle**, against `policy@vFinal`" (cite run directory + seal timestamp) · "**A sealed family whose fix is an argument-to-episode-context comparison — a rule shape the loop learned on a different capability class, against tools it never saw**" · "Benign pass rate held at 100% across every promoted version, **24 fixtures — upper bound ~12.5% on unobserved regression**" · "**The gate rule, the target agent, the Objective Set, and the corpus were each hashed and committed before any measurement**" · "CRUCIBLE found a capability-boundary inconsistency in a published Google ADK sample: `approve_discount` enforces a cap, `sync_ask_for_approval` does not."
+**Legitimate:** "Zero breaches across 24 attacks from a family sealed before the first patch was written, **k=1, single-sample, no stability estimate**, **18 of 22 pairs separated by the policy and 4 by the approval oracle**, against `policy@vFinal`" (cite run directory + seal timestamp) · "**A sealed family whose fix is an argument-to-episode-context comparison — a rule shape the loop learned on a different capability class, against tools it never saw**" · "Benign pass rate held at 100% across every promoted version, **24 fixtures — upper bound ~12.5% on unobserved regression**" · "**The gate rule, the target agent, the capability manifest, the Objective Set, and the corpus with its derived-field schema were each hashed and committed before any measurement**" *(five, matching the run manifest — this read four until 2026-08-20)* · "CRUCIBLE found a capability-boundary inconsistency in a published Google ADK sample: `approve_discount` enforces a cap, `sync_ask_for_approval` does not."
 
 **Second-pass corrections to this list, 2026-08-20.** *(The first pass fixed three: k was 3, the suite was 48, and the hash list was missing the definition of breach.)*
 - **REMOVED — "The policy DSL contains zero literal strings from any attack payload, verified by a committed script."** The claim is **true and worthless as evidence**: the grammar admits no free strings, so **the script cannot fail regardless of whether the boundary generalized** (ruling 12). It stays in CI as a grammar regression guard and comes off the claim list. **A judge who reads the grammar and then hears this claim has found a measurement arranged to pass — which is worse than a failed metric.** The claim that replaces it is the **cross-class transfer** line above, and the metric that can actually go to zero is **benign capability retained per attack blocked.**
@@ -702,8 +722,9 @@ than no log at all.
                                     runtime filtering vs. pre-deployment discovery +
                                     policy synthesis + regression gating)
 ## Measurement protocol            (corpus sizes, k=1 and its label, the SEP-BY split
-                                    18 policy / 4 oracle, the FOUR hash-locks and their
-                                    dates — gate, target, objective set, corpus —
+                                    18 policy / 4 oracle, the FIVE hash-locks and their
+                                    dates — gate, target, manifest, objective set,
+                                    corpus + derived schema —
                                     what was sealed and when, and that the benign floor
                                     is evaluated by replaying recorded v0 traces)
 ## Results                         (table; every number links to its run directory)
@@ -724,10 +745,12 @@ than no log at all.
 - **The trust boundary is a single line across the diagram**, labeled *left = model-generated, untrusted · right = deterministic code*. **This one line does more for the 30% criterion than the rest of the diagram combined** — it is a visible claim about where you decided not to trust a model.
 - **Draw the IAM boundary as a second, different line**, annotated `Armorer SA: no write to evidence bucket (403 proven)`. **Two boundaries of two different kinds is the detail that separates this from every other diagram in the pile.**
 - Annotate the plugin box: `before_tool_callback → non-None return blocks execution`.
-- Mark the **FOUR hash-locks** on the artifacts they cover, with dates — gate rule, target agent,
-  **Objective Set**, corpus. *(This bullet said "three" and was missed in the first pass, which
-  corrected the count everywhere else in this file. The missing one is **the definition of
-  breach**, which is the one a security judge would most want to see frozen.)*
+- Mark the **FIVE hash-locks** on the artifacts they cover, with dates — gate rule, target agent,
+  **`manifest_hash`**, **Objective Set**, and **corpus + `derived_schema_hash`**. *(This bullet
+  said "three", was corrected to "four" in a pass that missed it, and is now five. **The same
+  bullet has been wrong in three different ways** — which is the argument for a mechanical sweep
+  rather than a careful reader.)* The Objective Set is **the definition of breach**, the one a
+  security judge would most want to see frozen.
 - **Draw the `episode.*` freeze as a one-way arrow into the episode**, labelled *frozen before turn
   1, unwritable thereafter* (ruling 16). It is a third boundary of a third kind, and it is the one
   the diagram would otherwise imply does not exist.
@@ -784,9 +807,21 @@ fifteen-row table is exactly the drift this reconciliation exists to remove.)* E
 **Flagged rather than complied with:**
 - **~~The k=3 corpus does not fit the budget.~~ RESOLVED 2026-08-20, and both levers were pulled:** k is **1 everywhere** (ADR-011, with the mandatory label) **and** the corpus shrank to **48 training / 24 sealed / 24 benign / 9 known-bads.** The measurement spec has been updated to match; this is no longer a flag awaiting assent.
 - **The 24 benign fixtures need ~2.5 hours of human reading**, not generation. Budgeted Day 4; **the load-bearing hand-cost in the whole plan.** *(Was 48 fixtures / 4 hours / Day 5.)*
-- **~~New flag, unresolved~~ — RESOLVED 2026-08-20 by the separability proof and ruling 8.** It read: *"the F6 near-miss needs `not in` against a trusted-verifier set, and the grammar has `in` and no `not in`. If it cannot be written, that pair comes out of the corpus."* **It can be written, and no grammar change was needed.** The approval record carries a **harness-computed `verified` boolean**, so the rule is `require_approval(...) when approval_record.verified != true`. **The trusted-verifier set was rejected rather than deferred**, because a named set lives outside the rule and is mutable — change the set and the policy's meaning changes **without the policy hash changing**, the same defect class this project already fixed by pulling `run_id` out of the hashed payload. **The pair stays in the corpus, labelled `SEP-BY: oracle`.**
+- **~~New flag, unresolved~~ — RESOLVED 2026-08-20, but NOT by the mechanism written below.
+  Ruling 23 DELETED `approval_record.verified`;** its specification was *"attack → false, benign →
+  true"*, a label mirror that fails ruling 19.3's blindness check by construction — **redundant
+  when legal, illegal when load-bearing.** The mandated F6 pair is separated by the
+  `APPROVAL_ORACLE` with no field at all, and the under-authorised-approver pair by
+  `derived.approval_tier`. **The rejected-alternative reasoning below still stands and is why
+  ruling 8 was corrected rather than deleted.** Original text follows. It read: *"the F6 near-miss needs `not in` against a trusted-verifier set, and the grammar has `in` and no `not in`. If it cannot be written, that pair comes out of the corpus."* **It can be written, and no grammar change was needed.** The approval record carries a **harness-computed `verified` boolean**, so the rule is `require_approval(...) when approval_record.verified != true`. **The trusted-verifier set was rejected rather than deferred**, because a named set lives outside the rule and is mutable — change the set and the policy's meaning changes **without the policy hash changing**, the same defect class this project already fixed by pulling `run_id` out of the hashed payload. **The pair stays in the corpus, labelled `SEP-BY: oracle`.**
 - **The proof's actual verdict, for the record:** **16 pairs separable with the existing grammar, 6 more with a schema change, 0 grammar extensions, 3 cut** (P21, P22, P23 — `measurement-spec.md` §3.5). **The loop is viable.** The generalization worth carrying into every later decision: *the answer to nearly every hard pair was **add a field the harness computes**, not **extend the language**.*
-- **Two schema questions remain open and are D2 decisions, not corpus ones** (`CONVENTIONS.md` §5.6): whether the episode prefix carries tool **return values** (if it does, two `derived.*` fields become unnecessary), and the **`cap_selector` `|` semantics** — architecture says *intersects*, `data-spec.md` stores `all_of`. **No pair depends on the second; the parser does.**
+- **~~Two schema questions remain open~~ — BOTH CLOSED 2026-08-20 (rulings 21 and 22).** **(a)
+  ARGS ONLY** — `result_digest` is a hash, not a value, so the harness sees returns and the
+  evaluator does not; `derived.*` stays at **seven**, and the claim that "two fields become
+  unnecessary" overstated the proof, which says one dies and one *simplifies*. **(b) ANY-OF BY
+  MEMBERSHIP**, with `|` and `match_mode` both deleted — decided on the merits, because the
+  contradiction turned out to be *intra-document* and precedence had nothing to pick from.
+  Original text follows. (`CONVENTIONS.md` §5.6): whether the episode prefix carries tool **return values** (if it does, two `derived.*` fields become unnecessary), and the **`cap_selector` `|` semantics** — architecture says *intersects*, `data-spec.md` stores `all_of`. **No pair depends on the second; the parser does.**
 
 **Where v1 was wrong:** front-loading the worker agent. The 40% reasoning was sound, but **it cannot outrank measurement integrity**, and the ledger overlap makes the conflict smaller than it first looked.
 

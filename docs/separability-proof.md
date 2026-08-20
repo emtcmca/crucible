@@ -25,7 +25,31 @@ One thing in the request I am declining as posed: "the rule that **blocks the at
 
 I wrote every rule against `architecture-spec.md` §5.2 verbatim. Two things had to be settled first.
 
-**CONFLICT 1 — `cap_selector` multi-class semantics. Unresolved in the spine; say it out loud (§1).**
+**CONFLICT 1 — `cap_selector` multi-class semantics. ~~Unresolved in the spine~~ — RULED 2026-08-20, `CONVENTIONS.md` §5.7 ruling 22: ANY-OF BY MEMBERSHIP, and `|` is deleted outright.**
+
+> **The recommendation below was adopted and then gone one step further, and this worksheet's own
+> observation is why.** It noted that *"every rule in this worksheet uses a single-class
+> `cap_selector`, so no pair depends on the resolution"* — which, once any-of is chosen, makes `|`
+> **pure sugar**: with precedence by verb and file order never consulted, `cap:A|B => deny` is
+> identical on every input to two separate rules, forever. So the construct was **removed** rather
+> than ruled, and `cap:A|B` is now a parse error.
+>
+> **Two corrections to the framing here, both of which matter more than the outcome.**
+> **(1) Precedence could not have settled this.** The paragraph below resolves it by document
+> precedence — architecture over data-spec. But the contradiction is **intra-document**:
+> `architecture-spec.md` §5.4 step 1 says *intersects*, and `architecture-spec.md`'s own `r019`
+> comment cites `match_mode: all_of`. Both sides sit inside the file precedence names as the
+> winner, so **precedence had nothing to pick from** and the merits were the only route.
+> **(2) The decisive argument is asymmetric failure.** Under any-of an over-broad rule fails the
+> benign floor and G3 rejects — loud, gated. Under all-of a rule naming an empty class
+> intersection matches **nothing, ever**: the validator passes it, the benign fixtures pass
+> *because it never fires*, and **the gate promotes it into the hashed policy** — after which the
+> loop misdiagnoses the recurring breach as *"the ARMORER cannot learn this family."*
+>
+> **What survives untouched from this worksheet, and is the half that still bites:** the real
+> question was never the rule side but the **call** side. A tool carries a *set*, so matching must
+> be **membership, not set equality** — under equality a single-class rule silently stops firing on
+> exactly the multi-capability tools that matter most. That is L3's first negative check.
 `architecture-spec.md` §5.4 step 1 says "collect every rule whose `cap_selector` **intersects** the call's capability set" — that is **any-of**. `data-spec.md` §1.2 stores the two-class rule with `"match_mode": "all_of"`. Document precedence puts architecture above data-spec, so any-of wins — but under any-of the worked example `rule r019: cap:CAP_INVOKES_AGENT|CAP_MOVES_MONEY => deny` **denies every money move outright** and fails all six C1 benign fixtures. Under all-of it never fires at all, because no single call carries both classes.
 
 > **Finding.** `r019` is a pre-episode-scoped artifact and is wrong under either reading. Its stated intent — money reached through a delegate — is now expressible correctly as `cap:CAP_MOVES_MONEY when preceded_by(CAP_INVOKES_AGENT) => deny` (pair P11 below). **Recommendation: replace `r019` in the worked examples, and rule `|` = any-of to match the architecture spec.** Every rule in this worksheet uses a **single-class** `cap_selector`, so no pair depends on the resolution.
@@ -374,6 +398,26 @@ The residual limitation, and it should be said out loud rather than hidden: an a
 ---
 
 ## 11. What I could not determine
+
+> **ALL SIX WERE RESOLVED 2026-08-20 by `CONVENTIONS.md` §5.7, rulings 21-25. The items below are
+> LEFT AS WRITTEN and are not edited in place**, because the value of this section is that it
+> recorded what the worksheet could not settle *at the time it ran* — and four of the six turned
+> out to be load-bearing. Sanitizing them would delete the evidence that the proof knew its own
+> limits.
+>
+> | # | Item | Resolution |
+> |---|---|---|
+> | 1 | Does the prefix carry tool RETURN values? | **No — args only (R21).** `result_digest` is a hash, not a value, so the question was really a proposal to change the schema. The harness sees returns; the evaluator does not. `derived.*` stays at **seven**, so **neither** field is dropped |
+> | 2 | `cap_selector` `\|` semantics | **Any-of by MEMBERSHIP (R22).** `\|` and `match_mode` both deleted. Decided on the merits — precedence could not settle it, because the contradiction is *intra-document* |
+> | 3 | The `APPROVAL_ORACLE`'s contract on ATTACK episodes | **Ruling 18, now frozen as a run-manifest parameter** `approval_oracle_default: "deny_unless_fixture_declares"` (R23). Prose became a hashed value |
+> | 4 | Destination args scalar or list | Still open. The target is unbuilt; **Part A of the manifest declares it at the D3 freeze** |
+> | 5 | The closed set of `role_name` values | **Moot — `role` is cut from the grammar (R25).** The worksheet's instinct was right and the reason was better than it knew: `role_name` was the **only plain-text product identifier the grammar admitted**, and an escape hatch out of headline result #1 |
+> | 6 | Is `derived.approval_verified` model-writable? | **The field is DELETED (R23).** This item called its own overwrite *"an assumption I am adding, not one I found"* — and it was right to flag it: **the overwrite it cites in §5.2 does not exist**, because §5.2's table has seven fields and this is not one of them. The resolution is not an overwrite rule. Its specification — *attack → false, benign → true* — is a label mirror that fails ruling 19.3 by construction |
+>
+> **Item 6 is the one to keep in mind.** It flagged an assumption it had recorded as specified and
+> had not written, and that gap was the difference between ruling 8 working and ruling 8 being
+> decorative. **Flagging it rather than papering it is what let it be caught.**
+
 
 1. **Whether the episode prefix carries tool RETURN values.** `data-spec.md` §1.8's `offending_tool_calls` entry carries `args_redacted`, `capability_classes`, `seq`, `policy_decision`, `status` — and no result. If returns *are* in the prefix, P08 needs no `derived.delivery_confirmed` and P26 gets simpler. If they are not, the derived fields are mandatory. **This changes the schema spec and must be settled before D2.** I assumed **args only**, which is the conservative reading and the one the schema shows.
 2. **`cap_selector` `|` semantics.** Conflict 1 in §1. Architecture says any-of, data-spec stores all-of, precedence favours architecture, and the worked example is wrong under both. No pair here depends on it, but the parser does.

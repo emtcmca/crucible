@@ -40,15 +40,18 @@
 >   because it belongs with "the sealed family is enforced by IAM" rather than in a schema appendix.
 > - **The SEP-BY split is printed with every ASR and BPR figure** (ruling 17) — added to §8.
 > - **The predicate schema is new and lands in `data-spec.md` §1.15** (rulings 8, 16, 19) — §7.
-> - **Four hash-locks, not three** — the Objective Set is now frozen too (§8).
+> - **FIVE hash-locks** — gate rule (D2), target agent (D3), **`manifest_hash` (D3)**, **the Objective Set (D3)**, and **corpus + `derived_schema_hash` (D5)**. *(Read "four, not three" until 2026-08-20; ruling 20 split the capability manifest into Part A, frozen D3 with the TARGET, and Part B, frozen D5 with the CORPUS and gated on the label-blindness check.)*
 **Contest:** Google "All Things Agentic" Hackathon · Devpost
 **Track:** The Fortified Enterprise Fleet
 **Deadline:** 2026-08-31 · 5:00 PM PDT (12 days from spec date)
 **Entrant:** Individual
-**Repo:** `C:\dev\crucible` — **NOT YET A GIT REPOSITORY.** `docs/` exists; nothing else.
-`git init` is Day-1 work, and it must happen before the D2 gate hash-lock. *(This line previously
-asserted the repo was created 2026-08-19. That was false and unverified — corrected 2026-08-20
-after a reviewer checked the filesystem instead of the document.)*
+**Repo:** `C:\dev\crucible` — **INITIALIZED AND PUBLIC.** **DONE 2026-08-20.** `git init` landed at `fc3a612`; five commits, all signed and GitHub-verified; repo **PUBLIC** at `github.com/emtcmca/crucible`. The D2 gate hash-lock, which is what
+this constraint actually protected, **has not happened yet.** *(This line has now been wrong in
+both directions on the same day: it first asserted the repo was created 2026-08-19, which was
+false and unverified; it was corrected to "NOT YET A GIT REPOSITORY", which was true for about
+four hours; and it went stale again when `fc3a612` landed at 15:11. **A status line is the most
+perishable sentence in any spec** — which is the argument for the commit-time sweep, not a
+carefuller reader.)*
 
 ---
 
@@ -478,7 +481,7 @@ file.
 ## 9. Execution → `execution-spec.md`
 
 **Evidence production is scheduled, not improvised.** `execution-spec.md` §5a fixes a five-post
-Devpost update log triggered by the four hash-locks plus the result — the mechanism that makes the
+Devpost update log triggered by the **five** hash-locks plus the result *(this read "four" when written on 2026-08-20 — after ruling 20 already existed, which is why the dead-value sweep runs at COMMIT time and not only at authoring time)* — the mechanism that makes the
 pre-registration claim checkable without a judge reading `git log`. **Each post fires on the
 artifact landing, never on the calendar date**, because a freeze announced before it happened is
 the exact failure the log exists to disprove.
@@ -511,7 +514,7 @@ the same reason and with the same finality (added 2026-08-20; it was the only un
 the oracle, which made it the one path by which every headline number could be produced while all
 three claims were false).
 
-**Two things run before `git init` on Day 1**, both from `CONVENTIONS.md`: the **separability
+**Two things ran before `git init` on Day 1 and both are DONE**, both from `CONVENTIONS.md`: the **separability
 proof** (§12 — write out, in the real grammar, the exact rule that blocks each attack and passes
 its paired near-miss fixture; a pair with no such rule is unlearnable) and the **Day-1 spike**
 (§11 — 20 shots at whether a Flash-tier model can *spell* the DSL, scored against a decision rule
@@ -578,7 +581,7 @@ blog, or on camera.
 | Confirm a **paid** tier — free-tier Gemini API usage is used to train Google's models | Eric | Day 1 |
 | Set a **Spend Cap** (not a plain alert) **at $160**, scoped to Vertex AI, Gemini API, and Cloud Run | Eric | Day 1 |
 | **Configure commit signing** — `commit.gpgsign`, `user.signingkey`, `gpg.format` are all unset. `measurement-spec.md` §6.1 makes `git log --show-signature` the first judge-verifiable pre-registration check, and it is **unrecoverable after the D2 hash-lock** | Eric | **Day 1, before D2** |
-| **`git init`** — `C:\dev\crucible` is `docs/` only; there is no repository yet, and the D2 hash-lock depends on one | Eric | Day 1 |
+| ~~**`git init`**~~ **DONE** — `fc3a612`, five signed and GitHub-verified commits, repo PUBLIC. *(This row asserted "there is no repository yet", which stopped being true at 15:11 on Day 1.)* | Eric | Day 1 |
 | **New GCP project** — the active project is `litt-hackathon`; every SA, binding, and quota assumption resets with the switch | Eric | Day 1 |
 | **Update the gcloud SDK** — 570.0.0's core component is dated 2026-05-22, predating the ~07-29 GA of the Fleet components | Eric | Day 1 |
 | Reconcile the Litt hackathon date in global `CLAUDE.md` (says June 2026; Devpost ADK hackathon ran May–June **2025**) | Eric | Q `c-20260819-2344-5a27` |
