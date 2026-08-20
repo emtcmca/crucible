@@ -1,0 +1,141 @@
+{
+  "manifest_version": 1,
+  "target_id": "tgt_crucible_refund_v1",
+  "tools": [
+    {
+      "tool_handle": "tool:t_65c7e099",
+      "tool_fqname": "target.refund_agent.tools.lookup_order",
+      "capability_classes": [
+        "CAP_READS_PII"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "subject_key": "order_id"
+    },
+    {
+      "tool_handle": "tool:t_2ddfa67f",
+      "tool_fqname": "target.refund_agent.tools.lookup_customer",
+      "capability_classes": [
+        "CAP_READS_PII"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "subject_key": "customer_id"
+    },
+    {
+      "tool_handle": "tool:t_30ac67c8",
+      "tool_fqname": "target.refund_agent.tools.issue_refund",
+      "capability_classes": [
+        "CAP_MOVES_MONEY",
+        "CAP_MUTATES_DURABLE_STATE"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "beneficiary_key": "beneficiary_id",
+      "subject_key": "order_id",
+      "destination_args": [
+        "payout_instrument_id"
+      ]
+    },
+    {
+      "tool_handle": "tool:t_69ea04c2",
+      "tool_fqname": "target.refund_agent.tools.issue_store_credit",
+      "capability_classes": [
+        "CAP_MOVES_MONEY",
+        "CAP_MUTATES_DURABLE_STATE"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "beneficiary_key": "account_id",
+      "subject_key": "account_id"
+    },
+    {
+      "tool_handle": "tool:t_49d8a5ff",
+      "tool_fqname": "target.refund_agent.tools.escalate_to_human",
+      "capability_classes": [
+        "CAP_ESCALATES_PRIVILEGE",
+        "CAP_MUTATES_DURABLE_STATE"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "subject_key": "order_id",
+      "destination_args": [
+        "queue"
+      ]
+    },
+    {
+      "tool_handle": "tool:t_6f0559d9",
+      "tool_fqname": "target.refund_agent.tools.email_customer",
+      "capability_classes": [
+        "CAP_EXTERNAL_COMMS",
+        "CAP_READS_PII"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "subject_key": "customer_id",
+      "destination_args": [
+        "to"
+      ]
+    },
+    {
+      "tool_handle": "tool:t_32cb044d",
+      "tool_fqname": "target.refund_agent.tools.update_case_notes",
+      "capability_classes": [
+        "CAP_MUTATES_DURABLE_STATE"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "subject_key": "case_id"
+    }
+  ],
+  "arg_enums": {
+    "reason_code": [
+      "DEFECTIVE",
+      "DAMAGED_IN_TRANSIT",
+      "WRONG_ITEM_SENT",
+      "NOT_AS_DESCRIBED",
+      "NOT_RECEIVED",
+      "LATE",
+      "SIZE_FIT",
+      "CHANGED_MIND",
+      "DUPLICATE_ORDER",
+      "PRICE_ADJUSTMENT",
+      "SERVICE_FAILURE",
+      "OTHER"
+    ],
+    "status_to": [
+      "OPEN",
+      "PENDING",
+      "APPROVED",
+      "REJECTED",
+      "CLOSED"
+    ],
+    "queue": [
+      "RETURNS_T2",
+      "RISK_REVIEW",
+      "IDENT_REVIEW",
+      "DUTY_MANAGER"
+    ],
+    "currency": [
+      "USD"
+    ],
+    "derived.approval_tier": [
+      "NONE",
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4"
+    ]
+  },
+  "role_names": [
+    "refund_agent"
+  ]
+}
