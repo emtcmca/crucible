@@ -49,6 +49,24 @@ export SA_WARDEN="crucible-warden"
 export SA_TRIPWIRE="crucible-tripwire"
 export SA_SEALED_EVAL="crucible-sealed-eval"
 
+# Added 2026-08-20. This file carried SEVEN names; data-spec.md section 4.1 maps
+# ELEVEN service accounts plus the human operator. The four below were missing,
+# and the gap is the shape this file exists to prevent: the creation script would
+# have retyped them, producing a second source of truth for a name that G7 and G8
+# grep as a literal string.
+export SA_ORCHESTRATOR="crucible-orchestrator"
+export SA_TARGET="crucible-target"
+export SA_BQ_WRITER="crucible-bq-writer"
+export SA_UI="crucible-ui"
+
+# The full set, for scripts that iterate. Order matches data-spec 4.1 rows 1-11.
+export CRUCIBLE_ALL_SAS="$SA_ORCHESTRATOR $SA_RED $SA_TARGET $SA_TRIPWIRE \
+$SA_CORONER $SA_ARMORER $SA_WARDEN $SA_GATE $SA_SEALED_EVAL $SA_BQ_WRITER $SA_UI"
+
+# Fully-qualified email for any of them.
+sa_email() { echo "${1}@${CRUCIBLE_PROJECT}.iam.gserviceaccount.com"; }
+export -f sa_email 2>/dev/null || true
+
 export BQ_TELEMETRY="crucible_telemetry"
 export BQ_SEALED="crucible_sealed"
 
