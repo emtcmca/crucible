@@ -191,3 +191,49 @@ each one and fails if the name does not exist.
 still turns the census green. The map narrows that to "a check is reported built
 and no code by that name exists." It cannot judge whether the referenced test is
 any good, and nothing mechanical can. **Census now reads 4 built of 35.**
+
+---
+
+## Work item 4 — the manifest loader. **A contract gap, found by the loader.**
+
+`derived_schema_hash` is one of the five hash-locks. **Part B could not be
+hashed at all**, because `contracts/golden/C3b-derived_schema.valid.json`
+carries `blindness_check.max_predictive_accuracy: 0.61`, and
+`canonicalization.md` restriction 4 forbids floats in a hashed payload.
+
+**The rule that resolves it already exists, twice, and nothing implemented it.**
+
+- `canonicalization.md` restriction 4, frozen: *"Confidences and rates live
+  **outside** the hashed payload."*
+- `derived_schema.schema.json:79`, on the field itself: *"Reported outside the
+  hashed payload (floats are forbidden inside one)."*
+
+Both statements are true. Neither is machine-readable, and no code stripped the
+field, so the artifact the run manifest is supposed to hash-lock was
+un-hashable. **A frozen contract that says a thing twice in prose and nowhere in
+a form a program can act on is not enforced** — it is the same shape as
+`§8 rule 12`, one layer down.
+
+**Handled, not routed around.** `HASH_EXCLUSIONS` in `crucible/manifest/load.py`
+is an **enumerated** list, one entry, carrying its own justification. It is
+tested in both directions:
+
+- changing the excluded rate must **not** re-identify Part B;
+- removing a `derived.*` field **must**, or the exclusion has quietly grown into
+  "hash almost nothing";
+- **any float not on the list is still refused**, and the error says *"this is a
+  SECOND offending value, not the known one"* — so the next person removes it
+  rather than appending to the exclusion list.
+
+Part A has **no exclusions and needs none.** It freezes with the target; a
+carve-out there would mean the target was frozen against something other than
+what it is built from.
+
+### For the coordinator
+
+The exclusion is currently expressed in a `$comment` on one field, which no
+program reads. **Proposal: a machine-readable marker in the schema** (e.g.
+`x-hash-excluded: true`) so the loader derives the list from the contract
+instead of restating it. Restating it in code is a second source of truth, and
+that is the defect this repo has caught four times now. **Not done here — lanes
+never edit `contracts/`.**
