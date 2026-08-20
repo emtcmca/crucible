@@ -84,3 +84,50 @@ real discrimination -- "produces bytes where the contract says refuse" is exactl
 the bug -- but it is weaker evidence than a positive vector, where the strawman
 must produce different *correct-looking* bytes. Recorded so nobody later reads
 eight entries as eight equally strong results.
+
+---
+
+## Work item 2 — service accounts, IAM, and the 403. Iterations: 3 failed.
+
+| # | What failed | Why it mattered |
+|---|---|---|
+| 1 | `429 RESOURCE_EXHAUSTED` on the sixth service account — "Service accounts created per minute per project", `retryDelay: 60s` | Not a defect, but it would be invisible in a teardown-and-recreate at demo time. The tempting fix — drop back to seven accounts — would have silently reintroduced the four-name gap that had just been closed. Fixed with backoff in `infra/create-service-accounts.sh` |
+| 2 | `verify_iam.py` reported **four FAILs against correct infrastructure** | It read the GCS **JSON-API** shape (`iamConfiguration.uniformBucketLevelAccess.enabled`); `gcloud storage buckets describe --format=json` emits a **different, snake_case** shape (`uniform_bucket_level_access`). `data-spec.md` §4.3's commands are written against the first. **The direction of that error was luck.** A predicate phrased the other way — flag only if the key says something bad — reads the same missing key and prints PASS on a bucket it never inspected. `MISSING` is now a third outcome that collapses into neither verdict |
+| 3 | `prove-armorer-403.sh` scored **PASS — refused** twice for the wrong reason | The verdict matched on the word `permission`, and *"Permission `iam.serviceAccounts.getAccessToken` denied"* matched it. The probe had failed to **become** the Armorer at all, and reported the bucket boundary as proven. Two convincing green lines about a boundary that was never tested. **Caught only because the positive control failed in the same run and made the pattern visible** |
+
+### The 403 has a positive control, and that is the whole design
+
+A 403 alone proves nothing. A misspelled bucket returns 403; a deleted bucket
+returns 403; a project the caller cannot see returns 403 — GCS refuses to
+distinguish *"you may not"* from *"it is not there"*, because leaking existence
+is itself a leak. So a recording of one red 403 is **compatible with the sealed
+corpus sitting wide open at a slightly different path.**
+
+`infra/prove-armorer-403.sh` reads the **same object, same path, same command**
+as three identities. `crucible-sealed-eval` **must succeed**; `crucible-armorer`
+and `crucible-red` **must be refused at the storage layer specifically**. If the
+control fails, the script says every 403 in the run is uninformative rather than
+reporting a boundary it did not demonstrate.
+
+Result: **3/3**, `docs/proof/armorer-403.txt`.
+
+### Stated limits, so the claim stays exactly true
+
+- The operator holds `roles/owner` and can read everything. **You are the trust
+  root and no control here defends against you** (`data-spec.md` §4.1 row 12).
+- The canary object is **not sealed material**; the script wrote it.
+- Impersonation needed `roles/iam.serviceAccountTokenCreator` granted to the
+  operator **on those three service accounts**. That lets the operator act as
+  them; it grants them nothing.
+- **`roles/datastore.user` is held by the Armorer**, and Firestore has no
+  per-collection IAM (`data-spec.md` A2). Blindness to the *fixtures* is
+  therefore convention plus a code check, **never enforcement**. Blindness to the
+  *sealed family* is real, because that data lives where the Armorer holds no
+  role at all. The two must never be described in the same breath.
+
+### Not bound, each for a stated reason
+
+`run.invoker` — the Cloud Run services do not exist. `bigquery.*` — the datasets
+do not exist. A binding against a non-existent principal or resource is the
+failure that looks like success. The `data-spec.md` §4.3 layer-3 IAM **Deny**
+policy is still open, pending assumption A3.
