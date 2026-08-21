@@ -22,7 +22,13 @@ you consume. Re-read `CONVENTIONS.md` before *every* commit.
 ```
 crucible/replay/   the replay viewer
 docs/proof/        captured proofs
-docs/adr/          the ADRs
+docs/adr/          COORDINATOR ONLY -- NOT this lane's. Corrected 2026-08-20
+                   on L6's report (F-3): this line contradicted
+                   lanes-spec.md section 4, which reserves ADRs for the
+                   coordinator because they record CROSS-lane decisions and
+                   a blind lane cannot see across. L6 touched nothing there
+                   and wrote no ADR, which was the right call under a brief
+                   that told it otherwise.
 README.md
 ```
 

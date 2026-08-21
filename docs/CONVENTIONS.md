@@ -11,11 +11,15 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 5` · last changed 2026-08-20
+`SPINE_VERSION: 6` · last changed 2026-08-20
 
 > **SPINE_VERSION 2 — the five D1 coordinator decisions are closed. Rulings 21-25 below.**
 >
 > **SPINE_VERSION 3 — rulings 26-28, on escalations from the W1 lanes. §5.8.**
+>
+> **SPINE_VERSION 6 — rulings 34-36, on L6's report.** C6 gained `policy_hash_full`
+> and made `sep_by_split` required, so **the C6 hash moved**. **Ruling 34 is BLOCKING
+> and needs Eric: the repo is public with no LICENSE.** Invalidates nothing measured.
 >
 > **SPINE_VERSION 5 — ruling 23.4 corrected: the approver sentinel is `"NONE"`,
 > never `null`.** Found by L2, and the spine was the document that was wrong.
@@ -1370,6 +1374,62 @@ the same failure it was removed to prevent.
    attack renders a **fragile** target as a **hardened** one — the single most
    flattering error available in this build, which is exactly why it needs a
    structural check rather than a note.
+
+### Ruling 34 — the repo is PUBLIC and has NO LICENSE. **Blocking, and it is Eric's call.**
+
+**L6 found it while writing the README, and how it found it is the point.** Its
+first draft said *"Licensed under Apache-2.0"* — written from habit, matching
+Eric's other OSS. **Nothing in this repository says that.** It checked before
+shipping the sentence, found no `LICENSE`, and wrote what is true instead.
+
+That is a fabricated status assertion caught one step from a public page, and it
+is the §8 rule 12 failure mode in its purest form: **the most confident sentences
+are the ones nobody thinks to verify.**
+
+**Why it is blocking rather than tidy-up.** The repo is public *specifically* so a
+judge can clone it and replay a bundle — that is L6's entire exit criterion and
+one of the differentiated claims. **Under default copyright, a stranger who
+clones a repo with no license has been granted no right to use, modify, or
+run it.** The judge-reproduction path is not merely undocumented; it is not
+permitted.
+
+**Not decided here.** Choosing a license is an ownership decision with real
+consequences and it is not the coordinator's to make. Eric's other public work is
+Apache-2.0, which is the obvious candidate, and *obvious* is not *decided*.
+
+### Ruling 35 — two import lints stay. Not merged.
+
+L6's `offline_lint.py` and L4's `import_lint.py` use the same technique against
+different deny sets: L4's proves the TRIPWIRE cannot call a model, L6's proves
+the replay path cannot reach the network, a cloud SDK, a subprocess, or **the
+process environment at all.**
+
+**Ruled: keep both, and do not generalize them into one configurable lint.** They
+guard different claims for different reasons, and a single lint with two config
+sets is one edit away from a merge that quietly widens one deny list to
+accommodate the other. **The duplication is the cheaper failure.**
+
+Worth recording L6's design choice: its lint refuses **any** read of the process
+environment rather than a list of credential variable names. *A rule with an
+exception list acquires exceptions.* That is why the check survived contact with
+its own second defect, where restoring `APPDATA` to fix library resolution would
+have re-admitted `%APPDATA%\gcloudpplication_default_credentials.json` —
+**and the check would still have passed.**
+
+### Ruling 36 — the ADK-sample claim stays OUT of the README until someone reads the source.
+
+`CONVENTIONS.md` §7 lists as legitimate: *"CRUCIBLE found a capability-boundary
+inconsistency in a published Google ADK sample."* **L6 deliberately omitted it,
+because it had not verified it against that sample's source.**
+
+**Ratified, and the omission is the correct default.** An approved claim is
+approved *phrasing*; it is not a substitute for having checked. The claim also
+sits next to the one thing §7 marks hardest to say precisely — it is a **defect in
+a sample application's stubbed tools**, marked in-source `# MOCK API RESPONSE`,
+and **not** a vulnerability in Google's framework. A claim nobody has re-read the
+source for is exactly the one that drifts into the louder version.
+
+It goes in when someone opens the file. Not before.
 
 ### Ruling 28 — `capability_classes: minItems 1` leaves the INERT set unencodable. Noted, not changed.
 
