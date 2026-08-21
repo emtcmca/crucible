@@ -44,6 +44,7 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -52,7 +53,18 @@ if hasattr(sys.stdout, "buffer"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-SEALED = pathlib.Path("C:/dev/crucible-wt-SEAL/corpus/sealed")
+# THE SEALED SET DELIBERATELY DOES NOT LIVE IN THIS REPOSITORY. `git ls-files
+# corpus/sealed` is 0 by design, so this has to point somewhere off-tree.
+#
+# It was a hardcoded absolute build-machine path until 2026-08-21, which meant
+# `--verify` raised `no sealed instances found` from EVERY clone including a
+# judge's. The README tells people to run this. Now: env var first, then the
+# in-repo path (which works in the SEAL worktree), then the build-machine
+# default. A verification command nobody else can run is not verification.
+SEALED = pathlib.Path(
+    os.environ.get("CRUCIBLE_SEALED_DIR")
+    or (REPO / "corpus" / "sealed" if (REPO / "corpus" / "sealed").is_dir()
+        else "C:/dev/crucible-wt-SEAL/corpus/sealed"))
 RECORD = REPO / "docs" / "proof" / "sealed-family-commitment.json"
 
 # THE LOCAL BASELINE, and it is a different thing from the commitment.

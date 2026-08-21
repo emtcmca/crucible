@@ -9,14 +9,14 @@ defect this project exists to catch.
 
 **Named here and not yet running, as of 2026-08-21:**
 
-| Thing | State |
+| Thing | State (verified 2026-08-21 against the live project and the tree) |
 |---|---|
 | Cloud Run services | **Zero deployed.** `gcloud run services list` returns nothing. Every component runs locally today. There is no Dockerfile and no deploy script in the repo. |
 | BigQuery datasets `crucible_telemetry`, `crucible_sealed` | **Not created.** `gcloud alpha bq datasets list` returns 0 items. No BigQuery client code exists. |
 | Firestore as the run store | Database `(default)` exists in the project; **no code in this repo reads or writes it.** The run ledger is local SQLite — `crucible/ledger/store.py`. |
 | `CAPABILITY_CARTOGRAPHER` | **Not built.** No module under `crucible/` matches it. Capability mapping today is the deterministic path in `target/refund_agent/capabilities.py` plus a human-ratified manifest. |
-| Demo UI (`crucible-ui`) | **Not built.** The service account exists and holds read-only roles; there is no frontend in the repo. |
-| The four remaining hash-locks | Only the sealed-family commitment is published. D2, D3, and D5 have not been executed. See diagram 4. |
+| Demo UI (`crucible-ui`) | **Not built as of 2026-08-21.** The service account exists and holds read-only roles; there is no frontend in the repo. |
+| The four remaining hash-locks | **As of 2026-08-21**, only the sealed-family commitment is published. D2, D3 and D5 have not been executed. See diagram 4. |
 
 **Nothing has been measured.** No loop has been run end to end and no attack has been scored, so
 no number on any of these diagrams is a result.

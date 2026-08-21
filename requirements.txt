@@ -10,3 +10,9 @@ PyYAML==6.0.3
 # manager's before_tool_callback fires BEFORE the agent's own callbacks,
 # and issue #2809 is fixed. None of that is true of an unpinned resolve.
 google-adk==2.1.0
+
+# The README's spin-up steps tell a judge to run the test suite, and a cold clone
+# could not: pytest was installed on the build machine and named in no dependency
+# file. Added 2026-08-21. Pinned to what is installed and verified here, per the
+# same rule as the ADK pin above.
+pytest==9.0.3
