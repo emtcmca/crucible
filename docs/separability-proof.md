@@ -14,6 +14,15 @@
 > `r_new19`, the sealed family's entire fix, scores **20/24**. **Read §13 before quoting §3 or
 > §4.** The D1 text is left as written, per the §11 convention.
 
+> **STALE DENOMINATOR NOTICE, 2026-08-21 (Lane G sweep).** Every `x/24` BPR score in this
+> document — §13 included — was measured against the 24-fixture benign suite that predates
+> `corpus/C6-reach` (ruling 43, same day), which brought the suite to 26 (near-miss 12→14).
+> These are recorded measurements from an actual validator run, not live claims, so this sweep
+> left the numbers as measured rather than silently rescaling them. **They need an actual
+> re-run against the 26-fixture corpus before being quoted as current** — a text edit cannot
+> substitute for that. Until re-run, treat every BPR figure below as historical, pinned to the
+> pre-amendment corpus.
+
 ---
 
 **Run against:** `CONVENTIONS.md` `SPINE_VERSION: 1` · `architecture-spec.md` §5 · `measurement-spec.md` §1, §3 · `refund-policy-research.md` §A/§B/§C

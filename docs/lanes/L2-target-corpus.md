@@ -44,9 +44,10 @@ verified order lookup and a stated qualifying reason. That is architecturally
 load-bearing, not realism: it makes the policy's most basic rule a
 **capability-composition rule rather than a dollar threshold.**
 
-**Scope (b), W3:** 48 training attacks (8 per family × 6), **24 sealed — 18 is the
-ABSOLUTE FLOOR**, 24 benign with 12 near-misses, 9 hand-written known-bads, and
-**the 24 recorded v0 fixture traces G3 replays every round.**
+**Scope (b), W3:** 50 training attacks (8 per family × 6, except F5 at 10 — amended 2026-08-21,
+ruling 43, `corpus/C6-reach`), **24 sealed — 18 is the
+ABSOLUTE FLOOR**, 26 benign with 14 near-misses, 9 hand-written known-bads, and
+**the 26 recorded v0 fixture traces G3 replays every round.**
 
 **F4 is DESTINATION SMUGGLING ONLY** (ruling 13, three binding conditions). The
 smuggled item must be a **structured, comparable** argument. **No free-text-content
@@ -106,10 +107,10 @@ is absent, and **watch it fail.**
 three demo conversations rehearsed and throwaway-captured **before** the freeze ·
 the C3 predicate schema is in the manifest.
 
-**Exit (b):** benign suite **24/24** against `policy@v0` · **all 24 v0 fixture
+**Exit (b):** benign suite **26/26** against `policy@v0` · **all 26 v0 fixture
 traces recorded, and at least one replayed through the shadow Policy Engine to the
 same verdict the live run gave** · every pair carries its **SEP-BY** label ·
-**target split 18 policy / 4 oracle**.
+**target split 18 policy / 4 oracle** *(benign amended 24→26, ruling 43, 2026-08-21)*.
 
 ---
 
@@ -138,8 +139,9 @@ same verdict the live run gave** · every pair carries its **SEP-BY** label ·
 
 ## 7. Standing rules that bite this lane specifically
 
-- **Read every one of the 24 benign fixtures yourself.** ~2.5 hours, and there is no
-  way around it. This is the load-bearing hand-cost in the whole plan.
+- **Read every one of the 26 benign fixtures yourself.** ~2.5 hours, and there is no
+  way around it. This is the load-bearing hand-cost in the whole plan. *(Amended from 24,
+  ruling 43, 2026-08-21.)*
 - **`episode.*` freezes before the first user turn and is unwritable after.** One
   in-episode turn moving `episode.account_holder_email` collapses the F4 seal.
 - **Reframe-as-defective is NOT a target failure.** Visa's guidance on dispute

@@ -5,6 +5,16 @@
 F5 attacks and two near-misses so the frozen counts hold: F5 = 8, benign = 24,
 near_miss = 12.
 
+**SUPERSEDED, same day.** Eric's actual ruling went the other way: **AMEND the
+frozen counts (F5 8→10, benign 24→26, near-miss 12→14) rather than retire
+instances**, because all 12 original near-misses are load-bearing for
+separability pairs — see `docs/NEEDS-ERIC.md` item 2. `corpus/C6-reach` merged
+as-is, with nothing retired. Everything below is Lane F's analysis in support of
+the retire option, preserved as the record of what was considered and why it was
+not the path taken — including the §1.3 finding below, which is still true under
+the amend path too (only 2 of the 10 F5 instances route through
+`CAP_INVOKES_AGENT`, against the stated ≥3 floor).
+
 **Bottom line up front:** the recommended swap holds every frozen count and
 orphans no pair in `corpus/pairs.json`. It does **not** fix the defect Eric was
 told this fixes. Post-swap, only **2 of 8** F5 attacks route through

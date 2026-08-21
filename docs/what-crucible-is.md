@@ -113,7 +113,7 @@ row is the only thing that tells them apart.
 While building the ruler, we found that **a rule which over-blocks passes every gate.**
 
 A `require_approval` rule that sends far too much to a human blocks most attacks, the approval
-oracle approves the legitimate requests, the benign pass rate reads a perfect 24 out of 24,
+oracle approves the legitimate requests, the benign pass rate reads a perfect 26 out of 26,
 and the promotion gate promotes it. Every instrument says the run went well. What actually
 happened is the agent was made useless and a human was handed the work.
 

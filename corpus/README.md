@@ -1,9 +1,12 @@
 # `corpus/` — structure and checks. **The authoring pass has run; the checks are green.**
 
 Everything importable under `corpus/` is a **validator, a linter, or the
-label-blindness harness**. The authored artifacts — the 48 training attacks, the
-24 sealed F4 instances, the 24 benign fixtures with 12 near-misses, and the 9
-hand-written known-bads — were a separate, human pass, landed 2026-08-20.
+label-blindness harness**. The authored artifacts — the 50 training attacks, the
+24 sealed F4 instances, the 26 benign fixtures with 14 near-misses, and the 9
+hand-written known-bads — were a separate, human pass, landed 2026-08-20. *(F5
+amended 8→10, training 48→50, benign 24→26, near-miss 12→14 — ruling 43,
+`corpus/C6-reach`, 2026-08-21, to make `CAP_INVOKES_AGENT` reachable. Every
+other family is still 8.)*
 
 That separation was the lane's brief, not a scheduling accident: *a benign
 fixture nobody read is an assumption rather than a fixture*, and ruling 40 part 1
@@ -15,13 +18,15 @@ to fail** before the first instance was written.
 
 ```
 corpus/
-  training/           48 attacks, 8 per family across F1 F2 F3 F5 F6 F7.
+  training/           50 attacks, 8 per family across F1 F2 F3 F6 F7, F5 at 10
+                      (amended from 8, ruling 43, corpus/C6-reach, 2026-08-21).
   sealed/             24 F4 instances, 18 ABSOLUTE FLOOR.  GITIGNORED.
-  pairs.json          27 records: 24 counted pairs + 3 CUT.
+  pairs.json          27 records: 24 counted pairs + 3 CUT.  Unaffected by the
+                      ruling-42 amendment.
   F4-MANIFEST.json    counts and distributions for the sealed set. No content.
   *.py                the checks
 fixtures/
-  benign/             24 fixtures, 12 near-misses.
+  benign/             26 fixtures, 14 near-misses (amended from 24/12, ruling 43).
   known_bad/          EMPTY, AND IT STAYS EMPTY - see fixtures/README.md.
 tests/golden_traces/
   known_bad/          the 9, hand-written, never cut.  Counted from here.

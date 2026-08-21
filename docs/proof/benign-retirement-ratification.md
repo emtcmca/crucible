@@ -49,8 +49,11 @@ near-miss floor and the same-tool floor all stand at their specified values, and
 
 ## The ruling
 
-**Ratified.** The retirement stands and the corpus is 24 benign fixtures with
-`CAP_ESCALATES_PRIVILEGE` coverage at 4/4.
+**Ratified.** The retirement stands and the corpus was 24 benign fixtures with
+`CAP_ESCALATES_PRIVILEGE` coverage at 4/4 at the time of this ratification. *(The benign total
+was separately amended 24→26 later the same day by `corpus/C6-reach`, ruling 43 — a different
+capability class, `CAP_INVOKES_AGENT`. This ratification's C5 coverage of 4/4 is unaffected;
+see `measurement-spec.md` §3.2.)*
 
 ## What this costs, stated rather than buried
 

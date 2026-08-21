@@ -158,9 +158,11 @@ files**, `SEAL INTACT (2cde0250de00e692)`. Rulings **1-42**, SPINE_VERSION
 
 **Nothing has been measured.** No loop run, no attack scored, no quotable number.
 
-**Corpus**: 48 training, **24 sealed**, 24 benign (12 near-miss), 9 known-bad,
+**Corpus**: 50 training (F5 amended 8→10, ruling 43, `corpus/C6-reach`, 2026-08-21),
+**24 sealed**, 26 benign (14 near-miss, amended from 24/12), 9 known-bad,
 27 pairs. SEP-BY **21 policy / 3 oracle** against an 18/4 target — reported, not
-absorbed. Blindness 0.7708 vs 0.7500 baseline over 96 instances. Sealed
+absorbed. Blindness 0.7708 vs 0.7500 baseline over 96 instances *(pre-amendment;
+not recomputed against the amended counts — flagged, not recomputed)*. Sealed
 instances live ONLY at `C:\dev\crucible-wt-SEAL\corpus\sealed\`; any other
 worktree reads sealed=0 and `python -m corpus` FAILS there on
 `E_SEALED_BELOW_FLOOR`, which is correct rather than broken.
@@ -183,10 +185,13 @@ worktree reads sealed=0 and `python -m corpus` FAILS there on
 - **CONVENTIONS §4 had three stale frozen-number rows**, including round cap 4
   against ruling 10's 6 — wrong number at the TOP of the precedence order.
 
-**NEXT ACTION: the corpus-count ruling** (`docs/NEEDS-ERIC.md` item 2). It gates
-the D2 gate-rule freeze, which gates the **D3 target freeze on Sat 08-22**, which
-gates everything that produces a number. Nothing else on the critical path moves
-until it lands.
+**NEXT ACTION: fire the D2 gate-rule freeze** (`docs/NEEDS-ERIC.md` item 3). The
+corpus-count ruling landed — Eric ruled to AMEND (F5 8→10, benign 24→26,
+near-miss 12→14) rather than retire, `corpus/C6-reach` is merged into `main`,
+and `docs/NEEDS-ERIC.md` item 2 is closed. The gate rule should now pin
+`bpr == "26/26"` and `near_miss_bpr == "14/14"`, not the old 24/24 and 12/12.
+Freezing it gates the **D3 target freeze on Sat 08-22**, which gates everything
+that produces a number. Nothing else on the critical path moves until it lands.
 
 **Cloud Run is DONE** — deployed 2026-08-21, `crucible-00003-t2q`, authenticated,
 running as `crucible-target`, `/list-apps` returns `["refund_agent"]`, one full
@@ -211,11 +216,13 @@ before touching the enforcement path or the freeze.**
 
 **Open threads**
 - **`docs/NEEDS-ERIC.md`** — ten owner decisions. Two are Stage One pass/fail.
-- **D2 gate-rule freeze HELD** — not for the reason Eric gave. It pins benign
-  24 and near-miss 12, so firing it decides the parked corpus-count question by
-  side effect. Corpus ruling first.
-- **`corpus/C6-reach` branch** — four instances making `CAP_INVOKES_AGENT`
-  reachable, parked because they break two frozen counts.
+- **D2 gate-rule freeze — item 2 is now settled, ready to fire.** The gate rule
+  should pin `bpr == "26/26"` and `near_miss_bpr == "14/14"` (amended from
+  24/24 and 12/12, ruling 43) rather than the pre-amendment values.
+- **`corpus/C6-reach` branch — MERGED 2026-08-21 (ruling 43).** Four instances
+  making `CAP_INVOKES_AGENT` reachable; the two frozen counts it broke (F5=8,
+  benign=24) were amended rather than the branch retired. `measurement-spec.md`
+  §1.3's ≥3-routing requirement is still unmet (2 of 10) — reported, not fixed.
 - **D5 corpus freeze** — must land before the first patch is written.
 - **The first real loop run** — produces every number.
 - P11 built, P20 **UNLEARNABLE** without GX5 (now available); `r_new3` fails V4.

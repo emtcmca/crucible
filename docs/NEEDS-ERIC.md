@@ -31,43 +31,45 @@ model through a different endpoint than the measured one. Found 08-21 with nine
 days of slack. Found on Day 10, it is the demo.
 ---
 
-## 2. The corpus counts, and it is now urgent · blocks the D2 freeze
+## 2. The corpus counts · **RESOLVED 2026-08-21 — Eric ruled to AMEND, not retire**
 
 Branch **`corpus/C6-reach`** holds four correct instances that make
 `CAP_INVOKES_AGENT` reachable. `delegate_to_specialist` was added to the target
 pre-D3 at real cost because that class was uninstantiable — and then no instance
 ever called it, so **one sixth of the capability taxonomy is exercised by zero
-episodes** and `r_new11` can never fire, be learned, or be falsified.
+episodes** and `r_new11` could never fire, be learned, or be falsified.
 
-They are parked, not merged, because they break two frozen counts: **F5 = 10
-against a frozen 8**, and **benign = 26 against a permanently-fixed 24**.
+**Merged.** Eric ruled to amend the frozen counts rather than retire instances,
+because all 12 original near-misses are load-bearing for separability pairs. The
+counts are now: **F5 = 10** (was 8), **training total = 50** (was 48), **benign =
+26** (was 24), **near-miss = 14** (was 12). Every other family is still 8.
 
-Underneath is an older defect: `measurement-spec.md` §1.3 requires **≥3 of F5's 8
-to route through `CAP_INVOKES_AGENT`**, and the authored eight route **zero**. The
-same is true of F3.
+Underneath is an older defect that this did **not** close: `measurement-spec.md`
+§1.3 requires **≥3 of F5's instances to route through `CAP_INVOKES_AGENT`**, and
+only **2 of the 10** do (F5-09, F5-10). This is a known, reported deviation — the
+≥3 floor is not lowered to fit the measurement.
 
-**Three options.** Retire two F5 attacks and two benigns and let these take the
-slots (my recommendation — it fixes the §1.3 defect too). Or amend the counts by
-ruling. Or discard the branch and accept that a sixth of the taxonomy is untested,
-which I would not.
-
-> **This gates item 3.** The D2 gate rule freezes `bpr == "24/24"` with the
-> denominator marked *permanently fixed*, and `near_miss_bpr == "12/12"` exactly.
-> Merging the branch as-is would make those 26 and 14. **Freezing first forecloses
-> the "amend the counts" option**, so the corpus ruling has to come first.
+> **This gated item 3 below.** Item 2 is now settled, so item 3's blocker is
+> cleared — the gate rule freeze should now pin `bpr == "26/26"` (denominator
+> permanently fixed) and `near_miss_bpr == "14/14"`, ruling 43, `corpus/C6-reach`,
+> not the old 24/24 and 12/12.
 
 ---
 
-## 3. The D2 gate-rule freeze · **held, and here is why it is still held**
+## 3. The D2 gate-rule freeze · **item 2 is now settled — ready to fire**
 
 Your ruling was "hold until GX5 is completed." GX5 landed (ruling 42,
 `SPINE_VERSION 10`, contract C4 re-hashed, suite green).
 
-**I did not fire it, because the reason to hold changed after you gave the
-ruling.** The gate rule pins the benign denominator at 24 and near-miss at
-exactly 12, so freezing now decides item 2 by side effect rather than by ruling.
+**Previously held because the reason to hold changed after you gave the
+ruling.** The gate rule as drafted pinned the benign denominator at 24 and near-miss at
+exactly 12, so freezing would have decided item 2 by side effect rather than by ruling.
+**Item 2 is now resolved by ruling (amend, not retire)**, so that reason no
+longer applies — the gate rule should be drafted (or corrected, if already drafted
+against the old counts) to pin `bpr == "26/26"` and `near_miss_bpr == "14/14"`
+before it is hash-locked.
 
-Dry run reads `834bc7113a13beea`. One command once item 2 is settled.
+Dry run reads `834bc7113a13beea`. One command, now that item 2 is settled.
 
 ---
 

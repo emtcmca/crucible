@@ -51,7 +51,7 @@ flowchart TD
     ADP["Armorer input adapter [C]<br/>enumerated projection<br/>no free-text field"]
     ARM["ARMORER [M]<br/>gemini-3.7-flash<br/>deny / constrain_arg / require_approval"]
     VAL["DSL parser and validator [C]<br/>assigns the rule id"]
-    WAR["REGRESSION_WARDEN [C]<br/>24 benign, 9 known-bad, replay"]
+    WAR["REGRESSION_WARDEN [C]<br/>26 benign, 9 known-bad, replay"]
     GATE["PROMOTION_GATE [C]<br/>write, read the bytes back,<br/>recompute the hash"]
     NEXT{"Promoted?"}
     CONV["3 consecutive dry rounds<br/>equals converged"]
@@ -72,7 +72,7 @@ flowchart TD
     ADP --> ARM
     ARM -->|"PatchSet with placeholder ids"| VAL
     VAL -->|"candidate policy at vN+1"| WAR
-    WAR -->|"24 of 24 and 12 of 12, or reject"| GATE
+    WAR -->|"26 of 26 and 14 of 14, or reject"| GATE
     GATE --> NEXT
     NEXT -->|"yes, policy becomes vN+1"| GOV
     NEXT -->|"no"| GOV

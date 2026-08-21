@@ -160,7 +160,7 @@ turns them from absences into decisions.
 - **D5 corpus freeze** — hash the corpus and Part B, upload sealed to GCS, hash into the D5 post. **Must land before the first patch is written.**
 - **The first real loop run.** Compute-heavy, and it produces every number.
 - **D2 gate-rule freeze** — held pending GX5; GX5 is now landed, so this is unblocked.
-- **`corpus/C6-reach` branch** — four instances that make `CAP_INVOKES_AGENT` reachable, parked because they break two frozen counts. Needs a ruling: retire two F5 attacks and two benigns, or amend the counts.
+- **`corpus/C6-reach` branch — MERGED 2026-08-21.** Four instances that make `CAP_INVOKES_AGENT` reachable. Eric ruled to amend the two frozen counts it broke (F5 8→10, benign 24→26, near-miss 12→14) rather than retire instances. `measurement-spec.md` §1.3's ≥3-routing requirement is still unmet (2 of 10) — a known, reported deviation.
 - **`r_new3` fails validator V4** — names `status_to` values Part A does not declare. Both P03 instances are already inside the declared enum, so it is a rule rewrite with no corpus change.
 - **`ALLOW` / `allow`** — `engine.py:165` compares `!= "ALLOW"`; all 269 authored trace events spell `"allow"`. Any prefix reaching the engine without `corpus/model.py::canonical_decision` makes every `preceded_by` read false and takes P11 through P14 with it.
 - **ADR-0010 vs "unedited, live execution"** — see `CONTEST.md` §4.

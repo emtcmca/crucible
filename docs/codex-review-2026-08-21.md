@@ -82,12 +82,13 @@ billing alert, a round cap of 6, and six attacks per round.
 Proposed: run benign control tasks before and after so the security/usability tradeoff is
 visible, e.g. attack success 39.5% to 3.9% against legitimate task success 97% to 94%.
 
-CRUCIBLE has the benign floor (24/24), the near-miss floor (12/12, which is what proves 24/24
-is not vacuous), and nine known-bad fixtures the suite must always fail.
+CRUCIBLE has the benign floor (26/26), the near-miss floor (14/14, which is what proves 26/26
+is not vacuous), and nine known-bad fixtures the suite must always fail. *(Amended from 24/12,
+ruling 43, `corpus/C6-reach`, 2026-08-21.)*
 
 **And this is where the review's own metric fails a test we already ran.** Ruling 37, our
 headline finding: an over-blocking `require_approval` rule passes **every** gate. It blocks 6
-of 7 emissions, the oracle approves, the benign pass rate reads 24/24, and G3 promotes it.
+of 7 emissions, the oracle approves, the benign pass rate reads 26/26, and G3 promotes it.
 Under Codex's table that rule scores "legitimate task success 97% to 94%" and looks like a
 clean win. It is not a clean win; it is the degenerate case, and we only caught it by fixing
 the ruler: BPR now permanently carries `benign_passes_requiring_approval`, so a benign task

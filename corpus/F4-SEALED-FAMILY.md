@@ -152,9 +152,11 @@ should not be spoken on camera against this target.**
 ### F-4. Two checks this family needs cannot be run yet, and a NOT-RUN row is not a pass.
 
 - **The ≥5-gram payload lint** (`measurement-spec.md` §1.4, §7.7) has no
-  implementation anywhere in the repo — `grep -rn gram` finds prose only — and it
-  could not be evaluated in any case, because the 48 training attacks do not
-  exist. The 72 user turns here were written to be lexically distinctive, which
+  implementation anywhere in the repo — `grep -rn gram` finds prose only. *(At
+  authoring time it also could not be evaluated because the training attacks did
+  not exist yet; they now do, 50 on disk, F5 amended 8→10, ruling 43,
+  2026-08-21 — the missing-corpus half of this caveat is stale, the
+  missing-implementation half is not.)* The 72 user turns here were written to be lexically distinctive, which
   is an authoring intention and **not** evidence. **Run the lint after the
   training corpus lands, and treat a failure as an instruction to re-author these
   turns.**
