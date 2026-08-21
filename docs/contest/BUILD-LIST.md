@@ -17,10 +17,10 @@ bonus.
 
 | # | Item | Scores | State |
 |---|---|---|---|
-| T0-1 | **Architecture diagram** in the repo — Gemini → backend → database → frontend, plus the blindness boundaries | **[S1] [30D]** | does not exist |
-| T0-2 | **First Cloud Run deploy**, with console and Trace Explorer captures into `docs/proof/` | **[S1] [30D]** | Day 2 item, not done |
+| T0-1 | **Architecture diagram** | **[S1] [30D]** | **DONE 2026-08-21.** `docs/diagrams/architecture.md`, six Mermaid diagrams, all rendered and validated. Round loop inlined in the README. Seven unbuilt components drawn dashed and named |
+| T0-2 | **First Cloud Run deploy**, with console and Trace Explorer captures into `docs/proof/` | **[S1] [30D]** | **UNBLOCKED, not fired.** `adk deploy` needs a module-level `root_agent` and the target had none; shim built outside the freeze boundary. `deploy/RUNBOOK.md` has the command and the four postconditions. Owner's to run |
 | T0-3 | **Visible Google Cloud proof in the video** — the backend running, on camera | **[S1] [30D]** | blocked on T0-2 |
-| T0-4 | **`README.md` spin-up instructions**, verified by a cold clone on D10 | **[S1] [30D]** | not written |
+| T0-4 | **`README.md` spin-up instructions** | **[S1] [30D]** | **DONE 2026-08-21.** 810 lines, every command run and its real output pasted, four items marked UNVERIFIED with what would settle each. Cold-clone verification still owed on D10 |
 | T0-5 | **Findings and learnings** section in the submission text | **[S1]** | Project Story posted; findings owed |
 | T0-6 | **The 4-minute video**, public, English | **[S1] [30D]** | script exists, not recorded |
 
