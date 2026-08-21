@@ -134,39 +134,57 @@ exit 2. Do not route around it.
 
 **Updated:** 2026-08-20 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**W0 HAS EXITED. W1 IS APPROVED AND OPEN.** Nine contracts authored, hashed, and
-committed to `contracts/` (12 files / 9 IDs) with `MANIFEST.json`, 18 golden fixtures,
-six lane briefs, and a five-pass `contract-check.py` that is green and whose
-`--selftest` proves each pass can fail. Rulings **1-25**, SPINE_VERSION 2. HEAD
-`fbb00fa`, tree clean, remote at parity, all commits signed. No application code, no
-service accounts, no IAM bindings yet.
+**W1 IS COMPLETE AND MERGED.** Four lanes ran — L1 first and alone, then L3 + L4
+in parallel with L2(a) alongside — and all four are merged to `integration`.
+**364 tests, `contract-check.py` five passes OK, `crucible.tripwire --selftest`
+exit 0, census 11 built of 36.** Rulings **1-33**, SPINE_VERSION **4**, **TEN**
+contracts. Everything pushed; `main` and `integration` both at parity.
+
+**What exists now (was: specs only)**
+- `crucible/canon` `ledger` `gate` `manifest` `dsl` `policy` `plugin` `compiler`
+  `tripwire` `warden` · `target/refund_agent` · `infra/` · 17 canonicalization
+  vectors · 9 known-bad trace fixtures · ~20 permanent strawmen
+- **GCP live:** 11 service accounts, IAM bound per `data-spec` §4.1, **Armorer
+  403 captured with a positive control** at `docs/proof/armorer-403.txt`
+- Sealed-corpus pre-commit hook **armed and proven** (`core.hooksPath` absolute,
+  so all six worktrees are covered regardless of branch)
+
+**Four defects found that would have survived to the demo**
+- **`target_agent_hash` covered tool NAMES, not one line of tool BODY.** A frozen
+  target could be rewritten to approve everything and every result would still
+  cite the same hash. Ruling 30.
+- **"ledger" named two components** sharing zero methods. L2 was one step from
+  wiring the RUN LEDGER into the target. Ruling 29.
+- **`objective_set_hash` is a hash-lock with no contract.** Now C10, ruling 31.
+- **`origin` inside `rule_id`** broke convergence detection; L3 fixed half of it.
+  Ruling 32.
 
 **Open threads**
-- **W1 sequence, ruled by Eric 2026-08-20:** **L1 FOUNDATION first and alone** — the
-  canonicalizer gates everything that gets hashed. **Then L3 + L4 in parallel** once
-  the canonicalizer is in place and active, with **L2(a) alongside them.**
-- **L1's first deliverables:** the canonicalizer against
-  `contracts/canonicalization.md` §3 golden vectors (10/11/12 are the negative half —
-  BOM, float, and `null` must be **rejected**), then service accounts and IAM
-  bindings, including the Armorer 403 to `docs/proof/armorer-403.txt`.
-  **Do not delegate the IAM bindings unattended** — a wrong binding on the policies
-  bucket silently destroys G8.
-- **L1 owes the `corpus/sealed/` pre-commit hook before D5** — public repo makes an
-  accidental `git add -f` permanent and voids the sealed-family claim.
-- **D1 Devpost post** — trigger (contracts hashed) is met. Outward-facing, needs
-  approval. A pre-hash post already went up, so this is the **second**.
-- `data-spec.md` §7.3 teardown still calls `gcloud ai agents`, which does not exist at
-  SDK 581.0.0 in GA, beta, or alpha.
-- Census: **35 required negative checks, 0 built.** A lane turns its own green.
+- **D1 Devpost post** — outward-facing, needs approval. Second post (one pre-hash
+  already went up).
+- **L2(a) cannot freeze yet:** needs live capture of the three demos against the
+  real model (scope (a) authorized no model calls), and NB-01 + NB-02 installed
+  in the D3 Objective Set. `python -m target.refund_agent.freeze --write` is one
+  command and was deliberately not run.
+- **W2 is the next wave and its gate is a human decision** (`lanes-spec` §5).
+  L2(b) — 48 training attacks, 24 sealed, 24 benign — **cannot be fully
+  delegated**: ~2.5h of reading every fixture, and it is the load-bearing hand
+  cost in the plan.
+- Ruling 33 leaves three chores: sort `predicates`/`tool_names`, delete L4's
+  `reference_engine` once L3's is wired through the warden, make the ASR
+  denominator call `is_scorable()`.
+- Credit code follow-up Mon 08-24. Target freeze **Sat 08-22**. Cut line **Tue
+  08-25**. Submission **Mon 08-31 17:00 PDT**.
 
 **Watch out for**
-- **A search that reports CLEAN may be unable to see it.** Phrase greps miss
-  hard-wrapped prose, and fixing that still misses phrases wrapping inside
-  blockquotes. One string swept 4 → 9 → 14.
-- **§8 rule 12: a spec states the contract, not the status.** Status assertions carry a
-  date; undated is `[UNVERIFIED]`.
-- **G8 grant direction inverts easily** — `crucible-gate` → `objectCreator`;
-  `crucible-armorer` → no storage role. **Never lock the retention policy.**
-- **`episode.*` freezes before the first user turn.** One turn moving
-  `episode.account_holder_email` collapses the F4 seal.
+- **Ask every hash-lock what change it would FAIL to notice.** One of five locked
+  nothing, and the field name gave no hint.
+- **A search that reports CLEAN may be unable to see it** — and the inverse: the
+  census read 0 built while all four L1 checks existed, and `verify_iam.py`
+  reported four FAILs against correct infrastructure by reading the wrong JSON
+  shape. That error's direction was luck.
+- **§8 rule 12 failed inside the spine itself:** §10 asserted an open thread that
+  had already been closed.
+- **G8 grant direction inverts easily.** **Never lock the retention policy.**
+  **`episode.*` freezes before turn one.**
 <!-- VAULT:SESSION-STATE end -->
