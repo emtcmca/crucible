@@ -134,60 +134,60 @@ exit 2. Do not route around it.
 
 **Updated:** 2026-08-20 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**W1 COMPLETE. W2 INTEGRATION I PASSES. W3 LANES RUNNING.** Rulings **1-33**,
-SPINE_VERSION **4**, **TEN** contracts. `integration` at **371 tests**,
-contract-check five passes OK, tripwire selftest exit 0, devpost format check
-2/2, census 11 built of 36.
+**ALL SIX LANES BUILT AND MERGED TO `integration`. W2 PASSES.** Rulings **1-39**,
+SPINE_VERSION **7**, **TEN** contracts. `integration`: **673 tests**,
+contract-check five passes OK, tripwire selftest exit 0, W2 smoke passes,
+devpost format 2/2, census 12 of 36, gates **5 WIRED / 2 PARTIAL / 2 ABSENT**.
 
-**W2 — the lanes run together.** `scripts/w2-smoke.py` + `tests/test_w2_integration.py`:
+**TWO THINGS NEED ERIC**
+1. **`integration` → `main` is a WAVE BOUNDARY.** `lanes-spec` §5: the coordinator
+   does not merge across one unattended. Everything is pushed and green.
+2. **RULING 34, BLOCKING: the repo is PUBLIC and has NO LICENSE.** Under default
+   copyright a stranger who clones it may not use, modify or run it — and the
+   judge-reproduction path is a differentiated claim. Apache-2.0 matches Eric's
+   other OSS. **Obvious is not decided; it is an ownership call.**
 
-```
-policy@v0 (EMPTY)              policy@v1 (one hand-written rule)
-  ATTACK  BREACH, executed       ATTACK  CLEAN, zero executed
-  BENIGN  CLEAN                  BENIGN  CLEAN, benign work still ran
-```
+**RULING 37 — the most important finding of D1.** L5 measured live: **6 of 7**
+emissions chose `require_approval`, all six block a legitimate delegated refund,
+**all six pass every gate.** They resolve to `APPROVAL_REQUIRED`, the oracle
+approves, BPR stays 24/24, **G3 promotes.** An over-blocking policy is invisible
+to the benign floor, on the majority choice, in round one. Fixed by fixing the
+**ruler**: BPR now carries `benign_passes_requiring_approval` permanently, and
+ruling 12's metric is computed **per promoted rule per round**.
 
-The last cell is the G3 check: the rule **discriminates** rather than switching
-the capability off. Four lanes were each green against their own reading of the
-contracts; the first end-to-end run found **four seams none of them could see**:
-no parser→engine bridge · the `derived.*` **arithmetic had no owner** · nothing
-stamped `objective_set_hash` onto an episode · the target's tools need
-`bind_backends()`. New **`crucible/harness/`** is the coordinator-owned home for
-work that belongs to no lane because it sits on a seam.
+**Ruling 38 reversed my own ruling 32.** A frozen contract carried the better
+argument — `origin`'s CLASS decides retractability (semantic, stays in the hash);
+only the ROUND is provenance (moves out). Implementing it broke V6, which read
+`startswith("armorer:")` and would have refused **every** retraction. Tests
+caught it.
 
-**GATE — needs Eric**
-- **`integration` → `main` is a WAVE BOUNDARY.** `lanes-spec` §5: the coordinator
-  does not merge across one unattended. W2 is that boundary. Everything is
-  pushed and green; the merge is yours.
-- **Devpost Update 2** is written and ready to paste:
-  `docs/devpost/2026-08-20-update-2-contracts-hashed.md`. Outward-facing.
-- **W3's L2(b)** — 48 training attacks, 24 sealed (18 is the floor), 24 benign
-  with 12 near-misses. **~2.5h of reading every fixture personally.** Everything
-  *around* it is being built now.
+**Six of ten contracts were not valid JSON Schemas** (array-valued `$comment`).
+L5 found one; the sweep found five more. `contract-check` never noticed because
+`iter_errors` ignores `$comment` — **it validated fixtures against schemas
+without checking the schemas.** Now calls `check_schema`, verified by regressing
+C9 on purpose.
 
-**Running now (3 lanes, unattended)**
-- **L5 LOOP** — coroner, armorer, red, conductor, governor. Model calls.
-- **L6 EVIDENCE** — offline replay viewer + evidence bundle.
-- **L2(b) VALIDATORS** — label-blindness harness, approver lint, SEP-BY split.
-  **Authoring no fixtures**, deliberately.
+**Ready for D2 (Fri 08-21)** — `scripts/freeze-d2-gate-rule.py`, dry run
+`834bc7113a13beea`, all four refusals exercised. Update 3 drafted, **not posted**
+(hash is the literal `HASH_PENDING`). **ADR-0001** locks the update format;
+`check-devpost-format.py` enforces it, selftest 7/7.
 
-**Ready for D2 (Fri 08-21)**
-`scripts/freeze-d2-gate-rule.py` — dry run reads `834bc7113a13beea`, matches
-MANIFEST. All four refusals exercised. Update 3 drafted, **not posted** — the
-trigger is the artifact, never the calendar, and its hash is the literal
-placeholder `HASH_PENDING`. **ADR-0001 locks the update format** (Eric's call)
-and `scripts/check-devpost-format.py` enforces it, selftest 7/7.
-
-**Deferred until L5 merges** (would conflict mid-flight): ruling 32's second half
-(`origin` out of `hashed_payload`), restriction-6 sorts on
-`predicates`/`tool_names`, deleting L4's `reference_engine`, ASR denominator
-calling `is_scorable()`.
+**Still owed**
+- **L2(b): the human fixture-authoring pass**, ~2.5h. Everything around it is
+  built; `python -m corpus` prints nine `NOT-RUN` rows and exits 2.
+- G4 and G6 ABSENT; G3 and G5 PARTIAL — all four need the corpus or the real
+  round loop. L5's campaign uses lane-authored stand-ins and **its numbers are
+  unquotable, declared so by the lane in a bundle field.**
+- Ruling 39: the ARMORER prompt freezes at D3 as a run-manifest parameter.
+- Ruling 33 chores: restriction-6 sorts, delete L4's `reference_engine` once
+  L3's is wired through the warden, ASR denominator must call `is_scorable()`.
 
 **Watch out for**
-- **Ask every hash-lock what change it would FAIL to notice.** One of five
-  locked nothing.
-- **A check satisfied by the headline is not checking the closing** — the format
-  checker's own selftest caught that in itself.
+- **Ask every check what it would FAIL to notice.** One hash-lock locked nothing;
+  one schema checker never checked schemas; one format check was satisfied by the
+  title.
+- **A pin is retired by the party allowed to retire it** — L5 and L6 both pinned
+  defects with tests that fail when fixed, and both said so in the failure text.
 - Target freeze **Sat 08-22** · cut line **Tue 08-25** · submission **Mon 08-31
   17:00 PDT**.
 <!-- VAULT:SESSION-STATE end -->

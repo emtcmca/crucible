@@ -204,9 +204,14 @@ the ones that look good.
 
 ## License
 
-**Not yet chosen.** Verified 2026-08-20: there is no `LICENSE` file in this repository and
-no license is declared anywhere in it. Under default copyright that means a stranger who
-clones this repository has no granted right to use it, which sits badly with a public
-repository whose entire value proposition is "replay the evidence yourself." Choosing one
-is the builder's call, not a lane's, so this line says what is true rather than what would
-be convenient.
+**Apache License 2.0.** See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Chosen
+2026-08-20 by the repository owner.
+
+*This section read "Not yet chosen" until that date, and the reason it did is worth
+keeping.* A lane writing this README first drafted "Licensed under Apache-2.0" from habit,
+because that is what the author's other public work uses. **Nothing in the repository said
+so.** It checked before shipping the sentence, found no `LICENSE`, and wrote what was true
+instead — which is how anyone found out that a public repository whose entire value
+proposition is *"replay the evidence yourself"* granted a stranger no right to run it.
+
+The most confident sentences are the ones nobody thinks to verify.

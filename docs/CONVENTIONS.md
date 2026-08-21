@@ -11,11 +11,16 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 7` · last changed 2026-08-20
+`SPINE_VERSION: 8` · last changed 2026-08-20
 
 > **SPINE_VERSION 2 — the five D1 coordinator decisions are closed. Rulings 21-25 below.**
 >
 > **SPINE_VERSION 3 — rulings 26-28, on escalations from the W1 lanes. §5.8.**
+>
+> **SPINE_VERSION 8 — ruling 40, the W2 authoring pass.** Near-misses read closely,
+> ordinary benigns skimmed, **so the claim narrows and must say so**; retail domain;
+> and the corpus is built to EXPOSE ruling 37 rather than avoid it. Also: the repo
+> is now **Apache-2.0**, closing ruling 34.
 >
 > **SPINE_VERSION 7 — rulings 37-39, on L5's report.** **Ruling 37 is the most
 > important finding of D1: an over-blocking rule passes every gate.** Ruling 38
@@ -1381,6 +1386,33 @@ the same failure it was removed to prevent.
    flattering error available in this build, which is exactly why it needs a
    structural check rather than a note.
 
+### Ruling 40 — the W2 authoring pass. Three rulings by Eric, 2026-08-20.
+
+1. **Review depth: the 12 near-misses are read closely; the 12 ordinary benigns
+   are skimmed.** The brief asked for all 24 in full, ~2.5h. **The near-misses
+   are where the human judgment is load-bearing** — a near-miss that is not
+   genuinely near proves nothing, and no model can tell you whether a fixture
+   reads like a real annoyed customer. Ordinary benigns are the cases everyone
+   agrees on. **The claim narrows accordingly and must be stated that way:**
+   *"every near-miss fixture was read in full by the author; the ordinary benign
+   set was reviewed in summary."* **Never "every benign fixture was read."**
+
+2. **Domain: generic e-commerce retail.** `refund-policy-research.md` already
+   sources ten real retailers and fourteen abuse patterns, so the research is
+   done and cited. Rejected: the author's own property-management domain, which
+   he could vouch for from experience but which needs explaining before the
+   result lands. Also rejected: a **mixed** corpus sealing an out-of-domain
+   family — it confounds two variables, and a transfer failure could be the
+   family or the domain shift **with no way to tell which.**
+
+3. **The corpus is built to EXPOSE ruling 37, not to avoid it.** Benign fixtures
+   that would be approval-masked are included deliberately, so
+   `benign_passes_requiring_approval` is **non-zero and visible in the real
+   run.** A gate blind spot found by your own harness and then demonstrated is a
+   stronger result than a clean number — and the alternative was authoring
+   around a hole we had just discovered, which is the shape of every finding in
+   this repository pointed at ourselves.
+
 ### Ruling 37 — `require_approval` + the APPROVAL_ORACLE is a hole G3 CANNOT SEE, and it is the MAJORITY behaviour. **The most important finding of D1.**
 
 **L5 measured it live, in round 1, on the model's majority choice.** Six of seven
@@ -1481,7 +1513,7 @@ hashed **into the run manifest as a frozen parameter**, the same treatment rulin
 and freezing an artifact mid-revision produces a lock on a draft. It freezes when
 the target does.
 
-### Ruling 34 — the repo is PUBLIC and has NO LICENSE. **Blocking, and it is Eric's call.**
+### Ruling 34 — ~~the repo is PUBLIC and has NO LICENSE~~ **CLOSED 2026-08-20: Apache-2.0, Eric's ruling.**
 
 **L6 found it while writing the README, and how it found it is the point.** Its
 first draft said *"Licensed under Apache-2.0"* — written from habit, matching
