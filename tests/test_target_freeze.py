@@ -116,31 +116,134 @@ def test_target_agent_hash_moves_when_a_TOOL_BODY_changes(tmp_path, monkeypatch)
     tool body left target_agent_hash at edade2064be9b50f -- unchanged. A target
     could be frozen at D3, rewritten to approve everything, and every number
     produced afterwards would still cite the same target hash.
+
+    THIS TEST MUTATES REAL SOURCE ON DISK, AND ON 2026-08-21 THAT COST US.
+
+    Four lanes ran `pytest` concurrently. Two of them reached this test at the
+    same time, both injected, and their `finally` restores raced: each wrote back
+    the "original" it had read, and the one that read second had already read a
+    mutated file. `target/refund_agent/tools.py` was left carrying
+    `_INJECTED = True` TWICE, and `target_agent_hash` sat at `fb133ee8c6f7de55`
+    instead of `125fe7e9e54a419e` - **the day before the D3 freeze locks that
+    file forever.** The injection also displaced `bind_backends`'s docstring out
+    of first-statement position, so `__doc__` became `None`: the corruption
+    changed behaviour, not only the hash.
+
+    Committing that state would have frozen a target with junk in a tool body and
+    every number afterwards would have cited a hash describing it. The test that
+    exists to prove the lock covers behaviour came within one commit of poisoning
+    the thing it locks.
+
+    THREE GUARDS, and the reason each is here:
+
+    1. **An exclusive lock**, so two concurrent runs cannot interleave. This is
+       the actual root cause; the rest is containment.
+    2. **A pristine check before mutating.** If the file is already dirty this
+       test refuses to run rather than "restoring" to a corrupted baseline and
+       laundering the corruption into something that looks original.
+    3. **A verified restore.** The old code restored inside `finally` and then
+       asserted equality - but a `finally` that itself fails is silent, and the
+       assert ran after the try block rather than as part of the restore. The
+       restore now re-reads from disk and raises loudly on mismatch.
     """
-    import hashlib
+    import os
     import pathlib
+    import time
+
+    import pytest
 
     from target.refund_agent import freeze
 
-    before = freeze.compute()["target_agent_hash"]
     tools_py = pathlib.Path(freeze.tools.__file__)
-    original = tools_py.read_bytes()
-    try:
-        src = original.decode("utf-8")
-        i = src.index("def ")
-        j = src.index("\n", src.index(":", i))
-        tools_py.write_bytes(
-            (src[:j] + "\n    _INJECTED = True" + src[j:]).encode("utf-8"))
-        after = freeze.compute()["target_agent_hash"]
-    finally:
-        tools_py.write_bytes(original)
+    lock_path = tools_py.parent / ".freeze-mutation.lock"
 
-    assert before != after, (
-        "a statement was inserted into a tool body and the target hash did not "
-        "move. The D3 freeze would lock tool NAMES while the target's behaviour "
-        "stayed editable, and every result would cite a hash that no longer "
-        "describes what ran.")
-    assert freeze.compute()["target_agent_hash"] == before, "restore failed"
+    # Guard 1. O_EXCL is atomic on Windows and POSIX alike, so exactly one
+    # process can hold it. Spin rather than fail: a concurrent run is normal and
+    # will finish in milliseconds.
+    fd = None
+    for _ in range(600):                       # 60s ceiling
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            time.sleep(0.1)
+    if fd is None:
+        pytest.skip("another pytest run holds the target-mutation lock for 60s; "
+                    "skipped rather than run unserialized, because running this "
+                    "test concurrently is what corrupted tools.py on 2026-08-21")
+
+    try:
+        original = tools_py.read_bytes()
+
+        # Guard 2. Refuse a corrupted baseline.
+        assert b"_INJECTED" not in original, (
+            "target/refund_agent/tools.py ALREADY contains the injection marker "
+            "before this test ran. A previous run died between mutate and "
+            "restore, or two runs raced. Restore it with "
+            "`git checkout -- target/refund_agent/tools.py` and re-run. This "
+            "test will not 'restore' to a dirty baseline, because that would "
+            "make corrupted source look original.")
+
+        before = freeze.compute()["target_agent_hash"]
+        try:
+            src = original.decode("utf-8")
+            i = src.index("def ")
+            j = src.index("\n", src.index(":", i))
+            tools_py.write_bytes(
+                (src[:j] + "\n    _INJECTED = True" + src[j:]).encode("utf-8"))
+            after = freeze.compute()["target_agent_hash"]
+        finally:
+            # Guard 3. Restore, then PROVE the restore by re-reading disk. A
+            # silent failure here is how the file stays poisoned.
+            tools_py.write_bytes(original)
+            restored = tools_py.read_bytes()
+            if restored != original:
+                raise RuntimeError(
+                    "FAILED TO RESTORE target/refund_agent/tools.py. The file on "
+                    "disk does not match what was read before mutation. Run "
+                    "`git checkout -- target/refund_agent/tools.py` NOW and do "
+                    "not commit until `git status` is clean.")
+
+        assert before != after, (
+            "a statement was inserted into a tool body and the target hash did "
+            "not move. The D3 freeze would lock tool NAMES while the target's "
+            "behaviour stayed editable, and every result would cite a hash that "
+            "no longer describes what ran.")
+        assert freeze.compute()["target_agent_hash"] == before, (
+            "the hash did not return to its pre-mutation value after restore")
+    finally:
+        os.close(fd)
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def test_the_target_package_carries_no_injection_marker():
+    """The guard that would have caught 2026-08-21, and the cheapest one here.
+
+    `_INJECTED` is written into real source by the mutation test above and by
+    nothing else, so its presence in any RUNTIME_MODULE means a mutating test
+    died mid-flight. This runs in every suite and costs microseconds.
+
+    It is deliberately NOT a git-cleanliness check. `git status` being dirty on
+    the target is legitimate right up until the D3 freeze - people edit the
+    target. What is never legitimate is THIS marker, which no human would write.
+    A guard that fires on ordinary work gets disabled; a guard that fires only on
+    the actual defect gets kept.
+    """
+    import pathlib
+
+    from target.refund_agent.freeze import RUNTIME_MODULES
+
+    here = pathlib.Path(__file__).resolve().parent.parent / "target" / "refund_agent"
+    poisoned = [m for m in RUNTIME_MODULES
+                if b"_INJECTED" in (here / m).read_bytes()]
+    assert not poisoned, (
+        "%s in the frozen target package still carry the mutation test's "
+        "injection marker. A test died between mutate and restore. Run "
+        "`git checkout -- target/refund_agent/` before committing anything - "
+        "this source is about to be hash-locked." % poisoned)
 
 
 def test_a_new_module_in_the_target_package_is_refused(tmp_path):
