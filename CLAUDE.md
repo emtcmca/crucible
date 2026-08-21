@@ -134,39 +134,60 @@ exit 2. Do not route around it.
 
 **Updated:** 2026-08-20 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**W0 HAS EXITED. W1 IS APPROVED AND OPEN.** Nine contracts authored, hashed, and
-committed to `contracts/` (12 files / 9 IDs) with `MANIFEST.json`, 18 golden fixtures,
-six lane briefs, and a five-pass `contract-check.py` that is green and whose
-`--selftest` proves each pass can fail. Rulings **1-25**, SPINE_VERSION 2. HEAD
-`fbb00fa`, tree clean, remote at parity, all commits signed. No application code, no
-service accounts, no IAM bindings yet.
+**W1 COMPLETE. W2 INTEGRATION I PASSES. W3 LANES RUNNING.** Rulings **1-33**,
+SPINE_VERSION **4**, **TEN** contracts. `integration` at **371 tests**,
+contract-check five passes OK, tripwire selftest exit 0, devpost format check
+2/2, census 11 built of 36.
 
-**Open threads**
-- **W1 sequence, ruled by Eric 2026-08-20:** **L1 FOUNDATION first and alone** — the
-  canonicalizer gates everything that gets hashed. **Then L3 + L4 in parallel** once
-  the canonicalizer is in place and active, with **L2(a) alongside them.**
-- **L1's first deliverables:** the canonicalizer against
-  `contracts/canonicalization.md` §3 golden vectors (10/11/12 are the negative half —
-  BOM, float, and `null` must be **rejected**), then service accounts and IAM
-  bindings, including the Armorer 403 to `docs/proof/armorer-403.txt`.
-  **Do not delegate the IAM bindings unattended** — a wrong binding on the policies
-  bucket silently destroys G8.
-- **L1 owes the `corpus/sealed/` pre-commit hook before D5** — public repo makes an
-  accidental `git add -f` permanent and voids the sealed-family claim.
-- **D1 Devpost post** — trigger (contracts hashed) is met. Outward-facing, needs
-  approval. A pre-hash post already went up, so this is the **second**.
-- `data-spec.md` §7.3 teardown still calls `gcloud ai agents`, which does not exist at
-  SDK 581.0.0 in GA, beta, or alpha.
-- Census: **35 required negative checks, 0 built.** A lane turns its own green.
+**W2 — the lanes run together.** `scripts/w2-smoke.py` + `tests/test_w2_integration.py`:
+
+```
+policy@v0 (EMPTY)              policy@v1 (one hand-written rule)
+  ATTACK  BREACH, executed       ATTACK  CLEAN, zero executed
+  BENIGN  CLEAN                  BENIGN  CLEAN, benign work still ran
+```
+
+The last cell is the G3 check: the rule **discriminates** rather than switching
+the capability off. Four lanes were each green against their own reading of the
+contracts; the first end-to-end run found **four seams none of them could see**:
+no parser→engine bridge · the `derived.*` **arithmetic had no owner** · nothing
+stamped `objective_set_hash` onto an episode · the target's tools need
+`bind_backends()`. New **`crucible/harness/`** is the coordinator-owned home for
+work that belongs to no lane because it sits on a seam.
+
+**GATE — needs Eric**
+- **`integration` → `main` is a WAVE BOUNDARY.** `lanes-spec` §5: the coordinator
+  does not merge across one unattended. W2 is that boundary. Everything is
+  pushed and green; the merge is yours.
+- **Devpost Update 2** is written and ready to paste:
+  `docs/devpost/2026-08-20-update-2-contracts-hashed.md`. Outward-facing.
+- **W3's L2(b)** — 48 training attacks, 24 sealed (18 is the floor), 24 benign
+  with 12 near-misses. **~2.5h of reading every fixture personally.** Everything
+  *around* it is being built now.
+
+**Running now (3 lanes, unattended)**
+- **L5 LOOP** — coroner, armorer, red, conductor, governor. Model calls.
+- **L6 EVIDENCE** — offline replay viewer + evidence bundle.
+- **L2(b) VALIDATORS** — label-blindness harness, approver lint, SEP-BY split.
+  **Authoring no fixtures**, deliberately.
+
+**Ready for D2 (Fri 08-21)**
+`scripts/freeze-d2-gate-rule.py` — dry run reads `834bc7113a13beea`, matches
+MANIFEST. All four refusals exercised. Update 3 drafted, **not posted** — the
+trigger is the artifact, never the calendar, and its hash is the literal
+placeholder `HASH_PENDING`. **ADR-0001 locks the update format** (Eric's call)
+and `scripts/check-devpost-format.py` enforces it, selftest 7/7.
+
+**Deferred until L5 merges** (would conflict mid-flight): ruling 32's second half
+(`origin` out of `hashed_payload`), restriction-6 sorts on
+`predicates`/`tool_names`, deleting L4's `reference_engine`, ASR denominator
+calling `is_scorable()`.
 
 **Watch out for**
-- **A search that reports CLEAN may be unable to see it.** Phrase greps miss
-  hard-wrapped prose, and fixing that still misses phrases wrapping inside
-  blockquotes. One string swept 4 → 9 → 14.
-- **§8 rule 12: a spec states the contract, not the status.** Status assertions carry a
-  date; undated is `[UNVERIFIED]`.
-- **G8 grant direction inverts easily** — `crucible-gate` → `objectCreator`;
-  `crucible-armorer` → no storage role. **Never lock the retention policy.**
-- **`episode.*` freezes before the first user turn.** One turn moving
-  `episode.account_holder_email` collapses the F4 seal.
+- **Ask every hash-lock what change it would FAIL to notice.** One of five
+  locked nothing.
+- **A check satisfied by the headline is not checking the closing** — the format
+  checker's own selftest caught that in itself.
+- Target freeze **Sat 08-22** · cut line **Tue 08-25** · submission **Mon 08-31
+  17:00 PDT**.
 <!-- VAULT:SESSION-STATE end -->
