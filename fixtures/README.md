@@ -1,13 +1,37 @@
-# `fixtures/` — structure only. **Both directories are empty and that is correct.**
+# `fixtures/` — the benign suite. **One directory holds fixtures; the other stays empty.**
 
 ```
-fixtures/benign/       24 fixtures, 12 of them near-misses.  NOT AUTHORED.
-fixtures/known_bad/    exactly 9, hand-written, never cut.   NOT AUTHORED.
+fixtures/benign/       24 fixtures, 12 of them near-misses.  AUTHORED.
+fixtures/known_bad/    EMPTY, AND IT STAYS EMPTY.  See below.
 ```
 
 Validated by `python -m corpus`, which loads them through `corpus.schema` and
 `corpus.sizing`. Same instance shape as the attack corpus — see
 `corpus/README.md`.
+
+## The nine known-bads do NOT live here, and `corpus.load` refuses it if they do
+
+They are authored in **`tests/golden_traces/known_bad/KB1..KB9.json`**, and
+`corpus.load.load_known_bads` counts them there. `fixtures/known_bad/` holding
+any `*.json` raises `E_KNOWN_BAD_SECOND_HOME` before a single file is read.
+
+Two reasons, and the second one settles it:
+
+1. A second set here puts KB1–KB9 in the tree twice, in two schemas. Two copies
+   of one fixture drift the first time either is corrected, and **nothing
+   notices** — both load, and the count is still nine.
+2. **The corpus instance schema cannot express three of them.**
+   `validate_instance` requires a non-empty trace carrying exactly one
+   `scored: true` call against a Part A tool. **KB5 is a policy document the
+   Warden must reject. KB9 is a document set plus a product lexicon the linter
+   must reject and then accept. Neither has an episode at all.** The only way to
+   satisfy the instance validator is to invent a tool call that never happened,
+   inside an artifact that gets hashed at D5.
+
+`corpus.schema.validate_known_bad` grades them instead: component,
+`expected_verdict`, and the two sentences (`a_wrong_verdict_means`,
+`not_passable_by_accident_because`) that make each fixture argue for itself.
+`must_fail` is still refused by name and `KNOWN_BAD_TOTAL` is still nine.
 
 ## The benign suite asserts a positive, not an absence
 
