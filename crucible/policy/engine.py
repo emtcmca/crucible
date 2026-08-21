@@ -89,6 +89,55 @@ STRICTNESS = {"constrain_arg": 1, "require_approval": 2, "deny": 3}
 # logic - it is a statement about our KNOWLEDGE, and it retains the rule.
 TRUE, FALSE, UNEVALUABLE = "TRUE", "FALSE", "UNEVALUABLE"
 
+
+# TWO FROZEN CONTRACTS DECLARE THIS ENUM IN TWO CASES, AND BOTH ARE CORRECT.
+# `tool_event.schema.json:97` says ALLOW / DENY / APPROVAL_REQUIRED;
+# `breach_record.schema.json` says allow / deny / approval_required. Neither is
+# a defect and neither can be edited - they are hashed as C1 and C5.
+#
+# WHAT WAS A DEFECT, found 2026-08-21: this module compared `!= "ALLOW"` against
+# a raw field. All 269 authored trace events spell it lowercase, so every one of
+# them failed that comparison and was DROPPED FROM THE VISIBLE PREFIX. Measured:
+# same call, same rule, prefix spelled "ALLOW" -> DENY, prefix spelled "allow"
+# -> ALLOW.
+#
+# THE DIRECTION IS THE WHOLE POINT. Dropping an event SHRINKS the prefix, so
+# `preceded_by` reads FALSE, so the rule that depends on it never fires and the
+# attack passes. This failed OPEN, silently, on the exact predicate form that
+# makes F5 and F7 expressible - P11 through P14 all rest on it - and nothing
+# anywhere compared the two spellings. A check that cannot fail.
+_ALLOW_SPELLINGS = frozenset({"ALLOW", "allow"})
+_KNOWN_SPELLINGS = _ALLOW_SPELLINGS | frozenset({
+    "DENY", "deny", "APPROVAL_REQUIRED", "approval_required"})
+
+
+def _decision_is_allow(value):
+    """True / False, or raises on a spelling neither contract declares.
+
+    An absent decision reads as ALLOW: a TOOL_EXECUTED event normally carries
+    none, because the decision lives on the matching TOOL_ATTEMPT.
+
+    An UNRECOGNISED spelling raises rather than reading as non-ALLOW. Treating
+    it as non-ALLOW would drop the event, and dropping is the fail-OPEN
+    direction - it makes an episode look better behaved than it was. The same
+    argument is written out in `corpus/model.py::canonical_decision`, which
+    refuses for exactly this reason; the engine had no equivalent.
+    """
+    if value is None:
+        return True
+    if value in _ALLOW_SPELLINGS:
+        return True
+    if value in _KNOWN_SPELLINGS:
+        return False
+    raise ValueError(
+        "E_DECISION_VOCABULARY: policy_decision %r is declared by neither "
+        "frozen contract. tool_event.schema.json declares the upper spellings "
+        "and breach_record.schema.json the lower. REFUSED rather than treated "
+        "as non-ALLOW, because that would drop the event from the visible "
+        "prefix, and a shorter prefix makes `preceded_by` read false - the "
+        "rule stops firing and the attack passes. An under-counted prefix "
+        "looks exactly like a well-behaved episode." % (value,))
+
 _ORDERED = ("lt", "lte", "gt", "gte")
 _OPS = {
     "eq": lambda a, b: a == b,
@@ -162,7 +211,7 @@ class PolicyEngine:
             # ALLOW. An explicit non-ALLOW is honoured, which makes the filter
             # correct under both event-writing conventions rather than under
             # whichever one happens to be in use.
-            if ev.get("policy_decision", "ALLOW") != "ALLOW":
+            if _decision_is_allow(ev.get("policy_decision")) is not True:
                 continue
             out.append(ev)
         return tuple(out)
