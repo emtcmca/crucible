@@ -42,7 +42,14 @@ from crucible.manifest.load import CAPABILITY_CLASSES
 
 from .errors import CorpusError
 from .lints import lint_approver
-from .model import KINDS, SEALED_FAMILY, TRAINING_FAMILIES, tool_index
+from .model import (
+    KINDS,
+    SEALED_FAMILY,
+    TRAINING_FAMILIES,
+    canonical_decision,
+    canonical_status,
+    tool_index,
+)
 
 REQUIRED_COMMON = ("slug", "kind", "capability_classes", "tool_fqname",
                    "scored_features", "scenario", "trace")
@@ -219,6 +226,20 @@ def _validate_trace(doc, manifest):
                               % (doc.get("slug"), i, ev.get("tool_fqname")))
         if ev.get("scored"):
             scored += 1
+        # Vocabulary, at load, on every event. `blindness._prefix` refuses an
+        # unrecognised decision too, but by then the instance is already in the
+        # corpus - and this is the cheaper place to catch it, because it names
+        # the instance and the event index while the file is being read.
+        where = "instance %r trace[%d]" % (doc.get("slug"), i)
+        if "policy_decision" not in ev:
+            raise CorpusError(
+                "E_DECISION_ABSENT",
+                "%s declares no policy_decision. An event with no decision "
+                "drops out of the episode prefix without saying so, and every "
+                "aggregate computed over that prefix reads low." % where)
+        canonical_decision(ev["policy_decision"], where=where)
+        if "status" in ev:
+            canonical_status(ev["status"], where=where)
         for arg in (ev.get("args") or {}):
             if arg.startswith("derived.") or arg.startswith("episode."):
                 raise CorpusError(

@@ -57,6 +57,7 @@ definition.
 from collections.abc import Mapping
 
 from .errors import CorpusError
+from .model import canonical_decision, canonical_status
 
 # Everything a field computer may legitimately read. Anything else raises.
 VISIBLE = ("scenario", "trace", "tool_fqname", "capability_classes", "approver")
@@ -137,12 +138,34 @@ def _prefix(view, include_pending=True):
     The pending call is INCLUDED in aggregates, also from section 1: exclude it
     and the call that first crosses the threshold is the one that executes,
     which is precisely how KB3's sixth transfer lands.
+
+    **The decision and status are resolved through the contract vocabulary, not
+    compared against a literal.** This function used to read
+    `ev.get("policy_decision") == "allow"`, and `contracts/tool_event.schema.json`
+    spells that value `ALLOW`. An event carrying the C2 spelling - or a typo, or
+    nothing at all - fell through both branches and was simply not counted. No
+    exception, no row, no sign anywhere: the prefix got shorter, every episode
+    aggregate read low, and an `episode_sum` rule stopped firing on the calls it
+    exists to catch. `model.canonical_decision` refuses an unrecognised value by
+    name instead, because an under-counted aggregate looks exactly like a
+    well-behaved episode.
     """
     out = []
-    for ev in view["trace"]:
+    for i, ev in enumerate(view["trace"]):
         if ev.get("scored") and not include_pending:
             continue
-        if ev.get("policy_decision") == "allow" and ev.get("status") == "ok":
+        where = "trace[%d]" % i
+        if "policy_decision" not in ev:
+            raise CorpusError(
+                "E_DECISION_ABSENT",
+                "%s declares no policy_decision. Absent is refused rather than "
+                "defaulted for the same reason `approver` is (ruling 23.4): "
+                "'the call was allowed' and 'the author did not say' are "
+                "otherwise the same bytes, and the second one silently shortens "
+                "the episode prefix every aggregate is computed over." % where)
+        decision = canonical_decision(ev["policy_decision"], where=where)
+        status = canonical_status(ev.get("status", "ok"), where=where)
+        if decision == "ALLOW" and status == "ok":
             out.append(ev)
         elif ev.get("scored"):
             out.append(ev)

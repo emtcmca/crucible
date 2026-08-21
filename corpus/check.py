@@ -30,7 +30,7 @@ import io
 import sys
 
 from .blindness import run_blindness_check
-from .errors import CorpusError
+from .errors import CorpusError, NotRun
 from .lints import (
     lint_fault_reason_code,
     lint_sealed_capability_classes,
@@ -42,9 +42,19 @@ from .part_b import build_part_b
 from .sepby import split
 from .sizing import check_class_coverage, check_sizing
 
-if hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8",
-                                  errors="replace")
+def _force_utf8_stdout():
+    """Windows consoles default to cp1252 and the error details here are not ASCII.
+
+    Called from `main()`, NOT at import. It was at module scope, which meant
+    importing this module for any reason - a test that exercises the Runner, a
+    tool that wants `main` without calling it - swapped the process's stdout out
+    from under whoever owned it. Under pytest that closes the capture file and
+    the ENTIRE suite reports `no tests ran`, which is a red that says nothing
+    about any test.
+    """
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8",
+                                      errors="replace")
 
 
 class Runner:
@@ -57,6 +67,12 @@ class Runner:
             return None
         try:
             result = fn()
+        except NotRun as e:
+            # The check looked, and there was nothing there. `skip_if_absent` is
+            # decided from the filesystem before a check runs; this is the same
+            # verdict reached after the check has computed its own input.
+            self.rows.append((name, "NOT-RUN", e.reason))
+            return None
         except CorpusError as e:
             self.rows.append((name, "FAIL", "%s: %s" % (e.code, e.detail)))
             return None
@@ -82,6 +98,7 @@ def _summary(result):
 
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
+    _force_utf8_stdout()
     r = Runner()
 
     manifest = load_part_a()
@@ -116,6 +133,19 @@ def main(argv=None):
             if a and b:
                 lint_fault_reason_code(a, b, fault_codes=fault)
                 checked += 1
+        if checked == 0:
+            # This row used to print `PASS pairs_checked=0`. A lint that
+            # examined nothing is not a lint that passed, and the same file's
+            # own doctrine says NOT-RUN for a check with no input. It matters
+            # here more than most: the pair set can be full of CUT records or
+            # sealed records that carry no slugs, so a green row over zero pairs
+            # is reachable on a corpus that looks complete.
+            raise NotRun(
+                "no pair resolves to two instances on disk (%d pair records "
+                "present). The fault-reason_code lint is the only thing "
+                "standing between the corpus and a pair scored on NB-01's "
+                "deliberate exemption, and no gate in the build catches a false "
+                "positive." % len(corpus["pairs"]))
         return {"pairs_checked": checked}
 
     r.run("fault reason_code lint", fault_lint,
