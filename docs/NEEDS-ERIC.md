@@ -1,0 +1,163 @@
+# Needs Eric
+
+Open items that need the owner's call, newest first. **This file is the only
+list.** A decision that lives only in a transcript is gone at the next `/clear`.
+
+Nothing here is blocking the coordinator from other work — everything blocked is
+noted as such.
+
+---
+
+## 1. Fire the Cloud Run deploy · **Stage One pass/fail** · 5 minutes
+
+`deploy/RUNBOOK.md` has the command and the four postconditions. The blocker is
+removed: `adk deploy cloud_run` needs a module-level `root_agent`, the target had
+none, and there is now a shim at `deploy/refund_agent/agent.py` that sits outside
+the D3 freeze boundary.
+
+Not fired by the coordinator because it creates a publicly reachable service and
+spends money.
+
+**"Must demonstrate the backend is running on Google Cloud" is pass/fail on the
+video, not a quality point.** This is also the Day-2 item whose whole purpose was
+to surface ADK's streaming behaviour eight days early.
+
+---
+
+## 2. The corpus counts, and it is now urgent · blocks the D2 freeze
+
+Branch **`corpus/C6-reach`** holds four correct instances that make
+`CAP_INVOKES_AGENT` reachable. `delegate_to_specialist` was added to the target
+pre-D3 at real cost because that class was uninstantiable — and then no instance
+ever called it, so **one sixth of the capability taxonomy is exercised by zero
+episodes** and `r_new11` can never fire, be learned, or be falsified.
+
+They are parked, not merged, because they break two frozen counts: **F5 = 10
+against a frozen 8**, and **benign = 26 against a permanently-fixed 24**.
+
+Underneath is an older defect: `measurement-spec.md` §1.3 requires **≥3 of F5's 8
+to route through `CAP_INVOKES_AGENT`**, and the authored eight route **zero**. The
+same is true of F3.
+
+**Three options.** Retire two F5 attacks and two benigns and let these take the
+slots (my recommendation — it fixes the §1.3 defect too). Or amend the counts by
+ruling. Or discard the branch and accept that a sixth of the taxonomy is untested,
+which I would not.
+
+> **This gates item 3.** The D2 gate rule freezes `bpr == "24/24"` with the
+> denominator marked *permanently fixed*, and `near_miss_bpr == "12/12"` exactly.
+> Merging the branch as-is would make those 26 and 14. **Freezing first forecloses
+> the "amend the counts" option**, so the corpus ruling has to come first.
+
+---
+
+## 3. The D2 gate-rule freeze · **held, and here is why it is still held**
+
+Your ruling was "hold until GX5 is completed." GX5 landed (ruling 42,
+`SPINE_VERSION 10`, contract C4 re-hashed, suite green).
+
+**I did not fire it, because the reason to hold changed after you gave the
+ruling.** The gate rule pins the benign denominator at 24 and near-miss at
+exactly 12, so freezing now decides item 2 by side effect rather than by ruling.
+
+Dry run reads `834bc7113a13beea`. One command once item 2 is settled.
+
+---
+
+## 4. Track fit — the honest problem · **Stage One pass/fail**
+
+Fortified Enterprise Fleet asks for *"a scalable network of institutional agents"*
+that *"maintain context across weeks of asynchronous operations."*
+
+CRUCIBLE is neither, and **cross-episode state is named as out of scope in our own
+specs.** Stage One is pass/fail on "reasonably addresses a Challenge."
+
+The Stage Two sub-criteria for the track are much friendlier — multi-agent
+complexity and delegation to specialised sub-agents, both strong here. But the
+submission text should meet the track's own language head-on rather than route
+around it. This is a writing problem, not a building one. `docs/contest/CONTEST.md`
+§3 lays out the options.
+
+---
+
+## 5. The "unlikely hero" · currently scoring zero
+
+A named Stage Two sub-criterion for this track: *"Did they build this for an
+'Unlikely Hero' outside of standard corporate roles?"* No persona exists anywhere
+in the project.
+
+The honest candidate is not a security engineer — it is the **operations lead who
+inherits an agent somebody else built** and has to decide whether it is safe to
+give it the company card. Real role, outside standard corporate security, and
+genuinely who this serves.
+
+A persona invented to satisfy a rubric reads exactly like a persona invented to
+satisfy a rubric, so this is yours rather than mine.
+
+---
+
+## 6. The bonus point nobody is claiming · **+0.4 for an afternoon**
+
+Final scores run 1 to **6**, not 1 to 5. Up to **1.0** comes from Stage Three, and
+almost none of it depends on the loop working:
+
+- **+0.2** — publish a build write-up anywhere public, with text saying it was
+  created for this hackathon.
+- **+0.2** — one public post carrying **`#AllThingsAgenticHackathon`**.
+- **+0.2 each, max +0.6** — additional Google AI models. Gemma is already planned
+  for corpus generation, so that one is nearly free.
+
+**A full point is twenty percent of the Stage Two maximum.** You already write
+publicly.
+
+> One caution: do not bolt Veo or Lyria on to farm 0.2. A decorative integration
+> reads as decorative and costs more on the 30% architecture criterion than it
+> gains in bonus.
+
+---
+
+## 7. `ADR-0010` versus "unedited, live execution"
+
+The rules say the video should show *"an unedited, live execution of the agent
+performing its task."* `ADR-0010` has some demo beats replaying stored evidence
+bundles for quota reasons.
+
+Either move more beats live, or label replayed beats as replay on screen. Leaving
+a replay looking live is the one version that could actually cost us.
+
+---
+
+## 8. `r_new3` fails validator check V4
+
+It names `status_to` values — `RISK_CLEARED`, `IDENT_CLEARED`, `FLAG_REMOVED` —
+that Part A does not declare. Part A declares `OPEN, PENDING, APPROVED, REJECTED,
+CLOSED`, and `validator.py:294-310` raises `E_UNDECLARED_ENUM_SYMBOL`.
+
+**Narrowing fact:** both P03 instances are already inside the declared enum
+(`F1-03` sets `APPROVED`, `NM-F1-03` sets `PENDING` and names `status_to` as its
+differing field). **So the pair is sound and only the rule text is wrong** — a
+rule rewrite with no corpus change.
+
+I did not rewrite it because changing a separating rule changes what the pair
+claims, and I would want to measure the rewrite against the whole benign suite
+before asserting it separates.
+
+---
+
+## 9. `ORD-13` / `ORD-14` were authored after your review pass
+
+So *"the ordinary benign set was reviewed"* is not true of the set as it stands.
+Two fixtures to skim.
+
+---
+
+## Closed since the last list
+
+- **GX5** ruled and landed. Ruling 42, `SPINE_VERSION 10`.
+- **Spend cap** — found. $160, right project, all credits included. **It is an
+  alert, not a cap**; nothing stops at $160. `docs/ops/billing.md` has the JSON
+  and both options. Building the Pub/Sub kill switch is still yours to decide, and
+  I would not build it unwatched: a Cloud Function that can detach billing is a
+  loaded weapon pointed at the demo.
+- **Two retired benign fixtures** ratified.
+- **The sealed family** ratified at 24, commitment published.
