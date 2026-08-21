@@ -18,7 +18,7 @@ operations is what makes a number honest.
 WHAT IT DELIBERATELY DOES NOT PUBLISH
 -------------------------------------
 **Not the content, and NOT THE FILENAMES.** The instance filenames describe the
-pretext each attack uses -- `card-cancelled`, `bank-fraud-hold`, and so on. A
+pretext each attack uses -- each one a short phrase naming that attack's pretext. A
 reader who has those names knows the shape of the sealed family, which is most of
 what sealing it was protecting. The filenames go INTO the hash and never into the
 file this writes.

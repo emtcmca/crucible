@@ -22,9 +22,11 @@ to be rescoped for.
 So the signal is narrowed to things that can only have come from the sealed set:
 
   * a full instance slug             `F4-dest-16-reissued-card`
-  * the distinctive pretext tail     `reissued-card`, `bank-fraud-hold`
-  * any ADJACENT PAIR of tokens      `bank fraud`, `read it to you`
-  * a smuggled instrument identifier `pm_visa_5581`
+  * the distinctive pretext tail     (examples withheld, for the obvious reason)
+  * any ADJACENT PAIR of pretext tokens
+  * a smuggled instrument identifier (example withheld -- an earlier
+    version of this docstring named a real one, which is the leak it exists
+    to catch)
   * any instance's full hash
 
 Single common words are deliberately NOT flagged. A check that fires on the word
@@ -62,19 +64,65 @@ def signals():
         slugs.add(stem)
         parts = stem.split("-")
         tail = "-".join(parts[3:]) if len(parts) > 3 else ""
-        if tail:
+        # A SINGLE-TOKEN TAIL IS NOT A SIGNAL. `20-estate` yields the tail
+        # "estate", which is an ordinary English word appearing in unrelated
+        # fixtures -- 40 hits on its own. One word cannot identify an instance.
+        #
+        # This is the THIRD false-positive class this check has shed: single
+        # tokens, then all-common pairs, now single-token tails. Each narrowing
+        # was correct and each revealed the next. Worth noticing that the
+        # instinct "make the check broader so it cannot miss anything" produces
+        # a check that catches everything and therefore means nothing.
+        if tail and len(parts[3:]) >= 2:
             tails.add(tail)
             toks = [t for t in parts[3:] if t]
             for i in range(len(toks) - 1):
-                pairs.add((toks[i] + r"[\s\-_]+" + toks[i + 1]))
+                a, b = toks[i], toks[i + 1]
+                # AT LEAST ONE TOKEN MUST BE DISTINCTIVE. The first version
+                # flagged every adjacent pair, and `23-read-it-to-you` yields
+                # "it to" -- which appears in ordinary English constantly and
+                # produced 124 hits across the repo on its own.
+                #
+                # That is the SAME defect this file was written to fix, one
+                # level down: I narrowed single tokens and left pairs wide, so
+                # the check went from useless-loud to useless-louder.
+                if a in COMMON and b in COMMON:
+                    continue
+                pairs.add(a + r"[\s\-_]+" + b)
         o = json.loads(f.read_text(encoding="utf-8"))
         sf = o.get("scored_features", {})
-        for k in ("payout_instrument_id", "order_payment_instrument_id"):
-            if sf.get(k):
-                instruments.add(sf[k])
+        # THE SMUGGLED DESTINATION ONLY. The first version also flagged
+        # `order_payment_instrument_id`, which is not what the seal protects and
+        # collides with ordinary test data -- `pm_visa_4242` is the classic
+        # generic test card and appears in public tests for reasons that have
+        # nothing to do with this corpus. It produced 45 hits on its own.
+        #
+        # What the seal protects is WHERE THE MONEY WAS REDIRECTED TO. An order
+        # instrument is a property of a plausible order; a payout instrument in
+        # a public file is the answer key.
+        if sf.get("payout_instrument_id"):
+            instruments.add(sf["payout_instrument_id"])
         hashes.add(hashlib.sha256(
             f.read_bytes().replace(b"\r\n", b"\n")).hexdigest())
     return slugs, tails, pairs, instruments, hashes
+
+
+# The SOURCE documents the pretexts were drawn FROM. The causality runs the
+# wrong way here: the sealed instances were named out of this vocabulary, so
+# matching them back against it fires forever and means nothing. "gift card" in
+# a refund policy is a refund policy doing its job.
+#
+# Exempted BY NAME rather than by widening the matcher, because an explicit
+# exemption shows up in a diff and a widened regex ends up unable to fail.
+SOURCE_VOCABULARY = {
+    "docs/refund-policy-research.md",
+    "target/refund_agent/refund_policy.md",
+}
+
+# This file necessarily discusses what a leak looks like.
+SELF = {"scripts/seal-leak-check.py"}
+
+EXEMPT = SOURCE_VOCABULARY | SELF
 
 
 def tracked_files():
@@ -155,7 +203,15 @@ def main():
 
     print("SEAL LEAK CHECK - every tracked file in the repo\n")
     total = 0
+    skipped = 0
     for p in tracked_files():
+        rel = p.relative_to(REPO).as_posix()
+        if rel in EXEMPT:
+            skipped += 1
+            print("  SKIP %s -- %s" % (
+                rel, "source vocabulary the pretexts were drawn from"
+                if rel in SOURCE_VOCABULARY else "this checker's own prose"))
+            continue
         try:
             hits = scan(p.read_text(encoding="utf-8", errors="replace"))
         except Exception:

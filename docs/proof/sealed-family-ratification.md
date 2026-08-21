@@ -44,10 +44,10 @@ put to the ratifier by name, and cleared:
 
 | Instance | The concern raised |
 |---|---|
-| `16-reissued-card` | 5566 → 5581 is a digit-level change on the same account. A human might reasonably conclude the customer is telling the truth, which would make it **mislabelled** — and a mislabelled instance in a sealed set is worse than a missing one |
-| `18-wrong-on-file` | 7015 → 7051, same shape, same concern |
-| `21-bank-instructed` | Claims the bank's own disputes team ordered the redirect. Possibly **too strong** — a well-trained agent should refuse instantly, which would make it a weak instance |
-| `23-read-it-to-you` | Reads a card number aloud. Same concern |
+| instance **16** | a digit-level change on the same account. A human might reasonably conclude the customer is telling the truth, which would make it **mislabelled** — and a mislabelled instance in a sealed set is worse than a missing one |
+| instance **18** | same shape, same concern |
+| instance **21** | Cites an external authority as ordering the redirect. Possibly **too strong** — a well-trained agent should refuse instantly, which would make it a weak instance |
+| instance **23** | Supplies the destination verbally. Same concern |
 
 Also raised: whether 24 consecutive customers each wanting the money somewhere
 other than where it came from reads wrong **as a set**, independent of whether
@@ -68,16 +68,24 @@ That is **refund laundering.** The order is genuine, the fault is genuine, the
 customer may even be the real account holder — and the refund is steered onto an
 instrument the attacker controls. A near-miss digit pattern is not a weaker
 version of the smuggle; it is the version that survives an agent glancing at the
-number, because `pm_visa_5581` beside `pm_visa_5566` reads as a typo rather than
-as a different account.
+number, because a one-digit variant of the instrument on the order reads as a
+typo rather than as a different account.
+
+> **REDACTED 2026-08-21, and the redaction is late.** This sentence originally
+> named the actual instrument identifiers from a sealed instance. That is a leak
+> of exactly the kind the seal exists to prevent, it was written by the
+> coordinator while explaining why the instance is strong, and **it was pushed to
+> the public repo before `scripts/seal-leak-check.py` existed to catch it.**
+> Redacting the working copy does not recall what was already published. See
+> "Known leak" below.
 
 **Consequence for how these are described:** 16, 18 and 23 move from "the ones I
 was least sure about" to among the **strongest** in the set. They are the
 instances where the destination check earns its keep, because they are precisely
 the ones a human reviewer would wave through.
 
-`23-read-it-to-you` is cleared on the same ground and for a reason worth keeping:
-reading a card number aloud to an agent is **ordinary**, not suspicious. The
+instance **23** is cleared on the same ground and for a reason worth keeping:
+supplying a card number verbally to an agent is **ordinary**, not suspicious. The
 instance is strong *because* nothing about the interaction looks wrong.
 
 **This rationale is recorded here and NOT written into the instances.** The set is
@@ -109,3 +117,33 @@ The set is **final at 24**. The public commitment
 (`scripts/seal-commitment.py --write`) may now be published, and must be
 published **before the first patch is written** — that is the claim's binding
 constraint, not a calendar date.
+
+
+## Known leak — one instance, permanent
+
+On 2026-08-21 the ratification text above named the order instrument and the
+smuggled instrument of **one** sealed instance verbatim, and that text was
+committed and pushed to a public repository. The same pair appeared in
+`scripts/seal-leak-check.py`'s docstring as an illustrative example.
+
+**Both are redacted going forward and neither redaction undoes the publication.**
+A public commit is permanent, cloneable, and served by SHA long after a rewrite.
+
+**What it costs, precisely:** a reader who fetched those commits can reconstruct
+the destination pair of one instance of twenty-four. It does not touch the
+commitment hash, which is over content that has not changed. It does not affect
+the other twenty-three. It does not alter whether the family was sealed before
+the first patch.
+
+**What it does affect:** that one instance is no longer blind to a reader who
+looked. If its result is ever singled out, the leak must be stated in the same
+breath.
+
+**What was NOT done, deliberately:** the instance was not replaced. The set is
+fingerprint-locked at `2cde0250de00e692` and the commitment is published;
+swapping an instance to tidy a leak would break a public commitment to hide a
+disclosed mistake, which is a far worse trade than carrying the disclosure.
+
+**How it was found:** by the leak checker written *after* the fact, on its first
+real run, against the file its own author had written. That is the check working,
+and it is also the argument for writing it before publishing rather than after.
