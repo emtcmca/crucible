@@ -7,6 +7,19 @@ fixes; an Armorer emits policy patches in a three-verb DSL; a pure-code Warden a
 gate promote or roll back. Built for the Google "All Things Agentic" hackathon,
 track **The Fortified Enterprise Fleet**, submissions close **2026-08-31 17:00 PDT**.
 
+## The contest — read this before planning any work meant to score
+
+`docs/contest/CONTEST.md` is the single copy of the contest facts: dates, the
+pass/fail Stage One requirements, the 40/30/30 weighting, the Stage Three
+bonuses, and all nine prizes. **Do not restate a contest figure anywhere else;
+link there.** `docs/contest/BUILD-LIST.md` holds the scored work in order, with
+the criterion each item scores against.
+
+Two things worth knowing before reading anything else: **three mandatory
+deliverables do not exist** (architecture diagram, Cloud Run proof on camera,
+README spin-up), and **a full bonus point is unclaimed** and almost none of it
+depends on the loop working.
+
 ## Read this first, before any plan
 
 `docs/CONVENTIONS.md` is the spine and is coordinator-owned. It carries the
