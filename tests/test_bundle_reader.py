@@ -198,17 +198,43 @@ def test_self_comparing_verifier_finds_nothing(valid_bundle, how):
 
 @pytest.mark.parametrize("how", sorted(strawman_replay.SCHEMA_ONLY_MUST_NOT_REJECT))
 def test_schema_validation_alone_accepts_a_bundle_ruling_17_forbids(valid_bundle, how):
-    """The gap this lane's reader exists to close, pinned so it cannot quietly
-    become closed by the schema instead - which would be fine, but would mean
-    this file is asserting a property nothing holds any more."""
+    """Parametrized over an EMPTY set as of 2026-08-20, so it runs zero cases.
+
+    That is the correct state and not a disabled test: the set is empty because
+    the single gap it held was closed in the contract. See
+    `test_schema_only_gap_is_closed` for the assertion from the other side.
+    """
     from crucible.replay import c6_validator
     damaged = strawman_replay.mutate(valid_bundle, how)
     accepted = strawman_replay.schema_only_read(_raw(damaged), c6_validator())
     assert accepted is not None, (
-        "schema_only_read rejected %r. If C6 now REQUIRES sep_by_split then "
-        "ruling 17 is enforced by the contract and this strawman is obsolete - "
-        "but that is a contract change, and a lane reports it rather than "
-        "adjusting the test. %s" % (how, strawman_replay.SCHEMA_ONLY_MUST_NOT_REJECT[how]))
+        "schema_only_read rejected %r, and this set is supposed to hold only "
+        "mutations the schema CANNOT see. Retire the entry rather than "
+        "loosening the schema." % how)
+
+
+def test_schema_only_gap_is_closed(valid_bundle):
+    """C6 now REQUIRES sep_by_split, so schema validation alone rejects a bundle
+    ruling 17 forbids. This lane pinned the gap and reported it; the coordinator
+    changed the contract; this asserts the change actually took.
+
+    Written from the other side ON PURPOSE. Deleting the pin and adding nothing
+    would leave the property untested and the tree looking greener for it.
+    """
+    from crucible.replay import c6_validator
+    damaged = strawman_replay.mutate(valid_bundle, "sep_by_split_missing")
+    # schema_only_read signals rejection by RAISING, not by returning None.
+    with pytest.raises(ValueError) as ei:
+        strawman_replay.schema_only_read(_raw(damaged), c6_validator())
+    assert "sep_by_split" in str(ei.value), (
+        "C6 rejected the bundle for some OTHER reason, so this test would pass "
+        "even if the sep_by_split requirement were removed. Ruling 17 makes the "
+        "split a PERMANENT reporting requirement: a suite the APPROVAL_ORACLE "
+        "separates produces IDENTICAL headline numbers to one the policy "
+        "separates, and only that ratio tells them apart.")
+    assert not strawman_replay.SCHEMA_ONLY_MUST_NOT_REJECT, (
+        "the schema-only blind set is non-empty again; a new gap needs a new "
+        "pin and a report, not a quiet entry")
 
 
 def test_the_real_reader_rejects_exactly_what_the_strawmen_miss(valid_bundle):

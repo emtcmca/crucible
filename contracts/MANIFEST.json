@@ -99,8 +99,8 @@
     "C6": {
       "files": {
         "evidence_bundle.schema.json": {
-          "sha256": "00f68d598303686ee75a66b9dd187ae0cd513b2880b04e171b3633fb697ff81b",
-          "bytes": 8583
+          "sha256": "45abfa3f812123db13091972a523cc2418b26582532101b1da6369a20aef4dd7",
+          "bytes": 10514
         }
       },
       "produced_by": "L1/L4/L5",

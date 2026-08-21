@@ -129,14 +129,27 @@ def self_comparing_verify(bundle):
 # Strawman 3 - schema validation and nothing else.
 # --------------------------------------------------------------------------
 
-SCHEMA_ONLY_MUST_NOT_REJECT = {
-    "sep_by_split_missing":
-        "ruling 17 makes the SEP-BY split a PERMANENT reporting requirement and "
-        "the C6 schema does not list it in `required`. A suite the "
-        "APPROVAL_ORACLE separates produces IDENTICAL headline numbers to one "
-        "the policy separates - only this ratio tells them apart - so a bundle "
-        "without it carries numbers that cannot be falsified.",
-}
+# CLOSED 2026-08-20 BY THE COORDINATOR, and this set is now EMPTY.
+#
+# It held exactly one entry: `sep_by_split_missing`. Ruling 17 makes the SEP-BY
+# split a permanent reporting requirement, and C6 defined the field without
+# listing it in `required` -- so schema validation ACCEPTED a bundle the ruling
+# forbids. A suite the APPROVAL_ORACLE separates produces IDENTICAL headline
+# numbers to one the policy separates; only that ratio tells them apart, so a
+# bundle without it carries numbers that cannot be falsified.
+#
+# This lane pinned the gap rather than working around it, and wrote the exact
+# condition for retiring the pin into its own failure message: "if C6 now
+# REQUIRES sep_by_split then ruling 17 is enforced by the contract and this
+# strawman is obsolete - but that is a contract change, and a lane reports it
+# rather than adjusting the test." It reported. The coordinator changed C6. The
+# pin is retired here, by the party allowed to retire it.
+#
+# LEFT AS AN EMPTY DICT ON PURPOSE. Deleting the name would delete the record
+# that the gap existed and how it closed, and `test_schema_only_gap_is_closed`
+# below now asserts the schema catches what this set used to excuse -- so the
+# property is still tested, from the other side.
+SCHEMA_ONLY_MUST_NOT_REJECT = {}
 
 
 def schema_only_read(raw_bytes, validator):
