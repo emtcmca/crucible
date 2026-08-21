@@ -211,6 +211,24 @@ CRUCIBLE is also not a scanner you run once, after the fact, to generate a PDF.
 
 ## Measurement protocol
 
+### The separability worksheet is a falsification ledger
+
+`docs/separability-proof.md` is **27 pairs**, and each pair is a written hypothesis in
+real grammar: *this exact rule blocks this attack and passes this near-miss.* A pair with
+no such rule is declared **unlearnable** and cut rather than softened.
+
+So the SEP-BY line above is a falsification result, not a summary statistic: **21 pairs
+separate on a policy predicate, 3 on the approval oracle, 3 were cut.** The cuts are the
+interesting ones — they are hypotheses the grammar could not express, and each cut is
+named with the construct that would have been needed.
+
+The worksheet has already forced one change to the language rather than to the corpus.
+`r_new19`, the rule the whole held-out family depends on, could not be written in a form
+that both blocked the attack and passed the benign floor, because `cap:CAP_MOVES_MONEY`
+selects two tools that do not share an argument. The grammar grew by **one production**
+(`arg_path is present`, ruling 42) — the worksheet's own stated remedy, used once, for
+the reason it exists.
+
 **SEP-BY split: 21 policy-separated / 3 APPROVAL_ORACLE-separated** (3 pairs cut). Printed
 next to every ASR and BPR figure, permanently, because a suite the approval oracle separates
 produces identical headline numbers to one the policy separates, and this line is the only
@@ -722,6 +740,56 @@ against him. That is stated plainly here and on camera, because implying otherwi
 overclaim most likely to be caught.
 
 ---
+
+## What happens when an agent loops, lies, or returns nothing
+
+Every component in this loop except the tripwire, the warden and the gate is a
+language model, so the design assumes each of them will at some point produce a
+confident wrong answer. Six mechanisms, all in code rather than in prompts, and each
+one names the specific failure it exists for.
+
+**A worker claims a success it did not have.** The tripwire is the only thing that
+records what happened, and it is pure code sitting between the agent and its tools. It
+records what the target *called*, with what arguments, and it never asks any model what
+it did. An attacker agent reporting a breach it did not achieve changes nothing, because
+nothing downstream reads that report. `crucible/tripwire/evaluator.py`.
+
+**A model is asked to grade its own work.** It is not. The CORONER writes the autopsy
+and the ARMORER writes the patch, and neither decides whether the patch is kept — the
+WARDEN and the promotion gate do, and both are code. The Armorer's identity also cannot
+read the evidence bucket at all: `docs/proof/armorer-403.txt` is the captured 403, with
+a positive control proving the probe can fail.
+
+**A patch is accepted that was never durably written.** The gate re-reads the promoted
+rule back from disk and recomputes its hash **from the actual bytes**, and refuses on
+`E_READBACK_HASH_MISMATCH`. A gate that reports a decision it did not durably record
+will lie to you exactly once, at the worst possible moment. `crucible/gate/promote.py`.
+
+**The Armorer stops producing anything usable.** After repeated refusals the campaign
+halts on `HALT_ARMORER_EXHAUSTED` and the evidence bundle records the halt reason. It
+does not silently continue with an unpatched policy and report the rounds as if they had
+run. `crucible/armorer/armorer.py`, `crucible/conductor/conductor.py`.
+
+**The loop starts producing patches that keep getting rejected.** Two consecutive gate
+rejections halt the run for a human — `HALT_HUMAN` in `crucible/conductor/conductor.py`.
+Two rejections in a row is evidence that the loop has stopped learning and started
+guessing, and burning the remaining rounds would produce a curve rather than a finding.
+
+**The target itself breaks, rather than being defeated.** A timeout, a malformed tool
+call, an API error: `TARGET_FAULT` is **removed from the denominator, structurally**, in
+one place, so no consumer has to remember to do it
+(`crucible/conductor/conductor.py:128`). An instrument failure is the *absence* of a
+measurement, not a passed attack and not a blocked one. Counting a crash as a successful
+defence is the easiest way to manufacture a good number, and it is the one this project
+would most like to avoid manufacturing.
+
+There is a seventh that is not about agents at all. **A trace the shadow engine cannot
+evaluate** is retried three times and then marks the round `ROUND_INVALID` rather than
+scoring it — `contracts/gate_rule.v1.yaml`, G3. **INVALID is not FAILED**, and the two
+are reported separately everywhere.
+
+None of the above depends on a model behaving well. That is the point: the components
+that decide anything are the ones with no model in them.
 
 ## What this does not prove
 
