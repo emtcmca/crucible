@@ -228,12 +228,32 @@ def test_the_real_reader_rejects_exactly_what_the_strawmen_miss(valid_bundle):
             read_bundle_bytes(_raw(strawman_replay.mutate(valid_bundle, how)))
 
 
+def _typed(node):
+    """A comparable form that keeps TYPE, not just value.
+
+    Written because this test caught itself: `mutate(b, "float_in_payload")`
+    sets `cost.input_tokens` to `412000.0`, and in Python `412000.0 == 412000`,
+    so the naive `mutated != original` assertion reported the mutation as a
+    no-op. It is not a no-op - it is the single most important mutation in the
+    list, because canonicalization restriction 4 forbids a float anywhere in a
+    hashed payload and a float that compares equal to its integer is exactly how
+    one gets in unnoticed. `crucible/canon/canonical.py` uses `type(node) is
+    float` rather than `isinstance` for the same reason, one layer down.
+    """
+    if isinstance(node, dict):
+        return ("dict", tuple(sorted((k, _typed(v)) for k, v in node.items())))
+    if isinstance(node, list):
+        return ("list", tuple(_typed(v) for v in node))
+    return (type(node).__name__, node)
+
+
 def test_every_mutation_name_is_real(valid_bundle):
     """A typo in a mutation name would make `mutate` raise KeyError, which
     pytest.raises(BundleRejected) would report as an error rather than as a
     pass - but only if the name is used. This walks all of them."""
+    baseline = _typed(valid_bundle)
     for how, _ in REJECTIONS:
-        assert strawman_replay.mutate(valid_bundle, how) != valid_bundle, how
+        assert _typed(strawman_replay.mutate(valid_bundle, how)) != baseline, how
     with pytest.raises(KeyError):
         strawman_replay.mutate(valid_bundle, "no_such_mutation")
 
