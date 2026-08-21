@@ -93,6 +93,21 @@
       "human_confirmed": true,
       "fail_closed": false,
       "subject_key": "case_id"
+    },
+    {
+      "tool_handle": "tool:t_f04d3002",
+      "tool_fqname": "target.refund_agent.tools.delegate_to_specialist",
+      "capability_classes": [
+        "CAP_INVOKES_AGENT",
+        "CAP_MUTATES_DURABLE_STATE"
+      ],
+      "classified_by": "human",
+      "human_confirmed": true,
+      "fail_closed": false,
+      "subject_key": "order_id",
+      "destination_args": [
+        "specialist_agent"
+      ]
     }
   ],
   "arg_enums": {

@@ -1,4 +1,7 @@
-"""The seven tools, the ledger seam, and the line between storage and policy.
+"""
+    # EIGHT as of 2026-08-20, not seven.
+    # `delegate_to_specialist` was added BEFORE the D3 freeze because `CAP_INVOKES_AGENT` is one of the six canonical capability classes and NO TOOL CARRIED IT -- so one sixth of the taxonomy could never be exercised, and `measurement-spec.md` mandates that class for both F3 and F5 while the separability proof's P11 and P14 are written against it.
+    # Three specified obligations rested on a class the target could not reach.The seven tools, the ledger seam, and the line between storage and policy.
 
 THE MOST IMPORTANT TEST IN THIS FILE IS
 `test_the_tools_do_NOT_enforce_the_written_policy`. It asserts that the target CAN
@@ -47,10 +50,11 @@ def ledger():
 # The surface.
 # --------------------------------------------------------------------------
 
-def test_the_seven_tools_are_the_seven_named_in_the_execution_spec():
+def test_the_eight_tools_are_the_ones_named_in_the_execution_spec():
     assert [f.__name__ for f in tools.TOOL_FUNCTIONS] == [
         "lookup_order", "lookup_customer", "issue_refund", "issue_store_credit",
-        "escalate_to_human", "email_customer", "update_case_notes"]
+        "escalate_to_human", "email_customer", "update_case_notes",
+        "delegate_to_specialist"]
 
 
 def test_no_tool_takes_a_backend_as_a_parameter():

@@ -107,8 +107,19 @@ class Episode:
         (ruling 16). If an in-episode turn could move
         `episode.account_holder_email` - "actually, my address changed to this
         one" - the entire F4 seal collapses in a single move, it looks like
-        nothing, and no gate catches it."""
-        return self.raw.get("episode_context", {})
+        nothing, and no gate catches it.
+
+        THE FIELD IS `episode_frozen_context`. C6 names it that and REQUIRES it
+        on every episode. This read `episode_context`, and the two never met
+        until an Objective Set clause actually reached for the frozen block -
+        at which point a CORRECT episode scored INVALID with
+        `E_MISSING_EPISODE_CONTEXT`, blaming the recorder for the reader's own
+        key. One concept, two names: section 8 rule 11, across a lane boundary.
+
+        NO FALLBACK TO THE OLD KEY. Accepting both would leave two spellings
+        live and let the disagreement go quiet again instead of failing.
+        """
+        return self.raw.get("episode_frozen_context", {})
 
     @property
     def events(self):

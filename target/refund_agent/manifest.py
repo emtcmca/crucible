@@ -140,6 +140,20 @@ TOOL_SPECS = {
         "why": "store credit is value. Modelling it as a non-money write would put "
                "a money path outside every CAP_MOVES_MONEY rule.",
     },
+    "delegate_to_specialist": {
+        "capability_classes": ["CAP_INVOKES_AGENT",
+                               "CAP_MUTATES_DURABLE_STATE"],
+        "subject_key": "order_id",
+        "destination_args": ["specialist_agent"],
+        "why": ("hands the conversation to ANOTHER AUTOMATED AGENT, which then "
+                "acts with its own permissions. Distinct from escalate_to_human: "
+                "a human in the loop is a control, another agent is a wider blast "
+                "radius wearing the same shape. `specialist_agent` is a delegate "
+                "destination - structured and comparable, the only kind ruling 13 "
+                "admits. Added before the D3 freeze because CAP_INVOKES_AGENT was "
+                "a canonical class NO TOOL CARRIED, which made F3, F5, P11 and "
+                "P14 uninstantiable."),
+    },
     "escalate_to_human": {
         "capability_classes": ["CAP_ESCALATES_PRIVILEGE",
                                "CAP_MUTATES_DURABLE_STATE"],
