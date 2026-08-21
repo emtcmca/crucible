@@ -42,7 +42,14 @@ from crucible.manifest.load import CAPABILITY_CLASSES
 
 from .errors import CorpusError
 from .lints import lint_approver
-from .model import KINDS, SEALED_FAMILY, TRAINING_FAMILIES, tool_index
+from .model import (
+    KINDS,
+    SEALED_FAMILY,
+    TRAINING_FAMILIES,
+    canonical_decision,
+    canonical_status,
+    tool_index,
+)
 
 REQUIRED_COMMON = ("slug", "kind", "capability_classes", "tool_fqname",
                    "scored_features", "scenario", "trace")
@@ -133,6 +140,69 @@ def validate_instance(doc, *, manifest):
     return instance_id(doc)
 
 
+KNOWN_BAD_COMPONENTS = ("TRIPWIRE", "WARDEN", "LINTER")
+KNOWN_BAD_REQUIRED = ("kb_id", "component", "expected_verdict", "simulated_defect",
+                      "a_wrong_verdict_means", "not_passable_by_accident_because")
+
+
+def validate_known_bad(doc):
+    """The nine known-bads, which are NOT corpus instances and never were.
+
+    They do not test the agent. They test the Tripwire, the Warden and the policy
+    linter - the pure-code components every other number in the build depends on
+    - so the shape they have to carry is a component, a verdict, and the two
+    sentences that make the fixture argue for itself.
+
+    **Three of them have no episode at all.** KB5 is a policy document the Warden
+    must reject and KB9 is a document set the linter must reject and then accept.
+    Running `validate_instance` over those would demand a trace with exactly one
+    scored tool call, and the only way to satisfy it is to invent a call that
+    never happened. That is why this validator exists rather than a coercion.
+
+    `must_fail` is refused here for the same reason it is refused on an instance:
+    only five of the nine are breach fixtures, so a blanket boolean fails on KB8
+    BY DESIGN and the spine calls the "all nine must fail" phrasing FALSE.
+    """
+    if not isinstance(doc, dict):
+        raise CorpusError("E_NOT_AN_OBJECT", "a known-bad must be a JSON object")
+
+    for key in KNOWN_BAD_REQUIRED:
+        if key not in doc:
+            raise CorpusError(
+                "E_KNOWN_BAD_MISSING_FIELD",
+                "known-bad %r is missing %r. `a_wrong_verdict_means` and "
+                "`not_passable_by_accident_because` are required and are not "
+                "commentary: a fixture that cannot say what its own failure "
+                "would prove is a fixture nobody can grade."
+                % (doc.get("kb_id", "<no kb_id>"), key))
+
+    if "must_fail" in doc:
+        raise CorpusError(
+            "E_MUST_FAIL_BOOLEAN",
+            "known-bad %r carries `must_fail`. Only five of the nine are breach "
+            "fixtures - KB5 expects REJECT, KB6 INVALID, KB8 CLEAN, KB9 a linter "
+            "verdict - so a blanket boolean fails on KB8 BY DESIGN. The spine "
+            "calls the 'all nine must fail' phrasing FALSE. Declare "
+            "`expected_verdict`." % doc["kb_id"])
+
+    if doc["component"] not in KNOWN_BAD_COMPONENTS:
+        raise CorpusError(
+            "E_KNOWN_BAD_COMPONENT",
+            "known-bad %r names component %r; the suite tests %s. A fixture "
+            "aimed at nothing is scored by nothing."
+            % (doc["kb_id"], doc["component"], list(KNOWN_BAD_COMPONENTS)))
+
+    if not isinstance(doc["expected_verdict"], str) or not doc["expected_verdict"]:
+        raise CorpusError(
+            "E_KNOWN_BAD_NO_VERDICT",
+            "known-bad %r declares no `expected_verdict`. The count that matters "
+            "is known_bad_expected_verdict_rate == 1.0, and any wrong verdict "
+            "makes the RUN invalid - which is uncheckable if the fixture never "
+            "said what right looks like." % doc["kb_id"])
+
+    return doc["kb_id"]
+
+
 def _validate_classes_and_tool(doc, manifest):
     classes = doc["capability_classes"]
     if not isinstance(classes, list) or not classes:
@@ -219,6 +289,20 @@ def _validate_trace(doc, manifest):
                               % (doc.get("slug"), i, ev.get("tool_fqname")))
         if ev.get("scored"):
             scored += 1
+        # Vocabulary, at load, on every event. `blindness._prefix` refuses an
+        # unrecognised decision too, but by then the instance is already in the
+        # corpus - and this is the cheaper place to catch it, because it names
+        # the instance and the event index while the file is being read.
+        where = "instance %r trace[%d]" % (doc.get("slug"), i)
+        if "policy_decision" not in ev:
+            raise CorpusError(
+                "E_DECISION_ABSENT",
+                "%s declares no policy_decision. An event with no decision "
+                "drops out of the episode prefix without saying so, and every "
+                "aggregate computed over that prefix reads low." % where)
+        canonical_decision(ev["policy_decision"], where=where)
+        if "status" in ev:
+            canonical_status(ev["status"], where=where)
         for arg in (ev.get("args") or {}):
             if arg.startswith("derived.") or arg.startswith("episode."):
                 raise CorpusError(

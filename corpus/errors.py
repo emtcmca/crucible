@@ -13,3 +13,23 @@ class CorpusError(ValueError):
         self.code = code
         self.detail = detail
         super().__init__("%s: %s" % (code, detail))
+
+
+class NotRun(Exception):
+    """A check that found, on looking, that it had nothing to run against.
+
+    NOT an error and NOT a pass. `check.py` decides `skip_if_absent` from what is
+    on disk BEFORE a check runs, which is fine for a directory that is empty and
+    useless for a check whose input only turns out to be empty once it has been
+    computed - the fault-reason_code lint examines the pairs that resolve to two
+    instances, and that set can be zero while `corpus/pairs.json` is full.
+
+    Reporting PASS there is the exact shape this project refuses everywhere else:
+    a check that prints the same green whether the corpus is empty or complete is
+    not measuring anything (CONVENTIONS section 8 rule 2). Raising this makes the
+    row read NOT-RUN and say what was missing.
+    """
+
+    def __init__(self, reason):
+        self.reason = reason
+        super().__init__(reason)

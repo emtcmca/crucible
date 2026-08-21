@@ -32,6 +32,8 @@ from .errors import CorpusError
 REPO = pathlib.Path(__file__).resolve().parent.parent
 PART_A_PATH = REPO / "target" / "refund_agent" / "capability_manifest.json"
 NON_BREACH_PATH = REPO / "taxonomy" / "non-breach-declarations.json"
+TOOL_EVENT_PATH = REPO / "contracts" / "tool_event.schema.json"
+BREACH_RECORD_PATH = REPO / "contracts" / "breach_record.schema.json"
 
 # -- CONVENTIONS.md is the home of these, so they are typed here. --------------
 # Section 4, frozen numbers. A lane that wants a different value stops and reports.
@@ -154,11 +156,119 @@ def approval_tiers(manifest=None):
     return frozenset((manifest or load_part_a())["arg_enums"]["derived.approval_tier"])
 
 
+# ---------------------------------------------------------------------------
+# The trace vocabulary. TWO FROZEN CONTRACTS SPELL THIS ENUM TWO WAYS.
+# ---------------------------------------------------------------------------
+#   contracts/tool_event.schema.json   policy_decision: ALLOW | DENY | APPROVAL_REQUIRED
+#   contracts/breach_record.schema.json  policy_decision: allow | deny | approval_required
+#                                        status:          ok | error
+#
+# The corpus trace was authored in the breach-record spelling and the C2 ToolEvent
+# is upper. Section 8 rule 11 says one concept, one name; these are frozen
+# artifacts and this module may not edit either, so the reconciliation lives here
+# and is REPORTED rather than hidden.
+#
+# **The defect this closes is silence, not casing.** `blindness._prefix` matched
+# one spelling and simply stopped counting an event carrying the other. Nothing
+# raised. Every episode aggregate read low, `episode_sum_amount_minor_...`
+# under-counted, and an `episode_sum` rule quietly stopped firing on exactly the
+# calls it exists to catch - the KB3 shape, arriving through a typo. So the two
+# CONTRACT-DECLARED spellings both resolve, and anything else is REFUSED by name.
+# `"Allow"`, `"allowed"`, `"AllowED"` and an absent field all raise.
+
+def _enum_at(path, prop):
+    doc = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    found = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == prop and isinstance(value, dict) and "enum" in value:
+                    found.append(tuple(value["enum"]))
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(doc)
+    if not found:
+        raise CorpusError(
+            "E_CONTRACT_ENUM_MISSING",
+            "%s declares no enum for %r. This module reads the vocabulary out of "
+            "the contract rather than retyping it, so an absent enum would leave "
+            "the reader with nothing to validate against and every value would "
+            "pass." % (pathlib.Path(path).name, prop))
+    return max(found, key=len)
+
+
+def trace_vocabulary():
+    """Canonical decision/status maps, READ from the two contracts, cross-checked.
+
+    Returns `(decisions, statuses)`, each a dict mapping every accepted spelling
+    to the C2 canonical form. **C2 wins on the canonical spelling** - it is the
+    contract the live plugin writes - and the breach-record spelling is admitted
+    as a declared alias, not as a second vocabulary.
+
+    Raises if the two contracts ever stop being case-variants of one another.
+    That would be a real divergence rather than a casing difference, and silently
+    admitting both would then mean admitting two different enums under one name.
+    """
+    c2 = _enum_at(TOOL_EVENT_PATH, "policy_decision")
+    br = _enum_at(BREACH_RECORD_PATH, "policy_decision")
+    if sorted(v.upper() for v in c2) != sorted(v.upper() for v in br):
+        raise CorpusError(
+            "E_DECISION_ENUM_DIVERGED",
+            "contracts/tool_event.schema.json declares %s and "
+            "contracts/breach_record.schema.json declares %s. Case-folded these "
+            "were the same enum in two spellings, which this reader reconciles. "
+            "They are now DIFFERENT SETS, and reconciling them would admit two "
+            "vocabularies under one name." % (sorted(c2), sorted(br)))
+
+    decisions = {}
+    for value in c2:
+        decisions[value] = value
+    for value in br:
+        decisions[value] = value.upper()
+
+    statuses = {}
+    for value in _enum_at(BREACH_RECORD_PATH, "status"):
+        statuses[value] = value
+    return decisions, statuses
+
+
+def canonical_decision(value, *, where):
+    decisions, _ = trace_vocabulary()
+    if value in decisions:
+        return decisions[value]
+    raise CorpusError(
+        "E_DECISION_VOCABULARY",
+        "%s carries policy_decision %r. The declared spellings are %s - "
+        "tool_event.schema.json upper, breach_record.schema.json lower, both "
+        "frozen. REFUSED rather than skipped: the previous reader matched one "
+        "spelling and silently stopped counting the event, so every episode "
+        "aggregate read low and an `episode_sum` rule stopped firing on the "
+        "calls it exists to catch. A wrong value must raise, because an "
+        "under-counted aggregate looks exactly like a well-behaved episode."
+        % (where, value, sorted(decisions)))
+
+
+def canonical_status(value, *, where):
+    _, statuses = trace_vocabulary()
+    if value in statuses:
+        return statuses[value]
+    raise CorpusError(
+        "E_STATUS_VOCABULARY",
+        "%s carries status %r; breach_record.schema.json declares %s. Refused "
+        "for the same reason as policy_decision: an unrecognised status drops "
+        "the event out of the episode prefix without saying so."
+        % (where, value, sorted(statuses)))
+
+
 __all__ = [
     "CAPABILITY_CLASSES", "TRAINING_FAMILIES", "SEALED_FAMILY",
     "TRAINING_PER_FAMILY", "TRAINING_TOTAL", "SEALED_TARGET", "SEALED_FLOOR",
     "BENIGN_TOTAL", "NEAR_MISS_FLOOR", "KNOWN_BAD_TOTAL", "SEALED_CLASSES",
     "KINDS", "NO_APPROVER", "DEAD_APPROVER_SPELLINGS",
     "load_part_a", "tool_index", "structured_arg_paths", "fault_reason_codes",
-    "approval_tiers",
+    "approval_tiers", "trace_vocabulary", "canonical_decision", "canonical_status",
 ]

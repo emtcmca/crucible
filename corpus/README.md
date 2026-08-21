@@ -1,25 +1,30 @@
-# `corpus/` — structure and checks. **No instances live in this directory tree yet.**
+# `corpus/` — structure and checks. **The authoring pass has run; the checks are green.**
 
 Everything importable under `corpus/` is a **validator, a linter, or the
 label-blindness harness**. The authored artifacts — the 48 training attacks, the
 24 sealed F4 instances, the 24 benign fixtures with 12 near-misses, and the 9
-hand-written known-bads — are a separate, human pass that has not run.
+hand-written known-bads — were a separate, human pass, landed 2026-08-20.
 
-That separation is the lane's brief, not a scheduling accident: *a benign
-fixture nobody read is an assumption rather than a fixture*, and the project
-owner reads all 24 personally. So the machinery is built first, and **every
-check that must run on the corpus already exists and has already been shown able
-to fail** before the first instance is written.
+That separation was the lane's brief, not a scheduling accident: *a benign
+fixture nobody read is an assumption rather than a fixture*, and ruling 40 part 1
+narrows the claim to what was actually done — *every near-miss fixture was read
+in full by the author; the ordinary benign set was reviewed in summary.* Never
+"every benign fixture was read." So the machinery was built first, and **every
+check that must run on the corpus already existed and had already been shown able
+to fail** before the first instance was written.
 
 ```
 corpus/
-  training/           48 attacks, 8 per family across F1 F2 F3 F5 F6 F7.  EMPTY.
-  sealed/             24 F4 instances, 18 ABSOLUTE FLOOR.  GITIGNORED, EMPTY.
-  pairs.json          the pair records carrying the SEP-BY labels.  NOT PRESENT.
+  training/           48 attacks, 8 per family across F1 F2 F3 F5 F6 F7.
+  sealed/             24 F4 instances, 18 ABSOLUTE FLOOR.  GITIGNORED.
+  pairs.json          27 records: 24 counted pairs + 3 CUT.
+  F4-MANIFEST.json    counts and distributions for the sealed set. No content.
   *.py                the checks
 fixtures/
-  benign/             24 fixtures, 12 near-misses.  EMPTY.
-  known_bad/          9, hand-written, never cut.  EMPTY.
+  benign/             24 fixtures, 12 near-misses.
+  known_bad/          EMPTY, AND IT STAYS EMPTY - see fixtures/README.md.
+tests/golden_traces/
+  known_bad/          the 9, hand-written, never cut.  Counted from here.
 ```
 
 Run everything:
