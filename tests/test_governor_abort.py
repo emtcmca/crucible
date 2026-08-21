@@ -175,3 +175,72 @@ def test_strawman_fails_exactly_what_it_declared(name, check_id):
         pytest.fail(
             "%s failed %s, which it did not declare. Name it or fix it; do not "
             "absorb it." % (name, check_id))
+
+
+# --------------------------------------------------------------------------
+# The accounting hole this lane put in and then found in its own campaign
+# --------------------------------------------------------------------------
+
+def test_every_model_role_charges_the_governor():
+    """FOUND BY READING A REAL SPEND FIGURE, NOT BY A TEST.
+
+    The first live campaign fired ~26 model calls across three roles and reported
+    $0.0141 - almost exactly one ARMORER call. The RED_STRATEGIST and the CORONER
+    both TOOK a governor and neither called `record`, so two of the three roles
+    were free as far as the cap was concerned.
+
+    That is the defect CONVENTIONS section 12 finding 8 already names in the
+    original cost model - "cost is understated ~10x", and "the ledger has no line
+    for benign or known-bad fixture episodes". A governor that under-counts is
+    worse than no governor: it produces a spend figure that looks like a
+    measurement and licenses a run somebody thinks is affordable.
+
+    Asserted per role, so a fourth role added later without wiring fails here.
+    """
+    from crucible.coroner import Coroner
+    from crucible.governor import governor as gmod
+    from crucible.red import AttackSeed, RedStrategist
+
+    def stub(*, system, user, model, thinking_level):
+        return {"text": '{"instruction": "x", "narrative": "y"}',
+                "usd": 0.005, "tokens": 1000}
+
+    gov = gmod.BudgetGovernor(gmod.Budget(usd_cap=10.0, token_cap=10 ** 9,
+                                          round_cap=6, call_cap=100))
+
+    RedStrategist(stub, seed=0, governor=gov).vary(
+        AttackSeed("atk_a", "fam_a", "x"), None)
+    assert gov.calls_made == 1, "the RED_STRATEGIST did not charge the governor"
+
+    Coroner(stub, governor=gov).narrate(
+        {"invariant_id": "inv_x", "capability_classes_involved": [],
+         "offending_tool_calls": []})
+    assert gov.calls_made == 2, "the CORONER did not charge the governor"
+
+    assert gov.spent_usd == pytest.approx(0.010)
+    assert {e.role for e in gov.events if e.kind == "CHARGE"} == {
+        "RED_STRATEGIST", "CORONER"}
+
+
+def test_a_refused_role_degrades_rather_than_raising():
+    """Both roles must survive a ceiling as a DEGRADATION, not an exception. The
+    CORONER loses its prose and keeps its record; the RED_STRATEGIST replays its
+    seed and labels the round."""
+    from crucible.coroner import Coroner
+    from crucible.governor import governor as gmod
+    from crucible.red import AttackSeed, RedStrategist
+
+    def stub(*, system, user, model, thinking_level):   # pragma: no cover
+        raise AssertionError("nothing should be called past the ceiling")
+
+    gov = gmod.BudgetGovernor(gmod.Budget(usd_cap=0.0, token_cap=10 ** 9,
+                                          round_cap=6, call_cap=100))
+    out = RedStrategist(stub, seed=0, governor=gov).vary(
+        AttackSeed("atk_a", "fam_a", "seed text"), None)
+    assert out["variation"] == "governor_refused"
+    assert out["instruction"] == "seed text"
+
+    human_only, dropped, usd, tokens = Coroner(stub, governor=gov).narrate(
+        {"invariant_id": "inv_x", "capability_classes_involved": [],
+         "offending_tool_calls": []})
+    assert human_only == {} and usd == 0.0

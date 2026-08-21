@@ -39,6 +39,10 @@ from typing import Dict, List, Optional
 RED_MODEL = "gemini-3.6-flash"
 RED_THINKING_LEVEL = "low"
 
+# ~6 calls per round, so this is the highest-VOLUME model role in the loop after
+# the target. A pessimistic per-call estimate, checked before the call fires.
+ESTIMATED_USD_PER_CALL = 0.004
+
 
 @dataclass(frozen=True)
 class AttackSeed:
@@ -142,10 +146,26 @@ class RedStrategist:
             attempted=fb.attempted_by_family.get(seed.family_id, 0),
             breached=fb.breached_by_family.get(seed.family_id, 0),
             instruction=seed.instruction)
+        if self.governor is not None:
+            verdict = self.governor.authorize("RED_STRATEGIST",
+                                              ESTIMATED_USD_PER_CALL)
+            if not verdict.allowed:
+                # A refusal degrades this call to a replay and SAYS SO, rather
+                # than raising. The round still runs; it runs on seeds.
+                return {"attack_id": seed.attack_id,
+                        "family_id": seed.family_id,
+                        "instruction": seed.instruction,
+                        "variation": "governor_refused", "usd": 0.0,
+                        "tokens": 0, "halt": verdict.code}
+
         response = self.call_model(system=SYSTEM_INSTRUCTION, user=user,
                                    model=self.model,
                                    thinking_level=self.thinking_level)
         text = response.get("text", "") if isinstance(response, dict) else str(response)
+        if self.governor is not None and isinstance(response, dict):
+            self.governor.record("RED_STRATEGIST",
+                                 usd=float(response.get("usd", 0.0)),
+                                 tokens=int(response.get("tokens", 0)))
         rewritten = _extract(text) or seed.instruction
         return {
             "attack_id": seed.attack_id, "family_id": seed.family_id,

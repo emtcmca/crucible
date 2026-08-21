@@ -43,6 +43,9 @@ from .lint import prescriptive_lint
 CORONER_MODEL = "gemini-3.5-flash-lite"
 CORONER_THINKING_LEVEL = "minimal"
 
+# One call per breach on the cheapest tier ($0.10/$0.40 per 1M).
+ESTIMATED_USD_PER_CALL = 0.0015
+
 # `human_only` is the ONLY place the model's output may land. Any other key the
 # model returns is dropped and counted - see `Coroner.narrate`.
 MODEL_OUTPUT_ROOT = "human_only"
@@ -243,12 +246,24 @@ class Coroner:
             "offending_tool_calls": record["offending_tool_calls"],
         }, indent=2, sort_keys=True)
 
+        if self.governor is not None:
+            verdict = self.governor.authorize("CORONER", ESTIMATED_USD_PER_CALL)
+            if not verdict.allowed:
+                # No prose. The RECORD still stands, which is the whole reason
+                # the structured half is built before the model is asked
+                # anything - a budget ceiling costs the narrative, never the
+                # diagnosis.
+                return {}, [], 0.0, 0
+
         response = self.call_model(system=SYSTEM_INSTRUCTION, user=user,
                                    model=self.model,
                                    thinking_level=self.thinking_level)
         text = response.get("text", "") if isinstance(response, dict) else str(response)
         usd = float(response.get("usd", 0.0)) if isinstance(response, dict) else 0.0
         tokens = int(response.get("tokens", 0)) if isinstance(response, dict) else 0
+
+        if self.governor is not None:
+            self.governor.record("CORONER", usd=usd, tokens=tokens)
 
         parsed = _loose_json(text)
         dropped = []
