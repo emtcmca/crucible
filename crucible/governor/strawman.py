@@ -57,6 +57,13 @@ def silent_governor(budget_cls, governor_cls):
 RAISING_MUST_FAIL = {
     "G1": "the call raises, so there is no verdict object to return, to log, or "
           "to put in a round outcome.",
+    "G2": "AND IT FAILS THE SECOND CHECK TOO, WHICH IS WORTH NAMING RATHER THAN "
+          "ABSORBING - the meta-check caught this on the first green run. The "
+          "event IS appended: `super().authorize` runs to completion before the "
+          "raise. But no caller ever reaches the line that reads it, because the "
+          "exception unwinds past it. A record nobody can get to is not a record, "
+          "and that is the same defect as not writing one - which is exactly why "
+          "the round outcome carries the verdict rather than the log.",
 }
 
 SILENT_MUST_FAIL = {
