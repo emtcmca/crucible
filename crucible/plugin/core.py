@@ -200,7 +200,31 @@ class EnforcementCore:
 
     # -- after ------------------------------------------------------------
     def after_tool(self, *, attempt_event, result):
-        """Records TOOL_EXECUTED. Only ever called when the call was allowed."""
+        """Records TOOL_EXECUTED. Only ever called when the call was allowed.
+
+        THAT PRECONDITION IS NOW CHECKED, because it was violated for as long as
+        this adapter has existed and nothing noticed. `CruciblePlugin` stored the
+        pending attempt before testing `allowed`, and ADK runs
+        `after_tool_callback` even after a `before_tool_callback` short-circuit -
+        so a DENIED call arrived here and was recorded as executed.
+
+        The damage was not a stray event. The two `pop` calls below strip
+        `policy_decision` and `denied_by_rule_id`, so the record written for a
+        blocked call was INDISTINGUISHABLE FROM A REAL EXECUTION. The TRIPWIRE
+        rules from this ledger and from nothing else.
+
+        A documented precondition is a comment. This is the check.
+        """
+        decision = attempt_event.get("policy_decision")
+        if decision is not None and str(decision).upper() != "ALLOW":
+            raise ValueError(
+                "E_AFTER_TOOL_ON_DENIED_CALL: after_tool() was handed an attempt "
+                "whose policy_decision is %r. TOOL_EXECUTED must never be written "
+                "for a call the policy did not allow - and because this method "
+                "strips policy_decision and denied_by_rule_id, the resulting "
+                "record would be indistinguishable from a real execution. The "
+                "caller is the defect: do not store a pending attempt on a "
+                "denial." % (decision,))
         event = dict(attempt_event)
         event["kind"] = TOOL_EXECUTED
         event.pop("policy_decision", None)

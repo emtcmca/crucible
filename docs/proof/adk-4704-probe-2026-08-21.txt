@@ -1,0 +1,283 @@
+CRUCIBLE - ADK invocation-path probe (issue #4704 / ADR-0012)
+Lane E, 2026-08-21. Real command output below, not narration.
+New files: tests/test_adk_invocation_paths.py, this file. No other files
+touched (crucible/plugin/adk.py, docs/adr/, target/ are all unmodified).
+
+================================================================================
+1. THE CLAIM: does test_plugin_enforcement.py drive a real ADK Runner?
+================================================================================
+
+$ grep -n "Runner\|run_async\|run_live" tests/test_plugin_enforcement.py
+(no matches)
+
+CLAIM CONFIRMED. test_plugin_enforcement.py's two ADK-tagged tests
+(test_adk_adapter_short_circuits_by_returning_a_dict,
+test_the_adapter_is_a_real_base_plugin) call
+`asyncio.run(plugin.before_tool_callback(tool=..., tool_args=...,
+tool_context=_FakeContext(...)))` directly. There is no google.adk.runners
+import in that file at all. It proves the ADAPTER's return-protocol
+translation against a hand-built EnforcementCore. It proves nothing about
+whether ADK's Runner ever actually calls before_tool_callback on a real
+invocation. deploy/RUNBOOK.md's framing ("the local half is already
+answered") overstated what that file establishes - neither invocation path
+had, before this probe, ever been driven through a real Runner.
+
+================================================================================
+2. THE INSTALLED ADK 2.1.0 API, read from source (not assumed)
+================================================================================
+
+$ python -c "import google.adk; print(google.adk.version.__version__)"
+2.1.0
+$ pip show google-adk | grep -E "Name|Version|Location"
+Name: google-adk
+Version: 2.1.0
+Location: C:\Users\tetzl\AppData\Roaming\Python\Python311\site-packages
+
+Runner (google/adk/runners.py):
+  class Runner:                                                   :152
+  def __init__(self, *, app=None, app_name=None, agent=None,
+               node=None, plugins=None, ..., session_service, ...) :190
+      # `plugins=` on the constructor is DEPRECATED ("Please use the `app`
+      # argument to provide plugins instead"). Real wiring is:
+      self.plugin_manager = PluginManager(plugins=app.plugins, ...) :246
+  async def run_async(self, *, user_id, session_id, ..., new_message,
+                       run_config=None, ...) -> AsyncGenerator[Event] :914
+  async def run_live(self, *, user_id=None, session_id=None,
+                      live_request_queue, run_config=None,
+                      session=None) -> AsyncGenerator[Event]        :1519
+
+App (google/adk/apps/app.py):
+  class App(BaseModel):                                            :53
+    name: str
+    root_agent: Union[BaseAgent, Any, None] = None
+    plugins: list[BasePlugin] = Field(default_factory=list)        :81
+
+Both run_async and run_live route through the SAME plugin-wrapping helper:
+  async def _exec_with_plugin(self, invocation_context, session,
+                               execute_fn, is_live_call=False)      :1313
+run_async's `_run_node_async` and run_live both call it; run_live passes
+is_live_call=True and execute_fn=(lambda ctx: ctx.agent.run_live(ctx))  :1621-1645
+
+The ONLY two call sites of `plugin_manager.run_before_tool_callback` in the
+entire installed package, found by:
+
+$ grep -rn "run_before_tool_callback" google/adk --include=*.py
+flows/llm_flows/functions.py:556:   (non-live)
+flows/llm_flows/functions.py:800:   (live)
+plugins/plugin_manager.py:176:      (the method definition itself)
+
+functions.py:550-559 (handle_function_calls_async -> _execute_single_
+function_call_async -> _run_with_trace, Step 1):
+    async def _run_with_trace():
+      nonlocal function_args, detected_error_type
+      # Step 1: Check if plugin before_tool_callback overrides the function
+      # response.
+      function_response = (
+          await invocation_context.plugin_manager.run_before_tool_callback(
+              tool=tool, tool_args=function_args, tool_context=tool_context
+          )
+      )
+
+functions.py:794-803 (handle_function_calls_live -> _execute_single_
+function_call_live -> _run_with_trace, Step 1) - byte-for-byte the same
+protocol:
+      function_response = None
+      # Step 1: Check if plugin before_tool_callback overrides the function
+      # response.
+      function_response = (
+          await invocation_context.plugin_manager.run_before_tool_callback(
+              tool=tool, tool_args=function_args, tool_context=tool_context
+          )
+      )
+
+base_llm_flow.py - the only call site of handle_function_calls_live:
+$ grep -n "handle_function_calls_live" flows/llm_flows/base_llm_flow.py
+1102:      function_response_event = await functions.handle_function_calls_live(
+
+Chain confirmed by reading, top to bottom: Runner.run_live (:1519) ->
+_exec_with_plugin(is_live_call=True) (:1639) -> execute() ->
+ctx.agent.run_live(ctx) -> ... -> BaseLlmFlow.run_live (:475) ->
+_receive_from_model (:733) -> _postprocess_live (:1011) -> (on a function
+call) functions.handle_function_calls_live (:1102) -> plugin_manager.
+run_before_tool_callback (functions.py:800).
+
+VERDICT ON THE SOURCE READ ALONE: ADR-0012's premise ("before_tool_callback
+... reported not to fire during live (bidirectional streaming) tool
+execution") does not hold for google-adk==2.1.0 as installed. There is no
+separate, unguarded live tool-call path; both paths funnel through the same
+plugin hook. Section 3 turns this from a source-reading into a checked fact.
+
+================================================================================
+3. THE EMPIRICAL PROOF: a real Runner, a real FunctionTool, no real model
+================================================================================
+
+tests/test_adk_invocation_paths.py builds:
+  - a real EnforcementCore/CruciblePlugin from a hand-written DSL rule
+    (`cap:CAP_MOVES_MONEY when amount_minor >= 50000 => deny`), through the
+    same parse -> validate -> document -> compile pipeline
+    test_plugin_enforcement.py uses (imported, not reimplemented);
+  - a real google.adk.tools.function_tool.FunctionTool wrapping a real
+    Python function `issue_refund` that appends to a plain list on every
+    call - the ground truth for "did the tool body run";
+  - a real google.adk.runners.Runner, wired via App(plugins=[...]) exactly
+    as docs/architecture-spec.md describes;
+  - a deterministic stub BaseLlm (_FnCallLlm) that always emits the same
+    FunctionCall - no network call, no credentials, no real model. It
+    implements both generate_content_async (for run_async) and connect()
+    (for run_live, returning a fake BaseLlmConnection). ADK's plugin
+    machinery does not know or care what produced the function call, so this
+    is sufficient to answer whether the HOOK fires and BLOCKS.
+
+$ python -m pytest tests/test_adk_invocation_paths.py --collect-only
+tests/test_adk_invocation_paths.py::test_plugin_enforcement_dot_py_calls_the_callback_directly_not_via_a_runner
+tests/test_adk_invocation_paths.py::test_run_async_blocks_the_real_tool_call_when_the_plugin_denies
+tests/test_adk_invocation_paths.py::test_run_async_a_denied_call_is_still_recorded_as_tool_executed_KNOWN_ISSUE
+tests/test_adk_invocation_paths.py::test_run_async_executes_the_real_tool_call_when_the_plugin_allows
+tests/test_adk_invocation_paths.py::test_without_the_plugin_the_attack_call_executes_through_run_async
+tests/test_adk_invocation_paths.py::test_run_live_blocks_the_real_tool_call_when_the_plugin_denies
+tests/test_adk_invocation_paths.py::test_run_live_a_denied_call_is_still_recorded_as_tool_executed_KNOWN_ISSUE
+tests/test_adk_invocation_paths.py::test_run_live_executes_the_real_tool_call_when_the_plugin_allows
+tests/test_adk_invocation_paths.py::test_without_the_plugin_the_attack_call_executes_through_run_live
+9 tests collected
+
+$ python -m pytest tests/test_adk_invocation_paths.py -q
+.........
+9 passed, 1 warning in ~8-11s
+(warning is an unrelated ADK experimental-feature UserWarning from
+FunctionTool's JSON-schema builder, not from this probe's code)
+
+Raw per-scenario evidence (python-level side effect + ledger), captured by
+running the two DENY scenarios directly and printing what happened:
+
+--- run_async, amount_minor=60000 (over the deny threshold) ---
+python-level side effect (calls made to the wrapped issue_refund function): []
+ ledger event: TOOL_ATTEMPT policy_decision='DENY' denied_by_rule_id='r_a09116451490'
+ ledger event: TOOL_EXECUTED policy_decision=None denied_by_rule_id=None
+executed_handles(): {'tool:t_9f2c1b77'}
+
+--- run_live, amount_minor=60000 (over the deny threshold) ---
+python-level side effect (calls made to the wrapped issue_refund function): []
+ ledger event: TOOL_ATTEMPT policy_decision='DENY' denied_by_rule_id='r_a09116451490'
+ ledger event: TOOL_EXECUTED policy_decision=None denied_by_rule_id=None
+executed_handles(): {'tool:t_9f2c1b77'}
+
+Read together with the negative controls (allow-amount calls execute the
+tool; the identical attack call with no plugin registered also executes the
+tool on both paths) this is the full answer:
+
+  PATH        | before_tool_callback FIRES | ACTUALLY BLOCKS THE TOOL BODY
+  ------------|----------------------------|-------------------------------
+  run_async   | YES (1 TOOL_ATTEMPT/DENY)  | YES (calls == [])
+  run_live    | YES (1 TOOL_ATTEMPT/DENY)  | YES (calls == [])
+
+Both questions in the task ("does it fire" / "is the tool actually
+prevented from executing") are answered YES on BOTH paths, for
+google-adk==2.1.0 as installed.
+
+================================================================================
+4. UNEXPECTED FINDING (KNOWN_ISSUE, out of the original scope, not fixed here)
+================================================================================
+
+The ledger dump in section 3 also shows something the task did not ask about
+but is directly relevant to L3's exit criterion 1 ("the blocked tool never
+appears in the ledger [as executed]") and to core.py's own after_tool
+docstring ("Only ever called when the call was allowed"): under a REAL
+Runner, a DENY produces BOTH a TOOL_ATTEMPT *and* a TOOL_EXECUTED, and the
+denied tool's handle shows up in executed_handles() even though the Python
+function never ran.
+
+Root cause, read from functions.py: `_execute_single_function_call_async`
+(and its live twin) run "Step 4: plugin after_tool_callback" UNCONDITIONALLY
+after Steps 1-3, regardless of whether Step 1 already short-circuited the
+call:
+
+    # Step 4: Check if plugin after_tool_callback overrides the function
+    # response.
+    altered_function_response = (
+        await invocation_context.plugin_manager.run_after_tool_callback(
+            tool=tool, tool_args=function_args, tool_context=tool_context,
+            result=function_response,   # <- the DENY dict, on a denied call
+        )
+    )
+
+crucible/plugin/adk.py's CruciblePlugin.after_tool_callback does not check
+whether the popped attempt was itself a denial before calling
+`self.core.after_tool(attempt_event=attempt, result=result)` - so it
+faithfully records the plugin's own blocked_result dict as if it were a real
+tool result, producing a spurious TOOL_EXECUTED.
+
+This is invisible in test_plugin_enforcement.py because those tests only
+call after_tool_callback by hand, and only on the ALLOW branch (see that
+file's test_handwritten_patch_compiles_and_the_blocked_tool_never_runs,
+which never calls after_tool at all on the DENY path) - so the existing
+suite's "DENY -> no EXECUTED" assertion was true of the test harness, not of
+the real Runner-driven system.
+
+test_adk_invocation_paths.py's two *_KNOWN_ISSUE tests assert this CURRENT
+behavior (so they fail loudly if it's silently changed) rather than
+asserting the invariant the rest of the repo currently assumes. This file
+does not fix crucible/plugin/adk.py (out of this lane's scope). The fix
+belongs in CruciblePlugin.after_tool_callback: skip core.after_tool when the
+popped attempt's outcome was a denial (the information is already on hand -
+`outcome.allowed` at the point _pending was populated, or equivalently
+`attempt["kind"] == TOOL_ATTEMPT and attempt.get("policy_decision") in
+(DENY, ...)`).
+
+================================================================================
+5. TEST COUNTS
+================================================================================
+
+$ git stash push -u -- tests/test_adk_invocation_paths.py   # remove this file
+$ python -m pytest tests/
+766 passed, 1 skipped                          <- BEFORE (unchanged baseline)
+$ git stash pop                                # restore this file
+$ python -m pytest tests/
+775 passed, 1 skipped, 1 warning               <- AFTER
+
+775 - 766 = 9, matching all 9 new tests, all passing, zero regressions, zero
+tests removed or modified elsewhere.
+
+================================================================================
+6. DEMO-RELEVANT VERDICT
+================================================================================
+
+The ADK web UI (adk web) can safely appear on camera showing enforcement:
+CruciblePlugin.before_tool_callback fires and blocks on BOTH the non-live
+run_async path AND the live/streaming run_live path that adk web's
+bidirectional mode uses, for google-adk==2.1.0. ADR-0012's stated reason for
+restricting the demo to non-live run_async (the callback "reported not to
+fire" under live/streaming, citing ADK issue #4704) does not hold for this
+installed version - the coordinator should re-open ADR-0012 with this
+evidence rather than leave the non-live-only restriction standing on a
+premise this probe falsified.
+
+Two caveats that would need to be settled before actually filming adk web,
+neither undermines the fire/block answer above:
+  - This probe uses a stub model, not adk web's real chat/voice UI wired to
+    a live Gemini connection; the UI layer itself was not exercised, only
+    the Runner/plugin wiring underneath it. If ADK issue #4704 was actually
+    about something UI-specific rather than about the Runner/plugin
+    protocol, that would not be caught here - I found no such distinction in
+    the source, but I did not find or read the original issue #4704 report
+    itself (no network access from this probe), so I cannot confirm what
+    specific ADK version or symptom it originally described.
+  - Section 4's KNOWN_ISSUE affects the ledger's bookkeeping, not the actual
+    block - the real tool body did not run in either DENY case measured. It
+    is a correctness bug in how the event gets *recorded* after the fact,
+    worth fixing before quoting "TOOL_EXECUTED never appears for a denied
+    call" as a measured property of a real Runner-driven run, but it does
+    not change today's fire/block verdict.
+
+================================================================================
+7. WHAT WOULD SETTLE THE REMAINING UNCERTAINTY
+================================================================================
+
+  - Reading the actual ADK issue #4704 report (requires network access this
+    probe did not have) to confirm whether it names 2.1.0, an earlier
+    version, or a UI-specific symptom not reachable from the Runner API
+    tested here.
+  - A run against adk web itself (or the real Gemini Live API) to confirm
+    the UI layer does not do anything additional that bypasses the Runner
+    path proven here - out of scope for a no-network, no-credentials probe.
+  - Fixing and re-verifying crucible/plugin/adk.py::after_tool_callback for
+    the section 4 finding (assigned as a follow-up, not done in this file).

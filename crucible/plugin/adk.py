@@ -80,13 +80,44 @@ class CruciblePlugin(BasePlugin):
             tool_handle=handle, tool_name=name, tool_args=tool_args,
             invocation_id=getattr(tool_context, "invocation_id", "inv-unknown"),
             role=getattr(getattr(tool_context, "agent", None), "name", None))
-        self._pending[self._key(tool, tool_context)] = outcome.attempt_event
+        key = self._key(tool, tool_context)
 
         if not outcome.allowed:
             # A dict here means the tool body NEVER RUNS. This is the
-            # short-circuit, and it is the reason a DENY leaves a TOOL_ATTEMPT
+            # short-circuit, and it is what makes a DENY leave a TOOL_ATTEMPT
             # with no matching TOOL_EXECUTED.
+            #
+            # NOTHING IS STORED IN `_pending` ON A DENIAL, AND THAT LINE IS THE
+            # WHOLE FIX. Corrected 2026-08-21, after the first probe that drove
+            # this adapter through a real `Runner` instead of calling it by hand.
+            #
+            # ADK runs `after_tool_callback` UNCONDITIONALLY, including after a
+            # Step-1 short-circuit (`flows/llm_flows/functions.py:556` non-live,
+            # `:800` live). The old code stored the attempt before checking
+            # `allowed`, so `after_tool_callback` found it, popped it, and called
+            # `core.after_tool` - which appends TOOL_EXECUTED for a tool that
+            # never ran.
+            #
+            # It is worse than a spurious event. `core.after_tool` pops
+            # `policy_decision` and `denied_by_rule_id` from the payload
+            # (`core.py:206-207`), so the record it wrote was INDISTINGUISHABLE
+            # FROM A REAL EXECUTION. The denial evidence was stripped on the way
+            # out. The TRIPWIRE rules from the ledger and nothing else, so a
+            # blocked attack could be scored as a breach - the measurement
+            # inverted, silently, in the direction that flatters nothing and
+            # corrupts everything.
+            #
+            # `core.after_tool`'s own docstring already stated the precondition:
+            # "Only ever called when the call was allowed." The core was right;
+            # the adapter broke its contract. That precondition is now ENFORCED
+            # there rather than documented, so this cannot regress quietly.
+            #
+            # The `pop` clears any stale entry under this key from an earlier
+            # call, so a denial can never inherit a previous attempt's event.
+            self._pending.pop(key, None)
             return outcome.blocked_result
+
+        self._pending[key] = outcome.attempt_event
 
         # The stamped arguments are written back so the tool executes against
         # the SAME values the policy was evaluated on. Without this the engine
