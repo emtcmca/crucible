@@ -206,6 +206,45 @@ of what happens to Gemma, because the line is currently scripted and wrong.
 > in `measurement-spec:989` — a document asserting something true-sounding that
 > nobody measured.
 
+### Addendum, 2026-08-21. Four things this item did not have.
+
+Full memo with the ground-truth commands: `docs/decisions-pending/gemma-provenance.md`.
+
+**1. The exact line, and it is worse than "a clause".** It is
+`docs/execution-spec.md:532`, inside the timed video script, in the 45-second
+ARCHITECTURE beat — the segment the script itself marks as carrying the 40%
+criterion. It is spoken aloud to Google judges as "Proof of Action."
+
+**2. That line was already corrected once, and the correction was about tone.**
+The callout immediately below it records a 2026-08-20 fix: the Gemma clause "must
+not say *because aligned frontier models refuse red-team payloads at volume*",
+because in a Google-judged contest that reads as routing around safety refusals.
+**So somebody edited that exact sentence one day ago, for how it would sound, and
+never asked whether it was true.** A sentence can be revised and still be false;
+revising it is not checking it.
+
+**3. The stated justification is independently false.** The line argues *"because
+a corpus you can't regenerate is a corpus you can't pre-register."* Pre-registration
+here rests on the commitment hash, the public commit timestamp, and the IAM
+boundary — none of which care about provenance. **The commitment is the stronger
+mechanism, and the script talks past it to make a weaker argument that is also
+untrue.** Fixing the fact would improve the sentence even if regenerability were
+real.
+
+**4. Where it does and does not leak.** ~10 internal docs repeat it (ADR-0008,
+ADR-0009, architecture-spec, CONVENTIONS §3.2-3.3, build-spec, lanes/L2,
+NEEDS-ERIC, competitive-analysis). **`README.md` and `docs/devpost/` are clean —
+zero mentions.** So nothing false has reached the public artifacts yet. The script
+is the only path from here to a judge.
+
+**Recommendation sharpened: do option 1 TODAY and unconditionally, and decouple it
+from the decision about option 2.** Option 1 is not a concession, it is removing a
+false statement from a script; it should not wait on a build decision that will
+have better information in five days, after the corpus freeze and the first loop
+run. Supersede rather than edit ADR-0009 — this repo's stated practice — so the
+record shows the claim was made, checked, and withdrawn. **That trail is worth
+more to an architecture judge than the claim ever was.**
+
 ---
 
 ## Closed since the last list

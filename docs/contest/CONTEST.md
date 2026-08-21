@@ -50,14 +50,23 @@ reasonably addresses a Challenge, and reasonably applies the requirements."
 | 1 | One of the three tracks selected | **Fortified Enterprise Fleet** |
 | 2 | Text description: features, technologies, data sources, **findings and learnings** | Project Story posted; findings section owed |
 | 3 | Public code repository URL | `emtcmca/crucible`, public, Apache-2.0 |
-| 4 | **Spin-up instructions in `README.md`**, step by step | **NOT WRITTEN** |
-| 5 | **Architecture diagram** — a visual of how Gemini connects to backend, database, frontend | **DOES NOT EXIST** |
-| 6 | **Demo video, 4 minutes maximum**, public on YouTube or Vimeo, English or English subtitles | script exists, not recorded |
-| 7 | Video **must demonstrate the backend running on Google Cloud** | **no Cloud Run deploy yet** |
-| 8 | Hosted project URL for judges to test — "highly encouraged", not mandatory | none |
+| 4 | **Spin-up instructions in `README.md`**, step by step | **DONE 2026-08-21** — every command run, real output pasted |
+| 5 | **Architecture diagram** — a visual of how Gemini connects to backend, database, frontend | **DONE 2026-08-21** — `docs/diagrams/architecture.md`, six Mermaid, all rendered |
+| 6 | **Demo video, 4 minutes maximum**, public on YouTube or Vimeo, English or English subtitles | script exists, **not recorded** |
+| 7 | Video **must demonstrate the backend running on Google Cloud** | **deployed and serving 2026-08-21**; the two on-camera captures are still owed |
+| 8 | Hosted project URL for judges to test — "highly encouraged", not mandatory | `https://crucible-vgp5owkxyq-uc.a.run.app` — **authenticated**, so it is not yet a URL a judge can open |
 
-**Three of those eight do not exist**, and two of them (the diagram and the
-Cloud-Run-on-camera proof) are pass/fail gates rather than quality points.
+**Updated 2026-08-21. This table previously read "NOT WRITTEN", "DOES NOT EXIST"
+and "no Cloud Run deploy yet" for rows 4, 5 and 7, all three of which had been
+done — row 5 for a day.** Every agent reads this file before planning, so a stale
+row here does not merely mislead: it schedules work that is already finished, and
+it makes a finished deliverable look like a gap in the one document that exists to
+say which gaps are fatal.
+
+**One of those eight does not exist: the video.** Row 7's requirement is now two
+screenshots rather than a deploy, and row 8 is one IAM binding away from being a
+real judge-testable URL — see the Cost note in `deploy/RUNBOOK.md` for why it is
+locked down by default and what opening it would mean.
 
 ---
 
