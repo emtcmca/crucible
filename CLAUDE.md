@@ -134,57 +134,60 @@ exit 2. Do not route around it.
 
 **Updated:** 2026-08-20 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**W1 IS COMPLETE AND MERGED.** Four lanes ran — L1 first and alone, then L3 + L4
-in parallel with L2(a) alongside — and all four are merged to `integration`.
-**364 tests, `contract-check.py` five passes OK, `crucible.tripwire --selftest`
-exit 0, census 11 built of 36.** Rulings **1-33**, SPINE_VERSION **4**, **TEN**
-contracts. Everything pushed; `main` and `integration` both at parity.
+**W1 COMPLETE. W2 INTEGRATION I PASSES. W3 LANES RUNNING.** Rulings **1-33**,
+SPINE_VERSION **4**, **TEN** contracts. `integration` at **371 tests**,
+contract-check five passes OK, tripwire selftest exit 0, devpost format check
+2/2, census 11 built of 36.
 
-**What exists now (was: specs only)**
-- `crucible/canon` `ledger` `gate` `manifest` `dsl` `policy` `plugin` `compiler`
-  `tripwire` `warden` · `target/refund_agent` · `infra/` · 17 canonicalization
-  vectors · 9 known-bad trace fixtures · ~20 permanent strawmen
-- **GCP live:** 11 service accounts, IAM bound per `data-spec` §4.1, **Armorer
-  403 captured with a positive control** at `docs/proof/armorer-403.txt`
-- Sealed-corpus pre-commit hook **armed and proven** (`core.hooksPath` absolute,
-  so all six worktrees are covered regardless of branch)
+**W2 — the lanes run together.** `scripts/w2-smoke.py` + `tests/test_w2_integration.py`:
 
-**Four defects found that would have survived to the demo**
-- **`target_agent_hash` covered tool NAMES, not one line of tool BODY.** A frozen
-  target could be rewritten to approve everything and every result would still
-  cite the same hash. Ruling 30.
-- **"ledger" named two components** sharing zero methods. L2 was one step from
-  wiring the RUN LEDGER into the target. Ruling 29.
-- **`objective_set_hash` is a hash-lock with no contract.** Now C10, ruling 31.
-- **`origin` inside `rule_id`** broke convergence detection; L3 fixed half of it.
-  Ruling 32.
+```
+policy@v0 (EMPTY)              policy@v1 (one hand-written rule)
+  ATTACK  BREACH, executed       ATTACK  CLEAN, zero executed
+  BENIGN  CLEAN                  BENIGN  CLEAN, benign work still ran
+```
 
-**Open threads**
-- **D1 Devpost post** — outward-facing, needs approval. Second post (one pre-hash
-  already went up).
-- **L2(a) cannot freeze yet:** needs live capture of the three demos against the
-  real model (scope (a) authorized no model calls), and NB-01 + NB-02 installed
-  in the D3 Objective Set. `python -m target.refund_agent.freeze --write` is one
-  command and was deliberately not run.
-- **W2 is the next wave and its gate is a human decision** (`lanes-spec` §5).
-  L2(b) — 48 training attacks, 24 sealed, 24 benign — **cannot be fully
-  delegated**: ~2.5h of reading every fixture, and it is the load-bearing hand
-  cost in the plan.
-- Ruling 33 leaves three chores: sort `predicates`/`tool_names`, delete L4's
-  `reference_engine` once L3's is wired through the warden, make the ASR
-  denominator call `is_scorable()`.
-- Credit code follow-up Mon 08-24. Target freeze **Sat 08-22**. Cut line **Tue
-  08-25**. Submission **Mon 08-31 17:00 PDT**.
+The last cell is the G3 check: the rule **discriminates** rather than switching
+the capability off. Four lanes were each green against their own reading of the
+contracts; the first end-to-end run found **four seams none of them could see**:
+no parser→engine bridge · the `derived.*` **arithmetic had no owner** · nothing
+stamped `objective_set_hash` onto an episode · the target's tools need
+`bind_backends()`. New **`crucible/harness/`** is the coordinator-owned home for
+work that belongs to no lane because it sits on a seam.
+
+**GATE — needs Eric**
+- **`integration` → `main` is a WAVE BOUNDARY.** `lanes-spec` §5: the coordinator
+  does not merge across one unattended. W2 is that boundary. Everything is
+  pushed and green; the merge is yours.
+- **Devpost Update 2** is written and ready to paste:
+  `docs/devpost/2026-08-20-update-2-contracts-hashed.md`. Outward-facing.
+- **W3's L2(b)** — 48 training attacks, 24 sealed (18 is the floor), 24 benign
+  with 12 near-misses. **~2.5h of reading every fixture personally.** Everything
+  *around* it is being built now.
+
+**Running now (3 lanes, unattended)**
+- **L5 LOOP** — coroner, armorer, red, conductor, governor. Model calls.
+- **L6 EVIDENCE** — offline replay viewer + evidence bundle.
+- **L2(b) VALIDATORS** — label-blindness harness, approver lint, SEP-BY split.
+  **Authoring no fixtures**, deliberately.
+
+**Ready for D2 (Fri 08-21)**
+`scripts/freeze-d2-gate-rule.py` — dry run reads `834bc7113a13beea`, matches
+MANIFEST. All four refusals exercised. Update 3 drafted, **not posted** — the
+trigger is the artifact, never the calendar, and its hash is the literal
+placeholder `HASH_PENDING`. **ADR-0001 locks the update format** (Eric's call)
+and `scripts/check-devpost-format.py` enforces it, selftest 7/7.
+
+**Deferred until L5 merges** (would conflict mid-flight): ruling 32's second half
+(`origin` out of `hashed_payload`), restriction-6 sorts on
+`predicates`/`tool_names`, deleting L4's `reference_engine`, ASR denominator
+calling `is_scorable()`.
 
 **Watch out for**
-- **Ask every hash-lock what change it would FAIL to notice.** One of five locked
-  nothing, and the field name gave no hint.
-- **A search that reports CLEAN may be unable to see it** — and the inverse: the
-  census read 0 built while all four L1 checks existed, and `verify_iam.py`
-  reported four FAILs against correct infrastructure by reading the wrong JSON
-  shape. That error's direction was luck.
-- **§8 rule 12 failed inside the spine itself:** §10 asserted an open thread that
-  had already been closed.
-- **G8 grant direction inverts easily.** **Never lock the retention policy.**
-  **`episode.*` freezes before turn one.**
+- **Ask every hash-lock what change it would FAIL to notice.** One of five
+  locked nothing.
+- **A check satisfied by the headline is not checking the closing** — the format
+  checker's own selftest caught that in itself.
+- Target freeze **Sat 08-22** · cut line **Tue 08-25** · submission **Mon 08-31
+  17:00 PDT**.
 <!-- VAULT:SESSION-STATE end -->
