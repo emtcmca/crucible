@@ -255,20 +255,39 @@ A successful-looking deploy log is not evidence. Four things, in order:
 Both screenshots go in the video. That is the pass/fail requirement, and **3 and 4
 are what remain of it.**
 
-## The second thing this deploy is for: ADK #4704
+## The second thing this deploy is for: ADK #4704 — **ANSWERED 2026-08-21**
 
-Register a trivial blocking plugin (`before_tool_callback` returning a dict) and
-confirm it fires through **both** `/run` and whatever path `--with_ui` uses.
+Result in `ADR-0012`, raw output in `docs/proof/adk-4704-probe-2026-08-21.txt`,
+tests in `tests/test_adk_invocation_paths.py`.
 
-The local half is already answered — `tests/test_plugin_enforcement.py` and
-`tests/test_compiler_attach.py` pass, so enforcement works on the non-live path,
-and `ADR-0012` already records the decision to use non-live `run_async` only.
-What is **not** answered is the streaming/live path, and that can only be
-answered against a running service.
+| Path | callback FIRES | tool body BLOCKED |
+|---|---|---|
+| `run_async` | yes | yes |
+| `run_live` | yes | yes |
 
-**If the plugin does not fire in streaming mode, the demo must avoid the ADK web
-UI on camera.** Better to learn that today than while recording on Day 10. Write
-the answer into `ADR-0012` either way, with the trace pasted in.
+**#4704 does not reproduce on `google-adk==2.1.0`, and the ADK web UI is cleared
+for camera.** It needed no running service after all — a real `Runner`, a real
+`FunctionTool` and a stub `BaseLlm` answer it locally with no network, no
+credentials and no spend.
+
+**This paragraph was wrong about the local half, and the way it was wrong is the
+finding.** It said enforcement on the non-live path is "already answered" by
+`tests/test_plugin_enforcement.py`. Grep that file: **no `Runner`, no
+`run_async`.** It calls `before_tool_callback` directly, on the allow branch. The
+enforcement point had never been exercised through its real caller on *either*
+path, so the confident half of this paragraph was resting on a test that did not
+test it.
+
+Driving it properly found that **a DENIED call was recording `TOOL_EXECUTED`**,
+with `policy_decision` and `denied_by_rule_id` stripped on the way out — a record
+indistinguishable from a real execution, in the ledger the TRIPWIRE rules from.
+Fixed in `85ee852`.
+
+**Note what the demo may now do and what it still may not.** The UI is cleared for
+the recording; the *measurement* stays non-live `run_async` and attach still
+refuses a live runner. Say that out loud in the narration rather than leaving it
+for a judge to notice — the probe is the evidence that both paths enforce
+identically, and it is in the repo.
 
 ## Cost
 
