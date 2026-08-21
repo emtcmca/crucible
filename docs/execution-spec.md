@@ -652,7 +652,7 @@ than no log at all.
 
 | Day | Trigger — post only AFTER the artifact exists | What the post proves |
 |---|---|---|
-| **D1 · Thu 08-20** | Nine contracts hashed, `MANIFEST.json` committed, W0 exits | The build began from a frozen interface rather than from code |
+| **D1 · Thu 08-20** | Nine contracts hashed, `MANIFEST.json` committed, W0 exits *(a tenth, C10 the Objective Set, was added D1 evening on L4's report — ruling 31)* | The build began from a frozen interface rather than from code |
 | **D2 · Fri 08-21** | Gate rule hash-locked | The promotion rule existed before anything was promoted |
 | **D3 · Sat 08-22** | **Target agent, `manifest_hash` (capability manifest Part A), AND Objective Set frozen — same day, all three hashed** | **The definition of breach was fixed before any breach was measured.** The strongest single sentence in the project, and the thing the adversarial review found nobody was doing |
 | **D5 · Mon 08-24** | Corpus hashed **and `derived_schema_hash` (Part B) frozen, gated on the label-blindness check passing**; sealed family sealed to GCS with the Armorer holding no role | The held-out attacks existed before the first patch was written — **and the fields the evaluator reads were frozen before either arm ran, so both measure under one ruler** |

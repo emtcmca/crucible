@@ -455,7 +455,7 @@ Parallelism is not free. Name what it costs.
 
 The execution spec's Day 1 is money, kill switch, and canonicalizer. **Parallel operation adds four items, and they come before any lane is dispatched:**
 
-1. **Write and hash the nine contracts** into `contracts/` + `MANIFEST.json`.
+1. **Write and hash the contracts** into `contracts/` + `MANIFEST.json`. *(Nine at W0; **C10, the Objective Set, added 2026-08-20** — ruling 31. The count is computed from `hash-contracts.py`'s file list, never typed.)*
 2. **Hand-author one golden fixture per contract** — the input fixtures every lane develops against. This is the single highest-leverage hour in the whole build: it is what decouples the lanes.
 3. **Write `contract-check.py` and `conformance-sweep.py`**, including the negative-check census.
    **Four requirements on the dead-value sweep, every one of them paid for on 2026-08-20** — a

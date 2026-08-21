@@ -1,8 +1,8 @@
 {
   "manifest_version": 1,
-  "spine_version": 2,
+  "spine_version": 4,
   "frozen_at": "W0",
-  "contract_count": 9,
+  "contract_count": 10,
   "normalization": "LF; trailing whitespace stripped per line; exactly one trailing newline; UTF-8 no BOM. NOT JCS - see contracts/canonicalization.md section 4.",
   "contracts": {
     "C1": {
@@ -15,6 +15,21 @@
       "produced_by": "L3",
       "consumed_by": [
         "L4",
+        "L6"
+      ]
+    },
+    "C10": {
+      "files": {
+        "objective_set.schema.json": {
+          "sha256": "a02a1ec3cdefb8cce5ab86c1b3660bcc448b9afc3a2d863acbb8cc1552086013",
+          "bytes": 9604,
+          "freezes": "D3_with_target_and_objective_set_hash"
+        }
+      },
+      "produced_by": "L2/coordinator",
+      "consumed_by": [
+        "L4",
+        "L5",
         "L6"
       ]
     },

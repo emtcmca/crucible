@@ -11,11 +11,18 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 3` · last changed 2026-08-20
+`SPINE_VERSION: 4` · last changed 2026-08-20
 
 > **SPINE_VERSION 2 — the five D1 coordinator decisions are closed. Rulings 21-25 below.**
 >
 > **SPINE_VERSION 3 — rulings 26-28, on escalations from the W1 lanes. §5.8.**
+>
+> **SPINE_VERSION 4 — rulings 29-33. §5.8.** Two name collisions, a hash-lock that
+> locked nothing, a tenth contract, and a convergence detector that worked at one level
+> and not the other. **Invalidates nothing measured — nothing has been measured.** It does
+> change three ARTIFACTS: `contract_count` is 10, `target_agent_hash` moved from
+> `edade2064be9b50f` to `74116412b733db47` because it now covers the code, and any
+> `rule_id` computed with `origin` inside it is wrong.
 > **Invalidates nothing.** Nothing has been measured. Ruling 26 declares NB-02 and
 > therefore CHANGES WHAT THE OBJECTIVE SET MUST CONTAIN before D3; rulings 27 and 28
 > change no artifact at all. If any breach number had already been produced under a
@@ -1255,6 +1262,88 @@ pointless.
 **Generalize this.** Every hash-lock in the build should be asked the same
 question before D3: *what change would this fail to notice?* A lock is only worth
 the surface it covers, and the surface is never obvious from the field name.
+
+### Ruling 31 — the OBJECTIVE SET gets a contract. **C10. Ten contracts now, not nine.**
+
+**L4's finding, and it is blocking.** `objective_set_hash` is one of the **five
+hash-locks**, G1(b) asserts it, and **no contract describes the artifact's
+shape.** L4 had to invent one to build the evaluator at all.
+
+**Ruled: it gets `contracts/objective_set.schema.json` as C10, before D3.**
+
+This is the case ruling 27 defined a contract *for*: **a data shape crossing a
+blindness boundary.** The Objective Set is authored at D3 by one party and read
+by the `OBJECTIVE_EVALUATOR`, which is a different party by construction — the
+evaluator is deliberately blind to attack intent. If the D3 artifact and the
+evaluator disagree about the shape, **the definition of breach fails to load on
+a hard-stop day**, and the failure surfaces as a harness that will not boot
+rather than as a schema mismatch anyone can read.
+
+**Ten stays ten and the count is computed, not typed** —
+`hash-contracts.py` derives `contract_count` from the file list, so this ruling
+could not leave a stale number behind even if someone wanted it to.
+
+The schema is authored **from L4's working instance**, not invented alongside it.
+Formalizing a shape that already runs is different from designing one on paper:
+the six clauses, three forms, `ANY` sentinel and `window_by_seq` are all
+load-bearing in nine passing known-bad fixtures. **A contract derived from a
+working artifact starts with evidence that its shape is expressible.**
+
+### Ruling 32 — `origin` is EXCLUDED from `rule_id` **and from `policy_hash_full`.** L3 half-right.
+
+**L3 reported that `canonicalization.md` §1 contradicts itself, and it does.**
+The literal formula is `rule_id = hash(canonical(rule_without_rule_id))` —
+removing only `rule_id`. `origin` carries the round number, so **the same rule
+re-proposed in round 4 hashes differently from round 2**. The very next paragraph
+says `add_rule` of an existing rule is *"detectably a no-op — the per-rule half
+of the convergence detector."* **Both cannot hold.**
+
+This is the ruling-22 shape exactly: an **intra-document** contradiction, so
+precedence has nothing to pick from and it is decided on merits. And the merits
+are already decided elsewhere, more strongly than L3 knew:
+
+- `data-spec.md:861`, *Excluded deliberately*: **`provenance`** is on the list,
+  with the reasoning stated verbatim — *"two rounds deriving the same rule for
+  different reasons produce the same hash — correct, because the policy is the
+  same policy."*
+- `data-spec.md:235`: `"provenance": { // <-- NOT hashed; keyed by rule_id`.
+
+**Ruled: `origin` is provenance. It is excluded from `rule_id`, and it is
+excluded from `hashed_payload` entirely.** It lives in a `provenance` map keyed
+by `rule_id`, a sibling of the hashed subtree.
+
+**L3 implemented the first half and not the second** — its note says
+*"`policy_hash` still covers `origin`."* That leaves two policies identical
+except for which round derived a rule hashing **differently**, which breaks
+convergence-by-hash-equality at the **policy** level while fixing it at the rule
+level. Half a convergence detector detects convergence half the time, and the
+half it misses is the one that ends the loop.
+
+Same doctrine as `run_id`'s removal from the hashed payload on 2026-08-20, and
+the same failure it was removed to prevent.
+
+### Ruling 33 — four smaller lane escalations, ruled together.
+
+1. **`deny` carries no `reason_code` but C2 requires one on every DENY.** L3 mints
+   three fixed enum symbols in the engine. **Ratified** — the reason a call was
+   denied is derivable from *which verb fired*, so asking the policy author to
+   restate it invites a free-text field into a grammar that has none by design.
+2. **`predicates` and `tool_names` sit in the hashed body with no restriction-6
+   sort.** **Sort them**, by value, at construction. Restriction 6 exists so array
+   order carries no semantics; an unsorted array in a hashed payload means two
+   spellings of one rule get two IDs, which is the same defect as ruling 32 in a
+   different field.
+3. **L4's `reference_engine.py` is a second implementation of C4 semantics.**
+   **Keep it until L3's engine is wired through the warden, then delete it**, and
+   until then it is calibration-only, injectable, and labelled — L4 built it that
+   way unprompted. **If the two ever disagree on a fixture, that is a contract
+   report, not a bug in whichever one you trust less.**
+4. **`TARGET_FAULT` is not structurally enforced in the ASR denominator.** L4 added
+   `is_scorable()` and a test, and correctly flagged that a consumer can ignore
+   it. **The denominator must call it.** Counting a crashed target as a repelled
+   attack renders a **fragile** target as a **hardened** one — the single most
+   flattering error available in this build, which is exactly why it needs a
+   structural check rather than a note.
 
 ### Ruling 28 — `capability_classes: minItems 1` leaves the INERT set unencodable. Noted, not changed.
 
