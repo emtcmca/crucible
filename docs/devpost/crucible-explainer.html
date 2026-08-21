@@ -1,0 +1,491 @@
+<title>CRUCIBLE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap">
+
+<style>
+/* ============================================================
+   CRUCIBLE — assay palette.
+   Cool lab paper, ink-blue black, one molten brass accent,
+   plus verdigris/rust as true semantics (this document is full
+   of INTACT / REFUSED / INVALID and the color should carry it).
+   ============================================================ */
+:root {
+  --ground:      #F1F3EF;
+  --surface:     #FBFCFA;
+  --surface-2:   #E7EAE4;
+  --evidence-bg: #1B2023;
+  --evidence-fg: #D8DCD6;
+  --ink:         #14181B;
+  --ink-2:       #454E54;
+  --ink-3:       #6C757A;
+  --rule:        #D0D5CD;
+  --rule-strong: #A9B1A8;
+  --brass:       #9A6B12;
+  --brass-soft:  #E9DCBD;
+  --verdigris:   #2C6355;
+  --rust:        #94371F;
+  --shadow:      0 1px 2px rgba(20,24,27,.05), 0 8px 24px -12px rgba(20,24,27,.16);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #0E1113;
+    --surface:     #15191B;
+    --surface-2:   #1D2225;
+    --evidence-bg: #080A0B;
+    --evidence-fg: #C9CFC8;
+    --ink:         #E7EAE4;
+    --ink-2:       #A8B0AC;
+    --ink-3:       #7C8582;
+    --rule:        #2A3033;
+    --rule-strong: #3D4549;
+    --brass:       #D2A24C;
+    --brass-soft:  #3A2F17;
+    --verdigris:   #6BAE9B;
+    --rust:        #CD7355;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:      #0E1113;
+  --surface:     #15191B;
+  --surface-2:   #1D2225;
+  --evidence-bg: #080A0B;
+  --evidence-fg: #C9CFC8;
+  --ink:         #E7EAE4;
+  --ink-2:       #A8B0AC;
+  --ink-3:       #7C8582;
+  --rule:        #2A3033;
+  --rule-strong: #3D4549;
+  --brass:       #D2A24C;
+  --brass-soft:  #3A2F17;
+  --verdigris:   #6BAE9B;
+  --rust:        #CD7355;
+  --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- shell: persistent index rail + measure-constrained document --- */
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 5vw, 56px) 96px;
+}
+@media (min-width: 1000px) {
+  .shell { grid-template-columns: 216px minmax(0, 1fr); gap: 56px; }
+}
+
+/* --- masthead --- */
+.masthead {
+  grid-column: 1 / -1;
+  padding: clamp(48px, 9vh, 96px) 0 clamp(28px, 5vh, 44px);
+  border-bottom: 1px solid var(--rule);
+}
+.eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin: 0 0 20px;
+}
+.wordmark {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-weight: 600;
+  font-size: clamp(30px, 6vw, 46px);
+  letter-spacing: .2em;
+  margin: 0 0 6px;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.tagline {
+  font-family: Newsreader, ui-serif, Georgia, serif;
+  font-size: clamp(21px, 3.1vw, 29px);
+  line-height: 1.34;
+  font-weight: 400;
+  color: var(--ink-2);
+  max-width: 30ch;
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* the standing honesty notice — this doc predates every result */
+.provenance {
+  margin-top: 30px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  align-items: baseline;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.provenance b { color: var(--rust); font-weight: 600; }
+
+/* --- index rail --- */
+.rail { display: none; }
+@media (min-width: 1000px) {
+  .rail {
+    display: block;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    padding-top: 52px;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+}
+.rail h2 {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+  margin: 0 0 14px;
+}
+.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.rail a {
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1.35;
+  display: block;
+  border-left: 2px solid var(--rule);
+  padding-left: 12px;
+}
+.rail a:hover { color: var(--brass); border-left-color: var(--brass); }
+.rail a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+
+/* --- document --- */
+.doc { padding-top: 52px; min-width: 0; }
+section { margin-bottom: clamp(52px, 8vh, 84px); scroll-margin-top: 24px; }
+
+h2.section {
+  font-family: Newsreader, ui-serif, Georgia, serif;
+  font-size: clamp(25px, 3.6vw, 33px);
+  font-weight: 500;
+  line-height: 1.22;
+  margin: 0 0 4px;
+  text-wrap: balance;
+  color: var(--ink);
+}
+/* the assay rule: two hairlines, one brass. quiet, and used everywhere. */
+.assay {
+  border: 0;
+  height: 3px;
+  margin: 0 0 26px;
+  background:
+    linear-gradient(var(--brass), var(--brass)) left top / 44px 1px no-repeat,
+    linear-gradient(var(--rule-strong), var(--rule-strong)) left top / 100% 1px no-repeat,
+    linear-gradient(var(--rule), var(--rule)) left bottom / 100% 1px no-repeat;
+}
+
+h3 {
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .005em;
+  margin: 34px 0 8px;
+  color: var(--ink);
+}
+p { margin: 0 0 17px; max-width: 66ch; }
+.doc a { color: var(--brass); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+strong { font-weight: 600; color: var(--ink); }
+em { font-style: italic; }
+code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .875em;
+  background: var(--surface-2);
+  padding: .1em .34em;
+  border-radius: 2px;
+}
+.lede {
+  font-family: Newsreader, ui-serif, Georgia, serif;
+  font-size: 20.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 60ch;
+}
+
+/* --- the five components --- */
+.parts { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 26px 0; }
+.part { background: var(--surface); padding: 20px 22px; }
+.part-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 7px; }
+.part-name {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink);
+}
+.chip {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10.5px; font-weight: 500; letter-spacing: .09em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 2px; white-space: nowrap;
+}
+.chip.code { background: var(--verdigris); color: var(--surface); }
+.chip.model { background: var(--brass-soft); color: var(--brass); border: 1px solid var(--brass); }
+.part p { margin: 0; font-size: 15.5px; color: var(--ink-2); max-width: none; }
+
+/* --- evidence block: the hash moments --- */
+.evidence {
+  background: var(--evidence-bg);
+  color: var(--evidence-fg);
+  border-left: 2px solid var(--brass);
+  padding: 22px 24px;
+  margin: 26px 0;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13.5px;
+  line-height: 1.7;
+  overflow-x: auto;
+}
+.evidence .k { color: #7C8582; display: block; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 8px; }
+.evidence .digest { color: #D2A24C; font-size: 19px; letter-spacing: .1em; font-weight: 600; }
+.evidence p { color: var(--evidence-fg); max-width: 62ch; margin: 12px 0 0; font-size: 13.5px; }
+
+/* --- callouts --- */
+.note {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rust);
+  background: var(--surface);
+  padding: 18px 22px;
+  margin: 26px 0;
+  box-shadow: var(--shadow);
+}
+.note .label {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10.5px; letter-spacing: .15em; text-transform: uppercase;
+  color: var(--rust); font-weight: 600; display: block; margin-bottom: 8px;
+}
+.note p:last-child { margin-bottom: 0; }
+
+/* --- the demo: the ONLY true sequence in this document, so the ONLY numbered list --- */
+.beats { list-style: none; counter-reset: beat; margin: 26px 0 0; padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.beats li { counter-increment: beat; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 16px; }
+.beats li::before {
+  content: counter(beat, decimal-leading-zero);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px; font-weight: 600; letter-spacing: .06em;
+  color: var(--brass);
+  border-top: 1px solid var(--brass);
+  padding-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.beats p { margin: 0; max-width: 62ch; }
+.beats .beat-title { font-weight: 600; color: var(--ink); }
+
+/* --- plain lists --- */
+ul.plain { margin: 0 0 17px; padding-left: 20px; max-width: 66ch; }
+ul.plain li { margin-bottom: 9px; }
+
+/* --- uses grid --- */
+.uses { display: grid; gap: 22px; margin: 26px 0 0; }
+@media (min-width: 720px) { .uses { grid-template-columns: 1fr 1fr; gap: 26px 40px; } }
+.use h3 { margin-top: 0; }
+.use p { font-size: 15.5px; color: var(--ink-2); margin-bottom: 0; }
+
+footer {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--rule);
+  padding-top: 22px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--ink-3);
+  display: flex; flex-wrap: wrap; gap: 6px 28px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+html { scroll-behavior: smooth; }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">Pre-deployment hardening harness</p>
+    <h1 class="wordmark">CRUCIBLE</h1>
+    <p class="tagline">The adversarial quality gate an autonomous agent has to survive before production.</p>
+    <div class="provenance">
+      <span>Written 2026&#8209;08&#8209;21</span>
+      <span><b>Nothing here is a result.</b> No loop has been run and no attack has been scored.</span>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#problem">The problem</a></li>
+      <li><a href="#does">What it does</a></li>
+      <li><a href="#works">How it works</a></li>
+      <li><a href="#believe">Why believe the number</a></li>
+      <li><a href="#finding">The finding</a></li>
+      <li><a href="#judge">What a judge sees</a></li>
+      <li><a href="#after">After the hackathon</a></li>
+    </ol>
+  </nav>
+
+  <main class="doc">
+
+    <section id="problem">
+      <h2 class="section">The problem</h2>
+      <hr class="assay">
+      <p class="lede">Companies are starting to give AI agents real permissions. Not &ldquo;draft me an email&rdquo; &mdash; actual authority: refund money, close a case, email a customer, hand work to another agent.</p>
+      <p>The way that authority gets tested today is that somebody writes a list of nasty prompts, runs them, and sees what happens. Two things go wrong with that.</p>
+      <p><strong>The list is written by the same person who built the agent</strong>, so it tests the failures they already imagined. The failures that matter are the ones nobody imagined.</p>
+      <p><strong>Nothing is fixed by it.</strong> A red-team report says &ldquo;here is what broke.&rdquo; It does not say &ldquo;here is the rule that stops it,&rdquo; and it certainly does not say &ldquo;and here is proof the rule did not break anything legitimate on the way.&rdquo;</p>
+      <p>There is a third failure that is quieter and worse. When a team does write a fix and re-run the tests, the tests almost always pass &mdash; because the fix was written after seeing the tests. That number is not evidence of anything. It is the answer to a question that was asked after the answer was known.</p>
+    </section>
+
+    <section id="does">
+      <h2 class="section">What CRUCIBLE does</h2>
+      <hr class="assay">
+      <p>CRUCIBLE is a hardening harness you run <em>before</em> you deploy an agent. You point it at an agent that holds real permissions. It attacks that agent, watches what the agent actually did, writes a policy rule that stops the attack, checks that the rule did not break legitimate work, and either promotes the rule or rolls it back. Then it does it again.</p>
+      <p>What comes out is not a report. It is a <strong>policy</strong> &mdash; a small set of machine-readable rules that sit between the agent and its tools &mdash; plus an evidence trail showing which attack each rule stopped and what legitimate behaviour survived.</p>
+    </section>
+
+    <section id="works">
+      <h2 class="section">How it works</h2>
+      <hr class="assay">
+      <p>Five components. Three of them are code rather than models, and that is the whole design.</p>
+
+      <div class="parts">
+        <div class="part">
+          <div class="part-head"><span class="part-name">Red&nbsp;team</span><span class="chip model">Model</span></div>
+          <p>Attacks the target. Writes new attacks each round, against a target whose defenses are tighter than they were last round.</p>
+        </div>
+        <div class="part">
+          <div class="part-head"><span class="part-name">Tripwire</span><span class="chip code">Pure code</span></div>
+          <p>Sits between the agent and its tools and records what the agent <em>actually called</em>, with what arguments. It does not ask the agent what it did. This is the difference between a witness and a confession.</p>
+        </div>
+        <div class="part">
+          <div class="part-head"><span class="part-name">Coroner</span><span class="chip model">Model</span></div>
+          <p>Writes the autopsy: what happened, in what order, where the trust boundary broke. It <strong>structurally cannot propose a fix</strong> &mdash; what it hands downstream is a fixed list of fields with no free-text box, so it has nowhere to write &ldquo;and you should do X.&rdquo;</p>
+        </div>
+        <div class="part">
+          <div class="part-head"><span class="part-name">Armorer</span><span class="chip model">Model</span></div>
+          <p>Writes the patch, in a deliberately tiny language with exactly three verbs: <code>deny</code>, <code>constrain_arg</code>, <code>require_approval</code>. There is no <code>allow</code> verb, so no sequence of patches can ever <em>widen</em> what the agent may do. The worst a confused or compromised Armorer can do is over-block &mdash; and there is a separate check for that.</p>
+        </div>
+        <div class="part">
+          <div class="part-head"><span class="part-name">Warden&nbsp;&amp;&nbsp;gate</span><span class="chip code">Pure code</span></div>
+          <p>Decide whether a proposed rule is promoted or thrown away. The gate re-reads the rule back from disk and re-computes its hash from the actual bytes, because a gate that reports a decision it did not durably record will lie to you exactly once, at the worst possible moment.</p>
+        </div>
+      </div>
+
+      <p>Detection and remediation are separated <strong>structurally</strong> rather than by instruction. And the separation is enforced in cloud IAM, not in a prompt: the Armorer&rsquo;s service account cannot read the evidence bucket at all. We tried it as the Armorer, captured the 403, and saved the raw denial &mdash; alongside a positive control proving the probe can actually fail.</p>
+    </section>
+
+    <section id="believe">
+      <h2 class="section">Why anyone should believe the number</h2>
+      <hr class="assay">
+      <p>This is the part the project actually cares about, and the reason for most of the machinery.</p>
+
+      <h3>One family of attacks is sealed before any fix is written</h3>
+      <p>Six attack families are used for training. A seventh &mdash; destination smuggling, 24 instances &mdash; is held out. It is not in the public repository. It sits in a cloud bucket the attacking identity cannot read. Its fingerprint was published <em>before</em> the run, with a public commit timestamp.</p>
+
+      <div class="evidence">
+        <span class="k">Published commitment &mdash; sealed family F4</span>
+        <span class="digest">2cde0250de00e692</span>
+        <p>Anyone can recompute this after the reveal and confirm nothing moved. The filenames are inside the hash and are never published, because each name describes its attack&rsquo;s pretext.</p>
+      </div>
+
+      <p>That is the same discipline as pre-registering a hypothesis before collecting the data. It turns &ldquo;we sealed it first, trust us&rdquo; into something a stranger can check.</p>
+      <p>The held-out family also sits on <strong>capability classes the rules were never trained on</strong>. So the question it answers is not &ldquo;did the fix work on the thing it was written for&rdquo; &mdash; it is <em>did the loop learn a rule shape that generalises to tools it never saw.</em></p>
+
+      <h3>Five things are hash-locked, each before it could be used</h3>
+      <p>The promotion rule, the target agent, the capability map, the definition of what counts as a breach, and the corpus together with the fields the evaluator reads. Once locked, changing any of them voids the run rather than quietly moving the goalposts.</p>
+
+      <h3>Every check is asked what it would fail to notice</h3>
+      <p>That question has already caught real defects here. One of the five hash-locks locked nothing &mdash; proven by editing a tool body and watching the hash stay put. Six of ten schemas were not valid schemas. And the definition of breach had no clause covering the sealed family, which would have reported zero breaches while every gate stayed green.</p>
+
+      <h3>The claim is stated with its limits attached, permanently</h3>
+      <ul class="plain">
+        <li>Single sample. No stability estimate, and the label saying so travels with the figure.</li>
+        <li>One target.</li>
+        <li>Every headline figure is printed next to a split showing how many test pairs were separated by the <em>policy</em> versus by the <em>approval oracle</em> &mdash; because a suite the oracle separates produces identical-looking numbers to one the policy separates, and that row is the only thing that tells them apart.</li>
+      </ul>
+    </section>
+
+    <section id="finding">
+      <h2 class="section">The finding we are most likely to be remembered for</h2>
+      <hr class="assay">
+      <p>While building the ruler, we found that <strong>a rule which over-blocks passes every gate.</strong></p>
+      <p>A <code>require_approval</code> rule that sends far too much to a human blocks most attacks, the approval oracle approves the legitimate requests, the benign pass rate reads a perfect 24 out of 24, and the promotion gate promotes it. Every instrument says the run went well. What actually happened is that the agent was made useless and a human was handed the work.</p>
+
+      <div class="note">
+        <span class="label">The fix was not to the rule</span>
+        <p>It was to the ruler. The benign pass rate now permanently carries a second figure: how many of those passes happened only because a human was made to rubber-stamp them. A benign task that survived by escalation can never again be counted as having passed cleanly.</p>
+      </div>
+
+      <p>That is a finding about how AI safety work gets measured, and it holds well beyond this project.</p>
+    </section>
+
+    <section id="judge">
+      <h2 class="section">What a judge sees</h2>
+      <hr class="assay">
+      <p>About four minutes, live, with no narration over a static screen.</p>
+
+      <ol class="beats">
+        <li><p><span class="beat-title">A refund agent with eight real tools and real permissions.</span> It moves money against a real SQLite ledger. A refund it issues actually changes a balance you can query.</p></li>
+        <li><p><span class="beat-title">Attacks run, and several fail on camera.</span> Failures stay in. A reel where everything works reads as a tour; a reel where attacks 14 and 15 fail and 16 gets through reads as a system under pressure.</p></li>
+        <li><p><span class="beat-title">One lands.</span> The tripwire &mdash; not the attacker&rsquo;s own account of itself &mdash; shows the exact call sequence that crossed the line.</p></li>
+        <li><p><span class="beat-title">The Coroner writes the autopsy and cannot suggest the fix.</span> The Armorer, reading only an enumerated projection of that autopsy, emits a rule in three verbs.</p></li>
+        <li><p><span class="beat-title">The rejection beat, and it is the most credible thirty seconds in the demo.</span> A proposed rule blocks five attacks and <em>also</em> breaks two legitimate cases: a real supervisor authorising a real refund, and a legitimate delegated credit. The gate throws the rule out. A system that only ever shows itself succeeding has not shown you anything.</p></li>
+        <li><p><span class="beat-title">The seal is opened on camera.</span> The held-out family runs for the first time, against a policy that has never seen it, on capability classes the rules were never trained on. The published fingerprint is recomputed live.</p></li>
+        <li><p><span class="beat-title">A third-party agent nobody wrote attacks for.</span> Its tools are classified in about forty seconds, one comes back unclassified and is <em>named out loud</em> rather than hidden, and the existing corpus runs against it. The number on screen is <strong>attacks written for this agent: 0</strong> &mdash; and we say before running it that cross-target transfer will be worse, because it will be.</p></li>
+      </ol>
+    </section>
+
+    <section id="after">
+      <h2 class="section">Where this goes after the hackathon</h2>
+      <hr class="assay">
+
+      <div class="uses">
+        <div class="use">
+          <h3>Continuous adversarial assurance in CI</h3>
+          <p>The natural home for this is a pipeline step. A developer changes an agent, the change deploys to a candidate environment, CRUCIBLE runs the existing corpus plus fresh generated attacks, and a security regression blocks the merge. Agents get the thing ordinary software has had for twenty years and agents still do not: a test suite that runs on every change and can actually stop a bad one.</p>
+        </div>
+        <div class="use">
+          <h3>A policy layer that outlives the harness</h3>
+          <p>The three-verb policy language and the capability-class model are not tied to this refund agent, or to one framework. Rules bind to <em>capability classes</em> rather than to tool names, which is why a rule learned on one tool can transfer to a tool it has never seen. That part is portable.</p>
+        </div>
+        <div class="use">
+          <h3>An honest procurement artifact</h3>
+          <p>Enterprises buying agents have no way to ask &ldquo;how does this behave when someone attacks it.&rdquo; A signed evidence bundle &mdash; held-out attacks, a published pre-commitment, a benign floor showing the agent still works &mdash; is closer to a real answer than any vendor questionnaire currently in use.</p>
+        </div>
+        <div class="use">
+          <h3>Regulated industries first</h3>
+          <p>Financial services, healthcare, legal. Not because the technology is different there, but because those are the buyers who already have to document why an automated decision was allowed to happen, and who cannot accept &ldquo;the model seemed fine.&rdquo;</p>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="label">What it should not become</span>
+        <p>A scanner you run once, after the fact, to generate a PDF. The whole design assumes it runs <em>before</em> deployment and again on every change, and that its output is an enforceable policy rather than a document somebody files.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>CRUCIBLE</span>
+    <span>Apache&#8209;2.0</span>
+    <span>Google &ldquo;All Things Agentic&rdquo; &mdash; The Fortified Enterprise Fleet</span>
+    <span>Eric Tetzlaff</span>
+  </footer>
+
+</div>

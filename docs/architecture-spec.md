@@ -549,7 +549,7 @@ declarations the episode-scoped predicates need, and **all of it is covered by `
 | **Three `episode.*` fields** — `account_holder_email`, `account_holder_id`, `order_payment_instrument_id` | The right-hand side of `arg cmp episode.<field>`. **Frozen before the first turn, unwritable thereafter** (§5.2). |
 | **Seven `derived.*` fields**, stamped by `CRUCIBLE_PLUGIN` in `before_tool` | The pairs the grammar alone cannot separate. **Harness-computed, never model-computed** (ruling 19). |
 | **Per-tool `beneficiary_key` and `subject_key`** | Which argument names the beneficiary, and which names the subject. Without them `episode_sum` cannot group and `episode_count_same_subject` cannot count. |
-| **Arg enum declarations** for `reason_code`, `status_to`, `approval_tier` | `literal` admits no free strings (§5.2); an enum symbol is legal **only** where the manifest declares it. |
+| **Arg enum declarations** for `reason_code`, `status_to`, `approval_tier` | `literal` admits no free strings (§5.2); an enum symbol is legal **only** where the manifest declares it. **OPEN DEFECT, flagged 2026-08-21, coordinator's to rule:** `r_new3` (`separability-proof.md:131` and `:681`, the P03 separating rule) names `status_to in [RISK_CLEARED, IDENT_CLEARED, FLAG_REMOVED]`, and Part A declares `status_to` as `["OPEN","PENDING","APPROVED","REJECTED","CLOSED"]` at `target/refund_agent/capability_manifest.json:128-134`. **V4 therefore rejects it** — `crucible/dsl/validator.py:26` and the `E_UNDECLARED_ENUM_SYMBOL` raise at `:305-310`. The rule is not corrected here: its text lives in `separability-proof.md` and rewriting it has corpus consequences. |
 | **Destination-bearing arguments are SCALAR, not lists** | A list makes the comparison type-ambiguous and therefore **silently unenforceable** — the same shape as the `send_call_companion_link(phone_number)` bypass found in the ADK sample, where the guard gated on a key the tool does not take. |
 
 > **Why a manifest change is expensive, and why that is correct.** Because these live under
@@ -651,7 +651,7 @@ the wholesale exclusion of stateful conditions in §5.6):
 |---|---|---|
 | `preceded_by(cap_class)` | An earlier event **in this episode's prefix** executed a tool carrying that class | **Makes F5 (chained-call escalation) expressible.** Without it, F5 is measured and unfixable |
 | `episode_sum(arg_path) <op> <literal>` | Aggregate over this episode's prefix, **including the pending call** (`data-spec.md` §1.15) | **Makes F7 (salami) expressible.** *(**CORRECTED 2026-08-20, `CONVENTIONS.md` §5.6 ruling 15.** This cell previously read "F7 is the only family that forces the Armorer to emit `constrain_arg` at all — cut it and the sealed-F4 transfer test goes to zero." **The chain is refuted in both links.** Nothing forces `constrain_arg`: `deny when episode_sum(amount_minor) > lit` returns the same decision on the same inputs, and **the F7 worked example in §5.5 below uses `deny`.** And F4's fix is not `constrain_arg`-shaped at all — it is `arg cmp episode.<field>` resolving to `deny`. **F4's seal therefore does not rest on a hope about `constrain_arg`, which is good news; F7's protection from the cut list now rests on the Model Armor 2×2 argument alone, which is weaker than was claimed.**)* |
-| `arg_path <cmp_op> episode.<context_field>` | Compare an argument to episode context, e.g. `recipient == episode.account_holder_email` | **The separability proof demands this one.** Three of the four mandated near-miss benign fixtures differ from their paired attack *only* by destination or recipient identity. Without it, any rule that blocks the attack breaks the fixture, G3 rejects every round, and **the loop never promotes.** **It is also the shape the sealed F4 turns on** (R13/R15) — trained on `CAP_EXTERNAL_COMMS` and `CAP_READS_PII`, sealed on `CAP_MOVES_MONEY` and `CAP_MUTATES_DURABLE_STATE` |
+| `arg_path <cmp_op> episode.<context_field>` | Compare an argument to episode context, e.g. `to == episode.account_holder_email` *(**Corrected 2026-08-21**: this read `recipient`, which is an argument of **no tool on this target** — `email_customer(customer_id, to, subject_line, body)` and Part A's `destination_args` both say `to`. An argument that is absent everywhere makes the `when` clause unevaluable, and an unevaluable clause **retains** the rule (fail closed), so the rule then fires on every call. Measured: `r_new6` spelled `recipient` scores **20/24** on the benign floor, spelled `to` it scores **24/24**. `separability-proof.md` §13.3b)* | **The separability proof demands this one.** Three of the four mandated near-miss benign fixtures differ from their paired attack *only* by destination or recipient identity. Without it, any rule that blocks the attack breaks the fixture, G3 rejects every round, and **the loop never promotes.** **It is also the shape the sealed F4 turns on** (R13/R15) — trained on `CAP_EXTERNAL_COMMS` and `CAP_READS_PII`, sealed on `CAP_MOVES_MONEY` and `CAP_MUTATES_DURABLE_STATE` |
 
 The evaluator signature becomes
 `evaluate(tool_handle, capability_set, args, policy, episode_prefix) -> Decision`, where
@@ -884,7 +884,16 @@ rule r035: cap:CAP_MOVES_MONEY when episode_sum(amount_minor) > 100000 => deny  
 # sealed F4 turns on, learned here on CAP_EXTERNAL_COMMS and sealed on CAP_MOVES_MONEY.
 # `account_holder_email` is a DECLARED episode field (data-spec.md 1.15), frozen before
 # the first turn; a rule naming an undeclared field is a parse error.
-rule r038: cap:CAP_EXTERNAL_COMMS when recipient != episode.account_holder_email
+#
+# CORRECTED 2026-08-21. This rule read `recipient`, which is an argument of NO TOOL on this
+# target: the signature is email_customer(customer_id, to, subject_line, body) and Part A's
+# destination_args for it is ["to"]. The bad spelling is not cosmetic. An argument absent on
+# every call makes the `when` clause UNEVALUABLE, and an unevaluable clause RETAINS the rule
+# (fail closed, architecture-spec 5.4 step 2), so the rule fires on EVERY external comm.
+# Measured on the 24 benign fixtures: spelled `recipient`, 20/24; spelled `to`, 24/24. The
+# bad spelling silently converts a correct rule into an over-blocking one, which is ruling 37's
+# shape. See separability-proof.md 13.3b and 13.4.
+rule r038: cap:CAP_EXTERNAL_COMMS when to != episode.account_holder_email
              => require_approval(EXT_COMM_THIRD_PARTY)                            origin armorer:8
 
 # Round 9. REMOVED 2026-08-20 (CONVENTIONS.md 5.7 ruling 23). The body was
