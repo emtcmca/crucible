@@ -1,0 +1,11 @@
+{
+  "_what": "D2 hash-lock of C8, the promotion rule. CONVENTIONS: hash-locked D2, not editable after.",
+  "_why": "The claim is that the promotion rule existed BEFORE anything was promoted. That claim is about a moment, so the record names the commit and its timestamp rather than only the hash.",
+  "contract": "C8",
+  "file": "contracts/gate_rule.v1.yaml",
+  "gate_rule_hash": "cff9f52929397efb",
+  "gate_rule_hash_full": "cff9f52929397efba3713df501961805deb9c5c798878b52cfff4e854c3d67d3",
+  "normalization": "LF; trailing whitespace stripped per line; exactly one trailing newline; UTF-8 no BOM. NOT JCS -- canonicalization.md section 4.",
+  "file_committed_at": "2026-08-21T17:19:42-04:00",
+  "head_commit": "b4e060e5dbda808a33fa3473eed40e67fcb6b363"
+}
