@@ -11,11 +11,16 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 4` · last changed 2026-08-20
+`SPINE_VERSION: 5` · last changed 2026-08-20
 
 > **SPINE_VERSION 2 — the five D1 coordinator decisions are closed. Rulings 21-25 below.**
 >
 > **SPINE_VERSION 3 — rulings 26-28, on escalations from the W1 lanes. §5.8.**
+>
+> **SPINE_VERSION 5 — ruling 23.4 corrected: the approver sentinel is `"NONE"`,
+> never `null`.** Found by L2, and the spine was the document that was wrong.
+> **Invalidates nothing measured.** It changes what a corpus instance must contain,
+> and no corpus instance exists yet — which is the only reason this is cheap.
 >
 > **SPINE_VERSION 4 — rulings 29-33. §5.8.** Two name collisions, a hash-lock that
 > locked nothing, a tenth contract, and a convergence detector that worked at one level
@@ -1022,7 +1027,28 @@ label-mirror argument and the redundant-when-legal dilemma. `derived.*` stays at
    `derived.approval_tier` and nothing else about the approver. Without this, the forgeable
    channel returns through a different door in two weeks.
 4. **Schema constraint: the approver field is REQUIRED on every corpus instance and must be
-   explicitly `null` when none is declared. Absent is a validation error, not a default.** Add to
+   explicitly ~~`null`~~ **the sentinel string `"NONE"`** when none is declared. Absent is a
+   validation error, not a default.**
+
+   > **CORRECTED 2026-08-20 on L2's report, and the correction was overdue.** This said `null`,
+   > and `contracts/canonicalization.md` §2 had already found and resolved the collision hours
+   > earlier: **restriction 5 forbids `null` anywhere in a hashed payload, and the corpus IS
+   > hash-locked at D5.** So `null` is not a preference that lost an argument — **it is
+   > unrepresentable in this artifact.**
+   >
+   > **Why leaving it was dangerous rather than untidy.** The resolution lived one rank *down*
+   > the precedence order, in a contract. §1 says CONVENTIONS wins and the downstream document
+   > is the defect. A reader applying that rule literally and correctly would have taken `null`
+   > from here, called `canonicalization.md` the defect, and written an **unhashable value into
+   > a hash-locked artifact** — arriving at the wrong answer by following the right procedure.
+   > **Precedence protects the spine only while the spine is current**; a stale spine turns the
+   > precedence rule into a delivery mechanism for the stale value.
+   >
+   > Both intents survive intact, which is why no gate was weakened: presence stays mandatory,
+   > so "declared none" and "the author forgot" remain distinguishable, and `null` never enters
+   > a hashed payload. Same shape as `UNCLASSIFIED` being distinct from the empty set.
+
+   Add to
    the D5 corpus lint beside the fault-`reason_code` check. *Ruling 18's default applies only to
    instances that declare none, and "attack" is not a synonym for "no approver" — P16's attack
    side carries a genuine T2.* "No approver declared" and "the author forgot" are otherwise the
