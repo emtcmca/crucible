@@ -64,12 +64,42 @@ def rendered_with_episode():
 # Legibility.
 # --------------------------------------------------------------------------
 
+def _too_long(page):
+    return [(i, len(l), l) for i, l in enumerate(page.split("\n"), 1)
+            if len(l) > WIDTH]
+
+
 def test_no_rendered_line_runs_past_the_page_width(rendered, rendered_with_episode):
     for page in (rendered, rendered_with_episode):
-        long_lines = [(i, len(l), l) for i, l in enumerate(page.split("\n"), 1)
-                      if len(l) > WIDTH]
+        long_lines = _too_long(page)
         assert not long_lines, "\n".join(
             "line %d is %d chars: %s" % (i, n, l) for i, n, l in long_lines[:6])
+
+
+def test_the_width_check_does_not_depend_on_where_the_repo_was_cloned():
+    """This case exists because the one above passed for the wrong reason.
+
+    Running the README's own commands from a fresh clone in a deep temporary
+    directory produced a 130-column line: the bundle PATH is a single
+    unbreakable token, and the development checkout happens to sit at
+    `C:\\dev\\crucible-wt-L6`, which is short enough to fit. The property being
+    claimed is "legible at 1080p for a stranger who cloned this repo", and a
+    stranger does not clone it to a path of the author's choosing.
+
+    So the source path is rendered at a length no real one will exceed, and it
+    still has to fit.
+    """
+    raw = GOLDEN.read_bytes()
+    bundle, report = read_bundle_bytes(raw)
+    deep = ("C:\\Users\\someone\\AppData\\Local\\Temp\\a-very-deeply-nested-"
+            "checkout-directory\\crucible\\contracts\\golden\\"
+            "C6-evidence_bundle.valid.json")
+    assert len(deep) > WIDTH, "the fixture path is not long enough to test anything"
+    page = render(bundle, report, source=deep)
+    long_lines = _too_long(page)
+    assert not long_lines, "\n".join(
+        "line %d is %d chars: %s" % (i, n, l) for i, n, l in long_lines[:6])
+    assert deep[:40] in page, "the path was wrapped away rather than wrapped"
 
 
 # --------------------------------------------------------------------------

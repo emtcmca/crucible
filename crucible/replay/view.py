@@ -78,6 +78,9 @@ def rule(char="-"):
 # Where the note column starts: "  " + 16 + " " + 14 + " " + 6 + " ".
 NOTE_COL = 2 + 16 + 1 + 14 + 1 + 6 + 1
 
+# Where the header's value column starts: "  " + 10 + "  ".
+HEADER_COL = 2 + 10 + 2
+
 
 def _wrap_note(text, width):
     """Split a note into a first line and continuation lines.
@@ -88,7 +91,21 @@ def _wrap_note(text, width):
     that keeps the row honest, so it wraps instead. `docs/lanes/L6-evidence.md`
     section 6: cut the number, not the label.
     """
-    words = str(text).split()
+    words = []
+    for word in str(text).split():
+        # HARD-SPLIT a word that cannot fit on a line by itself. Found by
+        # running the README's own commands from a fresh clone in a deep
+        # temporary directory: the bundle PATH is a single unbreakable token,
+        # and this function silently emitted a 130-column line for it. The
+        # width test had passed for a hundred runs because the development
+        # checkout happens to sit at `C:\dev\crucible-wt-L6`. A check that
+        # holds only for the author's directory layout is not measuring the
+        # property it names.
+        while len(word) > width:
+            words.append(word[:width])
+            word = word[width:]
+        words.append(word)
+
     lines, current = [], ""
     for word in words:
         candidate = word if not current else current + " " + word
@@ -151,9 +168,12 @@ def render(bundle, report, source="<bundle>", episode_id=None):
     add(rule("="))
     add("CRUCIBLE - offline evidence replay")
     add(rule("="))
-    add("  bundle      %s" % source)
+    head, tail = _wrap_note(source, WIDTH - HEADER_COL)
+    add("  %-10s  %s" % ("bundle", head))
+    for extra in tail:
+        add("%s%s" % (" " * HEADER_COL, extra))
     add("  digest      sha256, RECOMPUTED from the bytes on disk:")
-    add("              %s" % (report.digest or "-"))
+    add("%s%s" % (" " * HEADER_COL, report.digest or "-"))
     add("  read with no credentials, no network, and no cloud project.")
     add("")
 
