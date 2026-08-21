@@ -1,0 +1,57 @@
+D3 TARGET FREEZE - REHEARSAL, NOT THE FREEZE
+============================================
+Run 2026-08-21, the day BEFORE the freeze, at HEAD ded4ccb154714b27130d7fffcca11ba68afd2462.
+
+WHY REHEARSE. ADR-0017 names step 6 - recompute from a cold clone - as THE REAL
+EXIT CRITERION, because that is where a CRLF difference between the working tree
+and a fresh checkout would surface. A freeze whose verification step has never
+been run is a check nobody has watched fire, and tomorrow is the worst possible
+day to find out the hash does not reproduce.
+
+WHAT WAS RUN
+  step 0  git status --porcelain target/ contracts/      -> clean
+  step 1  pytest test_target_freeze test_manifest
+          test_manifest_completeness test_target_tools   -> 54 passed
+  step 2  python -m target.refund_agent.freeze           -> WARM, below
+  step 6  git clone . <tmp>/crucible-cold
+          python -m target.refund_agent.freeze           -> COLD, below
+
+  NOT run: --write, --check, the commit, the tag. This is a rehearsal. The
+  freeze itself is the owner's, tomorrow.
+
+WARM (C:/dev/crucible)
+RECOMPUTED (dry run; neither --write nor --check given)
+  target_id          tgt_crucible_refund_v1
+  manifest_hash      d2e9f5f435b5acfe
+  target_agent_hash  125fe7e9e54a419e
+  policy_sha256      1b066eece42d081c84eb8d9418b13825052e363c7bb52b5ab694a4afe06c38b6
+  canonical bytes    4543
+
+COLD (fresh clone, same HEAD)
+RECOMPUTED (dry run; neither --write nor --check given)
+  target_id          tgt_crucible_refund_v1
+  manifest_hash      d2e9f5f435b5acfe
+  target_agent_hash  125fe7e9e54a419e
+  policy_sha256      1b066eece42d081c84eb8d9418b13825052e363c7bb52b5ab694a4afe06c38b6
+  canonical bytes    4543
+
+RESULT: BYTE-IDENTICAL, including the canonical byte count.
+
+WHAT THIS PROVES. .gitattributes is doing its job - contracts/, target/, corpus/
+and fixtures/ are pinned to LF - so the freeze hash reproduces from a clean
+checkout on this platform. The CRLF trap ADR-0017 warns about is not live.
+
+WHAT IT DOES NOT PROVE, and this list matters more than the result.
+  - Nothing about a DIFFERENT platform. Verified on Windows only.
+  - NOTHING ABOUT THE VALUES THEMSELVES. target_agent_hash moved today, from
+    e53c73daa1dadefb to 125fe7e9e54a419e, when delegate_to_specialist was
+    written into refund_policy.md section 14 - the agent had been told it had
+    seven tools when it has eight. It will move again if anything in
+    RUNTIME_MODULES changes before the freeze. THESE ARE NOT THE VALUES TO
+    FREEZE. Recompute tomorrow.
+  - Nothing about the six blind spots ADR-0017 enumerates: a dirty tree
+    (freeze.py runs no git command at all, unlike its D2 sibling which has four
+    refusals), the missing date and commit SHA in FROZEN.json, the
+    non-recursive .py glob, a stale committed capability_manifest.json, the
+    system of record and its seed data, and the served weights behind a pinned
+    model name.
