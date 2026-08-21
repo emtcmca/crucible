@@ -92,14 +92,37 @@ def test_record_validates_against_the_frozen_c5_schema():
     _c5_validator().validate(make())
 
 
-def test_the_frozen_c5_schema_is_not_a_valid_2020_12_schema():
-    """REPORTED, NOT REPAIRED. If a coordinator fixes the `$comment` arrays this
-    test fails, which is the correct signal - it says the workaround above can
-    come out."""
-    with open(C5_SCHEMA, encoding="utf-8") as fh:
-        schema = json.load(fh)
-    with pytest.raises(jsonschema.SchemaError):
-        jsonschema.Draft202012Validator.check_schema(schema)
+def test_every_frozen_schema_is_a_valid_2020_12_schema():
+    """INVERTED 2026-08-20 BY THE COORDINATOR. This lane reported the defect and
+    pinned it with a test asserting C5 is INVALID, saying in its own docstring
+    that a fix should make the test fail. The fix landed, the test failed, and it
+    is replaced here by its opposite -- by the party allowed to replace it.
+
+    IT NOW COVERS ALL TEN CONTRACTS, NOT JUST C5. The lane found one instance;
+    the sweep found SIX schemas carrying array-valued `$comment`s. The keyword
+    MUST be a string, and `jsonschema.validate()` raises SchemaError on them
+    before it looks at the instance -- so a consumer using the standard entry
+    point could not validate against six of ten contracts at all.
+
+    It went unnoticed because `iter_errors`, which contract-check used, ignores
+    `$comment` entirely. A checker that never inspects its own instrument
+    reports on the instrument's behalf. `contract-check.py` now calls
+    `check_schema` first, and that guard was itself verified by regressing C9
+    and watching FIXTURES fail.
+    """
+    import pathlib as _pathlib
+    contracts = sorted((_pathlib.Path(C5_SCHEMA).parent).glob("*.schema.json"))
+    assert len(contracts) >= 10, "expected at least ten schemas, found %d" % len(contracts)
+    bad = []
+    for path in contracts:
+        with open(path, encoding="utf-8") as fh:
+            try:
+                jsonschema.Draft202012Validator.check_schema(json.load(fh))
+            except jsonschema.SchemaError as e:
+                bad.append("%s: %s" % (path.name, str(e).splitlines()[0][:80]))
+    assert not bad, (
+        "{} contract(s) are not valid Draft 2020-12 schemas, so every fixture "
+        "check against them is meaningless: {}".format(len(bad), "; ".join(bad)))
 
 
 def test_additional_properties_false_refuses_a_fix_field():

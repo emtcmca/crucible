@@ -208,6 +208,28 @@ def pass_fixtures():
         if not schema_file:
             fails.append("%s: no schema mapped for %s" % (fx.name, cid)); continue
         schema = json.loads((CONTRACTS / schema_file).read_text(encoding="utf-8"))
+
+        # IS THE SCHEMA ITSELF A VALID SCHEMA? Added 2026-08-20 on L5's report,
+        # and it found FIVE MORE instances of the defect L5 found one of.
+        #
+        # This pass validated fixtures against schemas and never asked whether
+        # the schemas were valid. `iter_errors` ignores `$comment` entirely, so
+        # SIX OF TEN CONTRACTS carried array-valued `$comment`s -- illegal, the
+        # keyword MUST be a string -- and every fixture check stayed green.
+        # `jsonschema.validate()`, the standard entry point, raises SchemaError
+        # on them BEFORE looking at the instance, so a consumer using the normal
+        # API could not validate against those contracts at all.
+        #
+        # The general shape, again: a check that never inspects its own
+        # instrument reports on the instrument's behalf.
+        try:
+            jsonschema.Draft202012Validator.check_schema(schema)
+        except jsonschema.exceptions.SchemaError as e:
+            fails.append("%s is NOT A VALID Draft 2020-12 SCHEMA: %s. Every "
+                         "fixture check against it is meaningless."
+                         % (schema_file, str(e).splitlines()[0][:90]))
+            continue
+
         body = json.loads(fx.read_text(encoding="utf-8"))
         body.pop("_must_fail_because", None)
         body.pop("_note", None)
