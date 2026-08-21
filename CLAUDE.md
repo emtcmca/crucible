@@ -132,62 +132,47 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-20 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-21 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**ALL SIX LANES BUILT AND MERGED TO `integration`. W2 PASSES.** Rulings **1-39**,
-SPINE_VERSION **7**, **TEN** contracts. `integration`: **673 tests**,
-contract-check five passes OK, tripwire selftest exit 0, W2 smoke passes,
-devpost format 2/2, census 12 of 36, gates **5 WIRED / 2 PARTIAL / 2 ABSENT**.
+**W0, W1 AND W2 HAVE ALL EXITED. THE CORPUS IS COMPLETE.** `integration` verified:
+**708 tests, `python -m corpus` PASS, `contract-check` five passes OK, tripwire
+`--selftest` exit 0, W2 smoke green.** Pushed, `main` at parity. Rulings **1-41**,
+SPINE_VERSION **9**, **TEN** contracts, repo **public and Apache-2.0**.
 
-**TWO THINGS NEED ERIC**
-1. **`integration` → `main` is a WAVE BOUNDARY.** `lanes-spec` §5: the coordinator
-   does not merge across one unattended. Everything is pushed and green.
-2. **RULING 34, BLOCKING: the repo is PUBLIC and has NO LICENSE.** Under default
-   copyright a stranger who clones it may not use, modify or run it — and the
-   judge-reproduction path is a differentiated claim. Apache-2.0 matches Eric's
-   other OSS. **Obvious is not decided; it is an ownership call.**
+**Nothing has been measured.** No loop run, no attack scored, no quotable number.
 
-**RULING 37 — the most important finding of D1.** L5 measured live: **6 of 7**
-emissions chose `require_approval`, all six block a legitimate delegated refund,
-**all six pass every gate.** They resolve to `APPROVAL_REQUIRED`, the oracle
-approves, BPR stays 24/24, **G3 promotes.** An over-blocking policy is invisible
-to the benign floor, on the majority choice, in round one. Fixed by fixing the
-**ruler**: BPR now carries `benign_passes_requiring_approval` permanently, and
-ruling 12's metric is computed **per promoted rule per round**.
+**Corpus**: 48 training (8 each × F1 F2 F3 F5 F6 F7), **24 sealed**, 24 benign
+(12 near-miss), 9 known-bad, 27 pairs. SEP-BY **21 policy / 3 oracle**, far from
+parity. Blindness **0.7708 vs 0.7500** baseline, zero leaking fields.
 
-**Ruling 38 reversed my own ruling 32.** A frozen contract carried the better
-argument — `origin`'s CLASS decides retractability (semantic, stays in the hash);
-only the ROUND is provenance (moves out). Implementing it broke V6, which read
-`startswith("armorer:")` and would have refused **every** retraction. Tests
-caught it.
+**Sealed family RATIFIED at 24; commitment PUBLISHED** at `2cde0250de00e692`.
+`git ls-files corpus/sealed` = **0**. Instances live ONLY at
+`C:\dev\crucible-wt-SEAL\corpus\sealed\` — any other worktree reads sealed=0.
+Check integrity any time: `python scripts/seal-commitment.py --verify`.
 
-**Six of ten contracts were not valid JSON Schemas** (array-valued `$comment`).
-L5 found one; the sweep found five more. `contract-check` never noticed because
-`iter_errors` ignores `$comment` — **it validated fixtures against schemas
-without checking the schemas.** Now calls `check_schema`, verified by regressing
-C9 on purpose.
-
-**Ready for D2 (Fri 08-21)** — `scripts/freeze-d2-gate-rule.py`, dry run
-`834bc7113a13beea`, all four refusals exercised. Update 3 drafted, **not posted**
-(hash is the literal `HASH_PENDING`). **ADR-0001** locks the update format;
-`check-devpost-format.py` enforces it, selftest 7/7.
-
-**Still owed**
-- **L2(b): the human fixture-authoring pass**, ~2.5h. Everything around it is
-  built; `python -m corpus` prints nine `NOT-RUN` rows and exits 2.
-- G4 and G6 ABSENT; G3 and G5 PARTIAL — all four need the corpus or the real
-  round loop. L5's campaign uses lane-authored stand-ins and **its numbers are
-  unquotable, declared so by the lane in a bundle field.**
-- Ruling 39: the ARMORER prompt freezes at D3 as a run-manifest parameter.
-- Ruling 33 chores: restriction-6 sorts, delete L4's `reference_engine` once
-  L3's is wired through the warden, ASR denominator must call `is_scorable()`.
+**Open threads**
+- **D5 corpus freeze** — hash corpus + Part B, upload sealed to GCS, hash into the
+  D5 Devpost post. **Must land before the first patch is written.**
+- **Near-miss rundown with Eric** — unblocked now that pairs resolve at 27.
+- **The first real loop run** — compute-heavy; it produces every number.
+- **Codex review** owed — better as a fresh-context task.
+- `ORD-13`/`ORD-14` were authored **after** Eric's review pass, so *"the ordinary
+  benign set was reviewed"* is not true of the set as it stands until he reads
+  those two. P11 and P20 **unbuilt**. D2 gate-rule freeze ready, not run.
 
 **Watch out for**
-- **Ask every check what it would FAIL to notice.** One hash-lock locked nothing;
-  one schema checker never checked schemas; one format check was satisfied by the
-  title.
-- **A pin is retired by the party allowed to retire it** — L5 and L6 both pinned
-  defects with tests that fail when fixed, and both said so in the failure text.
+- **Ask every check what change it would FAIL to notice.** One of five hash-locks
+  locked nothing; six of ten schemas were not valid schemas; the Objective Set had
+  no clause for the sealed family, so `breached_at_v0` would have read zero while
+  every gate stayed green.
+- **`vault-project.ps1 -Activity` misreports this project** — it scans only
+  `C:\dev\crucible` and misses twelve worktrees. Reported 2 files against **3,378**
+  and 97 commits. Second occurrence; ignore its drift flag here.
+- **Two frozen contracts spell one enum two ways** (`ALLOW` / `allow`) and the
+  corpus was authored in the losing one. Lane drift on one concept: `to` /
+  `to_is_account_holder` / `recipient_is_account_holder`.
+- `.git/hooks` looks untouched because `core.hooksPath` redirects. Subagents must
+  escape their sandbox to write the commit sentinel, which prompts.
 - Target freeze **Sat 08-22** · cut line **Tue 08-25** · submission **Mon 08-31
   17:00 PDT**.
 <!-- VAULT:SESSION-STATE end -->
