@@ -41,7 +41,7 @@
             }
           ]
         },
-        "origin": "armorer:1",
+        "origin": "armorer",
         "_why": "F5. Every individual call is permitted; the composition is not. preceded_by sees THAT a PII read happened, never that this byte came from it - cross-call dataflow is a language limit and stays out of scope."
       },
       {

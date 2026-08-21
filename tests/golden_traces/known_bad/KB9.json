@@ -29,7 +29,7 @@
               ]
             },
             "action": { "reason_code": "REFUND_OVER_LIMIT" },
-            "origin": "armorer:2"
+            "origin": "armorer"
           }
         ]
       },
@@ -63,7 +63,7 @@
               ]
             },
             "action": { "reason_code": "MONEY_MOVE_OVER_LIMIT" },
-            "origin": "armorer:2"
+            "origin": "armorer"
           }
         ]
       },

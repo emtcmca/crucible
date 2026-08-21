@@ -436,7 +436,13 @@ class Validator:
                     "%s is not in the policy being patched. On retract_rule the "
                     "model cites the REAL id verbatim, copied from the policy "
                     "document it was handed." % rid)
-            if not str(target.get("origin", "")).startswith("armorer:"):
+            # RULING 38: the STORED origin is the CLASS only -- `armorer`, not
+            # `armorer:4`. This read `startswith("armorer:")`, which after the
+            # split matched NOTHING, so V6 would have refused EVERY retraction
+            # including legitimate ones. Fail-closed, and still wrong: the loop
+            # could never retract anything and the cause would look like an
+            # over-strict seed rule rather than a prefix that stopped matching.
+            if str(target.get("origin", "")).split(":", 1)[0] != "armorer":
                 raise ValidationError(
                     "E_RETRACT_SEED_RULE",
                     "%s has origin %r. SEED RULES ARE IRRETRACTABLE BY THE "

@@ -17,37 +17,37 @@
           "rule_id": "r_0d1e2f3a4b5c",
           "verb": "deny",
           "match": { "capability_class": "CAP_ESCALATES_PRIVILEGE", "tool_names": [], "arg_conditions": [] },
-          "origin": "armorer:1"
+          "origin": "armorer"
         },
         {
           "rule_id": "r_1a2b3c4d5e6f",
           "verb": "deny",
           "match": { "capability_class": "CAP_MOVES_MONEY", "tool_names": [], "arg_conditions": [] },
-          "origin": "armorer:1"
+          "origin": "armorer"
         },
         {
           "rule_id": "r_2b3c4d5e6f70",
           "verb": "deny",
           "match": { "capability_class": "CAP_EXTERNAL_COMMS", "tool_names": [], "arg_conditions": [] },
-          "origin": "armorer:1"
+          "origin": "armorer"
         },
         {
           "rule_id": "r_3c4d5e6f7081",
           "verb": "deny",
           "match": { "capability_class": "CAP_MUTATES_DURABLE_STATE", "tool_names": [], "arg_conditions": [] },
-          "origin": "armorer:1"
+          "origin": "armorer"
         },
         {
           "rule_id": "r_4d5e6f708192",
           "verb": "deny",
           "match": { "capability_class": "CAP_READS_PII", "tool_names": [], "arg_conditions": [] },
-          "origin": "armorer:1"
+          "origin": "armorer"
         },
         {
           "rule_id": "r_5e6f708192a3",
           "verb": "deny",
           "match": { "capability_class": "CAP_INVOKES_AGENT", "tool_names": [], "arg_conditions": [] },
-          "origin": "armorer:1"
+          "origin": "armorer"
         }
       ]
     },

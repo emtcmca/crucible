@@ -5,17 +5,31 @@
   "description": "The stored form of a policy version. Part 1 is policy.ebnf. Produced by L1 (canonicalization) and L3 (parser); consumed by L4 (warden) and L5 (armorer). Frozen at the W0 contract hash. EXACTLY the hashed_payload subtree is hashed - nothing else.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["envelope_version", "hashed_payload", "lineage", "meta"],
+  "required": [
+    "envelope_version",
+    "hashed_payload",
+    "lineage",
+    "meta"
+  ],
   "properties": {
-    "envelope_version": { "type": "integer", "minimum": 1 },
-
+    "envelope_version": {
+      "type": "integer",
+      "minimum": 1
+    },
     "hashed_payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["policy_schema_version", "target_manifest_hash", "rules"],
+      "required": [
+        "policy_schema_version",
+        "target_manifest_hash",
+        "rules"
+      ],
       "$comment": "EXACTLY THIS SUBTREE IS HASHED. run_id is NOT here - it made the same policy hash differently in two runs, which breaks convergence-by-hash-equality and the resume key. It lives in meta and in the object path, where it belongs.",
       "properties": {
-        "policy_schema_version": { "type": "integer", "minimum": 1 },
+        "policy_schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
         "target_manifest_hash": {
           "type": "string",
           "pattern": "^[0-9a-f]{16}$",
@@ -23,50 +37,79 @@
         },
         "rules": {
           "type": "array",
-          "items": { "$ref": "#/$defs/rule" },
+          "items": {
+            "$ref": "#/$defs/rule"
+          },
           "$comment": "STORED PRE-SORTED BY rule_id ASCENDING. Precedence is by VERB, never by array position, so order carries no semantics and sorting is lossless - which makes the canonical form unambiguous and removes an entire class of 'same policy, different hash' bugs."
         }
       }
     },
-
     "provenance": {
       "type": "object",
       "$comment": "NOT HASHED. Keyed by rule_id: created_in_round, autopsy_ids, attack_family_id, armorer_proposal_id. G6 requires every rule to cite >= 1 breach episode ID from this round's autopsy."
     },
-
     "lineage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "parent_hash", "lineage_hash"],
+      "required": [
+        "version",
+        "parent_hash",
+        "lineage_hash"
+      ],
       "properties": {
-        "version": { "type": "integer", "minimum": 0 },
-        "parent_hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
-        "parent_gcs_generation": { "type": "string" },
-        "lineage_hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+        "version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parent_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "parent_gcs_generation": {
+          "type": "string"
+        },
+        "lineage_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        }
       }
     },
-
     "meta": {
       "type": "object",
-      "required": ["created_at", "run_id", "promoted_by"],
+      "required": [
+        "created_at",
+        "run_id",
+        "promoted_by"
+      ],
       "properties": {
-        "created_at": { "type": "string", "format": "date-time" },
-        "run_id": { "type": "string", "pattern": "^run_[0-9]{8}_[0-9]{6}_[0-9a-f]{6}$" },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_[0-9]{8}_[0-9]{6}_[0-9a-f]{6}$"
+        },
         "promoted_by": {
           "type": "string",
           "pattern": "^crucible-gate@",
           "$comment": "THE PROMOTER IS crucible-gate, NEVER sa-warden, and every service account is named crucible-*, never sa-*. G8 asserts by IAM that the identity which AUTHORS a candidate (crucible-armorer) is not the identity that PROMOTES it. THIS HAS ALREADY BEEN PROPOSED BACKWARDS ONCE; inverting it makes G8 read RUN INVALID - 'the separation was never real'."
         },
-        "trace_id": { "type": "string" }
+        "trace_id": {
+          "type": "string"
+        }
       }
     }
   },
-
   "$defs": {
     "rule": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rule_id", "verb", "match"],
+      "required": [
+        "rule_id",
+        "verb",
+        "match"
+      ],
       "properties": {
         "rule_id": {
           "type": "string",
@@ -74,24 +117,37 @@
           "$comment": "CONTENT-ADDRESSED, ASSIGNED BY CODE, NEVER BY THE MODEL. A language model cannot compute a SHA-256; asked to emit one it fails every attempt. The ARMORER emits the placeholder r_new1 and THE VALIDATOR REWRITES IT. A patch in which the model emitted a hash-shaped ID on add_rule is REJECTED. This is the placeholder-free STORED form, so only real IDs validate here."
         },
         "verb": {
-          "enum": ["deny", "constrain_arg", "require_approval"],
+          "enum": [
+            "deny",
+            "constrain_arg",
+            "require_approval"
+          ],
           "$comment": "THREE, AND THERE IS NO FOURTH. There is also no `allow` verb: the policy is SUBTRACTIVE ONLY, so no sequence of patches can widen the target's blast radius. Precedence: deny > require_approval > constrain_arg > implicit allow. Ties resolve by lowest rule_id. FILE ORDER IS NEVER CONSULTED."
         },
         "match": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["capability_class"],
+          "required": [
+            "capability_class"
+          ],
           "properties": {
             "capability_class": {
               "enum": [
-                "CAP_MOVES_MONEY", "CAP_EXTERNAL_COMMS", "CAP_MUTATES_DURABLE_STATE",
-                "CAP_READS_PII", "CAP_ESCALATES_PRIVILEGE", "CAP_INVOKES_AGENT"
+                "CAP_MOVES_MONEY",
+                "CAP_EXTERNAL_COMMS",
+                "CAP_MUTATES_DURABLE_STATE",
+                "CAP_READS_PII",
+                "CAP_ESCALATES_PRIVILEGE",
+                "CAP_INVOKES_AGENT"
               ],
               "$comment": "SCALAR, EXACTLY ONE CLASS (ruling 22). This was `capability_classes: [...]` plus `match_mode` until 2026-08-20. UNCLASSIFIED IS DELIBERATELY NOT A MEMBER: an unseen target's tools are UNCLASSIFIED until mapped, so one such rule would block everything on a new target and report 100% transfer, MANUFACTURED. Matching is MEMBERSHIP of this class in the call's capability SET - never set equality."
             },
             "tool_names": {
               "type": "array",
-              "items": { "type": "string", "pattern": "^tool:t_[0-9a-f]{8}$" },
+              "items": {
+                "type": "string",
+                "pattern": "^tool:t_[0-9a-f]{8}$"
+              },
               "$comment": "Opaque handles only. cap_selector is required and FIRST, so there is no way to write a rule that binds ONLY to a tool - which is the mechanism behind headline result #1."
             },
             "arg_conditions": {
@@ -99,12 +155,43 @@
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["path", "op"],
+                "required": [
+                  "path",
+                  "op"
+                ],
                 "properties": {
-                  "path": { "type": "string" },
-                  "op": { "enum": ["eq", "ne", "lt", "lte", "gt", "gte", "in", "is_absent"] },
-                  "value": { "type": ["integer", "boolean", "string", "array"] },
-                  "value_type": { "enum": ["int", "bool", "enum", "enum_list", "episode_field"] }
+                  "path": {
+                    "type": "string"
+                  },
+                  "op": {
+                    "enum": [
+                      "eq",
+                      "ne",
+                      "lt",
+                      "lte",
+                      "gt",
+                      "gte",
+                      "in",
+                      "is_absent"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "integer",
+                      "boolean",
+                      "string",
+                      "array"
+                    ]
+                  },
+                  "value_type": {
+                    "enum": [
+                      "int",
+                      "bool",
+                      "enum",
+                      "enum_list",
+                      "episode_field"
+                    ]
+                  }
                 }
               },
               "$comment": "PRE-SORTED BY path THEN op. NO FREE STRINGS: a string is legal only as an enum member the manifest declares FOR THAT EXACT PATH. NO FLOATS - money is INT64 minor units plus an ISO-4217 currency string."
@@ -114,14 +201,42 @@
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["form"],
+                "required": [
+                  "form"
+                ],
                 "properties": {
-                  "form": { "enum": ["preceded_by", "episode_sum", "arg_vs_episode_context"] },
-                  "value": { "type": ["string", "integer"] },
-                  "arg_path": { "type": "string" },
-                  "op": { "enum": ["eq", "ne", "lt", "lte", "gt", "gte"] },
+                  "form": {
+                    "enum": [
+                      "preceded_by",
+                      "episode_sum",
+                      "arg_vs_episode_context"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "string",
+                      "integer"
+                    ]
+                  },
+                  "arg_path": {
+                    "type": "string"
+                  },
+                  "op": {
+                    "enum": [
+                      "eq",
+                      "ne",
+                      "lt",
+                      "lte",
+                      "gt",
+                      "gte"
+                    ]
+                  },
                   "context_field": {
-                    "enum": ["account_holder_email", "account_holder_id", "order_payment_instrument_id"]
+                    "enum": [
+                      "account_holder_email",
+                      "account_holder_id",
+                      "order_payment_instrument_id"
+                    ]
                   }
                 }
               },
@@ -135,12 +250,11 @@
         },
         "origin": {
           "type": "string",
-          "pattern": "^(seed|armorer:[0-9]+)$",
-          "$comment": "SEED RULES ARE IRRETRACTABLE BY THE ARMORER - every retract_rule must target an origin armorer:* rule. origin lives INSIDE the hashed payload deliberately: a named attribute outside it could change the rule's meaning without changing its hash, which is the same defect class that got run_id removed and got the trusted-verifier set rejected in ruling 8."
+          "pattern": "^(seed|armorer)$",
+          "$comment": "SEED RULES ARE IRRETRACTABLE BY THE ARMORER - every retract_rule must target an origin armorer rule. THE CLASS LIVES INSIDE THE HASHED PAYLOAD DELIBERATELY: it decides whether a rule can be retracted at all, so a class outside the hash could flip a rule from irretractable to retractable WITHOUT ITS HASH MOVING - the same defect class that got run_id removed.\n\nTHE ROUND NUMBER IS NOT PART OF IT, as of 2026-08-20, ruling 38. The pattern was ^(seed|armorer:[0-9]+)$ and the round has no semantic force whatever: armorer:4 and armorer:2 are THE SAME RULE from different rounds, and with the round inside the hash the same rule re-proposed later hashes differently and convergence-by-hash-equality stops working. The round moves to `provenance`, keyed by rule_id, outside the hashed payload - which is where data-spec.md:861 already puts provenance and for this exact reason.\n\nTHE DSL SURFACE IS UNCHANGED. The ARMORER still writes `origin armorer:4`; asking a model to omit the round is asking it to know something it has no reason to. The stored form drops it."
         }
       }
     }
   },
-
   "$comment": "NEGATIVE CHECK N3: a document containing `match_mode` AT ANY DEPTH must be REJECTED. additionalProperties:false on `match` enforces it structurally. match_mode was DELETED rather than pinned to a constant, because a field pinned to a constant sits inside the hashed payload inviting the other value at 1am - and the two readings were different policies for the same stored bytes."
 }

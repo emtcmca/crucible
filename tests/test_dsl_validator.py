@@ -192,7 +192,9 @@ def test_V6_the_armorer_may_not_retract_a_seed_rule():
     doc = copy.deepcopy(fx.POLICY_DOC_VALID)
     seed = doc["hashed_payload"]["rules"][0]
     learned = doc["hashed_payload"]["rules"][1]
-    assert seed["origin"] == "seed" and learned["origin"].startswith("armorer:")
+    # RULING 38: the stored origin is the CLASS. The round lives in
+    # `provenance`, keyed by rule_id, outside the hashed payload.
+    assert seed["origin"] == "seed" and learned["origin"] == "armorer"
 
     v = _v()
     assert _code(lambda: v.validate_patch(
@@ -267,7 +269,13 @@ def test_convention_1_origin_is_outside_the_rule_id():
     assert r2["rule_id"] == r4["rule_id"], (
         "the same rule proposed in two rounds got two ids, so re-proposing it "
         "reads as a new rule forever and the convergence detector never fires")
-    assert r2["origin"] == "armorer:2" and r4["origin"] == "armorer:4"
+    # RULING 38. Both compile to the CLASS, which is the point: the round has
+    # no semantic force, and with it stored the same rule re-proposed in a later
+    # round would differ in the hashed payload even though rule_id matched.
+    assert r2["origin"] == "armorer" and r4["origin"] == "armorer"
+    from crucible.dsl.serialize import origin_round, provenance_for
+    assert origin_round("armorer:2") == 2 and origin_round("armorer:4") == 4
+    assert origin_round("seed") is None
     assert id_of_stored_rule(r2) == r2["rule_id"], "round-trip is not stable"
 
 

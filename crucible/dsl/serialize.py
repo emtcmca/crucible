@@ -138,8 +138,33 @@ def compile_rule(parsed: ParsedRule) -> dict:
     out = {"rule_id": assign_rule_id(body)}
     out.update(body)
     if parsed.origin is not None:
-        out["origin"] = parsed.origin
+        # RULING 38: the CLASS is stored, the ROUND is not. `armorer:4` and
+        # `armorer:2` are the same rule from different rounds; the round has no
+        # semantic force, and inside the hash it makes the same rule hash
+        # differently every time it is re-proposed, which breaks
+        # convergence-by-hash-equality. The class DOES have force -- it decides
+        # retractability -- so it stays. The round goes to `provenance`, keyed
+        # by rule_id, outside the hashed payload.
+        out["origin"] = origin_class(parsed.origin)
     return out
+
+
+def origin_class(origin: str) -> str:
+    """`armorer:4` -> `armorer`. `seed` -> `seed`."""
+    return origin.split(":", 1)[0] if origin else origin
+
+
+def origin_round(origin: str):
+    """The round number, or None for a seed rule. Belongs in `provenance`."""
+    if not origin or ":" not in origin:
+        return None
+    return int(origin.split(":", 1)[1])
+
+
+def provenance_for(parsed: ParsedRule, stored_rule_id: str) -> dict:
+    """The out-of-hash record for one rule. Keyed by rule_id at the call site."""
+    entry = {"origin_round": origin_round(parsed.origin)}
+    return {stored_rule_id: {k: v for k, v in entry.items() if v is not None}}
 
 
 def id_of_stored_rule(stored: dict) -> str:
