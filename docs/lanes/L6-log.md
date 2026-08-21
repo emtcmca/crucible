@@ -33,6 +33,7 @@ because the first looks like evidence.
 | 3 | 2026-08-20 | `view.py` + `__main__.py` | Two iterations. First run: six lines ran past the 96-column page width, worst at 122. Notes now wrap into a continuation column instead of being truncated, because the policy-chain row's caveat is the reason that row exists. Second: NC-1's three runtime cases went green. |
 | 3a | 2026-08-20 | NC-1 failed under the scrubbed environment with `E_NO_VALIDATOR` | **Not a credential problem.** See F-5. |
 | 4 | 2026-08-20 | README with the judge-path block, plus the claim-vocabulary gate over it | green. F-6 found while writing it. |
+| 5 | 2026-08-20 | Cold-clone verification of the README, end to end | **Found a real defect.** The page-width check had been green on every run and was green for the wrong reason: the bundle path is a single unbreakable token and this worktree sits at a short path. From a clone in a deep temp directory the header ran to 130 columns. See F-8. Re-verified from a second fresh clone at `docs/proof/L6-cold-clone-2026-08-20.txt`. |
 
 ---
 
@@ -140,3 +141,24 @@ It is a strong line and it is not in the README, because **this lane has not ver
 against the sample's source** and §8 rule 1 says a claim without an asserted postcondition
 is `UNVERIFIED`, not done. It is available for the coordinator to add, with the
 `# MOCK API RESPONSE` qualifier §7 attaches to it.
+
+### F-8 — the page-width check passed for the wrong reason for its whole life
+
+Recorded separately from the iteration row because the shape recurs. The check asserted
+"no rendered line exceeds 96 columns" and was green on every run. It was green because
+the only long token on the page is the bundle's own path, and this worktree sits at
+`C:\dev\crucible-wt-L6`. A clone into a deep temporary directory printed a 130-column
+line on the first try.
+
+**This is ruling 30's shape in a different field:** a check that reports intact because
+it is looking at the part nobody changed. The property claimed is *legible at 1080p for
+a stranger who cloned this repository*, and a stranger does not clone it to a path of
+the author's choosing — so the author's path was never a valid sample of the input.
+
+The repair that matters is not the hard-split in the wrapper. It is the second test
+case, which renders a path longer than the page on purpose. **Fixing only the code would
+have left the check exactly as unable to fail as it was**, and the next short-path
+checkout would have restored the illusion.
+
+Worth asking of every check in this build, and it is the question ruling 30 asks of
+every hash-lock: *what input does this check never actually see?*
