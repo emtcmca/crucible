@@ -63,10 +63,17 @@ row here does not merely mislead: it schedules work that is already finished, an
 it makes a finished deliverable look like a gap in the one document that exists to
 say which gaps are fatal.
 
-**One of those eight does not exist: the video.** Row 7's requirement is now two
-screenshots rather than a deploy, and row 8 is one IAM binding away from being a
-real judge-testable URL — see the Cost note in `deploy/RUNBOOK.md` for why it is
-locked down by default and what opening it would mean.
+**As of 2026-08-21, one of those eight does not exist: the video.** Row 7's
+requirement is now two screenshots rather than a deploy, and row 8 is one IAM
+binding away from being a real judge-testable URL — see the Cost note in
+`deploy/RUNBOOK.md` for why it is locked down by default and what opening it
+would mean.
+
+> The undated version of that sentence **failed `contract-check`'s STATUS pass**,
+> correctly. A bare "one of eight does not exist" is the exact claim that rots:
+> it was three yesterday and it will be zero before submission, and a reader who
+> cannot see when it was written cannot tell which. The gate caught it on the
+> coordinator, in the file whose whole job is saying which gaps are fatal.
 
 ---
 
