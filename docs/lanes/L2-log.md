@@ -3,12 +3,20 @@
 **Lane:** L2 TARGET + CORPUS · **Branch:** `lane/L2-target-corpus` ·
 **Worktree:** `C:\dev\crucible-wt-L2`
 
-**Authorized scope on this run: (a) only.** The refund agent, its seven
-bare-function tools, the written refund policy, capability manifest **Part A**,
-three demo conversations. Scope (b) — the 48 training attacks, the sealed family,
-the 24 benign fixtures, the 9 known-bads — is **not started** and nothing below
-touches it. **This lane does not perform the D3 freeze.** It prepares the freeze so
-that running it is one command; the project owner runs it.
+**Run 1 scope: (a) only.** The refund agent, its seven bare-function tools, the
+written refund policy, capability manifest **Part A**, three demo conversations.
+**This lane does not perform the D3 freeze.** It prepares the freeze so that
+running it is one command; the project owner runs it.
+
+**Run 2 scope (2026-08-20): (b), VALIDATORS ONLY.** Everything AROUND the
+fixtures — the label-blindness harness, the three authoring lints, the SEP-BY
+split machinery, the instance schema, the sizing and class-coverage checks, and
+the C3 Part B builder. **No corpus attack, benign fixture, or sealed instance
+was authored, and none may be.** A benign fixture nobody read is an assumption
+rather than a fixture, and the project owner reads all 24 personally. The
+synthetic objects the checks are exercised against live in
+`tests/corpus_synthetic.py`, are named `SYNTH-*`, and never enter `corpus/` or
+`fixtures/`.
 
 One line per **failed** iteration. A green run is not an entry; a red one is.
 `CONVENTIONS.md` §8 rule 2 — a check that cannot fail is not measuring anything —
@@ -148,3 +156,164 @@ a contract.
   timeout-to-approve"* — and refer to ESCALATION state. `OPEN` and `CLOSED` are the
   case record's own bookends and are **synthesis**, flagged here because they are
   the only values in Part A that are not sourced.
+
+---
+
+# RUN 2 — scope (b), validators only. 2026-08-20
+
+## Work item 4 — the label-blindness harness, and the weakest possible red
+
+**2026-08-20 · iteration 1 — RED, and honestly the weakest red available.** All
+six new modules were collected and all six failed at import:
+
+```
+tests\test_sepby_split.py:31: in <module>
+    from corpus.errors import CorpusError
+E   ModuleNotFoundError: No module named 'corpus'
+ERROR tests/test_blindness_harness.py
+ERROR tests/test_corpus_lints.py
+ERROR tests/test_corpus_schema.py
+ERROR tests/test_corpus_sizing.py
+ERROR tests/test_sepby_split.py
+ERROR tests/test_corpus_part_b.py
+6 errors in 0.26s
+```
+
+Same defect class as run 1's N1/N2/N3: **a collection error proves the module is
+absent, not that the behaviour is.** So each of the five checks was hand
+falsified after it went green, and the output is below. Two permanent strawmen
+(`tests/strawman_corpus.py`) keep the suite's ability to fail after this session
+ends, on the two checks where the wrong implementation is the *obvious* one.
+
+**PROBE 1 — `BlindInstance` downgraded to the promise version** (`if key not in
+VISIBLE` becomes `if False`), i.e. a "blind" view that is a dict with a docstring:
+
+```
+FAILED test_blind_view_raises_on_every_withheld_key[kind]
+FAILED test_blind_view_raises_on_every_withheld_key[family]
+FAILED test_blind_view_raises_on_every_withheld_key[sealed]
+FAILED test_blind_view_raises_on_every_withheld_key[near_miss]
+FAILED test_blind_view_raises_on_every_withheld_key[slug]
+FAILED test_blind_view_raises_on_every_withheld_key[input_turns]
+FAILED test_blind_view_raises_on_every_withheld_key[expected_verdict]
+FAILED test_blind_view_raises_on_every_withheld_key[smuggled_arg_path]
+FAILED test_a_computer_that_reaches_for_the_label_is_stopped_at_the_view
+```
+
+**PROBE 2 — the approver lint switched to `doc.get("approver")`**, which is what
+the obvious implementation uses and which makes "declared none" and "the author
+forgot" the same bytes:
+
+```
+FAILED tests/test_corpus_lints.py::test_an_absent_approver_is_an_error_not_a_default
+```
+
+**PROBE 3 — the sealed free-text lint switched from the manifest's declared
+structured args to a hardcoded `{"memo", "note"}` denylist:**
+
+```
+FAILED test_every_free_text_arg_is_refused_not_just_the_two_obvious_ones[body]
+FAILED test_every_free_text_arg_is_refused_not_just_the_two_obvious_ones[subject_line]
+```
+
+`body` and `subject_line` are the two largest free-text fields the target
+actually exposes. The denylist reports CLEAN on both, and would keep reporting
+clean as tools are added — its coverage shrinks while its output does not change.
+
+**PROBE 5 — the Part B freeze gate removed** (the `result != "PASS"` branch made
+unreachable):
+
+```
+FAILED tests/test_corpus_part_b.py::test_a_failing_report_refuses_to_produce_a_document
+E   Failed: DID NOT RAISE <class 'corpus.errors.CorpusError'>
+```
+
+**PROBE 4 — the SEP-BY empty-set refusal, and this one did NOT fire on the first
+attempt.** Removing the `if not pairs` guard left the suite green, because a
+second guard (`pol == 0 and orc == 0`) catches the same input further down.
+Removing both produced the red — with a *different code*:
+
+```
+        split([])
+>       assert e.value.code == "E_NO_PAIRS"
+E       AssertionError: assert 'E_ORACLE_PARITY' == 'E_NO_PAIRS'
+```
+
+Worth recording rather than tidying away. With both refusals gone, an empty pair
+set falls through to the parity stop condition and the author is told to
+**re-author a corpus that does not exist**. The check still refuses, so nothing
+is unsafe — but the message would send someone to fix the wrong thing, and the
+first probe attempt looked exactly like a check that could not fail. The
+difference between "defence in depth" and "a redundant guard I can delete" is
+only visible if you break both.
+
+Full suite after restore: **485 passed**, `python -m pytest tests/`.
+
+## Work item 5 — the check runner, and its refusal to report a pass
+
+`python -m corpus` on the repository as it stands:
+
+```
+load                    NOT-RUN  on disk: {'training': 0, 'sealed': 0, 'benign': 0, 'known_bad': 0}
+pairs resolve           NOT-RUN  corpus/pairs.json absent
+fault reason_code lint  NOT-RUN  no pairs authored
+sealed-set lints        NOT-RUN  no sealed instances on disk
+sizing                  NOT-RUN  no instances on disk
+class coverage          NOT-RUN  needs both attacks and benign fixtures
+SEP-BY split            NOT-RUN  no pairs authored
+label blindness         NOT-RUN  no instances on disk
+Part B buildable        NOT-RUN  blindness check did not run
+RESULT: NOT-RUN - the corpus is not authored yet. This is not a pass.
+EXIT=2
+```
+
+Nine `NOT-RUN` rows and **exit 2, not 0**. A sweep that prints nine greens on an
+empty repository is the object every negative check in this project exists to
+prevent, and it is the shape `measurement-spec.md:813` names: an unevaluable
+gate is a check that cannot fail.
+
+---
+
+## Conflicts found and NOT worked around — run 2
+
+| Conflict | Higher document | Taken |
+|---|---|---|
+| The approver sentinel: `CONVENTIONS.md` ruling 23.4 says *"explicitly `null`"*; this lane's brief §4 and the kickoff prompt say the string `"NONE"` | **`contracts/canonicalization.md` §2**, which had already found and resolved this collision on 2026-08-20 | `"NONE"`. Canonicalization restriction 5 forbids `null` in a hashed payload and the corpus **is** hash-locked at D5, so `null` is not a preference that lost — it is **unrepresentable**. Asserted, not quoted: `tests/test_corpus_lints.py::test_the_declared_none_sentinel_canonicalizes` |
+
+**The residual defect, reported not fixed: `CONVENTIONS.md` ruling 23.4 still
+reads `null` and carries no correction note.** The resolution lives one rank
+DOWN the precedence order, in `contracts/canonicalization.md` §2. A reader
+applying §1 literally — CONVENTIONS wins, the downstream document is the defect —
+gets the wrong answer and writes `null` into an artifact that cannot be hashed.
+The spine is the file that exists *so there is exactly one place a fact lives*;
+here it is the stale copy. Coordinator's to correct.
+
+## Observations, not stop conditions — run 2
+
+- **The `corpus/sealed/` pre-commit hook is NOT armed as of 2026-08-20.**
+  `C:\dev\crucible\.git\hooks\` holds only the `.sample` files. L1 owes it
+  before D5; recorded here because the loader's `sealed_present` flag is a
+  report, not a control, and the `.gitignore` line is not one either.
+- **Two implementations of the ten field definitions now exist**: the reference
+  computers in `corpus/blindness.py`, which run over static instances at D5, and
+  L3's plugin, which stamps them live in `before_tool`. Same shape ruling 33.3
+  ruled on for L4's `reference_engine.py`. Labelled as reference, and **if the
+  two ever disagree on an instance, that is a contract report, not a bug in
+  whichever one you trust less.**
+- **Ruling 13 condition 2 is half-enforceable.** The seal side — sealed
+  instances span `CAP_MOVES_MONEY` and `CAP_MUTATES_DURABLE_STATE` only — is a
+  lint. The train side — that the `arg cmp episode.<field>` shape is actually
+  exercised on `CAP_EXTERNAL_COMMS` and `CAP_READS_PII` in training — is a
+  property of what gets authored and of which rules the ARMORER emits, and no
+  check in this lane can see it. §8 rule 9: logging the drop rather than letting
+  a green run imply coverage it does not have.
+- **A 1.0 in the blindness report is not automatically a label mirror.** On a
+  small corpus a many-valued field can reach 1.0 by accident. The report carries
+  `distinct_values` and the `separating_rule` beside the number so a human can
+  tell which kind it is. The threshold was **not** softened to avoid that
+  conversation — 1.0 fails, and the remedy is to remove the field and re-freeze,
+  which is a pre-run repair and therefore ordinary.
+- **No Part B document was written to disk.** The schema requires a real
+  `result` and a real `max_predictive_accuracy`, and there is no corpus to run
+  the check over. Writing it now means fabricating a verdict or a measurement.
+  The builder exists and is tested; the file lands at D5 from a real run.
