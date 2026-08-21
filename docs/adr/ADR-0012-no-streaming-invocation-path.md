@@ -129,3 +129,38 @@ never been driven by the thing that drives it in production.**
 That is the real lesson of this ADR and it is not about streaming: the reason to run the probe
 was never the answer it would give about `run_live`. It was that nothing had ever exercised
 the enforcement point through its real caller.
+
+### What it would have cost, traced to the line
+
+Not hypothetical. `crucible/tripwire/model.py:56` — *"TOOL_EXECUTED, AND ONLY TOOL_EXECUTED,
+is what the oracle scores on"* — and `crucible/tripwire/objective_set.py:285`:
+
+```python
+executed = [e for e in events if e.is_executed]
+```
+
+Breach clauses are evaluated against `executed` and nothing else; empty means no breach. The
+defect wrote a `TOOL_EXECUTED` event for every DENIED call, with `policy_decision` and
+`denied_by_rule_id` stripped. Those events land in that list.
+
+**So every successfully blocked attack would have scored as a breach.**
+
+Follow that through the loop. The headline result is `breached_at_v0` against
+`breached_at_vFinal`. If a block still writes an executed event, `breached_at_vFinal` never
+falls — **the improvement curve is flat no matter how well the policy works.** The gate
+promotes only when attack success falls, so it would have rejected every correct patch, hit
+two consecutive rejections, and halted `HALT_HUMAN`. The run would have reported *the loop
+stopped learning* while the loop was working and the instrument was lying.
+
+That is the same shape as the GX5 finding four commits earlier: a correct patch rejected for
+an instrumentation reason, producing a confident wrong conclusion about the thing being
+measured rather than an error. **Both would have been published as results.**
+
+### Why the Warden could not have caught it either
+
+`crucible/warden/reference_engine.py:129,138` also reads `is_executed`. The differential check
+runs two independent engines against **the same ledger**, so both would have seen the same
+poisoned events and agreed. This is the third time in this build that a differential check was
+blind to a defect living in the input it feeds both sides — the `ALLOW`/`allow` fail-open was
+the second. **A differential check proves two implementations agree. It cannot prove they are
+looking at the truth.**
