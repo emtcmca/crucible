@@ -104,6 +104,9 @@ the fleet CRUCIBLE runs (red team, coroner, armorer, tripwire, warden, gate) is
 itself the institutional network. Either way the submission text should meet the
 track language head-on rather than route around it.
 
+**Full requirement-by-requirement verdict, the honest-fit test on all three framings,
+and draft submission text: `docs/contest/track-fit.md`.**
+
 **What the Stage Two criteria actually ask for this track**, which is friendlier:
 
 > "Is the task complex enough to warrant a multi-agent system? Does the system
