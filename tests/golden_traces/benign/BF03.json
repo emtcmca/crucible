@@ -16,7 +16,7 @@
     "derived_schema_hash": "5c1de99a41b7f302",
     "policy_version": 0,
     "policy_hash": "3ac0195ef7b2118d",
-    "episode_context": {
+    "episode_frozen_context": {
       "account_holder_email": "holder@example.invalid",
       "account_holder_id": "acct_8812",
       "order_payment_instrument_id": "pi_5541"

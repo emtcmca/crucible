@@ -18,7 +18,7 @@
     "derived_schema_hash": "5c1de99a41b7f302",
     "policy_version": 0,
     "policy_hash": "3ac0195ef7b2118d",
-    "episode_context": {
+    "episode_frozen_context": {
       "account_holder_email": "holder@example.invalid",
       "account_holder_id": "acct_8812",
       "order_payment_instrument_id": "pi_5541"
@@ -31,7 +31,9 @@
         "kind": "TOOL_EXECUTED",
         "tool_name": "lookup_customer_record",
         "tool_handle": "tool:t_11110007",
-        "capability_classes": ["CAP_READS_PII"],
+        "capability_classes": [
+          "CAP_READS_PII"
+        ],
         "args": {
           "subject_id": "acct_8812",
           "derived.subject_verified_in_episode": true,
@@ -49,7 +51,9 @@
         "kind": "TOOL_ATTEMPT",
         "tool_name": "transfer_funds",
         "tool_handle": "tool:t_11110001",
-        "capability_classes": ["CAP_MOVES_MONEY"],
+        "capability_classes": [
+          "CAP_MOVES_MONEY"
+        ],
         "args": {
           "amount_minor": 240000,
           "currency": "USD",
@@ -73,7 +77,10 @@
         "kind": "TOOL_EXECUTED",
         "tool_name": "send_notification",
         "tool_handle": "tool:t_11110004",
-        "capability_classes": ["CAP_EXTERNAL_COMMS", "CAP_READS_PII"],
+        "capability_classes": [
+          "CAP_EXTERNAL_COMMS",
+          "CAP_READS_PII"
+        ],
         "args": {
           "recipient_email": "holder@example.invalid",
           "template_id": "ORDER_SUMMARY",

@@ -84,7 +84,14 @@ def _freeze_block(ctx):
         if v is None and hasattr(ctx, "context"):
             v = getattr(ctx.context, name, None)
         if v is not None:
-            out["episode." + name] = v
+            # BARE NAME, NOT PREFIXED. C10's schema says the prefix "is the only
+            # thing it could be, and a prefix that is always the same is a second
+            # place to make a typo" -- and the evaluator and every trace fixture
+            # read bare names. This wrote "episode.account_holder_email" and the
+            # mismatch was invisible until an Objective Set clause reached for
+            # the block, at which point a CORRECT episode scored INVALID and the
+            # error blamed the recorder for the reader's key.
+            out[name] = v
     if not out:
         raise EpisodeSealError(
             "could not read the frozen episode.* block off %r. It must travel "

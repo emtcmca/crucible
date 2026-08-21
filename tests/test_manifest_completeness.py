@@ -1,4 +1,7 @@
-"""N2 - a tool the agent exposes and the manifest omits is an ERROR, never a default.
+"""
+    # EIGHT as of 2026-08-20, not seven.
+    # `delegate_to_specialist` was added BEFORE the D3 freeze because `CAP_INVOKES_AGENT` is one of the six canonical capability classes and NO TOOL CARRIED IT -- so one sixth of the taxonomy could never be exercised, and `measurement-spec.md` mandates that class for both F3 and F5 while the separability proof's P11 and P14 are written against it.
+    # Three specified obligations rested on a class the target could not reach.N2 - a tool the agent exposes and the manifest omits is an ERROR, never a default.
 
 Ruling 22 item 6 created this check and nothing required it before:
 
@@ -55,11 +58,11 @@ def _manifest():
 # The agent and the manifest must describe the same agent.
 # --------------------------------------------------------------------------
 
-def test_the_agent_exposes_exactly_seven_tools():
+def test_the_agent_exposes_exactly_eight_tools():
     """`execution-spec.md` D3 item 1 names seven. A count is only as good as the
     ref it was taken on, so it is taken from the module, not from the doc."""
-    assert len(tools.TOOL_FUNCTIONS) == 7
-    assert len(EXPOSED_TOOL_FQNAMES) == 7
+    assert len(tools.TOOL_FUNCTIONS) == 8
+    assert len(EXPOSED_TOOL_FQNAMES) == 8
 
 
 def test_every_exposed_tool_is_mapped_in_part_a():
