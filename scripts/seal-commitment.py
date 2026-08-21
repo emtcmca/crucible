@@ -55,6 +55,19 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 SEALED = pathlib.Path("C:/dev/crucible-wt-SEAL/corpus/sealed")
 RECORD = REPO / "docs" / "proof" / "sealed-family-commitment.json"
 
+# THE LOCAL BASELINE, and it is a different thing from the commitment.
+#
+# The commitment is PUBLIC and is a claim: "this is what we sealed, before the
+# run." Publishing it is a decision, and one that is hard to walk back.
+#
+# This is PRIVATE and is a tripwire: "has anything touched the sealed set since
+# the last time I looked." It answers the question that actually gets asked at
+# 1am with six worktrees live, and it needs no decision from anybody.
+#
+# evidence/ is gitignored, so this never reaches the public repo and cannot be
+# mistaken for the claim.
+BASELINE = REPO / "evidence" / "seal-baseline.json"
+
 ALGORITHM = (
     "sha256 over, for each file sorted by name: the UTF-8 filename bytes, then "
     "the file bytes with CRLF normalized to LF. Names are INSIDE the hash and "
@@ -87,6 +100,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--verify", action="store_true")
+    ap.add_argument("--baseline", action="store_true",
+                    help="record a PRIVATE tripwire baseline. Not a claim.")
     a = ap.parse_args()
 
     digest, count, classes = fingerprint(SEALED)
@@ -111,11 +126,34 @@ def main():
     print("  %s classes: C1/C3 only, the classes the shape was never trained on"
           % ("ok  " if only_sealed_classes else "FAIL"))
 
+    if a.baseline:
+        BASELINE.parent.mkdir(parents=True, exist_ok=True)
+        BASELINE.write_text(json.dumps(
+            {"_what": "PRIVATE tripwire baseline for the sealed family. NOT the "
+                      "public commitment and NOT a claim. It answers one "
+                      "question: has anything touched the sealed set since I "
+                      "last looked.",
+             "fingerprint": digest, "instance_count": count,
+             "capability_classes": classes, "algorithm": ALGORITHM},
+            indent=2) + "\n", encoding="utf-8", newline="\n")
+        print("\nBASELINE RECORDED -> %s" % BASELINE)
+        print("evidence/ is gitignored, so this cannot become a public claim by")
+        print("accident. Check any time with: --verify")
+        return 0
+
     if a.verify:
-        if not RECORD.exists():
-            print("\nNO COMMITMENT ON RECORD. Nothing to verify against.")
+        # Prefer the PUBLIC commitment when one exists; it is the stronger
+        # statement. Fall back to the private baseline, which is what exists
+        # before anybody has decided to publish anything.
+        source = RECORD if RECORD.exists() else BASELINE
+        if not source.exists():
+            print("\nNOTHING TO VERIFY AGAINST. No commitment, no baseline.")
+            print("Record one first:  python scripts/seal-commitment.py --baseline")
             return 1
-        prior = json.loads(RECORD.read_text(encoding="utf-8"))
+        print("  source        %s (%s)"
+              % (source.name,
+                 "PUBLIC commitment" if source is RECORD else "private baseline"))
+        prior = json.loads(source.read_text(encoding="utf-8"))
         same = prior.get("fingerprint") == digest
         print("\n  recorded      %s" % prior.get("fingerprint", "?")[:16])
         print("  recomputed    %s" % digest[:16])
