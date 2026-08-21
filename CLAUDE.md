@@ -183,6 +183,10 @@ worktree reads sealed=0 and `python -m corpus` FAILS there on
 - **CONVENTIONS §4 had three stale frozen-number rows**, including round cap 4
   against ruling 10's 6 — wrong number at the TOP of the precedence order.
 
+**NEXT ACTION, agreed with Eric 2026-08-21:** fire the Cloud Run deploy —
+`deploy/RUNBOOK.md`, one command, then assert the four postconditions. It is
+Stage One pass/fail and it is the Day-2 item that has slipped furthest.
+
 **Open threads**
 - **`docs/NEEDS-ERIC.md`** — ten owner decisions. Two are Stage One pass/fail.
 - **D2 gate-rule freeze HELD** — not for the reason Eric gave. It pins benign
