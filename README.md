@@ -47,7 +47,10 @@ Fleet*. Apache-2.0.
 
 6. **Proof it runs on Google Cloud** → `docs/proof/`
    ([`armorer-403.txt`](docs/proof/armorer-403.txt) — the IAM denial with a positive
-   control). **Cloud Run is not deployed yet**; see the Google Cloud section below.
+   control; [`cloud-run-deploy-2026-08-21.txt`](docs/proof/cloud-run-deploy-2026-08-21.txt)
+   — the live deploy transcript). **Deployed and serving as of 2026-08-21**; see the
+   Google Cloud section below for exactly which postconditions have and have not been
+   checked.
 
 ---
 
@@ -372,17 +375,13 @@ python -m pip install -r requirements.txt
 ```
 
 `requirements.txt` is fully pinned, and the pin is the point:
-`jsonschema==4.26.0`, `referencing==0.37.0`, `PyYAML==6.0.3`, `google-adk==2.1.0`.
-2.1.0 is the version verified on the build machine — all 13 `BasePlugin` hooks present with
-matching signatures, the plugin manager's `before_tool_callback` firing before the agent's
-own callbacks, and issue #2809 fixed. None of that is true of an unpinned resolve.
-
-**To run the test suite you also need `pytest`, which is deliberately not in
-`requirements.txt`** (that file is the runtime pin, and no lane may edit it):
-
-```bash
-python -m pip install "pytest==9.0.3"
-```
+`jsonschema==4.26.0`, `referencing==0.37.0`, `PyYAML==6.0.3`, `google-adk==2.1.0`,
+`pytest==9.0.3`. 2.1.0 is the version verified on the build machine — all 13 `BasePlugin`
+hooks present with matching signatures, the plugin manager's `before_tool_callback` firing
+before the agent's own callbacks, and issue #2809 fixed. None of that is true of an unpinned
+resolve. `pytest` was added to this file on 2026-08-21 for the same reason as the ADK
+pin: the section below tells a judge to run the test suite, and a cold clone that only had
+the first three packages could not.
 
 > **UNVERIFIED:** `pip install -r requirements.txt` has not been executed into an empty
 > virtualenv. The packages above were already present at exactly those versions
@@ -400,7 +399,7 @@ python -m pytest tests/ -p no:cacheprovider
 ```
 
 ```
-745 passed, 1 skipped in 6.14s
+757 passed, 1 skipped in 10.15s
 ```
 
 `tests/` includes **strawmen** — deliberately wrong implementations kept in the tree
@@ -619,6 +618,30 @@ chain is the detector.
 **Everything in [Spin it up](#spin-it-up) runs locally with no cloud project.** That is
 deliberate: the judge path must not depend on our billing account being alive.
 
+**Deployed and serving, 2026-08-21.** Service `crucible`, revision `crucible-00003-t2q`
+at 100% traffic, `https://crucible-vgp5owkxyq-uc.a.run.app`. Deployed
+`--no-allow-unauthenticated`, running as `crucible-target` — not the compute default, so
+the agent under attack does not inherit the builder's authority. Full transcript:
+[`docs/proof/cloud-run-deploy-2026-08-21.txt`](docs/proof/cloud-run-deploy-2026-08-21.txt).
+What it took to get there — three real defects, each caught by a postcondition rather than
+a clean-looking log — is written up in [`deploy/RUNBOOK.md`](deploy/RUNBOOK.md).
+
+The four postconditions this deploy is checked against, precisely, because "deployed" is not
+one bit:
+
+1. **PASS.** The service URL resolves and serves.
+2. **PASS, and gone further.** `/list-apps` returns `["refund_agent"]` over HTTP 200 with a
+   non-empty body, and one full episode ran end to end against the deployed service — the
+   agent called `lookup_order("ORD-4471")` and answered from the seeded record.
+3. **UNVERIFIED, not failed.** An `execute_tool` span carrying `gen_ai.agent.name`, visible
+   in Trace Explorer. The legacy Cloud Trace v1 list API returned zero traces over a
+   45-minute window with no export error in the revision's own logs — that may be the
+   instrument's blind spot rather than a missing span; the v1 API is not guaranteed to
+   surface spans written through the OpenTelemetry path `--trace_to_cloud` uses. Settles in
+   the console: `https://console.cloud.google.com/traces/explorer?project=crucible-hack-2026`.
+4. **OWED.** A Cloud Run console screenshot into `docs/proof/`. Not yet captured — the last
+   of the four, and one of the two Stage One pass/fail items still open on camera.
+
 **Provisioned and read back 2026-08-20**, project `crucible-hack-2026`, region
 `us-central1`, all three buckets with uniform bucket-level access ON and public access
 prevention ENFORCED:
@@ -644,8 +667,11 @@ Reproduce the infrastructure from `infra/`: `create-buckets.sh`, `create-service
 GCS retention policy cannot be removed or shortened by anyone, ever, including the project
 owner, and would block teardown for two weeks past the last write.
 
-**NOT DONE:** there is no Cloud Run deployment, no Dockerfile, and no hosted URL.
-`docs/contest/BUILD-LIST.md` T0-2 tracks it as the item that is slipping.
+**STILL OWED:** postcondition 3 (Trace Explorer confirmation) and postcondition 4 (the
+console screenshot) above. Both are screenshots for the video, and `docs/contest/CONTEST.md`
+makes the on-camera proof a Stage One pass/fail item. `docs/contest/BUILD-LIST.md` T0-2
+tracks the deploy itself as done; T0-3 (visible Google Cloud proof in the video) is what
+remains blocked on it.
 
 ---
 
