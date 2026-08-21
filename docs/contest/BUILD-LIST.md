@@ -37,7 +37,7 @@ also blocks a pass/fail requirement.
 |---|---|---|---|
 | T1-1 | **Publish a build write-up** on a public platform, stating in the text that it was created for this hackathon | **[B] +0.2** | an afternoon |
 | T1-2 | **Public social post** with `#AllThingsAgenticHackathon` | **[B] +0.2** | minutes |
-| T1-3 | **Gemma**, already planned for corpus generation (ADR-0009) — make sure it actually ships and is named in the submission | **[B] +0.2** | already scheduled |
+| T1-3 | **Gemma** — **NOT built and NOT scheduled, despite `ADR-0009`.** Gemma appears in no code anywhere, and `CAPABILITY_CARTOGRAPHER`, its architectural home, has no module. Worse, the ADR scripts an on-camera line saying the corpus *is* Gemma-generated; the corpus was authored by the lane agents and carries no generator, seed or provenance field. See `docs/NEEDS-ERIC.md` item 10 | **[B] +0.2** | real work, and the line must change either way |
 | T1-4 | **A second additional Google model.** Cheapest honest candidate: `gemini-embedding-001` for near-duplicate detection across generated attacks, which is a real need and not decoration | **[B] +0.2** | small |
 | T1-5 | **A third.** Only if it does real work. **Do not bolt on Veo or Lyria to farm 0.2** — a decorative integration reads as decorative and costs credibility on the 30% criteria | **[B] +0.2** | judgment call |
 

@@ -145,47 +145,66 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-21 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-21 (Day 2 of 11) · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**W0, W1 AND W2 HAVE ALL EXITED. THE CORPUS IS COMPLETE.** `integration` verified:
-**708 tests, `python -m corpus` PASS, `contract-check` five passes OK, tripwire
-`--selftest` exit 0, W2 smoke green.** Pushed, `main` at parity. Rulings **1-41**,
-SPINE_VERSION **9**, **TEN** contracts, repo **public and Apache-2.0**.
+**READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
+The first is the single copy of the contest rules, weights and prizes; the second
+is the owner's decision queue. Do not restate a contest figure anywhere else.
+
+`integration` verified: **757 tests pass**, `contract-check` ALL PASSES OK,
+tripwire `--selftest` exit 0, w2-smoke exit 0, **0 leaks across 409 tracked
+files**, `SEAL INTACT (2cde0250de00e692)`. Rulings **1-42**, SPINE_VERSION
+**10**, TEN contracts, repo public and Apache-2.0.
 
 **Nothing has been measured.** No loop run, no attack scored, no quotable number.
 
-**Corpus**: 48 training (8 each × F1 F2 F3 F5 F6 F7), **24 sealed**, 24 benign
-(12 near-miss), 9 known-bad, 27 pairs. SEP-BY **21 policy / 3 oracle**, far from
-parity. Blindness **0.7708 vs 0.7500** baseline, zero leaking fields.
+**Corpus**: 48 training, **24 sealed**, 24 benign (12 near-miss), 9 known-bad,
+27 pairs. SEP-BY **21 policy / 3 oracle** against an 18/4 target — reported, not
+absorbed. Blindness 0.7708 vs 0.7500 baseline over 96 instances. Sealed
+instances live ONLY at `C:\dev\crucible-wt-SEAL\corpus\sealed\`; any other
+worktree reads sealed=0 and `python -m corpus` FAILS there on
+`E_SEALED_BELOW_FLOOR`, which is correct rather than broken.
 
-**Sealed family RATIFIED at 24; commitment PUBLISHED** at `2cde0250de00e692`.
-`git ls-files corpus/sealed` = **0**. Instances live ONLY at
-`C:\dev\crucible-wt-SEAL\corpus\sealed\` — any other worktree reads sealed=0.
-Check integrity any time: `python scripts/seal-commitment.py --verify`.
+**Landed 2026-08-21**
+- **GX5, ruling 42** — grammar grew by ONE production, `arg_path is present`.
+  Contract C4 re-hashed. Without it `r_new19`, the rule the F4 sealed family
+  depends on, scored **BPR 20/24** against a floor of 24/24 that is never cut.
+- **`ALLOW`/`allow` was a FAIL-OPEN**, not a spelling nit. `engine.py` dropped
+  every lowercase event from the visible prefix, so `preceded_by` read false and
+  the attack passed. The Warden's differential check could not catch it: the
+  reference engine takes TYPED events and never touches the string.
+- **The target was told it had seven tools.** `delegate_to_specialist` was
+  missing from `refund_policy.md` §14 — the prompt the agent actually reads —
+  one day before that prompt gets hashed.
+- **Architecture diagram** (`docs/diagrams/architecture.md`, 6 Mermaid) and
+  **README** (810 lines) both exist. Two of six Tier-0 pass/fail items closed.
+- **Two more sealed payout instruments** were public in benign fixtures. Fixed
+  on the public side, never the sealed side.
+- **CONVENTIONS §4 had three stale frozen-number rows**, including round cap 4
+  against ruling 10's 6 — wrong number at the TOP of the precedence order.
 
 **Open threads**
-- **D5 corpus freeze** — hash corpus + Part B, upload sealed to GCS, hash into the
-  D5 Devpost post. **Must land before the first patch is written.**
-- **Near-miss rundown with Eric** — unblocked now that pairs resolve at 27.
-- **The first real loop run** — compute-heavy; it produces every number.
-- **Codex review** owed — better as a fresh-context task.
-- `ORD-13`/`ORD-14` were authored **after** Eric's review pass, so *"the ordinary
-  benign set was reviewed"* is not true of the set as it stands until he reads
-  those two. P11 and P20 **unbuilt**. D2 gate-rule freeze ready, not run.
+- **`docs/NEEDS-ERIC.md`** — ten owner decisions. Two are Stage One pass/fail.
+- **D2 gate-rule freeze HELD** — not for the reason Eric gave. It pins benign
+  24 and near-miss 12, so firing it decides the parked corpus-count question by
+  side effect. Corpus ruling first.
+- **`corpus/C6-reach` branch** — four instances making `CAP_INVOKES_AGENT`
+  reachable, parked because they break two frozen counts.
+- **D5 corpus freeze** — must land before the first patch is written.
+- **The first real loop run** — produces every number.
+- P11 built, P20 **UNLEARNABLE** without GX5 (now available); `r_new3` fails V4.
 
 **Watch out for**
-- **Ask every check what change it would FAIL to notice.** One of five hash-locks
-  locked nothing; six of ten schemas were not valid schemas; the Objective Set had
-  no clause for the sealed family, so `breached_at_v0` would have read zero while
-  every gate stayed green.
-- **`vault-project.ps1 -Activity` misreports this project** — it scans only
-  `C:\dev\crucible` and misses twelve worktrees. Reported 2 files against **3,378**
-  and 97 commits. Second occurrence; ignore its drift flag here.
-- **Two frozen contracts spell one enum two ways** (`ALLOW` / `allow`) and the
-  corpus was authored in the losing one. Lane drift on one concept: `to` /
-  `to_is_account_holder` / `recipient_is_account_holder`.
-- `.git/hooks` looks untouched because `core.hooksPath` redirects. Subagents must
-  escape their sandbox to write the commit sentinel, which prompts.
-- Target freeze **Sat 08-22** · cut line **Tue 08-25** · submission **Mon 08-31
-  17:00 PDT**.
+- **Ask every check what change it would FAIL to notice.** Tonight: a hash-lock
+  that locked nothing, a unit test the spec cited that did not exist, a claim
+  gate that could not tell a disclaimer from a claim, and a label gate demanding
+  the README print a TARGET as if it were the corpus.
+- **A guard enforcing the wrong number is worse than no guard**, because it
+  looks like the number was checked.
+- **`vault-project.ps1 -Activity` misreports this project** — scans only
+  `C:\dev\crucible`, misses twelve worktrees. Ignore its drift flag here.
+- **Heredocs mangle escapes.** `\b` arrived as a literal backspace byte tonight
+  and `\n` became a real newline. Use the Write tool or a script file.
+- Target freeze **Sat 08-22** · cut line **Tue 08-25** · code freeze **Fri
+  08-28** · **submission Mon 08-31 17:00 PT**.
 <!-- VAULT:SESSION-STATE end -->
