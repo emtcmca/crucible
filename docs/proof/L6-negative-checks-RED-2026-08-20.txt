@@ -1,0 +1,66 @@
+L6 NEGATIVE CHECKS - RED, BEFORE ANY IMPLEMENTATION
+Captured 2026-08-20 on branch lane/L6-evidence.
+CONVENTIONS.md section 8 rule 2: a check that cannot fail is not measuring anything.
+
+$ python -m pytest tests/test_bundle_reader.py tests/test_replay_offline.py -p no:cacheprovider --no-header -q
+
+E       ModuleNotFoundError: No module named 'crucible.replay'
+tests\test_replay_offline.py:191: ModuleNotFoundError
+_______ test_offline_lint_flags_the_strawman_sources[SUBPROCESS_SOURCE] _______
+name = 'SUBPROCESS_SOURCE'
+    @pytest.mark.parametrize("name", sorted(strawman_replay.LINT_MUST_FLAG))
+    def test_offline_lint_flags_the_strawman_sources(name):
+        """A lint aimed only at code that is already clean has never been shown to
+        detect anything."""
+>       from crucible.replay import scan_offline_source
+E       ModuleNotFoundError: No module named 'crucible.replay'
+tests\test_replay_offline.py:191: ModuleNotFoundError
+________ test_offline_lint_reports_a_missing_root_rather_than_passing _________
+    def test_offline_lint_reports_a_missing_root_rather_than_passing():
+        """A lint pointed at a path that does not exist passes forever. That is the
+        same defect class as a check that cannot fail, and import_lint.py already
+        pays for it in the tripwire; the fix travels."""
+>       from crucible.replay import run_offline_lint
+E       ModuleNotFoundError: No module named 'crucible.replay'
+tests\test_replay_offline.py:203: ModuleNotFoundError
+____ test_offline_lint_is_not_fooled_by_a_prefix_that_merely_looks_denied _____
+    def test_offline_lint_is_not_fooled_by_a_prefix_that_merely_looks_denied():
+        """`googleapiclient` must be caught and `google_fonts_helper` must not.
+        Matching on dotted SEGMENTS rather than characters is what keeps a lint
+        from being relaxed the first time it fires on something legitimate - and a
+        lint that is relaxed once is a lint that is relaxed again."""
+>       from crucible.replay import scan_offline_source
+E       ModuleNotFoundError: No module named 'crucible.replay'
+tests\test_replay_offline.py:214: ModuleNotFoundError
+=========================== short test summary info ===========================
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_derived_schema_hash]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_manifest_hash]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_objective_set_hash]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[lock_blanked] - ...
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[lock_missing] - ...
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_frozen_context]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[frozen_at_moved]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_prefix]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[episode_stamp_disagrees_with_manifest]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[verdict_stamp_disagrees_with_episode]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[sep_by_split_missing]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[sep_by_split_at_parity]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[benign_traces_short]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[float_in_payload]
+FAILED tests/test_bundle_reader.py::test_real_reader_rejects[null_in_payload]
+FAILED tests/test_bundle_reader.py::test_real_reader_accepts_the_untouched_bundle
+FAILED tests/test_bundle_reader.py::test_a_rejection_names_what_is_missing_not_just_that_something_is
+FAILED tests/test_bundle_reader.py::test_a_bom_is_refused_rather_than_stripped
+FAILED tests/test_bundle_reader.py::test_schema_validation_alone_accepts_a_bundle_ruling_17_forbids[sep_by_split_missing]
+FAILED tests/test_bundle_reader.py::test_the_real_reader_rejects_exactly_what_the_strawmen_miss
+FAILED tests/test_bundle_reader.py::test_every_mutation_name_is_real - Assert...
+FAILED tests/test_replay_offline.py::test_viewer_runs_with_no_credentials_in_the_environment
+FAILED tests/test_replay_offline.py::test_viewer_runs_with_the_network_removed
+FAILED tests/test_replay_offline.py::test_viewer_rejects_a_damaged_bundle_with_a_nonzero_exit
+FAILED tests/test_replay_offline.py::test_replay_package_is_clean_under_the_offline_lint
+FAILED tests/test_replay_offline.py::test_offline_lint_flags_the_strawman_sources[CREDENTIAL_SOURCE]
+FAILED tests/test_replay_offline.py::test_offline_lint_flags_the_strawman_sources[INDIRECT_IMPORT_SOURCE]
+FAILED tests/test_replay_offline.py::test_offline_lint_flags_the_strawman_sources[NETWORK_SOURCE]
+FAILED tests/test_replay_offline.py::test_offline_lint_flags_the_strawman_sources[SUBPROCESS_SOURCE]
+FAILED tests/test_replay_offline.py::test_offline_lint_reports_a_missing_root_rather_than_passing
+FAILED tests/test_replay_offline.py::test_offline_lint_is_not_fooled_by_a_prefix_that_merely_looks_denied
