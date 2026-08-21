@@ -17,6 +17,8 @@
 set -uo pipefail
 
 HOOK="$(cd "$(dirname "$0")" && pwd)/pre-commit"
+# Absolute, captured BEFORE the cd into the throwaway repo below.
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 [ -f "$HOOK" ] || { echo "no hook at $HOOK" >&2; exit 2; }
 
 TMP="$(mktemp -d 2>/dev/null || mktemp -d -t crucible-hook)"
@@ -74,3 +76,28 @@ if [ "$FAILURES" -ne 0 ]; then
   exit 1
 fi
 echo "SELFTEST PASSED: 3/3"
+
+# --- case 4: is the hook ARMED IN THIS REPOSITORY, right now? ----------------
+# Added 2026-08-20 after a lane inspected `.git/hooks/`, found only `.sample`
+# files, and reported the sealed-corpus guard as NOT ARMED. It was armed. The
+# lane looked in the right place for a DEFAULT install and this repo sets
+# `core.hooksPath`, so git never consults `.git/hooks` at all.
+#
+# That inference was reasonable and its inverse is the dangerous one: somebody
+# unsets core.hooksPath, `.git/hooks` still looks the way it always did, and the
+# guard is silently gone. So the armed state is now something a script reports
+# rather than something a person infers from a directory listing.
+cd "$REPO_ROOT" || exit 1
+echo ""
+echo "Armed check - is the guard live in THIS working copy?"
+HOOKS_DIR="$(git rev-parse --git-path hooks)"
+echo "  git resolves hooks to: $HOOKS_DIR"
+if [ -x "$HOOKS_DIR/pre-commit" ] || [ -f "$HOOKS_DIR/pre-commit" ]; then
+  echo "  ok    a pre-commit hook is present there"
+else
+  echo "  FAIL  NO pre-commit hook at the path git actually consults."
+  echo "        Run: bash infra/hooks/install.sh"
+  echo "        Note .git/hooks/ may look untouched and be irrelevant --"
+  echo "        core.hooksPath redirects git away from it entirely."
+  exit 1
+fi

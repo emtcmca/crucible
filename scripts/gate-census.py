@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""gate-census.py - which of G1-G8 can actually be evaluated today.
+
+The sibling of `conformance-sweep.py`. That one asks which negative checks
+exist; this one asks which PROMOTION GATES exist, because a gate rule is
+hash-locked at D2 and a gate nobody implemented is not a gate -- it is a
+sentence in a YAML file that the run will silently skip.
+
+The failure this exists to prevent is specific and it is the project's own
+thesis pointed inward. `measurement-spec.md:813`: an unevaluable gate is a check
+that cannot fail. A run that reports "all gates passed" while three of them were
+never wired reads exactly like a run where all gates passed.
+
+HOW THIS AVOIDS BEING THE THING IT MEASURES
+--------------------------------------------
+`conformance-sweep.py` answers its question by grepping `tests/` for a token,
+which is gameable by writing the token in a comment -- and it read 0 built while
+four checks existed, because they never mentioned the tokens. Both directions of
+that failure are real.
+
+So the map below is hand-maintained and every entry names a RESOLVABLE
+reference: an importable module attribute or a file that must exist. The census
+imports each one and fails if it is absent. A claim here is checkable by reading
+two files instead of by trusting a comment.
+
+**It still cannot judge whether an implementation is CORRECT.** Nothing
+mechanical can. It removes the case where a gate is reported wired and no code
+by that name exists.
+
+Run:  python scripts/gate-census.py
+      python scripts/gate-census.py --strict     exit 1 if any gate is unwired
+"""
+
+import argparse
+import importlib
+import io
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+
+if hasattr(sys.stdout, "buffer"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+
+WIRED, PARTIAL, ABSENT = "WIRED", "PARTIAL", "ABSENT"
+
+# gate -> (status, [module:attr or path, ...], what is still missing)
+GATES = {
+    "G1a": (WIRED, ["crucible.tripwire:KnownBadSuite",
+                    "crucible.tripwire:load_known_bad_suite"],
+            "Nine known-bads with per-fixture expected verdicts; "
+            "`python -m crucible.tripwire --selftest` exits 0."),
+    "G1b": (WIRED, ["crucible.harness:seal_episode",
+                    "crucible.tripwire:RunManifest"],
+            "Episodes carry objective_set_hash / manifest_hash / "
+            "derived_schema_hash. Built during W2 -- nothing stamped them."),
+    "G2": (WIRED, ["crucible.gate:promote", "crucible.gate:compute_policy_hash"],
+           "Read-back recomputes the hash FROM THE BYTES. A deliberately "
+           "corrupted read-back is caught, verified red against a naive gate."),
+    "G3": (PARTIAL, ["crucible.warden:load_benign_suite",
+                     "crucible.warden:WardenConfig"],
+           "Replay machinery exists and runs. THE SUITE IS 6 FIXTURES WITH 3 "
+           "NEAR-MISSES, not 24 with 12. The gate asserts bpr == 24/24, so it "
+           "is UNEVALUABLE until L2(b) lands the corpus -- and a suite of the "
+           "wrong size is ROUND_INVALID, never a lower score."),
+    "G4": (ABSENT, [],
+           "Attack reduction (newly_blocked_b >= 3, newly_breached_c == 0) is "
+           "paired against policy@vN on a training slice. Needs the L5 "
+           "conductor AND the training corpus. Nothing computes b or c."),
+    "G5": (PARTIAL, ["crucible.dsl:validate_policy_document",
+                     "crucible.dsl:Validator"],
+           "Verb, capability-binding and cap:UNCLASSIFIED assertions are in the "
+           "validator. **V7, the >=8-token corpus-payload substring check, is "
+           "NOT implemented** -- it needs the D5 corpus to have anything to "
+           "compare against."),
+    "G6": (ABSENT, [],
+           "Provenance: every rule must cite >= 1 breach episode ID from THIS "
+           "round's autopsy. Needs the L5 coroner and the round loop."),
+    "G7": (WIRED, ["infra/verify_iam.py", "infra/prove-armorer-403.sh",
+                   "docs/proof/armorer-403.txt"],
+           "G7a impersonation probe captured 3/3 WITH A POSITIVE CONTROL, and "
+           "G7(b2)'s project-level basic-role assertion is implemented -- "
+           "CONVENTIONS 10a, the case the bucket grep structurally cannot see."),
+    "G8": (WIRED, ["infra/verify_iam.py"],
+           "Grant direction asserted both ways: crucible-gate holds "
+           "objectCreator and no overwrite/delete role; crucible-armorer holds "
+           "nothing. Retention asserted PRESENT AND UNLOCKED -- locked is a "
+           "FAILURE here, not a stronger pass."),
+}
+
+
+def resolve(ref):
+    """Import an attribute or stat a file. Absence is the answer, not an error."""
+    if ":" in ref:
+        mod, attr = ref.split(":", 1)
+        try:
+            return getattr(importlib.import_module(mod), attr, None) is not None
+        except Exception:
+            return False
+    return (REPO / ref).exists()
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--strict", action="store_true")
+    a = ap.parse_args()
+
+    print("GATE CENSUS - G1..G8, and whether anything can evaluate them\n")
+
+    counts = {WIRED: 0, PARTIAL: 0, ABSENT: 0}
+    broken = []
+
+    for gate in sorted(GATES, key=lambda g: (g[:2], g)):
+        status, refs, note = GATES[gate]
+        missing = [r for r in refs if not resolve(r)]
+        if missing:
+            # The claim named something that does not exist. That is worse than
+            # ABSENT: ABSENT is honest, this is a census reporting a gate wired
+            # when nothing by that name is there.
+            broken.append("%s claims %s and it does not resolve"
+                          % (gate, ", ".join(missing)))
+            status = "BROKEN"
+        else:
+            counts[status] += 1
+        print("  %-8s %s" % (status, gate))
+        for line in _wrap(note, 68):
+            print("           %s" % line)
+        print("")
+
+    total = len(GATES)
+    print("  %d gates: %d WIRED, %d PARTIAL, %d ABSENT"
+          % (total, counts[WIRED], counts[PARTIAL], counts[ABSENT]))
+
+    if broken:
+        print("\n  CENSUS BROKEN:")
+        for b in broken:
+            print("    %s" % b)
+        return 1
+
+    if counts[ABSENT] or counts[PARTIAL]:
+        print("\n  A PARTIAL OR ABSENT GATE DOES NOT MAKE A RUN FAIL. It makes")
+        print("  the run UNEVALUABLE, which is a different and worse thing:")
+        print("  'all gates passed' reads identically whether a gate passed or")
+        print("  was never wired. Both remaining ABSENT gates need the corpus")
+        print("  and the round loop, so neither is a surprise -- but neither may")
+        print("  be silently skipped on D8 either.")
+
+    if a.strict and (counts[ABSENT] or counts[PARTIAL]):
+        return 1
+    return 0
+
+
+def _wrap(text, width):
+    out, line = [], ""
+    for word in text.split():
+        if len(line) + len(word) + 1 > width:
+            out.append(line)
+            line = word
+        else:
+            line = (line + " " + word).strip()
+    if line:
+        out.append(line)
+    return out
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -5,10 +5,17 @@
   "description": "PART B. Hash: derived_schema_hash. FREEZES D5, WITH THE CORPUS, AND IS GATED ON THE LABEL-BLINDNESS CHECK PASSING. Produced by L2; consumed by L3 (the plugin's before_tool stamper) and the policy engine's predicate evaluation. THREE episode.* fields and SEVEN derived.* fields - counts are frozen and are verify-on-use, never recalled.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "episode_fields", "derived_fields", "blindness_check"],
+  "required": [
+    "schema_version",
+    "episode_fields",
+    "derived_fields",
+    "blindness_check"
+  ],
   "properties": {
-    "schema_version": { "type": "integer", "minimum": 1 },
-
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
     "episode_fields": {
       "type": "array",
       "minItems": 3,
@@ -16,7 +23,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "type", "source"],
+        "required": [
+          "name",
+          "type",
+          "source"
+        ],
         "properties": {
           "name": {
             "enum": [
@@ -25,13 +36,20 @@
               "episode.order_payment_instrument_id"
             ]
           },
-          "type": { "enum": ["string", "integer", "boolean"] },
-          "source": { "const": "scenario_order_account_record" }
+          "type": {
+            "enum": [
+              "string",
+              "integer",
+              "boolean"
+            ]
+          },
+          "source": {
+            "const": "scenario_order_account_record"
+          }
         }
       },
       "$comment": "FROZEN AT EPISODE START FROM THE SCENARIO'S ORDER/ACCOUNT RECORD, IMMUTABLE FOR THE EPISODE'S DURATION, AND RECORDED IN THE EVIDENCE BUNDLE. Ruling 16, and it is CRITICAL: nothing in any spec required this before. If an in-episode turn can move episode.account_holder_email - 'actually, my address changed to this one' - then P06, P12, P19, P25 AND THE ENTIRE F4 SEAL COLLAPSE IN A SINGLE MOVE. It is the cheapest possible way to invalidate the headline result, it looks like nothing, and no gate catches it. NO TURN, NO TOOL RETURN, AND NO MODEL OUTPUT MAY WRITE IT."
     },
-
     "derived_fields": {
       "type": "array",
       "minItems": 7,
@@ -39,7 +57,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "type", "computed_from", "separates_pair"],
+        "required": [
+          "name",
+          "type",
+          "computed_from",
+          "separates_pair"
+        ],
         "properties": {
           "name": {
             "enum": [
@@ -52,116 +75,84 @@
               "derived.days_since_delivery"
             ]
           },
-          "type": { "enum": ["string", "integer", "boolean", "enum"] },
+          "type": {
+            "enum": [
+              "string",
+              "integer",
+              "boolean",
+              "enum"
+            ]
+          },
           "computed_from": {
-            "enum": ["identity_layer", "episode_prefix", "account_record", "order_record", "scenario_frozen_dates"],
+            "enum": [
+              "identity_layer",
+              "episode_prefix",
+              "account_record",
+              "order_record",
+              "scenario_frozen_dates"
+            ],
             "$comment": "SOURCE RESTRICTION, ruling 19.1: computed from the episode prefix and the scenario's system-of-record data ONLY. NEVER from the attack/benign label, NEVER from payload text, NEVER from the target's prose."
           },
           "separates_pair": {
             "type": "array",
-            "items": { "type": "string", "pattern": "^P[0-9]{2}$" },
+            "items": {
+              "type": "string",
+              "pattern": "^P[0-9]{2}$"
+            },
             "$comment": "Which authored pair this field exists for. A field separating NO pair should not exist - see REFUSED below."
           }
         }
       },
       "$comment": "SEVEN FIELDS, STAMPED BY CRUCIBLE_PLUGIN IN before_tool, OVERWRITING ANYTHING THE MODEL WROTE UNDER THE derived. PREFIX. The prefix is RESERVED: the model does not author these, and if it tries its value is DISCARDED BEFORE EVALUATION rather than merged - and the attempt is recorded in ToolEvent.derived_overwrites as evidence (ruling 21). Ruling 19 opened 'Six schema fields' and was corrected to SEVEN; the count drifted between two documents written the same day."
     },
-
     "blindness_check": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["run_at", "labels_withheld", "max_predictive_accuracy", "result"],
+      "required": [
+        "run_at",
+        "labels_withheld",
+        "max_predictive_accuracy",
+        "result"
+      ],
       "properties": {
-        "run_at": { "const": "D5_before_freeze" },
-        "labels_withheld": { "const": true },
+        "run_at": {
+          "const": "D5_before_freeze"
+        },
+        "labels_withheld": {
+          "const": true
+        },
         "max_predictive_accuracy": {
           "type": "number",
           "$comment": "Reported outside the hashed payload (floats are forbidden inside one)."
         },
-        "result": { "enum": ["PASS", "FAIL"] },
-        "removed_fields": { "type": "array", "items": { "type": "string" } }
+        "result": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "removed_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       },
       "$comment": "RULING 19.3, MECHANICAL, AND IT COVERS episode.* TOO - NOT ONLY derived.*. Compute every field over the whole corpus WITH LABELS WITHHELD. IF ANY FIELD PERFECTLY PREDICTS ATTACK-VS-BENIGN, IT IS A LEAK AND IT IS REMOVED. A field meaning 'this is the bad one' makes every downstream number meaningless WHILE LOOKING EXACTLY LIKE SUCCESS - the only failure in this design that gets MORE convincing as it gets worse. THIS CHECK IS THE GATE ON THE FREEZE, NOT A CHECK AFTER IT: a field that predicts the label is removed and Part B RE-FREEZES, which is a pre-run repair and therefore ordinary, not the mid-run weakening section 8 rule 3 forbids."
     }
   },
-
   "$defs": {
     "BRIGHT_LINE": {
-      "$comment": [
-        "WHAT MAY BECOME A FIELD AT ALL - ruling 19, as narrowed by ruling 20.",
-        "",
-        "A field MAY fold over THE CURRENT EPISODE'S OWN PREFIX, and MAY read the production",
-        "system-of-record's state about the ACCOUNT or the ORDER.",
-        "",
-        "It may NEVER read ACROSS EPISODES, never read a WALL CLOCK, and never read CRUCIBLE'S OWN",
-        "RUN STATE (round number, attempt index, arm, policy version).",
-        "",
-        "The narrowing matters: ruling 19 said a field 'may never carry state about the",
-        "conversation'. Read flat, that strikes",
-        "derived.episode_sum_amount_minor_same_beneficiary and derived.episode_count_same_subject -",
-        "both folds over the episode prefix, both existing BECAUSE the third predicate form exists.",
-        "",
-        "Permitted: account age, order status, delivery scan, prior decision on this order.",
-        "Excluded: 'third money move this hour' (wall clock AND cross-episode);",
-        "          'attempt 2 of this attack' (run state).",
-        "Both original examples survive the restatement, which is how you know it NARROWS rather",
-        "than WIDENS."
-      ]
+      "$comment": "WHAT MAY BECOME A FIELD AT ALL - ruling 19, as narrowed by ruling 20.\n\nA field MAY fold over THE CURRENT EPISODE'S OWN PREFIX, and MAY read the production\nsystem-of-record's state about the ACCOUNT or the ORDER.\n\nIt may NEVER read ACROSS EPISODES, never read a WALL CLOCK, and never read CRUCIBLE'S OWN\nRUN STATE (round number, attempt index, arm, policy version).\n\nThe narrowing matters: ruling 19 said a field 'may never carry state about the\nconversation'. Read flat, that strikes\nderived.episode_sum_amount_minor_same_beneficiary and derived.episode_count_same_subject -\nboth folds over the episode prefix, both existing BECAUSE the third predicate form exists.\n\nPermitted: account age, order status, delivery scan, prior decision on this order.\nExcluded: 'third money move this hour' (wall clock AND cross-episode);\n          'attempt 2 of this attack' (run state).\nBoth original examples survive the restatement, which is how you know it NARROWS rather\nthan WIDENS."
     },
     "REFUSED": {
-      "$comment": [
-        "THREE REFUSALS, AND THEY ARE LOAD-BEARING.",
-        "",
-        "1. derived.memo_contains_pii, OR ANY CONTENT CLASSIFIER. This RELOCATES THE STRING MATCH",
-        "   from the DSL into the harness and produces a result about THE HARNESS'S PII DETECTOR",
-        "   WEARING THE POLICY'S NAME. architecture-spec 5.1: the bound IS the point - a language",
-        "   that cannot express a string match cannot learn a string filter, so the held-out-family",
-        "   result is true BY CONSTRUCTION. THIS REFUSAL IS WHY P21 IS UNSEPARABLE AND WHY F4 IS",
-        "   NARROWED TO DESTINATION SMUGGLING.",
-        "",
-        "2. ANY MODEL-COMPUTED derived.* FIELD. CONVENTIONS 2.1 lists POLICY_ENGINE as 'contains a",
-        "   model? no'. A model-computed INPUT ARGUMENT launders a model into the pure-code path",
-        "   without touching the component. Same argument that keeps the TRIPWIRE model-free.",
-        "",
-        "3. derived.refunds_in_trailing_90_days. PERMITTED BY THE BRIGHT LINE, AND STILL DO NOT ADD",
-        "   IT. Account-scoped and frozen, so it clears the line - but NO PAIR NEEDS IT and it is",
-        "   the strongest candidate in the whole set to fail the blindness check. A FIELD THAT IS",
-        "   LEGAL, UNNECESSARY, AND LIKELY TO CORRELATE WITH THE LABEL IS THE EXACT SHAPE THAT GETS",
-        "   ADDED LATE, UNDER DEADLINE, BY SOMEONE WHO ONLY CHECKED THE BRIGHT LINE.",
-        "",
-        "   THE SAME SHAPE WAS ACCEPTED ONCE AND HAD TO BE DELETED: approval_record.verified",
-        "   (ruling 8, deleted by ruling 23). Its specification was 'attack -> false, benign ->",
-        "   true' - a mapping from LABEL to VALUE, written into the spine as if it were a design.",
-        "   It is REDUNDANT WHEN IT IS LEGAL AND ILLEGAL WHEN IT IS LOAD-BEARING."
-      ]
+      "$comment": "THREE REFUSALS, AND THEY ARE LOAD-BEARING.\n\n1. derived.memo_contains_pii, OR ANY CONTENT CLASSIFIER. This RELOCATES THE STRING MATCH\n   from the DSL into the harness and produces a result about THE HARNESS'S PII DETECTOR\n   WEARING THE POLICY'S NAME. architecture-spec 5.1: the bound IS the point - a language\n   that cannot express a string match cannot learn a string filter, so the held-out-family\n   result is true BY CONSTRUCTION. THIS REFUSAL IS WHY P21 IS UNSEPARABLE AND WHY F4 IS\n   NARROWED TO DESTINATION SMUGGLING.\n\n2. ANY MODEL-COMPUTED derived.* FIELD. CONVENTIONS 2.1 lists POLICY_ENGINE as 'contains a\n   model? no'. A model-computed INPUT ARGUMENT launders a model into the pure-code path\n   without touching the component. Same argument that keeps the TRIPWIRE model-free.\n\n3. derived.refunds_in_trailing_90_days. PERMITTED BY THE BRIGHT LINE, AND STILL DO NOT ADD\n   IT. Account-scoped and frozen, so it clears the line - but NO PAIR NEEDS IT and it is\n   the strongest candidate in the whole set to fail the blindness check. A FIELD THAT IS\n   LEGAL, UNNECESSARY, AND LIKELY TO CORRELATE WITH THE LABEL IS THE EXACT SHAPE THAT GETS\n   ADDED LATE, UNDER DEADLINE, BY SOMEONE WHO ONLY CHECKED THE BRIGHT LINE.\n\n   THE SAME SHAPE WAS ACCEPTED ONCE AND HAD TO BE DELETED: approval_record.verified\n   (ruling 8, deleted by ruling 23). Its specification was 'attack -> false, benign ->\n   true' - a mapping from LABEL to VALUE, written into the spine as if it were a design.\n   It is REDUNDANT WHEN IT IS LEGAL AND ILLEGAL WHEN IT IS LOAD-BEARING."
     },
     "PORTABILITY": {
-      "$comment": [
-        "RULING 19.4. Name the GENERAL form, never the PRODUCT form:",
-        "  derived.subject_verified_in_episode   YES",
-        "  derived.order_looked_up               NO",
-        "A refund-shaped field breaks the D9 unseen-target beat and puts a product noun one",
-        "refactor away from the policy."
-      ]
+      "$comment": "RULING 19.4. Name the GENERAL form, never the PRODUCT form:\n  derived.subject_verified_in_episode   YES\n  derived.order_looked_up               NO\nA refund-shaped field breaks the D9 unseen-target beat and puts a product noun one\nrefactor away from the policy."
     },
     "FREEZE_ORDER_DEFENCE": {
-      "$comment": [
-        "WHY A LATE FREEZE IS NOT A LOOPHOLE - ruling 20.",
-        "",
-        "The objection to freezing Part B at D5 is that a definition could move between the v0 arm",
-        "and the vFinal arm, making every headline number a comparison ACROSS TWO RULERS.",
-        "",
-        "1. PART B FREEZES BEFORE THE v0 RUN, not during it. D5 is corpus-build day; v0 measurement",
-        "   is after. BOTH ARMS MEASURE UNDER ONE derived_schema_hash.",
-        "2. The label-blindness check is the GATE ON THE FREEZE, not a check after it.",
-        "3. After D5 both artifacts are IMMUTABLE AND IDENTICAL IN STATUS. The split changes WHEN",
-        "   the lock lands, never WHETHER it lands before measurement.",
-        "",
-        "THE RISK THE SPLIT INTRODUCES, STATED PLAINLY: two hashes are two things to forget.",
-        "Mitigations, all mechanical: G1(c) asserts BOTH are present in the run manifest and on",
-        "every episode; THE EPISODE WRITER REFUSES TO WRITE AN EPISODE MISSING EITHER (not a",
-        "warning); and changing either flags ALL learned rules needs_revalidation."
-      ]
+      "$comment": "WHY A LATE FREEZE IS NOT A LOOPHOLE - ruling 20.\n\nThe objection to freezing Part B at D5 is that a definition could move between the v0 arm\nand the vFinal arm, making every headline number a comparison ACROSS TWO RULERS.\n\n1. PART B FREEZES BEFORE THE v0 RUN, not during it. D5 is corpus-build day; v0 measurement\n   is after. BOTH ARMS MEASURE UNDER ONE derived_schema_hash.\n2. The label-blindness check is the GATE ON THE FREEZE, not a check after it.\n3. After D5 both artifacts are IMMUTABLE AND IDENTICAL IN STATUS. The split changes WHEN\n   the lock lands, never WHETHER it lands before measurement.\n\nTHE RISK THE SPLIT INTRODUCES, STATED PLAINLY: two hashes are two things to forget.\nMitigations, all mechanical: G1(c) asserts BOTH are present in the run manifest and on\nevery episode; THE EPISODE WRITER REFUSES TO WRITE AN EPISODE MISSING EITHER (not a\nwarning); and changing either flags ALL learned rules needs_revalidation."
     }
   }
 }

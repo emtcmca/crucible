@@ -98,7 +98,8 @@
       "version": 3,
       "policy_hash": "7d1e0a44c9b25f38",
       "parent_hash": "3ac0195ef7b2118d",
-      "lineage_hash": "b18c94ff2ad60e51"
+      "lineage_hash": "b18c94ff2ad60e51",
+      "policy_hash_full": "7d1e0a44c9b25f386c2ab98a8e6aac2ac3579ba789121ebf5afbc67dbdeef760"
     }
   ],
   "gate_decisions": [

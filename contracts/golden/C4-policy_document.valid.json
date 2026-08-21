@@ -35,7 +35,7 @@
             }
           ]
         },
-        "origin": "armorer:3"
+        "origin": "armorer"
       }
     ]
   },
@@ -49,5 +49,10 @@
     "run_id": "run_20260824_141207_a91f3c",
     "promoted_by": "crucible-gate@crucible-hack-2026.iam.gserviceaccount.com"
   },
-  "_note": "rules are sorted by rule_id ascending. r_5f2a91cc0b74 < r_c71204ff8a3d. Precedence is by VERB, so this order carries no semantics and sorting is lossless."
+  "_note": "rules are sorted by rule_id ascending. r_5f2a91cc0b74 < r_c71204ff8a3d. Precedence is by VERB, so this order carries no semantics and sorting is lossless.",
+  "provenance": {
+    "r_c71204ff8a3d": {
+      "origin_round": 3
+    }
+  }
 }
