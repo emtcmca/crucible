@@ -52,6 +52,7 @@ FIXTURE_SCHEMA = {
     "C6": "evidence_bundle.schema.json",
     "C7": "run_manifest.schema.json",
     "C9": "verdict.schema.json",
+    "C10": "objective_set.schema.json",
 }
 
 # C8 has no separate fixture: gate_rule.v1.yaml IS the instance, not a schema

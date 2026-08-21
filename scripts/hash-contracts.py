@@ -26,9 +26,19 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 CONTRACTS = REPO / "contracts"
 MANIFEST = CONTRACTS / "MANIFEST.json"
 
-# Nine contracts. Three of them are two files each - that is existing precedent
-# (C4 and C7 were already two-file contracts), and it is why ruling 20's manifest
-# split did NOT push the count to ten. NINE STAYS NINE.
+# TEN contracts as of 2026-08-20, ruling 31. It was nine through W0, and three of
+# them are two files each - existing precedent (C4 and C7 were already two-file
+# contracts), which is why ruling 20's manifest split did NOT push the count up.
+#
+# C10 IS DIFFERENT AND IT IS A REAL ADDITION. objective_set_hash is one of the
+# five hash-locks and G1(b) asserts it, and NOTHING described the shape of the
+# artifact it locks - L4 had to invent one to build the OBJECTIVE_EVALUATOR at
+# all. It is the case ruling 27 defines a contract FOR: a data shape crossing a
+# blindness boundary, authored at D3 by one party and read by an evaluator that
+# is blind to attack intent by construction.
+#
+# The count below is COMPUTED from this dict, never typed, so this comment cannot
+# go stale against it.
 CONTRACT_FILES = {
     "C1": ["tool_event.schema.json"],
     "C2": ["decision.schema.json"],
@@ -39,6 +49,7 @@ CONTRACT_FILES = {
     "C7": ["run_manifest.schema.json", "canonicalization.md"],
     "C8": ["gate_rule.v1.yaml"],
     "C9": ["verdict.schema.json"],
+    "C10": ["objective_set.schema.json"],
 }
 
 OWNERS = {
@@ -51,10 +62,12 @@ OWNERS = {
     "C7": {"produced_by": "L1", "consumed_by": ["ALL"]},
     "C8": {"produced_by": "L1", "consumed_by": ["L4", "L5"]},
     "C9": {"produced_by": "L4", "consumed_by": ["L5", "L6"]},
+    "C10": {"produced_by": "L2/coordinator", "consumed_by": ["L4", "L5", "L6"]},
 }
 
 FREEZES = {
     "C3:capability_manifest.schema.json": "D3_with_target",
+    "C10:objective_set.schema.json": "D3_with_target_and_objective_set_hash",
     "C3:derived_schema.schema.json": "D5_with_corpus_gated_on_blindness_check",
     "C8:gate_rule.v1.yaml": "D2_not_editable_after",
 }
@@ -150,7 +163,7 @@ def build():
         contracts[cid] = entry
     return {
         "manifest_version": 1,
-        "spine_version": 2,
+        "spine_version": 4,
         "frozen_at": "W0",
         "contract_count": len(CONTRACT_FILES),
         "normalization": "LF; trailing whitespace stripped per line; exactly one trailing newline; UTF-8 no BOM. NOT JCS - see contracts/canonicalization.md section 4.",

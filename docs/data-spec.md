@@ -1359,8 +1359,17 @@ crucible verify-chain --run $RUN_ID | Out-File -Encoding utf8 ./local-evidence/c
 # it. Both are dropped: Agent Runtime is no longer used, so there is no agent
 # resource to delete (see 4.4). If a future SDK adds the group, VERIFY THE COMMAND
 # SURFACE FIRST -- `gcloud ai --help` -- rather than reinstating this line.
-gcloud run services delete crucible-orchestrator crucible-tripwire `
-       crucible-warden crucible-gate crucible-ui crucible-bq-writer `
+# CORRECTED 2026-08-20: this line named SIX services. Section 4.1 maps ELEVEN
+# service accounts, ALL of them Cloud Run. crucible-red, crucible-target,
+# crucible-coroner and crucible-armorer were absent, so four services would have
+# kept running after a teardown whose own verification line reported empty --
+# because `gcloud run services list` was read after deleting only the six that
+# were named. A teardown that verifies exactly what it deleted verifies nothing.
+# The list is now sourced, not retyped: scripts/gcp-env.sh exports
+# CRUCIBLE_ALL_SAS, and the service names equal the SA names.
+gcloud run services delete crucible-orchestrator crucible-red crucible-target `
+       crucible-tripwire crucible-coroner crucible-armorer crucible-warden `
+       crucible-gate crucible-ui crucible-bq-writer `
        --region=us-central1 --quiet
 gcloud run jobs delete crucible-sealed-eval --region=us-central1 --quiet
 gcloud run services list --region=us-central1             # MUST be empty
@@ -1577,4 +1586,4 @@ Units 1, 2, and 4 are the security spine. **If day 6 arrives and they are not do
    (ruling 22).** Decided on the merits, not on precedence, because the contradiction is
    intra-document. See §1.2.
 
-7. **~~New, and blocking~~ — DONE 2026-08-20, and `CONVENTIONS.md` §10 is authoritative.** The SDK is **581.0.0, core 2026-08-14** (read back from `gcloud version`, not from the updater's exit code). The active project is **`crucible-hack-2026`** — *`litt-hackathon` is dead vocabulary here.* Firestore `(default)` is native in `us-central1` and **its location is permanent**; three buckets are live with UBLA on and PAP enforced; **no service accounts and no IAM bindings exist yet, deliberately** — a binding against a non-existent principal is the failure that looks like success. **`gcloud ai agents` still does not exist at 581.0.0**, re-checked across GA, beta, and alpha, so §7.3's teardown must be rewritten against the Vertex AI SDK/REST or dropped. **See also `CONVENTIONS.md` §10a:** every new GCS bucket carries default legacy `projectViewer`/`projectEditor` bindings, so a project-level *basic* role grants READ on the sealed bucket **with no binding naming it** — G7(b) and G8 as written are necessary but not sufficient.
+7. **~~New, and blocking~~ — DONE 2026-08-20, and `CONVENTIONS.md` §10 is authoritative.** The SDK is **581.0.0, core 2026-08-14** (read back from `gcloud version`, not from the updater's exit code). The active project is **`crucible-hack-2026`** — *`litt-hackathon` is dead vocabulary here.* Firestore `(default)` is native in `us-central1` and **its location is permanent**; three buckets are live with UBLA on and PAP enforced; **no service accounts and no IAM bindings exist yet, deliberately** — a binding against a non-existent principal is the failure that looks like success. **`gcloud ai agents` still does not exist at 581.0.0**, re-checked across GA, beta, and alpha. ~~so §7.3's teardown must be rewritten against the Vertex AI SDK/REST or dropped~~ — **that was already done, and this sentence went stale asserting otherwise. Closed 2026-08-20:** §7.3 contains zero calls to it and three correction notes. `gcloud ai` does carry `custom-jobs`, `endpoints`, `hp-tuning-jobs`, `index-endpoints`, `indexes`, `model-garden`, so §7.3's surviving `gcloud ai` lines are valid. **A separate, live defect was found while confirming this** — §7.3's `run services delete` named six of the eleven services, and the verification line after it read `gcloud run services list`, which would have reported empty because it was read after deleting exactly the six that were named. Fixed in place. **See also `CONVENTIONS.md` §10a:** every new GCS bucket carries default legacy `projectViewer`/`projectEditor` bindings, so a project-level *basic* role grants READ on the sealed bucket **with no binding naming it** — G7(b) and G8 as written are necessary but not sufficient.
