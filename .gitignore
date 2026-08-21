@@ -51,3 +51,7 @@ Thumbs.db
 # 2026-08-20. Every other doc describes the system; this one describes the
 # contest. Not secret, just not part of the artifact.
 planning/
+
+# Local Claude Code settings (per-machine preferences, not project policy).
+# Holds the crucible-scoped caveman disable set 2026-08-21.
+.claude/settings.local.json
