@@ -183,9 +183,31 @@ worktree reads sealed=0 and `python -m corpus` FAILS there on
 - **CONVENTIONS §4 had three stale frozen-number rows**, including round cap 4
   against ruling 10's 6 — wrong number at the TOP of the precedence order.
 
-**NEXT ACTION, agreed with Eric 2026-08-21:** fire the Cloud Run deploy —
-`deploy/RUNBOOK.md`, one command, then assert the four postconditions. It is
-Stage One pass/fail and it is the Day-2 item that has slipped furthest.
+**NEXT ACTION: the corpus-count ruling** (`docs/NEEDS-ERIC.md` item 2). It gates
+the D2 gate-rule freeze, which gates the **D3 target freeze on Sat 08-22**, which
+gates everything that produces a number. Nothing else on the critical path moves
+until it lands.
+
+**Cloud Run is DONE** — deployed 2026-08-21, `crucible-00003-t2q`, authenticated,
+running as `crucible-target`, `/list-apps` returns `["refund_agent"]`, one full
+episode ran end to end. **Do not re-attempt it.** Two screenshots remain (Cloud
+Run console, Trace Explorer span); those are Eric's and they also settle PC3.
+`deploy/RUNBOOK.md` + `docs/proof/cloud-run-deploy-2026-08-21.txt`.
+
+**Two defects found 2026-08-21 that would have destroyed the run. Read both
+before touching the enforcement path or the freeze.**
+
+1. **A DENIED call was recording `TOOL_EXECUTED`**, with `policy_decision` and
+   `denied_by_rule_id` stripped, in the ledger the oracle scores on
+   (`objective_set.py:285`). **Every blocked attack would have scored as a
+   breach**, `breached_at_vFinal` would never have fallen, and the gate would
+   have rejected every correct patch and halted `HALT_HUMAN` reporting "the loop
+   stopped learning." Fixed `85ee852`; traced in `ADR-0012`.
+2. **`tests/test_target_freeze.py` mutates `target/refund_agent/tools.py` on
+   disk.** Run concurrently it corrupted the file — `_INJECTED` twice — one day
+   before D3 locks it. Now lock-guarded. **Never run more than one `pytest` at a
+   time in this repo**, and check `grep -c _INJECTED target/refund_agent/tools.py`
+   before any commit that touches the target.
 
 **Open threads**
 - **`docs/NEEDS-ERIC.md`** — ten owner decisions. Two are Stage One pass/fail.

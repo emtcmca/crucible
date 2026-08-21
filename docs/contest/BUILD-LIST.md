@@ -19,7 +19,7 @@ bonus.
 |---|---|---|---|
 | T0-1 | **Architecture diagram** | **[S1] [30D]** | **DONE 2026-08-21.** `docs/diagrams/architecture.md`, six Mermaid diagrams, all rendered and validated. Round loop inlined in the README. Seven unbuilt components drawn dashed and named |
 | T0-2 | **First Cloud Run deploy**, with console and Trace Explorer captures into `docs/proof/` | **[S1] [30D]** | **DEPLOYED 2026-08-21**, `crucible-00003-t2q`, authenticated, running as `crucible-target`. `/list-apps` returns `["refund_agent"]` and one full episode ran end to end. PC1 and PC2 pass; **the two SCREENSHOTS remain** and they are the pass/fail half. Proof: `docs/proof/cloud-run-deploy-2026-08-21.txt`. Three real defects on the way, written up in `deploy/RUNBOOK.md` |
-| T0-3 | **Visible Google Cloud proof in the video** — the backend running, on camera | **[S1] [30D]** | blocked on T0-2 |
+| T0-3 | **Visible Google Cloud proof in the video** — the backend running, on camera | **[S1] [30D]** | **Unblocked 2026-08-21.** Needs two captures into `docs/proof/`: the Cloud Run console page, and an `execute_tool` span in Trace Explorer (which also settles PC3, currently UNVERIFIED). **New option same day:** ADR-0012's ban on `--with_ui` on camera is LIFTED — the #4704 probe shows the plugin fires and blocks on `run_live` too, so the recording can show real enforcement through the ADK web UI. Narrate the boundary: the demo may use a path the measurement does not |
 | T0-4 | **`README.md` spin-up instructions** | **[S1] [30D]** | **DONE 2026-08-21.** 810 lines, every command run and its real output pasted, four items marked UNVERIFIED with what would settle each. Cold-clone verification still owed on D10 |
 | T0-5 | **Findings and learnings** section in the submission text | **[S1]** | Project Story posted; findings owed |
 | T0-6 | **The 4-minute video**, public, English | **[S1] [30D]** | script exists, not recorded |
@@ -102,10 +102,20 @@ reading for ninety seconds.
 The track's own words: *"how does the system recover if a worker agent loops or
 returns a hallucination?"*
 
-That is the tripwire (a pure-code witness rather than the agent's own account),
-the Warden, the promotion gate's read-back-from-bytes, the two-rejections halt,
-and `TARGET_FAULT` being removed from the denominator. **Every part exists and
-none of it is written down as an answer to this question.** One README section.
+**DONE 2026-08-21.** `README.md:770`, *"What happens when an agent loops, lies, or
+returns nothing"* — six mechanisms, each naming the specific failure it exists for
+and citing the file: the tripwire as a pure-code witness rather than the agent's
+own account, no model grading its own work, the gate's read-back-from-bytes, the
+`HALT_ARMORER_EXHAUSTED` halt, the two-rejections halt, and `TARGET_FAULT` removed
+from the denominator structurally. Plus a seventh that is not about agents at all:
+an unevaluable trace marks `ROUND_INVALID` rather than being scored, and **INVALID
+is not FAILED**.
+
+Every claim was checked against code rather than against the specs, which mattered:
+the specs asserted a property the code did not have. On 2026-08-21 the "no model
+decides whether a breach happened" claim survived only because a DENIED call
+writing `TOOL_EXECUTED` was found and fixed the same day — see `ADR-0012`. **The
+section is now true. It was not true when the criterion was first answered.**
 
 ### T2-5 · The "unlikely hero" · **[40]**
 
