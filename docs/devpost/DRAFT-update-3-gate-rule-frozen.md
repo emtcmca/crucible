@@ -23,9 +23,15 @@ The rule includes the checks that can reject my own work: a benign suite that mu
 
 ### The freeze script refuses more than it accepts
 
-Writing the hash down is easy and proves nothing. The script that records this freeze refuses to run if the gate rule has uncommitted changes, if the file on disk differs from the file at the last commit, if the hash disagrees with the contract manifest, or if a freeze record already exists naming a different hash.
+Writing the hash down is easy and proves nothing. The script refuses to run if the gate rule has uncommitted changes, if the file on disk differs from the file at the last commit, if the hash disagrees with the contract manifest, or if a freeze record already exists naming a different hash.
 
-The first three all say the same thing in different ways: a freeze of a file that exists only on my laptop is not a freeze. The public commit timestamp is the evidence, and without it the claim rests on my word. The fourth is what "not editable after" means when it is enforced rather than remembered.
+The first three say the same thing three ways: a freeze of a file that exists only on my laptop is not a freeze. The public commit timestamp is the evidence. The fourth is what "not editable after" means when enforced rather than remembered.
+
+### What went wrong this time
+
+The components were built in parallel, each deliberately blind to the others and each passing its own tests. The first time anything drove one episode through all of them, it failed four ways, and none was visible from inside any single component.
+
+Two were the same shape: a job belonging to nobody because it sat exactly on a boundary. The enforcement layer was built to accept an injected computation, the schema was built to declare which values that computation produces, and no one wrote the arithmetic in between. Separately, the recorder correctly knew nothing about the definition of breach, the scorer correctly refused to score an episode not stamped with it, and nothing existed to do the stamping. That refusal surfaced as an error that read like a scorer bug and was a missing part.
 
 ### Still no results
 
