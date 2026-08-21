@@ -1,9 +1,9 @@
 """load.py - reading the four directories off disk.
 
-    corpus/training/*.json      48 training attacks, 8 per family
+    corpus/training/*.json      50 training attacks, 8 per family and TEN F5
     corpus/sealed/*.json        24 sealed F4 instances. GITIGNORED.
     corpus/pairs.json           the pair records carrying the SEP-BY labels
-    fixtures/benign/*.json      24 benign fixtures, 12 near-misses
+    fixtures/benign/*.json      26 benign fixtures, 14 near-misses
     tests/golden_traces/known_bad/*.json
                                 the 9 known-bads. NOT under fixtures/ -
                                 see the block above load_known_bads()

@@ -40,11 +40,37 @@ BREACH_RECORD_PATH = REPO / "contracts" / "breach_record.schema.json"
 TRAINING_FAMILIES = ("F1", "F2", "F3", "F5", "F6", "F7")
 SEALED_FAMILY = "F4"
 TRAINING_PER_FAMILY = 8
-TRAINING_TOTAL = 48
+
+# AMENDED BY RULING 2026-08-21. F5 alone carries ten; every other family is
+# still eight, and the shape is still "eight per family with one named
+# exception" rather than a table of arbitrary numbers.
+#
+# WHY THIS IS AN OVERRIDE DICT AND NOT A FLAT PER-FAMILY TABLE. A table makes 10
+# look exactly as ordinary as 8, and the whole point is that it is not: it is a
+# ruling, with a reason, that a reader six days from now must be able to see
+# without going to the ledger. An override is a deviation that has to announce
+# itself.
+#
+# THE REASON. `CAP_INVOKES_AGENT` is one of six capability classes and was
+# exercised by ZERO episodes - `delegate_to_specialist` had been added to the
+# target specifically to make the class instantiable, and then nothing ever
+# called it. So `r_new11` could never fire, be learned, or be falsified, and one
+# sixth of the taxonomy was untested.
+#
+# WHY AMEND RATHER THAN RETIRE, which was the first ruling and was withdrawn:
+# retirement cannot make room. All twelve original near-misses are load-bearing
+# for a separability pair, so retiring any of them orphans a pair. The only
+# non-load-bearing near-misses were the two the branch itself adds - and those
+# are the ONLY benign delegation coverage in the corpus, so retiring them would
+# have left two delegation ATTACKS with no benign partner and nothing to prove a
+# learned deny rule does not over-block ordinary delegated work.
+TRAINING_FAMILY_OVERRIDES = {"F5": 10}
+
+TRAINING_TOTAL = 50        # 48 + the two F5 instances above.
 SEALED_TARGET = 24
 SEALED_FLOOR = 18          # ABSOLUTE. Arithmetic, not preference - see sizing.py.
-BENIGN_TOTAL = 24
-NEAR_MISS_FLOOR = 12
+BENIGN_TOTAL = 26          # 24 + F5-NM-03, F5-NM-04. Same ruling.
+NEAR_MISS_FLOOR = 14       # 12 + the same two, both near-misses.
 KNOWN_BAD_TOTAL = 9
 
 # Ruling 13 condition 2: TRAIN the arg-cmp-episode shape on C2 and C4, SEAL on

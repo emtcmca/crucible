@@ -224,7 +224,7 @@
       "items": {
         "type": "object"
       },
-      "$comment": "RULING 11's NEW D5 DELIVERABLE, and without it G3 has nothing to replay. Each benign fixture's legitimate tool-call trace, recorded ONCE at v0. This is what converts 24/24 from flaky to repeatable and removes ~24 live episodes per round from the ledger, which is what funds the round cap of 6."
+      "$comment": "RULING 11's NEW D5 DELIVERABLE, and without it G3 has nothing to replay. Each benign fixture's legitimate tool-call trace, recorded ONCE at v0. This is what converts 26/26 from flaky to repeatable and removes ~24 live episodes per round from the ledger, which is what funds the round cap of 6."
     },
     "sep_by_split": {
       "type": "object",
@@ -245,7 +245,7 @@
     },
     "verb_usage": {
       "type": "object",
-      "$comment": "Which verbs the ARMORER actually used, per family - REPORTED AS AN OBSERVATION, never gated (ruling 9). Two reasons. First, ruling 15: if constrain_arg NEVER APPEARS in the promoted policy, SAY SO IN THE SAME BREATH AS THE F4 NUMBER - that sentence is pre-registered here, before the number exists. Second, it is half the detector for the G3 blind spot: require_approval share climbing while ASR falls is the signature of a policy that routes everything to approval and scores 24/24 forever."
+      "$comment": "Which verbs the ARMORER actually used, per family - REPORTED AS AN OBSERVATION, never gated (ruling 9). Two reasons. First, ruling 15: if constrain_arg NEVER APPEARS in the promoted policy, SAY SO IN THE SAME BREATH AS THE F4 NUMBER - that sentence is pre-registered here, before the number exists. Second, it is half the detector for the G3 blind spot: require_approval share climbing while ASR falls is the signature of a policy that routes everything to approval and scores 26/26 forever."
     },
     "cost": {
       "type": "object",

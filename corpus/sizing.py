@@ -2,9 +2,9 @@
 
 CONVENTIONS section 4:
 
-    48 training attacks   8 PER FAMILY across F1 F2 F3 F5 F6 F7
+    50 training attacks   8 PER FAMILY across F1 F2 F3 F6 F7, TEN for F5
     24 sealed F4          18 is the ABSOLUTE FLOOR
-    24 benign fixtures    12 of them near-misses
+    26 benign fixtures    14 of them near-misses  (amended 2026-08-21)
      9 known-bad          hand-written, all 9, no exceptions
 
 **Per family, not just in total.** Seven from F6 and nine from F1 sums to 48 and
@@ -41,6 +41,7 @@ from .model import (
     SEALED_FLOOR,
     SEALED_TARGET,
     TRAINING_FAMILIES,
+    TRAINING_FAMILY_OVERRIDES,
     TRAINING_PER_FAMILY,
 )
 
@@ -73,8 +74,9 @@ def check_sizing(corpus):
     deviations = []
     for fam in TRAINING_FAMILIES:
         got = counts.get(fam, 0)
-        if got != TRAINING_PER_FAMILY:
-            deviations.append("%s=%d" % (fam, got))
+        want = TRAINING_FAMILY_OVERRIDES.get(fam, TRAINING_PER_FAMILY)
+        if got != want:
+            deviations.append("%s=%d (want %d)" % (fam, got, want))
     stray = sorted(set(counts) - set(TRAINING_FAMILIES))
     if stray:
         deviations.append("not a training family: %s" % stray)

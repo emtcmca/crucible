@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "spine_version": 10,
+  "spine_version": 11,
   "frozen_at": "W0",
   "contract_count": 10,
   "normalization": "LF; trailing whitespace stripped per line; exactly one trailing newline; UTF-8 no BOM. NOT JCS - see contracts/canonicalization.md section 4.",
@@ -69,8 +69,8 @@
     "C4": {
       "files": {
         "policy.ebnf": {
-          "sha256": "ab7a0ecfcc0fa23808ed5f42b6e915e859903dabbe49c3fcfe35d8688f511a26",
-          "bytes": 17263
+          "sha256": "503c209ad98f71554f19a32f19226eee5e433a04d1c43fe38659bfc9ba54828d",
+          "bytes": 17740
         },
         "policy_document.schema.json": {
           "sha256": "cb7a133b9768cc9362a93342ea8f491b99ce2fb1411d0cad7ca3ea0fe71d6681",
@@ -99,7 +99,7 @@
     "C6": {
       "files": {
         "evidence_bundle.schema.json": {
-          "sha256": "45abfa3f812123db13091972a523cc2418b26582532101b1da6369a20aef4dd7",
+          "sha256": "85cb4b43ea252ce3be1ae459cb520d517b372a811a18790b82919fa5d69cbe99",
           "bytes": 10514
         }
       },
@@ -111,7 +111,7 @@
     "C7": {
       "files": {
         "run_manifest.schema.json": {
-          "sha256": "4d5d8220b117e27bb83e9b4a21a08b00193453f927af428cf6663034cfd26e1f",
+          "sha256": "4f985980e59deeae7a3147ed1bec0ee0808ee72c6e4559012a1ac957af2953ba",
           "bytes": 8698
         },
         "canonicalization.md": {
@@ -127,8 +127,8 @@
     "C8": {
       "files": {
         "gate_rule.v1.yaml": {
-          "sha256": "834bc7113a13beea1a26e0f63e02ce773585d2ad70d5585323f7607992ddd870",
-          "bytes": 11249,
+          "sha256": "cff9f52929397efba3713df501961805deb9c5c798878b52cfff4e854c3d67d3",
+          "bytes": 12350,
           "freezes": "D2_not_editable_after"
         }
       },

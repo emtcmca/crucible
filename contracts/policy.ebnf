@@ -93,7 +93,12 @@ clause        = arg_path cmp_op literal
 
    MEASURED, not predicted.  r_new19 - the rule the entire F4 sealed family
    depends on - scored BPR 20/24 without this form, against a benign floor of
-   24/24 that is never cut.  The Armorer emits the correct rule, the Warden
+   24/24 that is never cut.  (BOTH FIGURES ARE THE 2026-08-20 MEASUREMENT AND
+   STAY AS WRITTEN.  The benign denominator was amended to 26 by ruling on
+   2026-08-21, before the D2 freeze, when CAP_INVOKES_AGENT was found to be
+   exercised by zero episodes.  A measurement is reported against the ruler it
+   was taken with; restating it against a later ruler would make the record
+   false in order to make it look current.)  The Armorer emits the correct rule, the Warden
    rejects it, two rejections halt the loop, and the headline transfer number
    becomes unreachable FOR A REASON THAT HAS NOTHING TO DO WITH GENERALIZATION.
    We would have reported "the shape did not transfer" when it transferred
@@ -107,7 +112,8 @@ clause        = arg_path cmp_op literal
    fail-closed retention rule never engages for this form in either polarity.
 
    REJECTED ALTERNATIVES, both real and both worse:
-     - `tool:` qualifier.  Legal grammar today, and it reaches 24/24.  It also
+     - `tool:` qualifier.  Legal grammar today, and it reached 24/24 on the
+       2026-08-20 benign set (see the note above on that denominator).  It also
        binds the rule to ONE OPAQUE TOOL HANDLE, which destroys the very
        transfer claim the sealed pair exists to make.  Buying the floor by
        deleting the point.

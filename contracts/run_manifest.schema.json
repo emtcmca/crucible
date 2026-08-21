@@ -105,11 +105,11 @@
           "$comment": "3 CONSECUTIVE dry rounds terminates. 'Did not reach dry' is an acceptable and publishable OUTCOME."
         },
         "benign_floor": {
-          "const": "24/24",
+          "const": "26/26",
           "$comment": "DENOMINATOR FIXED PERMANENTLY AT 24. 0/24 bounds true regression at ~12.5%, AND THAT EXACT NUMBER IS SPOKEN ON CAMERA AND PRINTED IN THE README. NEVER say 'no legitimate behavior was lost'. Evaluated BY REPLAY of recorded v0 traces, not by live episodes (ruling 11) - a 100%-every-round gate on nondeterministic live episodes is the gate that gets relaxed at 11pm."
         },
         "near_miss_floor": {
-          "const": "12/12"
+          "const": "14/14"
         },
         "known_bad_count": {
           "const": 9,
