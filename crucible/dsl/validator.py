@@ -68,7 +68,7 @@ PAYLOAD_SUBSTRING_TOKENS = 8
 # The capability vocabulary is subtracted from a harvested product lexicon: the
 # six class names and the DSL's own keywords are ours, not the product's.
 _DSL_VOCABULARY = frozenset(CAP_CLASSES) | frozenset({
-    "rule", "retract", "cap", "tool", "when", "and", "in", "is", "absent",
+    "rule", "retract", "cap", "tool", "when", "and", "in", "is", "absent", "present",
     "deny", "constrain_arg", "require_approval", "origin", "seed", "armorer",
     "preceded_by", "episode_sum", "episode", "true", "false", UNCLASSIFIED,
 })

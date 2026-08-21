@@ -92,6 +92,8 @@ def _cmp(op, left, right):
         return isinstance(right, (list, tuple)) and left in right
     if op == "is_absent":
         return left is _ABSENT
+    if op == "is_present":
+        return left is not _ABSENT                      # GX5, ruling 42
     if type(left) is bool or type(right) is bool:
         return False
     if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
@@ -104,6 +106,11 @@ def _arg_condition_holds(cond, event):
     value = _resolve(event.args, cond["path"])
     if cond["op"] == "is_absent":
         return value is _ABSENT
+    if cond["op"] == "is_present":
+        # Must short-circuit ABOVE the `value is _ABSENT -> False` line below,
+        # or a present-check on an absent arg would answer False for the wrong
+        # reason and agree with the real engine by accident. GX5, ruling 42.
+        return value is not _ABSENT
     if value is _ABSENT:
         return False
     return _cmp(cond["op"], value, cond.get("value"))

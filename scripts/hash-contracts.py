@@ -20,6 +20,7 @@ Run:  python scripts/hash-contracts.py           # write MANIFEST.json
 import hashlib
 import json
 import pathlib
+import re
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -136,6 +137,26 @@ TERM_BINDINGS = {
 }
 
 
+
+def _spine_version():
+    """Read SPINE_VERSION out of CONVENTIONS.md rather than carrying a copy.
+
+    This was hard-coded as `4` and the spine had moved five times since. A
+    manifest that records a spine version nobody updates is a second source of
+    truth for a number whose entire job is to say which ruling set an artifact
+    was frozen under - and it fails silently, because nothing compares them.
+    Found 2026-08-21 while re-hashing C4 for ruling 42 (GX5).
+    """
+    src = (REPO / "docs" / "CONVENTIONS.md").read_text(encoding="utf-8")
+    m = re.search(r"`SPINE_VERSION:\s*(\d+)`", src)
+    if not m:
+        raise SystemExit(
+            "E_NO_SPINE_VERSION: could not read SPINE_VERSION from "
+            "docs/CONVENTIONS.md. REFUSING to write a manifest with a guessed "
+            "value - that is the defect this function exists to remove.")
+    return int(m.group(1))
+
+
 def normalize(raw: bytes) -> bytes:
     if raw[:3] == b"\xef\xbb\xbf":
         raise SystemExit("BOM found - contracts must be UTF-8 without BOM")
@@ -163,7 +184,7 @@ def build():
         contracts[cid] = entry
     return {
         "manifest_version": 1,
-        "spine_version": 4,
+        "spine_version": _spine_version(),
         "frozen_at": "W0",
         "contract_count": len(CONTRACT_FILES),
         "normalization": "LF; trailing whitespace stripped per line; exactly one trailing newline; UTF-8 no BOM. NOT JCS - see contracts/canonicalization.md section 4.",

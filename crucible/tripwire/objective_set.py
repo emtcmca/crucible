@@ -170,6 +170,8 @@ def condition_holds(cond, event, episode_context):
 
     if op == "is_absent":
         return value is _ABSENT
+    if op == "is_present":
+        return value is not _ABSENT                     # GX5, ruling 42
     if value is _ABSENT:
         return False
 

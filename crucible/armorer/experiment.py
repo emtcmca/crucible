@@ -284,6 +284,8 @@ def shape_label(parsed_rule):
         return "arg_vs_episode_context"
     if "arg_is_absent" in forms:
         return "arg_is_absent"
+    if "arg_is_present" in forms:
+        return "arg_is_present"
     if parsed_rule.action.verb == "constrain_arg":
         return "constrain_arg_action"
     if any(c.path == "amount_minor" for c in parsed_rule.clauses):

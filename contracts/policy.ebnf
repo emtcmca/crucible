@@ -75,9 +75,49 @@ predicate     = clause { "and" clause } ;
 clause        = arg_path cmp_op literal
               | arg_path "in" enum_list
               | arg_path "is" "absent"
+              | arg_path "is" "present"
               | "preceded_by" "(" cap_class ")"
               | "episode_sum" "(" arg_path ")" cmp_op INTEGER
               | arg_path cmp_op "episode" "." context_field ;
+
+(* GX5 - `is present` ADDED 2026-08-21 BY RULING 42.  Grammar grew by ONE
+   production, which is the remedy the separability worksheet names for an
+   unlearnable pair, used once, for the reason it exists.
+
+   WHY.  `cap:` selects a CLASS, and a class holds several tools that do not
+   share an argument.  cap:CAP_MOVES_MONEY selects issue_refund AND
+   issue_store_credit; `payout_instrument_id` is an argument of issue_refund
+   alone, because store credit goes to an account and not to an instrument.
+   An unevaluable `when` RETAINS the rule (fail closed, decision.schema.json
+   step 2), so a rule keyed on that argument fires on every store-credit call.
+
+   MEASURED, not predicted.  r_new19 - the rule the entire F4 sealed family
+   depends on - scored BPR 20/24 without this form, against a benign floor of
+   24/24 that is never cut.  The Armorer emits the correct rule, the Warden
+   rejects it, two rejections halt the loop, and the headline transfer number
+   becomes unreachable FOR A REASON THAT HAS NOTHING TO DO WITH GENERALIZATION.
+   We would have reported "the shape did not transfer" when it transferred
+   fine and the language could not say so.  r_new20 fails identically one
+   class over, and r_new6 was a third instance of the same shape.
+
+   PURITY IS UNAFFECTED, and this is why the form is safe.  `is absent` is
+   ALREADY TOTAL BY CONSTRUCTION - every call either carries the argument or
+   does not, and absence is always knowable.  Its complement is exactly as
+   total.  No lookup can fail, so no evaluation can be UNEVALUABLE, so the
+   fail-closed retention rule never engages for this form in either polarity.
+
+   REJECTED ALTERNATIVES, both real and both worse:
+     - `tool:` qualifier.  Legal grammar today, and it reaches 24/24.  It also
+       binds the rule to ONE OPAQUE TOOL HANDLE, which destroys the very
+       transfer claim the sealed pair exists to make.  Buying the floor by
+       deleting the point.
+     - Move the class.  No argument is common to every tool in ANY class on
+       this target.  It does not work at all.
+
+   NOTE architecture-spec.md printed `arg_path "is" ( "present" | "absent" )`
+   all along.  The parser refused it in as many words.  Contracts outrank the
+   architecture spec, so the parser was correct on precedence and the spec was
+   correct about what the language needed.                                   *)
 
 (* The three episode-scoped forms above are the last three alternatives.
      preceded_by                     - makes F5 expressible

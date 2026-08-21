@@ -172,7 +172,8 @@
                       "gt",
                       "gte",
                       "in",
-                      "is_absent"
+                      "is_absent",
+                      "is_present"
                     ]
                   },
                   "value": {

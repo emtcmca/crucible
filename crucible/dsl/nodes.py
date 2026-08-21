@@ -53,6 +53,10 @@ CMP_OPS = {"==": "eq", "!=": "ne", "<": "lt", "<=": "lte", ">": "gt", ">=": "gte
 CLAUSE_ARG_CMP_LITERAL = "arg_cmp_literal"
 CLAUSE_ARG_IN_ENUM_LIST = "arg_in_enum_list"
 CLAUSE_ARG_IS_ABSENT = "arg_is_absent"
+# GX5, ruling 42. The complement of a TOTAL predicate is total: every call
+# either carries the argument or does not, so neither polarity can be
+# UNEVALUABLE and the fail-closed retention rule never engages for either.
+CLAUSE_ARG_IS_PRESENT = "arg_is_present"
 CLAUSE_PRECEDED_BY = "preceded_by"
 CLAUSE_EPISODE_SUM = "episode_sum"
 CLAUSE_ARG_VS_EPISODE_CONTEXT = "arg_vs_episode_context"

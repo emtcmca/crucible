@@ -11,11 +11,17 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 9` · last changed 2026-08-20
+`SPINE_VERSION: 10` · last changed 2026-08-21
 
 > **SPINE_VERSION 2 — the five D1 coordinator decisions are closed. Rulings 21-25 below.**
 >
 > **SPINE_VERSION 3 — rulings 26-28, on escalations from the W1 lanes. §5.8.**
+>
+> **SPINE_VERSION 10 — ruling 42, GX5. The grammar grows by ONE production.**
+> `arg_path "is" "present"` is admitted. **This re-hashes contract C4** (`policy.ebnf`
+> and `policy_document.schema.json`) and therefore `MANIFEST.json`. **Invalidates
+> nothing measured** — no loop has been run and no attack has been scored, which is
+> exactly why it is affordable today and would not be after D5. Ruling text in §5.9.
 >
 > **SPINE_VERSION 9 — ruling 41 narrows NB-02, which had exempted an attack.**
 > Closes Q-01. **Invalidates nothing measured**; no corpus instance has been scored.
@@ -1641,6 +1647,70 @@ apart. **Revisit on evidence, which is the same rule the fourth DSL verb lives
 under.**
 
 ---
+
+## 5.9 Grammar growth — Eric's ruling, 2026-08-21
+
+### Ruling 42 — GX5. `arg_path "is" "present"` is admitted. The grammar grows by one production, once.
+
+**Approved by Eric 2026-08-21.** The separability worksheet's own D1 contract states
+the remedy for an unlearnable pair: *remove it from the corpus, or grow the grammar
+by one construct.* This is the second branch, used for the first time, for the
+reason it exists.
+
+**What forced it, and it was not P20.** `cap:` selects a **class**, and a class
+holds tools that do not share an argument.
+
+- `cap:CAP_MOVES_MONEY` selects **two** tools, `issue_refund` **and**
+  `issue_store_credit`.
+- `payout_instrument_id` is an argument of `issue_refund` **alone** — store credit
+  goes to an account, not to an instrument.
+- An unevaluable `when` clause **RETAINS** the rule (fail closed,
+  `decision.schema.json` step 2, frozen text).
+
+So a rule keyed on that argument fires on every store-credit call.
+
+**Measured, not predicted. `r_new19` scored BPR 20/24.** That is the rule the entire
+F4 sealed family depends on, against a benign floor of 24/24 that **is never cut**.
+Left alone, the Armorer emits the correct rule, the Warden rejects it, two
+rejections halt the loop, and the headline transfer number becomes unreachable **for
+a reason that has nothing to do with generalization.** We would have published *"the
+shape did not transfer."* It transferred; the language could not say so. `r_new20`
+fails identically one class over, and `r_new6` was a third instance of the same
+shape found the same day.
+
+**Why this form specifically is safe.** `is absent` is **already total by
+construction** — every call either carries an argument or does not, and absence is
+always knowable. The complement of a total predicate is exactly as total. No lookup
+can fail, so no evaluation can return UNEVALUABLE, so the fail-closed retention rule
+**never engages for this form in either polarity.** No new evaluation semantics, no
+new failure mode, and the token after `is` remains a closed set of exactly two words.
+
+**The two alternatives, both rejected, both real.**
+
+1. **A `tool:` qualifier.** Already legal grammar, and it reaches 24/24. It also
+   binds the rule to **one opaque tool handle**, which destroys the transfer claim
+   the sealed pair exists to make. Buying the floor by deleting the point.
+2. **Move the class.** No argument is common to every tool in **any** class on this
+   target. It does not work at all.
+
+**A correction that belongs in the record.** `architecture-spec.md:607` printed
+`arg_path "is" ( "present" | "absent" )` all along, while `parser.py` refused it in
+as many words. Contracts outrank the architecture spec, so **the parser was right on
+precedence and the spec was right about what the language needed.** Both halves are
+worth keeping: precedence settles who wins, never who is correct.
+
+**What this costs.** Contract **C4** re-hashes, and `MANIFEST.json` with it. That is
+a deliberate, recorded break of a frozen artifact and it is the only one. It is
+affordable **because nothing has been measured** — no loop run, no attack scored, no
+published number depends on the old hash. The same change after D5 would void the
+run. This is the cheapest it will ever be, and that is the whole argument for doing
+it tonight rather than discovering it on Day 8.
+
+**Also fixed in the same pass, and it was a live drift site:**
+`scripts/hash-contracts.py` hard-coded `spine_version: 4` into every manifest it
+wrote. The spine had moved five times since. It now **reads the value out of this
+file**, so a manifest can no longer record a spine version nobody updated.
+
 
 ## 6. Naming and layout
 

@@ -226,6 +226,11 @@ class PolicyEngine:
         if op == "is_absent":
             # Total by construction: absence is always knowable.
             return TRUE if not found else FALSE
+        if op == "is_present":
+            # GX5, ruling 42. The complement of a total predicate is total, so
+            # this returns before the `not found -> UNEVALUABLE` line below and
+            # can never fall through to it.
+            return TRUE if found else FALSE
         if not found:
             return UNEVALUABLE
         if op == "in":

@@ -53,6 +53,8 @@ def _clause_texts(match):
         path, op = cond["path"], cond["op"]
         if op == "is_absent":
             out.append("%s is absent" % path)
+        elif op == "is_present":
+            out.append("%s is present" % path)          # GX5, ruling 42
         elif op == "in":
             out.append("%s in %s" % (path, _literal(cond["value"], "enum_list")))
         else:

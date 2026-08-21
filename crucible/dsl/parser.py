@@ -41,6 +41,7 @@ from .nodes import (
     CLAUSE_ARG_CMP_LITERAL,
     CLAUSE_ARG_IN_ENUM_LIST,
     CLAUSE_ARG_IS_ABSENT,
+    CLAUSE_ARG_IS_PRESENT,
     CLAUSE_ARG_VS_EPISODE_CONTEXT,
     CLAUSE_EPISODE_SUM,
     CLAUSE_PRECEDED_BY,
@@ -338,7 +339,14 @@ class _Parser:
 
         if self.at("WORD", "is"):
             self.take()
-            self.expect("WORD", "absent", what="`is` is only ever `is absent`")
+            # GX5, ruling 42: `is` now takes either polarity, and ONLY these
+            # two. Anything else is still a parse error, so the token after
+            # `is` remains a closed set of exactly two words.
+            if self.at("WORD", "present"):
+                self.take()
+                return Clause(form=CLAUSE_ARG_IS_PRESENT, path=path)
+            self.expect("WORD", "absent",
+                        what="`is` takes only `absent` or `present`")
             return Clause(form=CLAUSE_ARG_IS_ABSENT, path=path)
 
         op = self.cmp_op()

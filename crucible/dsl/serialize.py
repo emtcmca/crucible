@@ -51,6 +51,7 @@ from .nodes import (
     CLAUSE_ARG_CMP_LITERAL,
     CLAUSE_ARG_IN_ENUM_LIST,
     CLAUSE_ARG_IS_ABSENT,
+    CLAUSE_ARG_IS_PRESENT,
     CLAUSE_ARG_VS_EPISODE_CONTEXT,
     CLAUSE_EPISODE_SUM,
     CLAUSE_PRECEDED_BY,
@@ -76,6 +77,9 @@ def _arg_condition(clause):
         # No `value`: an absent fact is an absent key (canonicalization rule 5),
         # and `null` is forbidden anywhere in a hashed payload.
         return {"path": clause.path, "op": "is_absent"}
+    if clause.form == CLAUSE_ARG_IS_PRESENT:
+        # Same reasoning, same shape: no `value` key at all. GX5, ruling 42.
+        return {"path": clause.path, "op": "is_present"}
     return None
 
 
