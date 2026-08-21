@@ -30,3 +30,15 @@ infra/hooks/pre-commit text eol=lf
 # breaks; if the normalization is ever deleted because someone believed this line
 # covered it, the failure returns silently on the judge's machine.
 target/** text eol=lf
+
+# The corpus and the benign fixtures are HASH-LOCKED at D5 and the freeze must
+# recompute identically from a fresh clone. Same defect L2 proved for target/**
+# on 2026-08-20, flagged again by the F1/F2 authoring lane before it could cost
+# anything: core.autocrlf=true here, and without this every instance file gets
+# CRLF on a fresh checkout.
+#
+# Instance IDs are safe either way -- they hash the PARSED object, not the bytes.
+# This protects the D5 corpus hash, which is taken over files. As with target/**,
+# THE CONTROL IS THE HASHER; this only makes its normalization a no-op locally.
+corpus/** text eol=lf
+fixtures/** text eol=lf
