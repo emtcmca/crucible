@@ -37,7 +37,11 @@ export CRUCIBLE_EVIDENCE_BUCKET="gs://crucible-evidence-${SUFFIX}"
 # The G8 verification script must assert that and not merely assert the absence
 # of a named sa-redteam binding.
 
-# --- Service accounts (not yet created; names are canonical) ----------------
+# --- Service accounts (ALL ELEVEN CREATED AND BOUND; names are canonical) ---
+# This line read "not yet created" until 2026-08-21. All eleven exist and
+# infra/bind-iam.sh has been applied; verified by read-only gcloud against the
+# live project. A stale comment in the SINGLE NAME SOURCE is a drift site: it
+# is the one file every gate script and deploy command sources.
 # Named crucible-*, never sa-*. The sa-* prefix is dead vocabulary from the
 # pre-review drafts and naming the promoter "sa-warden" was the original G8
 # defect the adversarial pass caught.
