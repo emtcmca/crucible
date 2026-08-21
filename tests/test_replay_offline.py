@@ -67,8 +67,27 @@ FORBIDDEN_SUBSTRINGS = ("GOOGLE", "GCLOUD", "CLOUDSDK", "GCP", "AWS", "AZURE",
 
 
 def scrubbed_env():
+    """The child's whole environment.
+
+    WHY PYTHONPATH CARRIES THE PARENT'S sys.path, which looks like a loophole
+    and is not. On this machine `jsonschema` is installed under
+    `%APPDATA%\\Roaming\\Python`, and Python finds the per-user site-packages
+    directory by reading APPDATA. Dropping APPDATA therefore broke LIBRARY
+    RESOLUTION, and the first run of this file failed with
+    `E_NO_VALIDATOR: No module named 'jsonschema'` - which is the viewer
+    correctly failing closed on a missing validator, and nothing at all to do
+    with credentials.
+
+    The tempting repair was to put APPDATA back. That would have been the wrong
+    one: `%APPDATA%\\gcloud\\application_default_credentials.json` is the
+    well-known path an ambient Google credential lives at, so re-admitting
+    APPDATA re-admits exactly the thing this file exists to exclude. Handing
+    the child the parent's sys.path instead gives it its libraries and gives it
+    no environment, which is the property under test.
+    """
     env = {k: os.environ[k] for k in KEEP if k in os.environ}
-    env["PYTHONPATH"] = str(REPO)
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(REPO)] + [p for p in sys.path if p and p != str(REPO)])
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env

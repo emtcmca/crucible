@@ -1,0 +1,103 @@
+L6 NEGATIVE CHECKS - GREEN, AFTER crucible/replay/
+Captured 2026-08-20 on branch lane/L6-evidence.
+Compare with L6-negative-checks-RED-2026-08-20.txt: 31 failed / 10 passed -> 0 failed.
+
+$ python -m pytest tests/test_bundle_reader.py tests/test_replay_offline.py tests/test_replay_view.py -p no:cacheprovider --no-header -v
+
+tests/test_bundle_reader.py::test_the_golden_bundle_carries_what_c6_says_a_bundle_carries PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_derived_schema_hash] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_manifest_hash] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_objective_set_hash] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[lock_blanked] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[lock_missing] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_frozen_context] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[frozen_at_moved] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[episode_missing_prefix] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[episode_stamp_disagrees_with_manifest] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[verdict_stamp_disagrees_with_episode] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[sep_by_split_missing] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[sep_by_split_at_parity] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[benign_traces_short] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[float_in_payload] PASSED
+tests/test_bundle_reader.py::test_real_reader_rejects[null_in_payload] PASSED
+tests/test_bundle_reader.py::test_real_reader_accepts_the_untouched_bundle PASSED
+tests/test_bundle_reader.py::test_a_rejection_names_what_is_missing_not_just_that_something_is PASSED
+tests/test_bundle_reader.py::test_a_bom_is_refused_rather_than_stripped PASSED
+tests/test_bundle_reader.py::test_lenient_reader_renders_a_blank_where_a_hash_belongs[episode_missing_derived_schema_hash] PASSED
+tests/test_bundle_reader.py::test_lenient_reader_renders_a_blank_where_a_hash_belongs[episode_missing_frozen_context] PASSED
+tests/test_bundle_reader.py::test_lenient_reader_renders_a_blank_where_a_hash_belongs[episode_missing_manifest_hash] PASSED
+tests/test_bundle_reader.py::test_lenient_reader_renders_a_blank_where_a_hash_belongs[lock_blanked] PASSED
+tests/test_bundle_reader.py::test_self_comparing_verifier_finds_nothing[episode_stamp_disagrees_with_manifest] PASSED
+tests/test_bundle_reader.py::test_schema_validation_alone_accepts_a_bundle_ruling_17_forbids[sep_by_split_missing] PASSED
+tests/test_bundle_reader.py::test_the_real_reader_rejects_exactly_what_the_strawmen_miss PASSED
+tests/test_bundle_reader.py::test_every_mutation_name_is_real PASSED
+tests/test_bundle_reader.py::test_mutate_does_not_touch_its_input PASSED
+tests/test_replay_offline.py::test_the_scrub_actually_removes_something PASSED
+tests/test_replay_offline.py::test_viewer_runs_with_no_credentials_in_the_environment PASSED
+tests/test_replay_offline.py::test_viewer_runs_with_the_network_removed PASSED
+tests/test_replay_offline.py::test_viewer_rejects_a_damaged_bundle_with_a_nonzero_exit PASSED
+tests/test_replay_offline.py::test_a_credential_reading_script_FAILS_under_the_same_harness PASSED
+tests/test_replay_offline.py::test_a_socket_opening_script_FAILS_under_the_network_block PASSED
+tests/test_replay_offline.py::test_replay_package_is_clean_under_the_offline_lint PASSED
+tests/test_replay_offline.py::test_offline_lint_flags_the_strawman_sources[CREDENTIAL_SOURCE] PASSED
+tests/test_replay_offline.py::test_offline_lint_flags_the_strawman_sources[INDIRECT_IMPORT_SOURCE] PASSED
+tests/test_replay_offline.py::test_offline_lint_flags_the_strawman_sources[NETWORK_SOURCE] PASSED
+tests/test_replay_offline.py::test_offline_lint_flags_the_strawman_sources[SUBPROCESS_SOURCE] PASSED
+tests/test_replay_offline.py::test_offline_lint_reports_a_missing_root_rather_than_passing PASSED
+tests/test_replay_offline.py::test_offline_lint_is_not_fooled_by_a_prefix_that_merely_looks_denied PASSED
+tests/test_replay_view.py::test_no_rendered_line_runs_past_the_page_width PASSED
+tests/test_replay_view.py::test_every_page_carries_its_labels[single-sample, no stability estimate] PASSED
+tests/test_replay_view.py::test_every_page_carries_its_labels[any-of-1] PASSED
+tests/test_replay_view.py::test_every_page_carries_its_labels[policy-separated] PASSED
+tests/test_replay_view.py::test_every_page_carries_its_labels[APPROVAL_ORACLE-separated] PASSED
+tests/test_replay_view.py::test_every_page_carries_its_labels[gemini-3.5-flash-lite] PASSED
+tests/test_replay_view.py::test_every_page_carries_its_labels[trust root] PASSED
+tests/test_replay_view.py::test_every_page_carries_its_labels[project Owner] PASSED
+tests/test_replay_view.py::test_the_sep_by_split_is_printed_with_both_halves PASSED
+tests/test_replay_view.py::test_the_viewer_states_no_rate PASSED
+tests/test_replay_view.py::test_zero_of_twenty_four_bounds_regression_at_twelve_point_five_percent PASSED
+tests/test_replay_view.py::test_the_bound_is_withheld_when_its_precondition_fails PASSED
+tests/test_replay_view.py::test_the_forbidden_phrasing_is_not_what_gets_printed PASSED
+tests/test_replay_view.py::test_the_episode_detail_shows_the_frozen_block_and_the_ordered_prefix PASSED
+tests/test_replay_view.py::test_stamped_derived_fields_are_labelled_as_stamped_not_as_arguments PASSED
+tests/test_replay_view.py::test_asking_for_an_episode_that_is_not_there_says_so PASSED
+tests/test_replay_view.py::test_a_written_bundle_reads_back_and_its_digest_is_recomputed PASSED
+tests/test_replay_view.py::test_a_tampered_bundle_is_caught_by_the_recomputed_digest PASSED
+tests/test_replay_view.py::test_writing_a_bundle_that_would_not_read_back_is_refused PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[\\b\\d+\\s+(?:github\\s+)?stars\\b] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[\\b\\d+\\s+(?:npm\\s+)?downloads\\b] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[endorsed by google] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[enterprise[- ]grade] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[google (?:has )?(?:reviewed|endorsed|approved)] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[makes agents safe] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[model armor missed] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[no legitimate behaviou?r was lost] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[prevents prompt injection] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[production[- ]ready] PASSED
+tests/test_replay_view.py::test_no_forbidden_claim_on_any_surface_a_judge_reads[vulnerability in google] PASSED
+tests/test_replay_view.py::test_the_claim_check_can_actually_fire PASSED
+tests/test_replay_view.py::test_the_readme_carries_the_labels_it_is_required_to_carry PASSED
+
+73 passed, 0 failed.
+
+--- the offline lint, both directions ---
+crucible/replay -> CLEAN
+lint aimed at nothing -> C:\dev\crucible-wt-L6\crucible\no_such_package:0: offline replay reaches '<missing root>' (the lint is aimed at a path that does not exist, so it would report clean forever)
+  <CREDENTIAL_SOURCE>:5: offline replay reaches 'os.environ' (reads the process environment)
+  <CREDENTIAL_SOURCE>:6: offline replay reaches 'os.getenv' (reads the process environment)
+  <INDIRECT_IMPORT_SOURCE>:5: offline replay reaches 'google.cloud' (import_module('google.cloud.storage'))
+  <NETWORK_SOURCE>:2: offline replay reaches 'urllib.request' (import urllib.request)
+  <NETWORK_SOURCE>:3: offline replay reaches 'google.cloud' (from google.cloud import ...)
+  <SUBPROCESS_SOURCE>:2: offline replay reaches 'subprocess' (import subprocess)
+
+--- the viewer refusing a damaged bundle ---
+BUNDLE REJECTED - damaged.json
+
+  E_SCHEMA at $['episodes'][0]: 'derived_schema_hash' is a required property
+  E_EPISODE_STAMP_MISSING at episodes[ep_4bf92f3577b3]: derived_schema_hash is absent. The episode writer REFUSES to write an episode missing it - not a warning - and a viewer that renders it anyway republishes a row nothing ever wrote.
+
+Nothing is rendered from a bundle that failed integrity. A bundle that
+renders beautifully while missing the hash that makes it meaningful is
+worse than one that fails to open, because the first one looks like
+evidence.
+exit=2

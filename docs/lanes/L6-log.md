@@ -27,7 +27,12 @@ because the first looks like evidence.
 
 | # | Date | Work item | Result |
 |---|---|---|---|
-| 1 | 2026-08-20 | NC-1 (offline replay) and NC-2 (missing hash rejected) written before any implementation | **RED as designed** — as of 2026-08-20 the package `crucible/replay/` is not on disk, so every case needing the real implementation errors at import. The strawman half of both files already discriminates. |
+| 1 | 2026-08-20 | NC-1 (offline replay) and NC-2 (missing hash rejected) written before any implementation | **RED as designed** — 31 failed / 10 passed. `crucible/replay/` was not on disk, so every case needing the real implementation errored at import; the ten that passed are the fixture-integrity and strawman cases, which already discriminate. Captured at `docs/proof/L6-negative-checks-RED-2026-08-20.txt`. |
+| 2 | 2026-08-20 | Reader, integrity checks, offline lint | NC-2 flips to 28 passed / 0 failed; NC-1's static half flips with it. Three NC-1 runtime cases stayed red pending `view.py`, named in the commit rather than left to be found. |
+| 2a | 2026-08-20 | `test_every_mutation_name_is_real` reported `float_in_payload` as a no-op | **Real defect in the suite.** `412000.0 == 412000` in Python, so `mutated != original` could not see the single most important mutation in the list. Replaced with a type-aware comparison — the same reason `canonical.py` writes `type(node) is float` rather than `isinstance`. |
+| 3 | 2026-08-20 | `view.py` + `__main__.py` | Two iterations. First run: six lines ran past the 96-column page width, worst at 122. Notes now wrap into a continuation column instead of being truncated, because the policy-chain row's caveat is the reason that row exists. Second: NC-1's three runtime cases went green. |
+| 3a | 2026-08-20 | NC-1 failed under the scrubbed environment with `E_NO_VALIDATOR` | **Not a credential problem.** See F-5. |
+| 4 | 2026-08-20 | README with the judge-path block, plus the claim-vocabulary gate over it | green. F-6 found while writing it. |
 
 ---
 
@@ -79,3 +84,59 @@ prompt for this session lists `docs/adr/` as **coordinator only**. Conservative 
 taken as of 2026-08-20: **this lane wrote no ADR and touched nothing under `docs/adr/`.**
 Reported rather than resolved, because a lane does not edit its own brief.
 
+
+### F-4 — `crucible/replay/offline_lint.py` deliberately parallels `crucible/tripwire/import_lint.py`
+
+Same technique — an AST walk rather than a grep, for the same two reasons that file
+gives — but a different deny set and one extra check the model lint has no reason to
+make: **any read of the process environment at all**, rather than a list of credential
+variable names, because a rule with an exception list is a rule that acquires exceptions.
+
+`import_lint.py` bakes its deny set and its roots in at module level, so it cannot be
+pointed at a different question without editing it, and `crucible/tripwire/` belongs to
+another lane. **Whether the two should become one parameterized lint is a coordinator
+call.** Recorded here so the duplication is a decision rather than an accident.
+
+### F-5 — "no credentials in the environment" and "no libraries" are different things, and on Windows they are easy to conflate
+
+NC-1 runs the viewer in a child process with the environment stripped. Its first run
+failed with `E_NO_VALIDATOR: No module named 'jsonschema'` — which is the viewer
+correctly failing closed on a missing validator, and nothing to do with credentials.
+
+Cause: on this machine `jsonschema` is installed under
+`%APPDATA%\Roaming\Python\Python311\site-packages`, and CPython finds the per-user
+site-packages directory **by reading `APPDATA`**. Scrubbing `APPDATA` broke library
+resolution.
+
+**The tempting repair was to put `APPDATA` back, and it was the wrong one.**
+`%APPDATA%\gcloud\application_default_credentials.json` is the well-known path an ambient
+Google credential lives at, so re-admitting `APPDATA` re-admits the exact thing the check
+exists to exclude — and the check would still have passed, which is the dangerous part.
+The child is now handed the parent's `sys.path` through `PYTHONPATH` instead: it gets its
+libraries and it gets no environment, which is the property under test.
+
+**Generalizable:** an environment scrub written to exclude credentials will also exclude
+whatever else the platform happens to resolve through the environment, and on Windows
+that includes the import path. A scrub that is quietly widened to fix an unrelated
+breakage stops testing what its name says.
+
+### F-6 — the repository has no LICENSE, verified 2026-08-20
+
+No `LICENSE` file, and no license declared anywhere in the tree. Under default copyright
+a stranger who clones this repository has **no granted right to use it**, which sits badly
+against a public repository whose value proposition is "replay the evidence yourself."
+
+The README says so plainly rather than asserting a license that is not there. A first
+draft of that README ended with "Licensed under Apache-2.0" purely because that is what
+the author's other repositories say — a fabricated status assertion, caught by checking
+before committing rather than by anything mechanical. **Choosing a license is the
+builder's call, not a lane's.**
+
+### F-7 — one CONVENTIONS §7 approved claim was left out of the README on purpose
+
+§7 lists as sayable: *"CRUCIBLE found a capability-boundary inconsistency in a published
+Google ADK sample: `approve_discount` enforces a cap, `sync_ask_for_approval` does not."*
+It is a strong line and it is not in the README, because **this lane has not verified it
+against the sample's source** and §8 rule 1 says a claim without an asserted postcondition
+is `UNVERIFIED`, not done. It is available for the coordinator to add, with the
+`# MOCK API RESPONSE` qualifier §7 attaches to it.

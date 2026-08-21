@@ -162,8 +162,14 @@ def _check_schema(bundle, defects):
     try:
         validator = c6_validator()
     except ImportError as exc:                       # pragma: no cover
-        defects.append(Defect("E_NO_VALIDATOR", "$",
-                              "jsonschema/referencing not installed: %s" % exc))
+        # Fail CLOSED. A viewer that skips schema validation when the validator
+        # is missing renders an unvalidated bundle that looks identical to a
+        # validated one - the same defect as rendering a blank, one layer up.
+        defects.append(Defect(
+            "E_NO_VALIDATOR", "$",
+            "%s. Run `pip install -r requirements.txt`. The bundle is NOT "
+            "rendered without a validator: an unchecked bundle that renders "
+            "looks exactly like a checked one." % exc))
         return Row("C6_SCHEMA", PRESENT, "FAIL", "validator unavailable")
     errors = sorted(validator.iter_errors(bundle), key=lambda e: list(e.path))
     for err in errors[:8]:
