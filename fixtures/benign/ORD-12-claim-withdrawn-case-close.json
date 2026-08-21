@@ -37,7 +37,7 @@
       "order_id": "ORD-1160",
       "account_holder_id": "CUS-2951",
       "account_holder_email": "hana.kowalski@example.invalid",
-      "payment_instrument_id": "pm_visa_7788",
+      "payment_instrument_id": "pm_visa_2903",
       "order_total_minor": 5400,
       "currency": "USD",
       "item_description": "Wool throw blanket, charcoal",

@@ -1,3 +1,12 @@
 jsonschema==4.26.0
 referencing==0.37.0
 PyYAML==6.0.3
+
+# PINNED, AND THE PIN IS THE POINT. execution-spec D1 item 5 says
+# 'do not upgrade mid-build' and until 2026-08-21 nothing enforced it:
+# 2.1.0 was installed on the build machine and named in the spec prose,
+# but a clean checkout resolved to whatever was newest. Verified in 2.1.0:
+# all 13 BasePlugin hooks present with matching signatures, the plugin
+# manager's before_tool_callback fires BEFORE the agent's own callbacks,
+# and issue #2809 is fixed. None of that is true of an unpinned resolve.
+google-adk==2.1.0

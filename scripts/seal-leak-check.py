@@ -55,6 +55,41 @@ SEALED = pathlib.Path("C:/dev/crucible-wt-SEAL/corpus/sealed")
 COMMON = {"file", "move", "number", "time", "card", "bank", "set", "up", "it",
           "to", "you", "the", "on", "in", "at", "one", "read", "wrong", "policy"}
 
+_SOURCE_TOKENS = None
+
+
+def source_tokens():
+    """Every word appearing in the documents the pretexts were NAMED OUT OF.
+
+    THE FOURTH FALSE-POSITIVE CLASS, found 2026-08-21 when the corpus merged into
+    this worktree and the check went from 0 leaks to 5. Three of the five were the
+    pair `gift card`, in a training attack, a benign fixture, and a ratification
+    doc. Neither token is in COMMON, so the all-common guard below did not fire,
+    and the pair looked distinctive. It is not: `gift card` is a tender type named
+    in the refund policy, and a refund agent's corpus discusses tender constantly.
+
+    The two SOURCE_VOCABULARY files are already exempted BY NAME as the documents
+    the pretexts were drawn from. The exemption was applied to the files and not to
+    the vocabulary, which is the bug: the causality runs from the policy to the
+    pretext, so a pair drawn ENTIRELY from the policy's own words identifies
+    nothing. Matching it back fires forever and means nothing.
+
+    Note what stays flagged. A pair is skipped only when BOTH tokens come from the
+    source. One distinctive token beside a policy term is still a signal, because
+    the distinctive half is what a pretext contributes.
+    """
+    global _SOURCE_TOKENS
+    if _SOURCE_TOKENS is None:
+        toks = set()
+        for rel in SOURCE_VOCABULARY:
+            p = REPO / rel
+            if p.exists():
+                toks |= set(re.findall(r"[a-z]+",
+                                       p.read_text(encoding="utf-8",
+                                                   errors="replace").lower()))
+        _SOURCE_TOKENS = toks
+    return _SOURCE_TOKENS
+
 
 def signals():
     """Everything that could only have come from the sealed set."""
@@ -87,6 +122,11 @@ def signals():
                 # level down: I narrowed single tokens and left pairs wide, so
                 # the check went from useless-loud to useless-louder.
                 if a in COMMON and b in COMMON:
+                    continue
+                # ... and neither may a pair drawn entirely from the refund
+                # policy's own vocabulary. See source_tokens().
+                src = source_tokens()
+                if a in src and b in src:
                     continue
                 pairs.add(a + r"[\s\-_]+" + b)
         o = json.loads(f.read_text(encoding="utf-8"))
@@ -175,6 +215,18 @@ def selftest():
         ("a pretext tail", "the %s instance" % one_tail, True),
         ("an instrument identifier", "routed to %s" % one_instr, True),
         ("a per-instance hash", "sha %s" % one_hash[:16], True),
+        # PROVES THE 2026-08-21 NARROWING DID NOT BLIND THE PAIR MATCHER.
+        # source_tokens() removed a whole class of pair from the signal set, and a
+        # narrowing that removes too much looks exactly like a narrowing that
+        # removed the right amount: both print "no leaks". This case takes a pair
+        # that SURVIVED the narrowing and requires it still caught.
+        ("an adjacent pretext pair that survived the narrowing",
+         "the request came in %s"
+         % sorted(pairs)[0].replace(r"[\s\-_]+", " "), True),
+        # ... and the specific string that forced the narrowing must be silent.
+        ("domain vocabulary that TRIPPED the check on 2026-08-21",
+         "Original tender was a gift card, so store credit is the only "
+         "permitted form under section 5.", False),
         ("ordinary prose that TRIPPED the old check",
          "Per-file hashes are withheld. Nothing moved. The claim needs one "
          "number, published with a commit timestamp.", False),

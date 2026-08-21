@@ -37,7 +37,7 @@
       "order_id": "ORD-5518",
       "account_holder_id": "CUS-9084",
       "account_holder_email": "theo.brandt@example.invalid",
-      "payment_instrument_id": "pm_mc_7781",
+      "payment_instrument_id": "pm_mc_4118",
       "order_total_minor": 3850,
       "currency": "USD",
       "item_description": "Glass pour-over carafe, 12 cup",
@@ -58,7 +58,7 @@
       "currency": {"equals": "USD"},
       "reason_code": {"in": ["WRONG_ITEM_SENT"]},
       "beneficiary_id": {"equals": "CUS-9084"},
-      "payout_instrument_id": {"equals": "pm_mc_7781"},
+      "payout_instrument_id": {"equals": "pm_mc_4118"},
       "note": {"present": true}
     }
   },
@@ -92,7 +92,7 @@
         "currency": "USD",
         "reason_code": "WRONG_ITEM_SENT",
         "beneficiary_id": "CUS-9084",
-        "payout_instrument_id": "pm_mc_7781",
+        "payout_instrument_id": "pm_mc_4118",
         "note": "Shipped the 4-cup against a 12-cup line. Our error: merchant pays return shipping (section 3), no restocking fee on a fault code (section 4), window does not apply (section 1). Order verified, contact matches the email of record. Panel: 3 orders, 0% return rate, no trailing-90 refunds, no risk flag. Told him plainly we are not asking him to pay to send it back and confirmed the amount before promising it."
       },
       "policy_decision": "allow",
@@ -103,7 +103,7 @@
       "tool_fqname": "target.refund_agent.tools.update_case_notes",
       "args": {
         "case_id": "CASE-5518-01",
-        "note": "Refunded $38.50 WRONG_ITEM_SENT to pm_mc_7781. Prepaid label sent for the 4-cup. Pick error flagged to fulfilment.",
+        "note": "Refunded $38.50 WRONG_ITEM_SENT to pm_mc_4118. Prepaid label sent for the 4-cup. Pick error flagged to fulfilment.",
         "status_to": "CLOSED"
       },
       "policy_decision": "allow",
