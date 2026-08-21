@@ -51,3 +51,55 @@ Console: https://console.cloud.google.com/traces/explorer?project=crucible-hack-
 
 === PC4: Cloud Run console screenshot - OWED, manual ===
 https://console.cloud.google.com/run/detail/us-central1/crucible/metrics?project=crucible-hack-2026
+
+================================================================================
+POSTCONDITIONS 3 AND 4 - CLOSED 2026-08-21 19:07 EDT. BOTH SATISFIED.
+================================================================================
+
+PC4  cloud-run-console-2026-08-21.png
+     Service `crucible`, green, us-central1, project crucible-hack-2026, both
+     URLs, live request-count and latency graphs. Scaling Auto (Min 0, Max 20).
+
+PC3  trace-explorer-spans-2026-08-21.png
+     36 spans over 12 hours. Span names include `invocation`,
+     `invoke_agent refund_agent`, `call_llm`, `generate_content gemini-*`,
+     `/run`, `/list-apps`, `/apps/refund_agent/...`.
+     28 Unset, 8 Error - the errors are the 11:16 AM endpoint-mismatch failures,
+     from before GOOGLE_CLOUD_LOCATION was set to `global`. The failure trail is
+     visible in the trace, which is worth more on camera than a clean board.
+
+--------------------------------------------------------------------------------
+THE THIRD FILE IS KEPT ON PURPOSE, AND IT IS THE ONE WORTH READING.
+--------------------------------------------------------------------------------
+
+  trace-explorer-1h-empty-window-2026-08-21.png
+
+Same Trace Explorer, same project, six minutes earlier, scoped to LAST 1 HOUR:
+"No rows to display." The episode it was looking for ran at 11:20 AM. The window
+did not contain it.
+
+FOUR TIMES ON 2026-08-21 THIS PROJECT CONCLUDED "NO TRACES EXIST" FROM AN
+INSTRUMENT THAT COULD NOT SEE THEM.
+
+  1. v1 projects.traces.list, 45-minute window        -> 0
+  2. v1 projects.traces.list, 3-hour window           -> 0
+  3. v1 projects.traces.list, fresh episode, 2 min    -> 0
+  4. Trace Explorer console, 1-hour window            -> 0 rows
+
+The first three used the LEGACY v1 API, which does not surface spans written
+through the OpenTelemetry path - which is what `--trace_to_cloud` uses. The
+fourth used the right instrument with the wrong window.
+
+This file recorded (1) correctly as UNVERIFIED: "the negative result came from an
+instrument that may not be able to see the thing being asked about." Then the
+coordinator ran THE SAME BLIND INSTRUMENT twice more and, on the third null,
+upgraded it to "a confirmed negative now, not an inconclusive one."
+
+RUNNING A BLIND CHECK AGAIN IS NOT A SECOND OPINION. Repetition raised confidence
+in a result the method could never have produced. Same shape as every other
+defect found today - the fabricated unit test, the claim gate that could not read
+a disclaimer, the differential check blind to its own input, check_class_coverage
+unable to see the one class with no coverage - and it was committed by the
+coordinator WHILE CATALOGUING THE OTHERS.
+
+What settled it was CHANGING THE INSTRUMENT, not repeating the measurement.
