@@ -111,33 +111,74 @@ def selftest():
     good = src.read_text(encoding="utf-8")
 
     import tempfile
+
+    # Each case declares WHICH finding it must produce. Two defects made that
+    # necessary, and both surfaced only by running this after an unrelated edit:
+    #
+    #   "closing removed" SILENTLY BECAME A NO-OP. It replaced an exact sentence
+    #   from Update 2, that sentence was later reworded, and .replace() then
+    #   changed nothing. A mutation that mutates nothing is a case that cannot
+    #   fail, sitting inside the harness whose whole job is proving cases can.
+    #
+    #   "fenced code block added" was being caught by the WORD COUNT, because the
+    #   added fence pushed the post past the ceiling. Caught for a reason
+    #   unrelated to the property under test, which would have hidden the fence
+    #   check breaking entirely.
+    #
+    # So: assert the mutation actually changed the text, and assert the finding
+    # names the property the case exists to test.
+    def _drop_last_section(src):
+        i = src.rfind("\n### ")
+        return src[:i] + "\n\nThat is all for today.\n" if i > 0 else src
+
+    def _trim_words(src, n):
+        """Shorten the body so an ADDITIVE mutation does not trip the word check
+        and get credited for the wrong reason."""
+        paras = src.split("\n\n")
+        for idx in range(len(paras) - 1, -1, -1):
+            if paras[idx].startswith(("#", "[", "<!--")):
+                continue
+            w = paras[idx].split()
+            if len(w) > n:
+                paras[idx] = " ".join(w[: max(1, len(w) - n)])
+                break
+        return "\n\n".join(paras)
+
     cases = [
-        ("em-dash inserted", good.replace("Today's milestone",
-                                          "Today" + EM_DASH + "s milestone")),
-        ("truncated below the floor", "\n".join(good.split("\n")[:8])),
-        ("fenced code block added", good + "\n```\nx\n```\n"),
-        ("second link added", good + "\n[a](https://b.invalid)\n"),
-        ("heading bolded", good.replace("### Why post about interfaces",
-                                        "### **Why post about interfaces**")),
-        ("closing removed", good.replace("### No results yet", "### Odds and ends")
-                                .replace("Nothing has been run end to end, no attack has been scored, and there is no number on this project worth quoting.",
-                                         "That is all for today.")),
+        ("em-dash inserted", "em-dash",
+         good.replace("Today's milestone", "Today" + EM_DASH + "s milestone")),
+        ("truncated below the floor", "words",
+         "\n".join(good.split("\n")[:8])),
+        ("fenced code block added", "fenced code block",
+         _trim_words(good, 14) + "\n```\nx\n```\n"),
+        ("second link added", "links",
+         _trim_words(good, 8) + "\n[a](https://b.invalid)\n"),
+        ("heading bolded", "bolded",
+         good.replace("### Why post about interfaces",
+                      "### **Why post about interfaces**")),
+        ("closing removed", "FINAL section", _drop_last_section(good)),
     ]
     bad = 0
     print("SELFTEST - a conforming post mutated six ways\n")
     with tempfile.TemporaryDirectory() as d:
-        for label, text in cases:
-            p = pathlib.Path(d) / "case.md"
-            p.write_text(text, encoding="utf-8")
-            found = check(p)
-            ok = bool(found)
-            print("  %s %-28s %s" % ("ok  " if ok else "FAIL", label,
-                                     found[0][:60] if found else "NOT CAUGHT"))
-            if not ok:
+        for label, expect, text in cases:
+            if text == good:
+                print("  FAIL %-28s THE MUTATION CHANGED NOTHING" % label)
                 bad += 1
-        p = pathlib.Path(d) / "good.md"
-        p.write_text(good, encoding="utf-8")
-        found = check(p)
+                continue
+            p2 = pathlib.Path(d) / "case.md"
+            p2.write_text(text, encoding="utf-8")
+            found = check(p2)
+            hit = [f for f in found if expect.lower() in f.lower()]
+            if hit:
+                print("  ok   %-28s %s" % (label, hit[0][:56]))
+            else:
+                bad += 1
+                print("  FAIL %-28s expected a finding naming %r, got %s"
+                      % (label, expect, found or "NOTHING"))
+        p2 = pathlib.Path(d) / "good.md"
+        p2.write_text(good, encoding="utf-8")
+        found = check(p2)
         print("  %s %-28s %s" % ("ok  " if not found else "FAIL",
                                  "the unmutated post passes",
                                  "" if not found else found))
@@ -160,7 +201,24 @@ def main():
     if not DEVPOST.exists():
         print("no docs/devpost/ yet")
         return 0
-    posts = sorted(DEVPOST.glob("*.md"))
+    # ADR-0001 governs UPDATE POSTS. It does not govern the Project Story, which
+    # is a different artifact with a different job: one long page a judge lands
+    # on, versus six short timestamped freeze announcements. Applying the update
+    # rules to it produced four false findings the moment it was written.
+    #
+    # A check with a high false-positive rate is worse than no check, because it
+    # gets switched off -- the STATUS pass in contract-check.py started ~90%
+    # false and had to be rescoped for exactly this reason. So the scope is
+    # narrowed EXPLICITLY and the skip is LOGGED rather than silent: section 8
+    # rule 9, because silent truncation reads as "covered everything".
+    all_md = sorted(DEVPOST.glob("*.md"))
+    posts = [p for p in all_md if "update" in p.name.lower()]
+    skipped = [p for p in all_md if p not in posts]
+    for s in skipped:
+        print("  SKIP %s -- not an update post. ADR-0001 does not govern it."
+              % s.name)
+    if skipped:
+        print("")
     if not posts:
         print("docs/devpost/ is empty. That is not a pass -- there is nothing to "
               "check, and a checker reporting success on an empty set is not "
