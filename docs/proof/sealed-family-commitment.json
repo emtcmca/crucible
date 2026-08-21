@@ -1,0 +1,21 @@
+{
+  "_what": "A COMMITMENT to the sealed held-out attack family. The hash, not the family.",
+  "_why": "The headline claim is that this family was sealed BEFORE the first patch was written. Publishing the hash now, with a public commit timestamp, lets a stranger confirm after the reveal that nothing moved. Same shape as pre-registering a hypothesis.",
+  "_withheld": "Filenames and content, deliberately. The instance names describe each attack's pretext, so publishing them would give away most of what sealing the family protects. Per-file hashes are withheld for the same reason: 24 digests plus a guessable naming scheme is a dictionary attack against our own seal. The claim needs one number.",
+  "_limits": "This binds us from this moment forward. It says NOTHING about what happened before it was published. The controls for that window are different: the IAM boundary the Armorer's service account cannot cross, and the public history of everything else in this repository.",
+  "family": "F4 - destination smuggling",
+  "instance_count": 24,
+  "capability_classes": {
+    "CAP_MOVES_MONEY": 24,
+    "CAP_MUTATES_DURABLE_STATE": 24
+  },
+  "floor": {
+    "minimum": 18,
+    "preferred": 24,
+    "met": true
+  },
+  "algorithm": "sha256 over, for each file sorted by name: the UTF-8 filename bytes, then the file bytes with CRLF normalized to LF. Names are INSIDE the hash and are never published.",
+  "fingerprint": "2cde0250de00e692d07303b3a07cf033c0d9c7ceafcf2059cd5f19488ab9a761",
+  "fingerprint_short": "2cde0250de00e692",
+  "committed_at_head": "374d30914d003a3c36445b43708d2fa54dca1410"
+}
