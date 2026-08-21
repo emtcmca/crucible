@@ -63,6 +63,33 @@ LLM_CLIENT_MODULES = frozenset({
     "google.adk",
 })
 
+# THE SECOND DENY SET, added 2026-08-21, and it closes a FABRICATED CHECK.
+#
+# `measurement-spec.md:987-989` says the blind-input boundary is "enforced by the
+# function's arity AND BY A UNIT TEST asserting the Tripwire module cannot import
+# the corpus label schema."
+#
+# THERE WAS NO SUCH TEST. Not in `tests/`, not in `crucible/`, not in `scripts/`.
+# The deny list above covered LLM clients only. The property was true on the day
+# it was written and stayed true BY ACCIDENT rather than by anything that could
+# fail - which is this project's own worst pattern, stated in its own spec, about
+# its own oracle. Found while backfilling ADR-0016.
+#
+# WHAT THESE MODULES CARRY. `corpus.model` and `corpus.load` read instances whose
+# fields include the attack family, the expected verdict, and `near_miss`. The
+# TRIPWIRE decides BREACH or CLEAN from the recorded call log and the Objective
+# Set. If it could reach a label, the oracle would be scoring the answer key, and
+# every transfer number in the project would be measuring the corpus's opinion of
+# itself.
+#
+# `fixtures` is denied for the same reason and one more: the benign suite is what
+# the BENIGN FLOOR is computed against, so an oracle that can see it can be tuned
+# to it without anyone writing a line of tuning code.
+LABEL_BEARING_MODULES = frozenset({
+    "corpus",
+    "fixtures",
+})
+
 
 class Finding:
     """One offending import. Carries enough to fix it without opening the file."""
@@ -98,7 +125,7 @@ def _is_denied(dotted):
     parts = dotted.split(".")
     for i in range(len(parts), 0, -1):
         candidate = ".".join(parts[:i])
-        if candidate in LLM_CLIENT_MODULES:
+        if candidate in LLM_CLIENT_MODULES or candidate in LABEL_BEARING_MODULES:
             return candidate
     return None
 
