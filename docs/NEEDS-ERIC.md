@@ -8,20 +8,27 @@ noted as such.
 
 ---
 
-## 1. Fire the Cloud Run deploy · **Stage One pass/fail** · 5 minutes
+## 1. Fire the Cloud Run deploy · **CLOSED 2026-08-21** · was Stage One pass/fail
 
-`deploy/RUNBOOK.md` has the command and the four postconditions. The blocker is
-removed: `adk deploy cloud_run` needs a module-level `root_agent`, the target had
-none, and there is now a shim at `deploy/refund_agent/agent.py` that sits outside
-the D3 freeze boundary.
+**Fired on Eric's instruction and serving.** `crucible-00003-t2q`,
+`https://crucible-vgp5owkxyq-uc.a.run.app`, authenticated, running as
+`crucible-target`. `/list-apps` returns `["refund_agent"]`, and one full episode
+ran end to end against it - the agent called `lookup_order("ORD-4471")` and
+answered from the seeded record.
 
-Not fired by the coordinator because it creates a publicly reachable service and
-spends money.
+Proof: `docs/proof/cloud-run-deploy-2026-08-21.txt`. Full write-up of the three
+defects it took to get there: `deploy/RUNBOOK.md`.
 
-**"Must demonstrate the backend is running on Google Cloud" is pass/fail on the
-video, not a quality point.** This is also the Day-2 item whose whole purpose was
-to surface ADK's streaming behaviour eight days early.
+**Two of the four postconditions remain, and both are screenshots** - the Trace
+Explorer span and the Cloud Run console page. Those are the pass/fail video
+requirement. Trace export is UNVERIFIED rather than failed: the legacy v1 trace API
+shows nothing, which it may simply be unable to see. The console settles it.
 
+**The Day-2 schedule paid for itself.** ADK bakes `GOOGLE_CLOUD_LOCATION=<region>`
+into the image, while the target pins the **global** endpoint and hashes
+`"endpoint": "global"` into the D3 freeze - so the deployed agent was resolving its
+model through a different endpoint than the measured one. Found 08-21 with nine
+days of slack. Found on Day 10, it is the demo.
 ---
 
 ## 2. The corpus counts, and it is now urgent · blocks the D2 freeze

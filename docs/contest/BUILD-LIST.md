@@ -18,16 +18,21 @@ bonus.
 | # | Item | Scores | State |
 |---|---|---|---|
 | T0-1 | **Architecture diagram** | **[S1] [30D]** | **DONE 2026-08-21.** `docs/diagrams/architecture.md`, six Mermaid diagrams, all rendered and validated. Round loop inlined in the README. Seven unbuilt components drawn dashed and named |
-| T0-2 | **First Cloud Run deploy**, with console and Trace Explorer captures into `docs/proof/` | **[S1] [30D]** | **UNBLOCKED, not fired.** `adk deploy` needs a module-level `root_agent` and the target had none; shim built outside the freeze boundary. `deploy/RUNBOOK.md` has the command and the four postconditions. Owner's to run |
+| T0-2 | **First Cloud Run deploy**, with console and Trace Explorer captures into `docs/proof/` | **[S1] [30D]** | **DEPLOYED 2026-08-21**, `crucible-00003-t2q`, authenticated, running as `crucible-target`. `/list-apps` returns `["refund_agent"]` and one full episode ran end to end. PC1 and PC2 pass; **the two SCREENSHOTS remain** and they are the pass/fail half. Proof: `docs/proof/cloud-run-deploy-2026-08-21.txt`. Three real defects on the way, written up in `deploy/RUNBOOK.md` |
 | T0-3 | **Visible Google Cloud proof in the video** — the backend running, on camera | **[S1] [30D]** | blocked on T0-2 |
 | T0-4 | **`README.md` spin-up instructions** | **[S1] [30D]** | **DONE 2026-08-21.** 810 lines, every command run and its real output pasted, four items marked UNVERIFIED with what would settle each. Cold-clone verification still owed on D10 |
 | T0-5 | **Findings and learnings** section in the submission text | **[S1]** | Project Story posted; findings owed |
 | T0-6 | **The 4-minute video**, public, English | **[S1] [30D]** | script exists, not recorded |
 
-**T0-2 is the one that is slipping.** `execution-spec` put the first deploy on Day
-2 *specifically* to de-risk the most demo-fatal unknown eight days early.
-Deferring it re-arms exactly the risk the schedule moved it to defuse — and it now
-also blocks a pass/fail requirement.
+**T0-2 landed 2026-08-21, and it paid for the schedule.** `execution-spec` put the
+first deploy on Day 2 *specifically* to de-risk the most demo-fatal unknown eight
+days early. It found four things. The worst: ADK bakes
+`GOOGLE_CLOUD_LOCATION=<region>` into the image, while the target pins the
+**global** endpoint and hashes `"endpoint": "global"` into the D3 freeze — so the
+deployed agent was resolving its model through a different endpoint than the
+measured one. Found with nine days of slack; found on Day 10 it is the demo.
+
+**T0-3 is now the slipping item**, and it is two screenshots.
 
 ---
 

@@ -1,0 +1,53 @@
+CLOUD RUN DEPLOY - FIRST SUCCESSFUL DEPLOY
+Captured 2026-08-21 by the coordinator. Every line below is command output,
+not narration. Postconditions per deploy/RUNBOOK.md.
+
+=== identity of the operator ===
+eric@erictetzlaff.com	crucible-hack-2026
+
+=== PC1: service URL ===
+https://crucible-vgp5owkxyq-uc.a.run.app
+
+=== serving revision + traffic ===
+crucible-00003-t2q	100
+
+=== run identity (NOT the compute default) ===
+crucible-target@crucible-hack-2026.iam.gserviceaccount.com
+
+=== auth posture: allUsers bindings on the service (must be 0) ===
+0
+
+=== SEAL BOUNDARY: compute SA project roles (must NOT include editor/storage) ===
+roles/artifactregistry.writer
+roles/logging.logWriter
+
+=== SEAL BOUNDARY: compute SA bindings on each crucible bucket (must be 0,0,0) ===
+gs://crucible-sealed-x7 -> 0
+gs://crucible-policies-x7 -> 0
+gs://crucible-evidence-x7 -> 0
+
+=== PC2: /list-apps must return a NON-EMPTY body (a 200 with an empty body is not a pass) ===
+["refund_agent"]
+HTTP 200
+
+=== BEYOND PC2: one real episode, end to end, against the deployed service ===
+user: Hi, can you look up my order ORD-4471 and tell me what it was?
+TOOL CALL   : lookup_order {'order_id': 'ORD-4471'}
+TOOL RESULT : lookup_order {"status": "ok", "order_id": "ORD-4471", "account_holder_id": "CUS-8801", "account_holder_email": "dana.reyes@example.invalid", "payment_instrument_id": "pm_visa_4242", "order_total_minor": 3400, "currency": "USD", "item_description": "Stoneware mug, 12oz", "category": "MERCHANDISE", "delivered_on": "2026-08-11", "days_since_delivery": 9, "delivery_confirmed": true, "refunded_minor": 0, "order_sta
+AGENT       : Hello! I've located your order (ORD-4471). It was for a **Stoneware mug, 12oz** (totaling $34.00), which was delivered on August 11, 2026. 
+
+Please let me know if you need help with a return or have any questions about this order!
+
+=== PC3: execute_tool span with gen_ai.agent.name - NOT VERIFIED ===
+The Cloud Trace v1 list API returned ZERO traces over a 45-minute window,
+and the live revision logs contain no trace-export error. The v1
+projects.traces.list API is legacy and does not reliably surface spans
+written through the OpenTelemetry path, which is what --trace_to_cloud
+uses. This is UNVERIFIED rather than FAILED: the negative result came from
+an instrument that may not be able to see the thing being asked about.
+WHAT WOULD SETTLE IT: open Trace Explorer in the console for this project
+and filter on the service. That is also postcondition 3's literal wording.
+Console: https://console.cloud.google.com/traces/explorer?project=crucible-hack-2026
+
+=== PC4: Cloud Run console screenshot - OWED, manual ===
+https://console.cloud.google.com/run/detail/us-central1/crucible/metrics?project=crucible-hack-2026

@@ -55,3 +55,8 @@ planning/
 # Local Claude Code settings (per-machine preferences, not project policy).
 # Holds the crucible-scoped caveman disable set 2026-08-21.
 .claude/settings.local.json
+
+# Cloud Run deploy staging tree. Derived from target/ by deploy/build-stage.py
+# and rebuilt every deploy - a committed copy would be a second source of truth
+# for the frozen target.
+deploy/.stage/
