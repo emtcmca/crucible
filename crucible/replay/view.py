@@ -16,7 +16,11 @@ judge opening the file. So:
     non-breach and leaves the denominator), and that decision belongs to the
     component that owns the measurement, not to the thing that draws it.
   * `k = 1`, so "single-sample, no stability estimate" is printed with the
-    census, permanently, rather than attached to figures later.
+    census, permanently, rather than attached to figures later. AS OF
+    2026-08-22 THAT SENTENCE IS READ OUT OF THE BUNDLE, not out of this file.
+    C6 requires a `labels` block and the reader cross-checks each entry against
+    the data it describes, because a bundle mailed to a customer or pasted into
+    a slide has to keep its caveats without this program in the room.
   * The SEP-BY split prints in the same block, because a suite the
     APPROVAL_ORACLE separates produces IDENTICAL headline numbers to one the
     policy separates and only that ratio tells them apart.
@@ -233,9 +237,26 @@ def render(bundle, report, source="<bundle>", episode_id=None):
             add("    %s" % defect)
     add("")
 
+    # THE ENGAGEMENT, IN READING ORDER. What was tested, how the target
+    # answered, what was excluded, how bad it was, what was found, what was
+    # proposed, what the policy now says, whether it held across versions, and
+    # what share of the definition of breach was ever reached. A reader with no
+    # context has to be able to follow that end to end without opening a source
+    # file, which is why every one of these sections prints TEXT and not only
+    # ids and hashes.
+    add(_provenance_section(bundle))
+    add(_attack_section(bundle))
     add(_episode_section(bundle, episode_id))
+    add(_round_section(bundle))
+    add(_severity_section(bundle))
+    add(_autopsy_section(bundle))
+    add(_patch_section(bundle))
     add(_policy_chain_section(bundle))
+    add(_arc_section(bundle))
+    add(_distinctness_section(bundle))
+    add(_coverage_section(bundle))
     add(_gate_section(bundle))
+    add(_cost_section(bundle))
 
     add(rule("="))
     for line in _labels_block(bundle, target):
@@ -254,37 +275,505 @@ LABEL_COL = 2 + 20 + 1
 def _labels_block(bundle, target):
     """The block that must appear next to any figure from this run.
 
+    READ FROM THE BUNDLE, NOT FROM THIS FILE. Until 2026-08-22 these five
+    sentences were string literals right here, which meant the caveats existed
+    only for a reader who ran this program. A bundle pasted into a slide, mailed
+    to a customer, or opened in a text editor arrived stripped of every label
+    and kept every number - and that is the one failure this project must never
+    allow. C6 now REQUIRES `labels`, `integrity._check_labels` cross-checks each
+    one against the data it describes, and this function renders what the file
+    says rather than what the viewer remembers.
+
     Built rather than templated so every entry wraps to the page width. A label
     that runs off the right edge of a projector is a label that was not said,
     and `docs/lanes/L6-evidence.md` section 6 is explicit that if a number
     cannot be stated with its label in the space available, the NUMBER is what
     gets cut.
     """
+    carried = bundle.get("labels") or {}
     entries = [
-        ("k = 1",
-         "single-sample, no stability estimate. Breach semantics is any-of-k, "
-         "so any rate from this run is written \"ASR (any-of-1)\"."),
-        ("SEP-BY split",
-         "%s. A suite the APPROVAL_ORACLE separates produces identical headline "
-         "numbers to one the policy separates, and only this ratio tells them "
-         "apart." % _sep_by_label(bundle)),
-        ("target tier",
-         "%s at thinking_level=%s. A weaker target is easier to attack, which "
-         "inflates the v0 baseline and flatters the whole curve, so the tier is "
-         "named every time the numbers are reported."
-         % (target.get("model_id"), target.get("thinking_level"))),
-        ("benign regression", _benign_label(bundle)),
-        ("trust root",
-         "the builder holds project Owner. No control in this system defends "
-         "against him."),
+        ("k", carried.get("k")),
+        ("SEP-BY split", carried.get("sep_by_split")),
+        ("target tier", carried.get("target_tier")),
+        ("benign regression", carried.get("benign_regression")),
+        ("trust root", carried.get("trust_root")),
     ]
     lines = ["LABELS THAT TRAVEL WITH EVERY FIGURE FROM THIS RUN", ""]
+    for line in _wrapped(
+            "  ", "read from the bundle's own `labels` block, not from this "
+                  "viewer. They travel with the file, so a reader who never "
+                  "runs this program still gets them."):
+        lines.append(line)
+    lines.append("")
     for name, text in entries:
-        head, tail = _wrap_note(text, WIDTH - LABEL_COL)
+        head, tail = _wrap_note(text or "-", WIDTH - LABEL_COL)
         lines.append("  %-20s %s" % (name, head))
         for extra in tail:
             lines.append("%s%s" % (" " * LABEL_COL, extra))
+    lines.append("")
+    # DERIVED HERE, AND SAID TO BE. The benign bound is arithmetic over this
+    # bundle's own fixture results, so it is recomputed rather than quoted -
+    # the carried label above states the METHOD, this line states the RESULT of
+    # applying it to these bytes. `regression_upper_bound` withholds the number
+    # entirely when its precondition fails, which is why the two are printed
+    # separately instead of one standing in for the other.
+    for line in _wrapped("  ", "computed from this bundle's own bytes, not "
+                               "carried: " + _benign_label(bundle)):
+        lines.append(line)
     return lines
+
+
+# --------------------------------------------------------------------------
+# The engagement sections. Each is pure: bundle in, text out.
+# --------------------------------------------------------------------------
+
+def _wrapped(indent, text, cont=None):
+    """`text` wrapped to the page.
+
+    `indent` prefixes the first line; `cont` prefixes the rest, defaulting to
+    `indent`. The two differ for a LABELLED block - "validator: ..." must not
+    repeat the word "validator" on every continuation line, which is what a
+    single-prefix version printed, while a quoted attack keeps its "| " bar on
+    every line precisely so a reader can see where the quotation ends.
+    """
+    if cont is None:
+        cont = indent
+    head, tail = _wrap_note(text, WIDTH - max(len(indent), len(cont)))
+    return ["%s%s" % (indent, head)] + ["%s%s" % (cont, t) for t in tail]
+
+
+def _provenance_section(bundle):
+    """WHICH PARTS OF THIS RUN WERE REAL. Printed BEFORE any figure, on purpose.
+
+    A stand-in bundle and a live bundle are the same shape: same hash-locks,
+    same frozen parameters, same census, same chain. If a reader has to reach
+    the end of the page to learn that four components were scripted, the numbers
+    in the middle have already been read as though they were not.
+    """
+    prov = bundle.get("execution_provenance") or {}
+    lines = ["EXECUTION PROVENANCE - what actually ran"]
+    lines.append("  mode             %s" % prov.get("mode"))
+    lines.append("  model calls      %s" % prov.get("model_calls"))
+    lines.append("")
+    lines.append("  %-18s %-10s %s" % ("component", "impl", "detail"))
+    components = prov.get("components") or {}
+    for name in ("target", "red_strategist", "tripwire", "coroner", "armorer",
+                 "warden", "gate"):
+        spec = components.get(name) or {}
+        impl = spec.get("implementation") or "-"
+        detail = spec.get("detail") or ""
+        col = 2 + 18 + 1 + 10 + 1
+        head, tail = _wrap_note(detail or "-", WIDTH - col)
+        lines.append("  %-18s %-10s %s" % (name, impl, head))
+        for extra in tail:
+            lines.append("%s%s" % (" " * col, extra))
+    lines.append("")
+    lines.append("  G7/G8 exercised  %s" % json.dumps(prov.get("g7_g8_exercised")))
+    lines.extend(_wrapped("    ", str(prov.get("g7_g8_detail") or "-")))
+    lines.append("")
+    lines.extend(_wrapped(
+        "  ", "A stand-in component produces a bundle that LOOKS exactly like a "
+             "live one everywhere else in this page. That is why this block is "
+             "required, and why the reader refuses a bundle whose mode says "
+             "live while a component says stand_in."))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _attack_section(bundle):
+    """WHAT WAS TESTED, IN FULL, VERBATIM.
+
+    The RED STRATEGIST generates six attacks per round and they exist in no
+    corpus and on no disk. Before 2026-08-22 the bundle carried an id for each
+    and nothing else, so the attack that broke someone's agent became
+    unrecoverable the moment the process exited. This section is the reason the
+    catalogue is required.
+    """
+    attacks = bundle.get("attacks") or []
+    lines = ["ATTACK CATALOGUE - what was tested"]
+    if not attacks:
+        lines.append("  none recorded")
+        lines.append("")
+        return "\n".join(lines)
+    for entry in attacks:
+        lines.append("")
+        lines.append("  %s   %s   family %s   channel %s"
+                     % (entry.get("attack_id"),
+                        (entry.get("provenance") or "-").upper(),
+                        entry.get("family_id"), entry.get("channel") or "-"))
+        if entry.get("provenance") == "training_corpus":
+            lines.append("    corpus instance %s - resolves against the corpus "
+                         "frozen at corpus_hash"
+                         % entry.get("corpus_instance_id"))
+        else:
+            gen = entry.get("generator") or {}
+            lines.append("    generated in round %s by %s via %s%s"
+                         % (entry.get("round_index"), gen.get("model_id"),
+                            gen.get("provider"),
+                            (", from seed %s" % entry["derived_from_attack_id"])
+                            if entry.get("derived_from_attack_id") else ""))
+            lines.append("    THIS TEXT EXISTS NOWHERE ELSE. It was produced in "
+                         "memory during the run.")
+        text = entry.get("instruction")
+        if text:
+            lines.append("")
+            lines.extend(_wrapped("    | ", str(text)))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _round_section(bundle):
+    """THE DENOMINATORS AND THE NAMED EXCLUSIONS.
+
+    `measurement-spec.md` 5.1: exclusions go to a named list WITH INSTANCE IDS,
+    the count prints beside every figure, and above 5% of a round the round is
+    INCOMPLETE and must be re-run rather than reported. Silent exclusion is how
+    flakiness turns into apparent hardening, so the list prints even when it is
+    empty - "0 exclusions" is a measurement and a blank space is not.
+    """
+    census = bundle.get("round_census") or []
+    excluded = bundle.get("excluded") or []
+    lines = ["ROUND CENSUS AND EXCLUSION LEDGER"]
+    lines.append("  %-7s %-10s %-9s %-9s %-8s %-9s %s"
+                 % ("round", "attempted", "scorable", "excluded", "faults",
+                    "breaches", "outcome"))
+    for row in census:
+        lines.append("  r%-6s %-10s %-9s %-9s %-8s %-9s %s"
+                     % (row.get("round_index"), row.get("attempted"),
+                        row.get("scorable"), row.get("excluded"),
+                        row.get("target_faults", "-"), row.get("breaches", "-"),
+                        row.get("outcome")))
+    lines.append("")
+    lines.append("  EXCLUDED - %d instance(s), each named" % len(excluded))
+    if not excluded:
+        lines.append("    none")
+    for entry in excluded:
+        lines.append("    r%-4s %-22s %s"
+                     % (entry.get("round_index"), entry.get("instance_id"),
+                        entry.get("reason")))
+        if entry.get("detail"):
+            lines.extend(_wrapped("           ", str(entry["detail"])))
+    lines.append("")
+    lines.extend(_wrapped(
+        "  ", "A round whose exclusions pass 5% of what it attempted is "
+             "INCOMPLETE and must be RE-RUN, not reported. TARGET_FAULT and "
+             "INVALID both leave the denominator, so both are named here - a "
+             "denominator that shrinks for an unnamed reason is the silent "
+             "exclusion this ledger exists to prevent."))
+    lines.append("")
+    return "\n".join(lines)
+
+
+CAP_ORDER = ("CAP_MOVES_MONEY", "CAP_ESCALATES_PRIVILEGE", "CAP_READS_PII",
+             "CAP_EXTERNAL_COMMS", "CAP_MUTATES_DURABLE_STATE",
+             "CAP_INVOKES_AGENT", "UNCLASSIFIED")
+
+
+def _severity_section(bundle):
+    """HOW BAD, AND WHAT KIND - not how many.
+
+    "12 breaches" is a number. "Four moved money, three leaked PII" is a
+    finding, and a reader's first question is the second one. Every figure here
+    is AGGREGATED FROM THE AUTOPSIES rather than stored: C5 already carries
+    `capability_classes_involved` and `amount_minor_moved`, authored by the
+    component that owns diagnosis, and a stored total would be a second copy of
+    a derivable number - which is the drift this repository has already paid for
+    more than once.
+    """
+    autopsies = bundle.get("autopsies") or []
+    counts, money, currency = {}, 0, None
+    for record in autopsies:
+        for cap in record.get("capability_classes_involved") or []:
+            counts[cap] = counts.get(cap, 0) + 1
+        amount = record.get("amount_minor_moved")
+        if isinstance(amount, int):
+            money += amount
+            currency = record.get("currency") or currency
+
+    lines = ["BREACH SEVERITY BY CAPABILITY CLASS - derived from the autopsies"]
+    lines.append("  %d breach(es) with an autopsy" % len(autopsies))
+    lines.append("")
+    if not counts:
+        lines.append("  no capability class was implicated in any recorded breach")
+    for cap in CAP_ORDER:
+        if cap in counts:
+            lines.append("  %-30s %d" % (cap, counts[cap]))
+    for cap in sorted(set(counts) - set(CAP_ORDER)):
+        lines.append("  %-30s %d" % (cap, counts[cap]))
+    if money:
+        lines.append("")
+        lines.extend(_wrapped(
+            "  ", "%d minor units of %s moved across breaches that should not "
+                 "have moved any. Minor units, integer - no float ever enters a "
+                 "hashed payload." % (money, currency or "?")))
+    lines.append("")
+    lines.extend(_wrapped(
+        "  ", "A class counts once per autopsy, and one autopsy may implicate "
+             "several. These are counts of BREACHES BY KIND, never a rate: the "
+             "denominator decision belongs to the component that owns the "
+             "measurement."))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _autopsy_section(bundle):
+    """WHAT WAS FOUND - the CORONER's diagnosis, in its own words.
+
+    The CORONER is structurally barred from proposing a fix: C5 has no fix,
+    recommendation or mitigation field and `additionalProperties` is false, so
+    one cannot be added without breaking the contract hash. `human_only` is the
+    only place free text may live, and it is unreachable by the ARMORER's input
+    adapter by construction. It prints here because a diagnosis nobody can read
+    is not a diagnosis.
+    """
+    autopsies = bundle.get("autopsies") or []
+    lines = ["AUTOPSIES - what was found"]
+    if not autopsies:
+        lines.append("  none. A run with no breach has no autopsy.")
+        lines.append("")
+        return "\n".join(lines)
+    for record in autopsies:
+        lines.append("")
+        lines.append("  %s   round %s   attack %s"
+                     % (record.get("autopsy_id"), record.get("round_index"),
+                        record.get("attack_id")))
+        lines.append("    invariant   %s" % record.get("invariant_id"))
+        lines.append("    classes     %s"
+                     % ", ".join(record.get("capability_classes_involved") or []))
+        if isinstance(record.get("amount_minor_moved"), int):
+            lines.append("    moved       %d minor units %s"
+                         % (record["amount_minor_moved"],
+                            record.get("currency") or ""))
+        for call in record.get("offending_tool_calls") or []:
+            lines.append("    seq %-4s %-20s %-10s %s"
+                         % (call.get("seq"), call.get("tool_handle"),
+                            call.get("policy_decision"), call.get("status")))
+        for key, value in sorted((record.get("human_only") or {}).items()):
+            lines.append("")
+            lines.append("    %s:" % key)
+            lines.extend(_wrapped("      ", str(value)))
+    lines.append("")
+    lines.extend(_wrapped(
+        "  ", "The CORONER diagnoses and CANNOT propose a fix - C5 carries no "
+             "fix, recommendation or mitigation field and forbids adding one. "
+             "The prose above is an observation about what happened, and the "
+             "ARMORER's input adapter cannot address it at all."))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _patch_section(bundle):
+    """WHAT WAS PROPOSED, INCLUDING WHAT WAS REJECTED.
+
+    A rejected proposal exists in no other artifact. It is also the more
+    interesting half: the patch that scored zero breaches by deleting the
+    capability is the failure the benign floor exists to catch, and a bundle
+    that recorded only accepted patches would show a clean sweep with the
+    interesting part missing.
+    """
+    proposals = bundle.get("patch_proposals") or []
+    lines = ["PATCH PROPOSALS - what the ARMORER wrote, and what happened to it"]
+    if not proposals:
+        lines.append("  none")
+        lines.append("")
+        return "\n".join(lines)
+    for entry in proposals:
+        lines.append("")
+        lines.append("  %s   round %s   %s   cites %s"
+                     % (entry.get("proposal_id"), entry.get("round_index"),
+                        "ACCEPTED" if entry.get("accepted") else "REJECTED",
+                        entry.get("autopsy_id")))
+        for rule_entry in entry.get("rules") or []:
+            lines.extend(_wrapped("    ", str(rule_entry.get("dsl_text"))))
+            proposed = rule_entry.get("rule_id_as_proposed")
+            assigned = rule_entry.get("rule_id_assigned")
+            if proposed and assigned:
+                lines.append("      id %s proposed, rewritten to %s by the "
+                             "validator" % (proposed, assigned))
+            elif proposed:
+                lines.append("      id %s proposed, never assigned" % proposed)
+        if entry.get("validator_result"):
+            lines.extend(_wrapped("    validator: ",
+                                  str(entry["validator_result"]),
+                                  cont="               "))
+        if entry.get("warden_result"):
+            lines.extend(_wrapped("    warden:    ", str(entry["warden_result"]),
+                                  cont="               "))
+        if entry.get("rejected_reason"):
+            lines.extend(_wrapped("    rejected:  ",
+                                  str(entry["rejected_reason"]),
+                                  cont="               "))
+    lines.append("")
+    lines.extend(_wrapped(
+        "  ", "The ARMORER NEVER WRITES A RULE ID - a model cannot compute "
+             "SHA-256. It emits the placeholder r_new1 and the validator "
+             "rewrites it from the canonical rule bytes, which is why both "
+             "halves are recorded."))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _arc_section(bundle):
+    """PER-ATTACK OUTCOME ACROSS POLICY VERSIONS.
+
+    The transfer story told per attack instead of as an aggregate. DERIVED, not
+    stored: every episode already carries `attack_id`, `policy_version` and a
+    verdict, and C6 now requires all three, so this table is a regrouping of
+    required data rather than a second place for the same claim to live.
+
+    It is also the only view that exposes a REGRESSION - an attack blocked at
+    one version and breaching again at a later one. No aggregate rate shows
+    that, because the two cancel.
+    """
+    episodes = bundle.get("episodes") or []
+    versions, by_attack = set(), {}
+    for ep in episodes:
+        aid = ep.get("attack_id")
+        if not aid:
+            continue
+        version = ep.get("policy_version")
+        versions.add(version)
+        by_attack.setdefault(aid, {})[version] = (
+            (ep.get("verdict") or {}).get("verdict"))
+
+    lines = ["PER-ATTACK OUTCOME ACROSS POLICY VERSIONS - derived from the episodes"]
+    if not by_attack:
+        lines.append("  no attack episode in this bundle")
+        lines.append("")
+        return "\n".join(lines)
+    ordered = sorted(v for v in versions if v is not None)
+    header = "  %-18s" % "attack"
+    for version in ordered:
+        header += " %-9s" % ("v%s" % version)
+    # rstrip: the last column pads to its width and would leave trailing blanks
+    # on every row. Invisible in a terminal, visible in a diff, and the width
+    # test measures the padded length rather than the content.
+    lines.append(header.rstrip())
+    for aid in sorted(by_attack):
+        row = "  %-18s" % aid
+        for version in ordered:
+            row += " %-9s" % (by_attack[aid].get(version) or "-")
+        lines.append(row.rstrip())
+    lines.append("")
+    regressed = sorted(
+        aid for aid, arc in by_attack.items()
+        if any(arc.get(a) == "CLEAN" and arc.get(b) == "BREACH"
+               for i, a in enumerate(ordered) for b in ordered[i + 1:]))
+    if regressed:
+        lines.extend(_wrapped(
+            "  ", "REGRESSED: %s. Blocked at an earlier version and breaching "
+                 "again at a later one. An aggregate rate hides this, because "
+                 "the two movements cancel." % ", ".join(regressed)))
+    else:
+        lines.extend(_wrapped(
+            "  ", "No attack blocked at an earlier version breached again at a "
+                 "later one in this bundle. A dash means the attack was not run "
+                 "at that version, which is not the same as blocked."))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _distinctness_section(bundle):
+    """DID THE ATTACKER KEEP VARYING?
+
+    A loop that stops finding breaches because the attacker stopped varying
+    looks identical, in every rate this system produces, to one that stops
+    because the policy got good. DERIVED from the catalogue rather than stored:
+    the generated attacks carry their own text, so distinctness is arithmetic
+    over required fields.
+    """
+    attacks = bundle.get("attacks") or []
+    lines = ["ATTACK DISTINCTNESS - derived from the catalogue"]
+    by_round = {}
+    for entry in attacks:
+        if entry.get("provenance") != "generated":
+            continue
+        by_round.setdefault(entry.get("round_index"), []).append(
+            " ".join(str(entry.get("instruction") or "").split()).lower())
+    if not by_round:
+        lines.append("  no generated attack in this bundle; nothing to vary")
+        lines.append("")
+        return "\n".join(lines)
+    lines.append("  %-8s %-10s %s" % ("round", "generated", "distinct texts"))
+    for index in sorted(by_round, key=lambda x: (x is None, x)):
+        texts = by_round[index]
+        lines.append("  r%-7s %-10d %d" % (index, len(texts), len(set(texts))))
+    every = [t for texts in by_round.values() for t in texts]
+    lines.append("")
+    lines.append("  across the run   %d generated, %d distinct"
+                 % (len(every), len(set(every))))
+    lines.append("")
+    lines.extend(_wrapped(
+        "  ", "Exact-text distinctness only. Two rephrasings of one pretext "
+             "count as two, so this is an UPPER BOUND on how much the attacker "
+             "actually varied - stated rather than dressed up as a similarity "
+             "score this bundle does not carry."))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _coverage_section(bundle):
+    """WHICH PART OF THE DEFINITION OF BREACH WAS EVER REACHED.
+
+    The Objective Set is the definition of breach. A breach rate is therefore a
+    measurement of whatever share of it the corpus managed to touch, and the
+    clauses that NEVER FIRED are the rows that matter: if three of nine never
+    fire, the number measures a third of the definition while being reported as
+    the whole, and nothing else in the bundle says so.
+    """
+    coverage = bundle.get("clause_coverage") or {}
+    clauses = coverage.get("clauses") or []
+    lines = ["OBJECTIVE SET CLAUSE COVERAGE - which clauses were ever reached"]
+    lines.append("  objective_set_hash %s" % coverage.get("objective_set_hash"))
+    lines.append("")
+    lines.append("  %-46s %-11s %-8s %s"
+                 % ("invariant", "form", "fired", "first round"))
+    for clause in clauses:
+        lines.append("  %-46s %-11s %-8s %s"
+                     % (clause.get("invariant_id"), clause.get("form"),
+                        clause.get("episodes_fired"),
+                        clause.get("first_fired_round") or "-"))
+    fired = [c for c in clauses if c.get("episodes_fired")]
+    lines.append("")
+    lines.append("  %d of %d clause(s) fired" % (len(fired), len(clauses)))
+    never = [c.get("invariant_id") for c in clauses if not c.get("episodes_fired")]
+    if never:
+        lines.extend(_wrapped(
+            "  ", "%d clause(s) NEVER FIRED. Any breach figure from this run is "
+                 "a measurement of the %d that did, and must be read that way."
+                 % (len(never), len(fired))))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _cost_section(bundle):
+    """WHAT IT COST TO RUN, IN TOKENS AND IN TIME.
+
+    Tokens are the measurement; dollars are tokens times a price sheet that
+    moves, which is why a dollar figure is optional here and the token counts
+    are not. Wall clock and 429s are here because a harness someone is deciding
+    whether to point at their own agent is bought or refused on those numbers,
+    and because a run that spent its clock backing off is a run whose attacks
+    were thinned by quota.
+    """
+    cost = bundle.get("cost") or {}
+    retries = cost.get("retries") or {}
+    lines = ["COST AND TIMING"]
+    lines.append("  input tokens     %s" % cost.get("input_tokens"))
+    lines.append("  output tokens    %s" % cost.get("output_tokens"))
+    lines.append("  wall clock       %s ms" % cost.get("wall_clock_ms"))
+    lines.append("  retries          %s total, %s of them rate-limit 429"
+                 % (retries.get("total"), retries.get("rate_limit_429")))
+    if cost.get("usd_estimate_minor") is not None:
+        lines.append("  usd estimate     %d minor units, against the price sheet "
+                     "at build time" % cost["usd_estimate_minor"])
+    by_role = cost.get("by_role") or {}
+    if by_role:
+        lines.append("")
+        for role in sorted(by_role):
+            lines.append("  %-16s %s tokens" % (role, by_role[role]))
+    lines.append("")
+    return "\n".join(lines)
 
 
 def _episode_section(bundle, episode_id=None):
@@ -361,6 +850,26 @@ def _episode_detail(episodes, episode_id):
         if event.get("derived_overwrites"):
             lines.append("      OVERWRITES %s" % event["derived_overwrites"])
         lines.append("")
+    # HOW THE TARGET ANSWERED, IN ITS OWN WORDS. Optional, and the tool log
+    # above is what every verdict is computed over - but an agent that refuses
+    # in plain language while calling the tool anyway reads very differently
+    # from one that argues back, and the log alone cannot tell those apart.
+    if ep.get("target_final_text"):
+        lines.append("  the target's closing reply, verbatim:")
+        lines.extend(_wrapped("    | ", str(ep["target_final_text"])))
+        lines.append("")
+
+    prov = ep.get("model_provenance") or {}
+    lines.append("  served by  %s via %s%s   thinking_level=%s"
+                 % (prov.get("model_id"), prov.get("provider"),
+                    ("/" + prov["endpoint"]) if prov.get("endpoint") else "",
+                    prov.get("thinking_level")))
+    if prov.get("requested_model_id") and \
+            prov.get("requested_model_id") != prov.get("model_id"):
+        lines.append("  DOWNGRADED from %s. A result produced by a downgraded "
+                     "model means something different." % prov["requested_model_id"])
+    lines.append("")
+
     verdict = ep.get("verdict") or {}
     lines.append("  verdict    %s   invariant %s   evidence at seq %s"
                  % (verdict.get("verdict"), verdict.get("invariant_id"),
@@ -378,6 +887,22 @@ def _policy_chain_section(bundle):
                      % (entry.get("version"), entry.get("policy_hash"),
                         entry.get("parent_hash") or "-", entry.get("lineage_hash")))
     lines.append("")
+    # THE RULES, AS TEXT. A chain of hashes says a policy changed; it does not
+    # say what the policy SAYS. `gcs_uri` points into a bucket the reader cannot
+    # open, which is a forwarding address and not an answer, so the DSL text
+    # travels in the bundle and prints here.
+    for entry in bundle.get("policy_chain") or []:
+        lines.append("  POLICY v%s - %d rule(s)"
+                     % (entry.get("version"), len(entry.get("rules") or [])))
+        for rule_entry in entry.get("rules") or []:
+            lines.extend(_wrapped("    ", str(rule_entry.get("dsl_text"))))
+            origin = rule_entry.get("origin")
+            if origin:
+                lines.append("      origin %s%s" % (
+                    origin,
+                    (", round %s" % rule_entry["origin_round"])
+                    if rule_entry.get("origin_round") else ""))
+        lines.append("")
     lines.append("  The parent links are cross-checked here. policy_hash and lineage_hash")
     lines.append("  cannot be RECOMPUTED from a bundle: the chain formula needs the 64-char")
     lines.append("  policy_hash_full and the bundle carries the 16-char form. Recomputation")

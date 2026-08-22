@@ -38,6 +38,7 @@ is kept here forever to prove it still does.
 import copy
 import json
 import pathlib
+import re
 
 import pytest
 
@@ -45,6 +46,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 GOLDEN = REPO / "contracts" / "golden" / "C6-evidence_bundle.valid.json"
 
 from tests import strawman_replay  # noqa: E402
+from crucible.replay.integrity import BENIGN_DENOMINATOR as BENIGN_DEN  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -80,6 +82,69 @@ def test_the_golden_bundle_carries_what_c6_says_a_bundle_carries(valid_bundle):
         "it." % (len(valid_bundle["v0_benign_traces"]), BENIGN_DENOMINATOR))
     assert valid_bundle["sep_by_split"] == {"policy_separated": 18,
                                             "approval_oracle_separated": 4}
+
+
+def test_the_golden_bundle_can_answer_the_questions_the_product_exists_to_answer(
+        valid_bundle):
+    """WHAT WAS TESTED, HOW IT WAS ANSWERED, WHAT WAS FOUND, WHAT WAS PATCHED,
+    AND WHY THE GATE ACCEPTED IT - from the file, with no source code open.
+
+    This is the acceptance test for the 2026-08-22 extension, written as the
+    questions rather than as a field list. A bundle that validates and cannot
+    answer these is a scoreboard.
+    """
+    # what was tested - and a GENERATED attack carries its own bytes, because
+    # it exists in no corpus and on no disk.
+    catalogue = {a["attack_id"]: a for a in valid_bundle["attacks"]}
+    assert catalogue, "no attack catalogue"
+    generated = [a for a in catalogue.values() if a["provenance"] == "generated"]
+    assert generated, "the fixture exercises no generated attack, so the case "                      "the extension exists for is untested"
+    for attack in generated:
+        assert attack["instruction"].strip()
+
+    # every episode is traceable to what was tested.
+    for ep in valid_bundle["episodes"]:
+        assert ("attack_id" in ep) != ("fixture_id" in ep)
+        if "attack_id" in ep:
+            assert ep["attack_id"] in catalogue
+        # which provider actually served it.
+        assert ep["model_provenance"]["provider"]
+
+    # what was found - prose, not an id pointing at nothing.
+    autopsies = valid_bundle["autopsies"]
+    assert autopsies
+    assert any(str(v).strip() for a in autopsies
+               for v in (a.get("human_only") or {}).values())
+
+    # what was patched - including a REJECTED proposal, which exists in no
+    # other artifact and is the more interesting half.
+    proposals = valid_bundle["patch_proposals"]
+    assert any(p["accepted"] for p in proposals)
+    assert any(not p["accepted"] for p in proposals)
+    assert all(r["dsl_text"].strip() for p in proposals for r in p["rules"])
+
+    # what the policy now SAYS, readable without fetching a bucket object.
+    for entry in valid_bundle["policy_chain"]:
+        assert entry["rules"]
+        assert all(r["dsl_text"].strip() for r in entry["rules"])
+
+    # which part of the definition of breach was ever reached.
+    clauses = valid_bundle["clause_coverage"]["clauses"]
+    assert clauses
+    assert any(not c["episodes_fired"] for c in clauses), (
+        "every clause fired in the fixture, so the NEVER-FIRED row - the row "
+        "that matters - is not exercised by anything")
+
+    # what was excluded, by name, and what the denominator was.
+    assert isinstance(valid_bundle["excluded"], list)
+    assert valid_bundle["round_census"]
+    assert any(r["outcome"] == "INCOMPLETE" for r in valid_bundle["round_census"]), (
+        "INCOMPLETE has been a legal round outcome that no artifact in this "
+        "repository has ever carried. The fixture is where that stops.")
+
+    # and the caveats travel with the file.
+    assert set(valid_bundle["labels"]) == {
+        "k", "sep_by_split", "target_tier", "benign_regression", "trust_root"}
 
 
 # --------------------------------------------------------------------------
@@ -120,6 +185,57 @@ REJECTIONS = [
      "canonicalization restriction 4 - no float may enter a hashed payload"),
     ("null_in_payload",
      "canonicalization restriction 5 - an absent fact is an absent key"),
+
+    # THE 2026-08-22 EXTENSION. Each of these is a way a bundle can be a
+    # complete-looking run of record that a reader draws a WRONG CONCLUSION
+    # from - which is the bar for a required field, as against a convenient one.
+    ("attacks_missing",
+     "the bundle records which attacks ran and cannot say what any of them were"),
+    ("generated_attack_text_missing",
+     "a generated attack recorded as an id. It exists in no corpus and on no "
+     "disk, so this record was the only copy there would ever be"),
+    ("attack_uncatalogued",
+     "an episode's verdict that cannot be traced to what was tested"),
+    ("autopsies_missing",
+     "the bundle can say a breach happened and cannot say what was found"),
+    ("autopsy_missing_for_breach",
+     "a breach with no autopsy is a finding nobody wrote down"),
+    ("policy_rules_missing",
+     "a policy version that is four hashes and a bucket URI. 'Here is the rule "
+     "that now stops it' has to be legible from the bundle alone"),
+    ("coverage_missing",
+     "nothing then says which clauses were ever reached, and a rate over an "
+     "unknown fraction of the definition of breach reads as a rate over all of it"),
+    ("coverage_hash_disagrees",
+     "coverage of a DIFFERENT Objective Set is not coverage of this one"),
+    ("coverage_never_fired_for_a_breach",
+     "a clause that produced a BREACH recorded as never having fired - two arms "
+     "counting the same clause differently"),
+    ("labels_missing",
+     "every figure in the file would then travel without its caveats, which is "
+     "the one failure this project must never allow"),
+    ("label_k_disagrees",
+     "a label that has stopped being true, which is worse than a missing one"),
+    ("label_tier_disagrees",
+     "the tier label no longer names the model that was actually attacked"),
+    ("provenance_missing",
+     "which parts of the run were scripted then lives nowhere in the record"),
+    ("provenance_live_with_standin",
+     "a stand-in run wearing a live label. Every other field looks the same "
+     "either way, which is exactly why this one is required"),
+    ("provenance_live_without_model_calls",
+     "mode live with zero model calls - the arithmetic shape of the same lie"),
+    ("exclusion_ledger_missing",
+     "an exclusion count with no denominator cannot be tested against the "
+     "5% ceiling; a denominator with no named list cannot be audited"),
+    ("exclusion_ledger_short",
+     "a round claiming more exclusions than it names. Silent exclusion turns "
+     "flakiness into apparent hardening"),
+    ("exclusion_ceiling_breached",
+     "past the 5% ceiling and still recorded as SCORED. measurement-spec 5.1 "
+     "makes that round INCOMPLETE and it must be RE-RUN, not reported"),
+    ("census_arithmetic_broken",
+     "attempted != scorable + excluded. The denominator does not account for itself"),
 ]
 
 
@@ -136,7 +252,12 @@ def test_real_reader_accepts_the_untouched_bundle(valid_bundle):
     from crucible.replay import read_bundle_bytes
     bundle, report = read_bundle_bytes(_raw(valid_bundle))
     assert report.ok
-    assert bundle["bundle_version"] == 1
+    # 2 as of 2026-08-22. The bundle stopped being a hash ledger and became
+    # the run of record: attack text, autopsies, rule text, clause coverage,
+    # the exclusion ledger, execution provenance and the labels all became
+    # REQUIRED in one change, so a v1 bundle and a v2 bundle are two
+    # different claims about what evidence is.
+    assert bundle["bundle_version"] == 2
 
 
 def test_a_rejection_names_what_is_missing_not_just_that_something_is(valid_bundle):
@@ -246,6 +367,32 @@ def test_schema_only_gap_is_closed(valid_bundle):
         "pin and a report, not a quiet entry")
 
 
+@pytest.mark.parametrize("how", sorted(strawman_replay.FIELDWISE_MUST_NOT_REJECT),
+                         ids=sorted(strawman_replay.FIELDWISE_MUST_NOT_REJECT))
+def test_a_fieldwise_reader_cannot_see_a_disagreement(valid_bundle, how):
+    """THE NEGATIVE CONTROL FOR THE 2026-08-22 CROSS-FIELD CHECKS.
+
+    Five of the new checks are not expressible in JSON Schema at all: a label
+    that contradicts the parameter it describes, coverage of a different
+    Objective Set, mode 'live' beside a stand-in component, an exclusion share
+    past the 5% ceiling, a census that claims more exclusions than the ledger
+    names. Every field involved is individually present, individually typed and
+    individually in range.
+
+    `fieldwise_read` is the careful implementation that checks all of that and
+    compares nothing, and it must ACCEPT every one of these. If it ever starts
+    rejecting one, the case has stopped being a cross-field case and this
+    parametrization is no longer measuring what its name says.
+    """
+    from crucible.replay import c6_validator
+    damaged = strawman_replay.mutate(valid_bundle, how)
+    accepted = strawman_replay.fieldwise_read(_raw(damaged), c6_validator())
+    assert accepted is not None, (
+        "fieldwise_read rejected %r. This set holds only defects that exist "
+        "BETWEEN two fields; retire the entry rather than loosening the "
+        "strawman." % how)
+
+
 def test_the_real_reader_rejects_exactly_what_the_strawmen_miss(valid_bundle):
     """The meta-check. Every mutation any strawman is declared blind to must be
     on the real reader's rejection list. A strawman blind to something nothing
@@ -253,7 +400,8 @@ def test_the_real_reader_rejects_exactly_what_the_strawmen_miss(valid_bundle):
     from crucible.replay import BundleRejected, read_bundle_bytes
     declared = (set(strawman_replay.LENIENT_MUST_NOT_REJECT)
                 | set(strawman_replay.SELF_COMPARING_MUST_NOT_REJECT)
-                | set(strawman_replay.SCHEMA_ONLY_MUST_NOT_REJECT))
+                | set(strawman_replay.SCHEMA_ONLY_MUST_NOT_REJECT)
+                | set(strawman_replay.FIELDWISE_MUST_NOT_REJECT))
     listed = {h for h, _ in REJECTIONS}
     assert declared <= listed, (
         "declared blind to %s, which the real reader is not tested to reject"
@@ -300,3 +448,71 @@ def test_mutate_does_not_touch_its_input(valid_bundle):
     before = copy.deepcopy(valid_bundle)
     strawman_replay.mutate(valid_bundle, "lock_blanked")
     assert valid_bundle == before
+
+
+# --------------------------------------------------------------------------
+# The KNOWN_BAD fixture must fail for the reasons it names, and no others.
+# --------------------------------------------------------------------------
+
+KNOWN_BAD = REPO / "contracts" / "golden" / "C6-evidence_bundle.KNOWN_BAD.json"
+
+
+def test_the_known_bad_fixture_fails_for_exactly_the_reasons_it_declares():
+    """The doctrine `contracts/golden/` runs on: each negative fixture names the
+    exact rule it violates, and a fixture that fails for an UNDECLARED reason is
+    a defect.
+
+    Nothing enforced that until 2026-08-22. `scripts/contract-check.py` asserts
+    only that a KNOWN_BAD fails schema validation, so a fixture could acquire a
+    sixth failure its list does not mention - which is precisely the ruling-43
+    regression the golden-generator test docstring describes: "a lane fixing all
+    five listed reasons would still see red with nothing to tell it why."
+
+    Schema errors are matched by field path rather than by code, because C6
+    reports them all as E_SCHEMA; the reader's own defect codes are matched
+    exactly. A declared reason that CANNOT fire in this fixture is allowed and
+    says so in its own text - the coverage-hash case is exercised against the
+    valid bundle instead, and naming it here keeps the check visible.
+    """
+    from crucible.replay import verify_bundle
+
+    body = json.loads(KNOWN_BAD.read_text(encoding="utf-8"))
+    declared = set()
+    for reason in body["_must_fail_because"]:
+        match = re.match(r"\[(?:replay reader, )?(E_[A-Z0-9_]+)\]", reason)
+        if match:
+            declared.add(match.group(1))
+
+    body.pop("_must_fail_because")
+    report = verify_bundle(body)
+    assert not report.ok, (
+        "the KNOWN_BAD fixture is accepted by the reader. A negative fixture "
+        "that passes is the loudest possible signal that the check under it "
+        "stopped measuring anything.")
+
+    fired = {d.code for d in report.defects if d.code != "E_SCHEMA"}
+    # The reader codes a bracketed reason does not carry are the ones a plain
+    # prose reason describes; they are matched by the second assertion below.
+    undeclared = fired - declared - PROSE_DECLARED
+    assert not undeclared, (
+        "the fixture fails for reason(s) its own list does not name: %s. Add "
+        "the reason or remove the cause - a lane fixing every listed reason "
+        "would still see red with nothing to tell it why."
+        % sorted(undeclared))
+
+    assert len(body.get("v0_benign_traces", [])) < BENIGN_DEN, (
+        "the benign-traces reason is declared and no longer true of the file")
+
+
+# Reader codes whose declared reason is written as prose rather than with a
+# bracketed code, because the prose predates the code and reads better in the
+# fixture. Listed here so the mapping is a declaration rather than a silence.
+PROSE_DECLARED = {
+    "E_EPISODE_STAMP_MISSING",       # "missing derived_schema_hash"
+    "E_FROZEN_CONTEXT_MISSING",      # "missing episode_frozen_context"
+    "E_BENIGN_TRACES_SHORT",         # "v0_benign_traces has 23 entries"
+    "E_SEP_BY_MISSING",              # "sep_by_split absent"
+    "E_POLICY_TEXT_MISSING",         # "policy_chain[0] carries no rules array"
+    "E_COVERAGE_MISSING",            # "clause_coverage is absent entirely"
+    "E_GENERATED_ATTACK_TEXT_MISSING",  # "attacks[1] ... carries NO instruction"
+}

@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "spine_version": 12,
+  "spine_version": 14,
   "frozen_at": "W0",
   "contract_count": 10,
   "normalization": "LF; trailing whitespace stripped per line; exactly one trailing newline; UTF-8 no BOM. NOT JCS - see contracts/canonicalization.md section 4.",
@@ -99,8 +99,8 @@
     "C6": {
       "files": {
         "evidence_bundle.schema.json": {
-          "sha256": "85cb4b43ea252ce3be1ae459cb520d517b372a811a18790b82919fa5d69cbe99",
-          "bytes": 10514
+          "sha256": "545b3172b60273a827bfb2a5616354db7213039dc16d18698dabfdec435ec4e8",
+          "bytes": 40853
         }
       },
       "produced_by": "L1/L4/L5",

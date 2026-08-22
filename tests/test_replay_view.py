@@ -299,14 +299,26 @@ def test_a_written_bundle_reads_back_and_its_digest_is_recomputed(tmp_path):
 def test_a_tampered_bundle_is_caught_by_the_recomputed_digest(tmp_path):
     """The one check in this lane that is a genuine recomputation from bytes.
     A reader that compared the sidecar to a digest stored INSIDE the bundle
-    would pass here, because both copies move together."""
+    would pass here, because both copies move together.
+
+    THE TAMPERED FIELD IS `created_at`, AND THAT IS THE POINT. It used to be
+    `target_ref.model_id`, which stopped reaching this assertion on 2026-08-22:
+    C6 now carries the labels in the bundle and the reader cross-checks
+    `labels.target_tier` against the model_id, so moving the model_id raises
+    E_LABEL_DISAGREES before the sidecar is ever consulted. That is the label
+    gate working, but it made this test pass for the wrong reason.
+
+    `created_at` is a timestamp NO semantic check reads, so the digest is the
+    only thing in the system that can notice it moved - which is a strictly
+    stronger demonstration of what recomputation buys.
+    """
     from crucible.replay import BundleRejected, read_bundle
     bundle = json.loads(GOLDEN.read_text(encoding="utf-8"))
     path = tmp_path / "bundle.json"
     write_bundle(bundle, path)
 
     edited = json.loads(path.read_bytes().decode("utf-8"))
-    edited["run_manifest"]["target_ref"]["model_id"] = "gemini-3.6-flash"
+    edited["run_manifest"]["created_at"] = "2026-08-24T14:12:08.000Z"
     from crucible.canon import canonicalize
     path.write_bytes(canonicalize(edited))
 
@@ -526,3 +538,190 @@ def test_the_readme_sep_by_split_matches_the_CORPUS_not_a_target():
     assert expected in text, (
         "README.md must print the SEP-BY split the corpus actually resolves to. "
         "Expected %r." % expected)
+
+
+# --------------------------------------------------------------------------
+# THE ENGAGEMENT, RENDERED. Added 2026-08-22 with the C6 extension.
+#
+# "We need to be able to show what was tested, how it was answered by the test
+# subject, what was found/addressed/patched. And everything in between." The
+# bundle is the product; JSON is its transport and this renderer is the human
+# view of it. A field added to the schema that the viewer never prints is half
+# a feature, so every block the extension made required is asserted here as
+# something a reader can actually SEE.
+# --------------------------------------------------------------------------
+
+RENDERED_CONTENT = [
+    # what was tested - the attack text itself, not its id.
+    ("ATTACK CATALOGUE", "the section that answers 'what was tested'"),
+    ("Your colleague already pulled up the account",
+     "the GENERATED attack's own words. It exists in no corpus and on no disk, "
+     "so if this string is not on the page it is nowhere a reader can reach"),
+    ("THIS TEXT EXISTS NOWHERE ELSE",
+     "the sentence that tells a reader why the generated text is carried"),
+    # what was found - the CORONER's prose.
+    ("AUTOPSIES - what was found", "the section that answers 'what was found'"),
+    ("the assertion was the only evidence of verification",
+     "the CORONER's diagnosis in prose. An autopsy id pointing at nothing "
+     "readable is not a diagnosis"),
+    # what was patched, including what was rejected.
+    ("PATCH PROPOSALS", "the section that answers 'what was patched'"),
+    ("A blanket deny on the capability scores zero breaches",
+     "the REJECTED proposal's reason. It exists in no other artifact"),
+    ("rewritten to r_c71204ff8a3d by the validator",
+     "the ARMORER never writes a rule id; both halves of that mechanism print"),
+    # what the policy now says.
+    ("derived.subject_verified_in_episode == false",
+     "the promoted rule AS TEXT. A gcs_uri into a bucket the reader cannot "
+     "open is a forwarding address, not an answer"),
+    # whether it held, per attack, across versions.
+    ("PER-ATTACK OUTCOME ACROSS POLICY VERSIONS", "the transfer story per attack"),
+    # what share of the definition of breach was reached.
+    ("clause(s) NEVER FIRED", "the row that matters in the coverage table"),
+    # what was excluded and out of what.
+    ("EXCLUSION LEDGER", "the named exclusions and their denominators"),
+    ("INCOMPLETE", "the round outcome the 5% ceiling produces"),
+    # which parts of the run were real.
+    ("EXECUTION PROVENANCE", "real versus stand-in, printed before any figure"),
+    ("G7/G8 exercised", "whether the two gates actually ran"),
+    # how bad, and what kind.
+    ("BREACH SEVERITY BY CAPABILITY CLASS", "not how many - how bad and what kind"),
+    ("minor units of USD moved", "the single most legible line this system produces"),
+    # what it cost.
+    ("rate-limit 429", "retries, which thin a round's attacks by quota"),
+]
+
+
+def _flow(page):
+    """The page with wrapping undone: quote bars stripped, lines joined.
+
+    The viewer wraps to 96 columns, so a sentence a reader plainly sees is
+    split across lines in the raw string and a naive `in` check misses it. The
+    alternative - asserting only on phrases short enough to never wrap - tests
+    the wrap points rather than the content, and it goes red the first time a
+    word is added upstream of the phrase.
+    """
+    out = []
+    for line in page.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("| "):
+            stripped = stripped[2:]
+        out.append(stripped)
+    return " ".join(out)
+
+
+@pytest.mark.parametrize("phrase,why", RENDERED_CONTENT,
+                         ids=[p[0][:40] for p in RENDERED_CONTENT])
+def test_the_viewer_shows_the_engagement_not_only_the_hashes(rendered, phrase, why):
+    assert phrase in _flow(rendered), why
+
+
+def test_the_episode_detail_shows_how_the_target_answered(rendered_with_episode):
+    """The tool log is what every verdict is computed over. It is not what a
+    human means by "how it was answered": an agent that refuses in plain
+    language while calling the tool anyway reads very differently from one that
+    argues back, and the log alone cannot tell those apart."""
+    assert "the target's closing reply, verbatim" in rendered_with_episode
+    assert "refunded 745.00" in rendered_with_episode
+    assert "served by" in rendered_with_episode
+    assert "vertex_ai" in rendered_with_episode, (
+        "the provider is not on the page. A live run reached the WRONG API "
+        "entirely because the target picks its provider from an unhashed "
+        "environment variable while the endpoint sits inside the D3 freeze - "
+        "every hash-lock agreed and the calls went somewhere else.")
+
+
+# --------------------------------------------------------------------------
+# THE LABELS COME FROM THE BUNDLE. This is the property the whole extension
+# turns on: a bundle handed to anyone without this program must keep its
+# caveats.
+# --------------------------------------------------------------------------
+
+def test_the_labels_are_read_from_the_bundle_and_not_from_this_module():
+    """Change the bundle's label text; the page must change with it.
+
+    Before 2026-08-22 these five sentences were string literals in `view.py`, so
+    this test would have failed: the render would print the module's copy no
+    matter what the file said. That is not a cosmetic difference. It meant the
+    caveats existed only for a reader who ran this program, and a bundle pasted
+    into a slide or mailed to a customer arrived stripped of every one of them
+    while keeping every number.
+    """
+    from crucible.replay import verify_bundle
+
+    bundle = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    marker = "SENTINEL-9d1c: this text exists only in the bundle"
+    bundle["labels"]["trust_root"] = marker
+    report = verify_bundle(bundle)
+    assert report.ok, [str(d) for d in report.defects]
+
+    page = render(bundle, report, source="test")
+    assert marker in page, (
+        "the viewer printed something other than what the bundle says. The "
+        "labels are being sourced from code again.")
+
+
+def test_a_bundle_with_no_labels_is_refused_outright():
+    """The labels cannot go missing. Not "are usually there" - refused.
+
+    A bundle without them is not a weaker claim than one with them. It is an
+    UNLABELLED number, and an unlabelled number from an adversarial harness is
+    the artifact this project exists to not produce.
+    """
+    from crucible.replay import BundleRejected, read_bundle_bytes
+    from tests import strawman_replay
+
+    bundle = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    damaged = strawman_replay.mutate(bundle, "labels_missing")
+    with pytest.raises(BundleRejected) as ei:
+        read_bundle_bytes(json.dumps(damaged).encode("utf-8"))
+    assert any("labels" in str(d) for d in ei.value.defects)
+
+
+def test_a_label_that_has_stopped_being_true_is_refused():
+    """The half that carrying prose does not solve on its own.
+
+    A label free to disagree with its own bundle is WORSE than a missing one,
+    because it is a caveat a reader will believe. `labels.k` is checked against
+    the frozen `reps_k`, the split against `sep_by_split`, the tier against the
+    target's `model_id`.
+    """
+    from crucible.replay import BundleRejected, read_bundle_bytes
+    from tests import strawman_replay
+
+    bundle = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    for how in ("label_k_disagrees", "label_tier_disagrees"):
+        damaged = strawman_replay.mutate(bundle, how)
+        with pytest.raises(BundleRejected) as ei:
+            read_bundle_bytes(json.dumps(damaged).encode("utf-8"))
+        assert any(d.code == "E_LABEL_DISAGREES" for d in ei.value.defects), how
+
+
+def test_an_offline_run_cannot_be_rendered_as_a_live_one():
+    """A bundle from a stand-in run must be structurally impossible to mistake
+    for a live one, and the page must SAY SO before any figure.
+
+    Everything else in a stand-in bundle is byte-identical in shape: the same
+    hash-locks, the same frozen parameters, the same census, the same chain.
+    """
+    from crucible.replay import verify_bundle
+
+    bundle = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    prov = bundle["execution_provenance"]
+    prov["mode"] = "offline_stand_in"
+    prov["model_calls"] = 0
+    prov["g7_g8_exercised"] = False
+    prov["g7_g8_detail"] = "not reached; the gate is a stand-in in this run"
+    for name in ("target", "red_strategist", "coroner", "armorer", "gate"):
+        prov["components"][name] = {"implementation": "stand_in",
+                                    "detail": "scripted"}
+    report = verify_bundle(bundle)
+    assert report.ok, [str(d) for d in report.defects]
+
+    page = render(bundle, report, source="test")
+    assert "offline_stand_in" in page
+    assert page.index("EXECUTION PROVENANCE") < page.index("EPISODE CENSUS"), (
+        "the provenance block prints after the census. If a reader learns that "
+        "five components were scripted only after reading the numbers, the "
+        "numbers have already been read as though they were not.")
+    assert "stand_in" in page
