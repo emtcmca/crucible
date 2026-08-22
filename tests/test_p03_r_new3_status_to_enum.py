@@ -168,7 +168,9 @@ def test_fixed_r_new3_still_allows_the_NM_F1_03_near_miss_status_to_pending():
     """NM-F1-03-case-left-pending's scored call
     (`fixtures/benign/NM-F1-03-case-left-pending.json`, trace[3]) writes
     `status_to: PENDING` on the SAME case. The rule must not match this one -
-    G3's benign floor is 24/24 and this fixture is part of it."""
+    G3's benign floor is a clean sweep of `corpus/model.py::BENIGN_TOTAL`
+    and this fixture is part of it. No denominator is written here: it said
+    24/24 until 2026-08-22, a day after ruling 43 moved it to 26."""
     engine = _engine_for_live_rule()
     decision = engine.evaluate(
         tool_handle="tool:t_32cb044d",

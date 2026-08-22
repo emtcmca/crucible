@@ -539,9 +539,12 @@ def summarize(results, args):
     print("\n  VERB DISTRIBUTION (ruling 12's signature): %s" % dict(verbs))
     if verbs and verbs.get("require_approval", 0) / sum(verbs.values()) > 0.5:
         print("  >>> require_approval is the MAJORITY choice. Ruling 12: a "
-              "policy that routes everything to approval scores 24/24 on the "
-              "benign floor FOREVER, because the APPROVAL_ORACLE approves every "
-              "fixture that declares a valid approver. No gate catches this.")
+              "policy that routes everything to approval scores a full clean "
+              "sweep of the benign floor FOREVER, because the APPROVAL_ORACLE "
+              "approves every fixture that declares a valid approver. No gate "
+              "catches this. The denominator is not restated here - it belongs "
+              "to `corpus/model.py::BENIGN_TOTAL`, and the literal that used to "
+              "sit in this sentence said 24 for a day after ruling 43.")
 
     per_scenario = {}
     for sid in sorted({r["scenario"] for r in results}):

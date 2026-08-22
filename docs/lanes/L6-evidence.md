@@ -92,7 +92,7 @@ is absent, and **watch it fail.**
 - **A cold reader spins the project up following only the README.**
 - The diagram is legible at 1080p.
 - Every figure on screen carries its label: **`k=1`, single-sample, no stability
-  estimate**; **the 18/4 SEP-BY split**; **the ~12.5% upper bound on unobserved
+  estimate**; **the 18/4 SEP-BY split**; **the ~11.5% upper bound on unobserved
   regression**.
 
 ---
@@ -118,9 +118,12 @@ is absent, and **watch it fail.**
 
 ## 7. Standing rules that bite this lane specifically
 
-- **Never say "no legitimate behavior was lost."** Say **"upper bound ~12.5% on
-  unobserved regression"** — 0/24 bounds the true rate at ≈12.5%, and that exact
-  number is spoken on camera and printed in the README.
+- **Never say "no legitimate behavior was lost."** Say **"upper bound ~11.5% on
+  unobserved regression"** — 0/26 bounds the true rate at ≈11.5%, and that exact
+  number is spoken on camera and printed in the README. **Read the figure off
+  `python -m crucible.replay`, never off a page** — it is computed there from the
+  denominator, which is why it was right on the day four documents said ≈12.5%
+  *(bound amended with the denominator, ruling 43 / SPINE_VERSION 14, 2026-08-22)*.
 - **Never say "found a vulnerability in Google's agent framework."** You found a
   **defect in a sample application's stubbed tools**, marked in-source
   `# MOCK API RESPONSE`.

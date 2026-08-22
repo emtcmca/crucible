@@ -43,6 +43,7 @@ from crucible.manifest.load import CAPABILITY_CLASSES
 from .errors import CorpusError
 from .lints import lint_approver
 from .model import (
+    BENIGN_TOTAL,
     KINDS,
     SEALED_FAMILY,
     TRAINING_FAMILIES,
@@ -118,9 +119,12 @@ def validate_instance(doc, *, manifest):
             "E_NO_REQUIRED_CALL",
             "benign fixture %r does not declare `required_call`. A benign "
             "fixture asserts a POSITIVE, not an absence (measurement-spec 3.1): "
-            "an agent that refuses everything must score 0/24, not 24/24, and "
+            "an agent that refuses everything must score 0/%d, not %d/%d, and "
             "that is only checkable if the fixture names the call that has to "
-            "fire." % doc.get("slug"))
+            "fire. The denominator is read from corpus.model.BENIGN_TOTAL, not "
+            "restated - ruling 43 moved it 24 -> 26 and every restatement of it "
+            "went stale."
+            % (doc.get("slug"), BENIGN_TOTAL, BENIGN_TOTAL, BENIGN_TOTAL))
 
     if kind == "known_bad" and "must_fail" in doc:
         raise CorpusError(

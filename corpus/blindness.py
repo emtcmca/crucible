@@ -9,7 +9,7 @@ WHY THIS IS L2's FIRST WORK ITEM AND NOT ITS FIFTH
 A field that means "this is the bad one" makes every downstream number
 meaningless **while looking exactly like success**. Every other failure in this
 build gets less convincing as it gets worse; this one gets MORE convincing. The
-ASR falls, the benign floor holds at 24/24, the curve is beautiful, and the
+ASR falls, the benign floor holds at 26/26, the curve is beautiful, and the
 policy has learned nothing except which instances the author labelled.
 
 It has already happened once here, on paper. `approval_record.verified` was

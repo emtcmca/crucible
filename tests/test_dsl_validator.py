@@ -153,7 +153,9 @@ def test_V10_is_the_check_that_would_have_caught_r_new6():
     """THE MEASURED INSTANCE, not a hypothetical. `r_new6` spelled `recipient`
     where the only tool involved takes `to`. `architecture-spec.md` 5.2 and
     `separability-proof.md` 13.3b record what that cost: **20/24 on the benign
-    floor spelled `recipient`, 24/24 spelled `to`.**
+    floor spelled `recipient`, 24/24 spelled `to`.** *(Annotated 2026-08-22:
+    taken on the 24-fixture floor as it stood; ruling 43 moved it to 26 and this
+    was not re-run. Annotated, never rescaled.)*
 
     The mechanism is why it is a refusal and not a lint. An argument the call
     does not carry makes the clause UNEVALUABLE; an unevaluable clause is

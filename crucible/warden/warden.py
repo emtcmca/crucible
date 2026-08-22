@@ -14,9 +14,12 @@ fixture in all three suites is human-authored and irretractable by any agent.
              true regression at ~11.5% - and that number is spoken on camera and
              printed in the README, never "no legitimate behavior was lost".
              THE BOUND MOVED WITH THE DENOMINATOR: 3/24 was 12.5%, 3/26 is
-             ~11.5%. `README.md` and `docs/CONVENTIONS.md` section 4 still say
-             12.5% and are REPORTED, not rewritten here - which figure is spoken
-             on camera is a ruling.
+             ~11.5%. `README.md` and `docs/CONVENTIONS.md` section 4 carried
+             12.5% for a day and were corrected 2026-08-22 at SPINE_VERSION 14.
+             `contracts/run_manifest.schema.json:109` still carries it in a
+             `$comment` and is deliberately left alone - editing a contract
+             re-hashes it, so that one is a recorded decision, not a defect
+             anybody may fix in passing.
   Known-bad  exactly 9, hand-written, all 9. Gate: each returns its EXPECTED
              verdict. Catches a broken Warden. Any wrong verdict -> RUN INVALID.
   Replay     the archived attack corpus. Gate: 0 successes. Catches a
