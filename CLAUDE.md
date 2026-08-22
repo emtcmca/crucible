@@ -158,36 +158,31 @@ exit 2. Do not route around it.
 
 **READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
 
-`main` verified: **843 tests**, `contract-check` ALL PASSES OK, `SEAL INTACT`.
-Rulings **1-43**, SPINE_VERSION **11**. **THREE of five hash-locks down** — D2
-gate rule `cff9f52929397efb`, D3 target `125fe7e9e54a419e` + `manifest_hash
-d2e9f5f435b5acfe`. Cloud Run live, both postconditions closed; **only the VIDEO
-remains of Stage One**. Corpus after ruling 43: 50 training (F5 at 10), 24
-sealed, 26 benign / 14 near-miss, 9 known-bad.
-
-**Nothing has been measured.** No loop run, no attack scored, no quotable number.
+`main` verified BY EXIT CODE: pytest 0, contract-check 0, **1155 collected**.
+Rulings **1-45**, SPINE_VERSION **14**. **ALL FIVE HASH-LOCKS FROZEN**, all six
+lock fields load FROZEN, `unfrozen: NONE`. **THE LOOP RAN LIVE**: 4 of 6 breaches,
+0 faults, a real autopsy, and **the gate REJECTED its own patch twice** before
+halting for a human. **Nothing has been PROMOTED**, so there is still no transfer
+number and `GcsBlobIO` has never executed.
 
 **Open threads**
-- **The GATE** — last of the four `campaign.py` stand-ins. **G7 and G8 cannot be
-  exercised until it lands.** Touches GCS/IAM; held for a supervised window.
-- **D5 corpus freeze** must land before the first patch is written.
-- **The first real loop run** — produces every number.
-- **Devpost Update 4** (D3 freeze) writable now. LinkedIn draft `191-*` gated,
-  unpublished — the `TOOL_EXECUTED` story is deliberately unspent.
-- Eric's calls: publish decisions, Gemma go/no-go, `ORD-13`/`ORD-14`, `ADR-0010`
-  vs "unedited live execution".
+- **The ARMORER only reaches for `deny` and over-blocks.** `prompt.py:156-160`
+  deliberately disfavours `constrain_arg`; rejection feedback is counts-and-classes
+  BY DESIGN. It may be structurally unable to narrow — **this blocks every
+  promotion and therefore the headline pair.**
+- **C6 has NO PRODUCER.** The campaign writes a shape with ZERO key overlap.
+  Generated attack text is in no bundle, and Eric calls that the crux.
+- Four measurements queued: clause coverage, exclusions + the 5% INCOMPLETE rule,
+  attack distinctness, wall-clock timing.
+- Stale target-hash pair in 6 files including a **published** Devpost update.
 
 **Watch out for**
-- **ONE pytest AT A TIME.** `tests/test_target_freeze.py` mutates
-  `target/refund_agent/tools.py` on disk; concurrent runs corrupted it. Check
-  `grep -c _INJECTED target/refund_agent/tools.py` before any commit.
-- **`UNCLASSIFIED` is ALWAYS ALLOWED**, so a missed tool-handle lookup switches
-  the policy off silently. The D3 completeness check cannot see it — it asks
-  whether the manifest is complete, and the manifest is.
-- **Never accept two spellings of one value** as a compatibility shim. That is
-  how `ALLOW`/`allow` and `outcome`/`target_fault` both happened.
-- **A stub validates nothing.** A fix that only holds where the test model is
-  looser than the real API passes the whole suite and fails on the first live call.
-- **`vault-project.ps1 -Activity` misreports this project** — scans only
-  `C:\dev\crucible`, misses the worktrees.
+- **`grep -c` returns exit 1 on a zero count.** Use pytest's own exit code, never
+  a grep of its output — that heuristic produced a false green here.
+- **A check that never ran on the path that matters.** 1155 tests, three cold
+  clones and a full offline campaign all missed an operator the frozen Objective
+  Set uses. Only a live run found it.
+- **ONE pytest at a time**; `git add <dir>` is as bad as `-A`.
+- **`vault-project.ps1 -Activity` reports DRIFT for `crucible-wt-*`** — those are
+  worktrees of this repo, not separate projects. Known false positive.
 <!-- VAULT:SESSION-STATE end -->
