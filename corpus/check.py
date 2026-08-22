@@ -162,7 +162,11 @@ def main(argv=None):
 
     r.run("sizing", lambda: check_sizing(corpus),
           skip_if_absent=None if total else "no instances on disk")
-    r.run("class coverage", lambda: check_class_coverage(corpus),
+    # The manifest is PASSED, not re-loaded. `check_class_coverage` needs Part
+    # A's tool -> class map to read what an episode routes through, and this
+    # function already holds a manifest that went through the real loader. A
+    # second load would be a second chance to read a different file.
+    r.run("class coverage", lambda: check_class_coverage(corpus, manifest=manifest),
           skip_if_absent=None if (corpus["training"] or corpus["sealed"])
           and corpus["benign"] else "needs both attacks and benign fixtures")
     r.run("SEP-BY split", lambda: split(corpus["pairs"]),
