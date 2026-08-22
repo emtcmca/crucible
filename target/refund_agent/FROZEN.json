@@ -1,7 +1,7 @@
 {
   "target_id": "tgt_crucible_refund_v1",
-  "manifest_hash": "d2e9f5f435b5acfe",
-  "target_agent_hash": "125fe7e9e54a419e",
+  "manifest_hash": "2bc12fd8608a0bcf",
+  "target_agent_hash": "bad2bcb62b3ebbee",
   "policy_sha256": "1b066eece42d081c84eb8d9418b13825052e363c7bb52b5ab694a4afe06c38b6",
-  "canonical_bytes": 4543
+  "canonical_bytes": 4619
 }

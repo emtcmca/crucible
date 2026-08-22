@@ -382,6 +382,53 @@ def test_a_freeze_record_that_agrees_is_promoted_to_FROZEN(monkeypatch,
     assert "objective_set_hash" not in locks.unfrozen
 
 
+def test_a_moved_TARGET_is_caught_before_any_episode_runs(monkeypatch, tmp_path):
+    """ADDED 2026-08-22, and it is the check whose ABSENCE is the finding.
+
+    `objective_set_hash` and `derived_schema_hash` were both recomputed from the
+    artifact in force and compared. `target_agent_hash` and `manifest_hash` were
+    read from the D3 record and TRUSTED - the only lock pair with no skew
+    detector, and the pair covering the thing being attacked.
+
+    How it surfaced: a lane repaired `delegate_to_specialist`, a real change to
+    the hash-locked package that moved `target_agent_hash`, and the ENTIRE SUITE
+    STAYED GREEN. The only thing on the machine that noticed was
+    `python -m target.refund_agent.freeze --check`, which no test and no gate
+    runs. `tests/test_target_freeze.py` exercises the HASHER - determinism,
+    CRLF-blindness, that a body edit moves the hash - and never reads
+    FROZEN.json, so it cannot see a record that has gone stale. A test of the
+    hasher is not a test of the freeze.
+    """
+    from crucible.conductor import hashlocks
+
+    stale = tmp_path / "FROZEN.json"
+    stale.write_text(json.dumps({
+        "target_id": "tgt_crucible_refund_v1",
+        "manifest_hash": "0123456789abcdef",
+        "target_agent_hash": "fedcba9876543210",
+        "policy_sha256": "0" * 64,
+        "canonical_bytes": 1,
+    }), encoding="utf-8")
+    monkeypatch.setattr(hashlocks, "D3_TARGET_FREEZE", stale)
+
+    with pytest.raises(hashlocks.HashLockSkew) as exc:
+        load_hash_locks(resolve_objective_set())
+    assert "THE TARGET MOVED AFTER IT WAS FROZEN" in str(exc.value)
+
+
+def test_the_real_target_freeze_record_agrees_with_the_package_in_force():
+    """The positive arm. Without it the test above passes for the trivial reason
+    that any record is rejected - and it also means a real re-freeze that was
+    never committed shows up here rather than in a run."""
+    locks = load_hash_locks(resolve_objective_set())
+    from target.refund_agent import freeze as target_freeze
+    recomputed = target_freeze.compute()
+    for lock in ("target_agent_hash", "manifest_hash"):
+        assert locks.values[lock] == recomputed[lock], (
+            "%s: the committed D3 record and the target package in force "
+            "disagree" % lock)
+
+
 def test_the_loader_refuses_to_source_the_objective_set_hash_from_nowhere():
     with pytest.raises(HashLockError) as exc:
         load_hash_locks(None)

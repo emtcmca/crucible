@@ -242,6 +242,43 @@ def load_hash_locks(objective_set, *, part_b_path=None):
         provenance[lock] = {"kind": FROZEN, "source": _rel(D3_TARGET_FREEZE),
                             "freeze": "D3", "target_id": frozen.get("target_id")}
 
+    # THE D3 TARGET FREEZE HAD NO SKEW DETECTOR UNTIL 2026-08-22, and it was the
+    # only lock pair without one. `objective_set_hash` below and
+    # `derived_schema_hash` further down are both recomputed from the artifact in
+    # force and compared. These two were READ FROM THE RECORD AND TRUSTED.
+    #
+    # HOW THAT WAS FOUND, which is the part worth keeping: a lane repaired
+    # `delegate_to_specialist` - a real change to a hash-locked package, moving
+    # `target_agent_hash` to a different value - and the ENTIRE SUITE STAYED
+    # GREEN. 1009 tests reported exactly what they reported before. The only
+    # thing on the machine that noticed was `python -m target.refund_agent.freeze
+    # --check`, which no test and no gate ever runs.
+    #
+    # So the two locks covering THE THING BEING ATTACKED were the two nobody
+    # re-verified at run time. `tests/test_target_freeze.py` exercises the
+    # COMPUTATION - determinism, CRLF-blindness, that a body edit moves the hash -
+    # and never reads FROZEN.json, so it cannot see a record that has gone stale.
+    # A test of the hasher is not a test of the freeze.
+    try:
+        from target.refund_agent import freeze as _target_freeze
+        recomputed = _target_freeze.compute()
+    except Exception as exc:                      # pragma: no cover - defensive
+        raise HashLockError(
+            "the D3 target freeze could not be recomputed, so its record cannot "
+            "be verified: %r. A lock that cannot be re-derived is a lock nobody "
+            "is checking." % (exc,))
+    for lock in ("target_agent_hash", "manifest_hash"):
+        live_value = recomputed.get(lock)
+        if live_value != values[lock]:
+            raise HashLockSkew(
+                "%s: %s records %s, and the target package in force hashes to "
+                "%s. THE TARGET MOVED AFTER IT WAS FROZEN. Every episode this "
+                "run scores would be measured against an agent that is not the "
+                "one the freeze names, so it stops here rather than being "
+                "absorbed. Re-freeze deliberately (python -m "
+                "target.refund_agent.freeze --write) or revert the target."
+                % (lock, _rel(D3_TARGET_FREEZE), values[lock], live_value))
+
     # -- objective_set_hash. D3 in the plan; no record on disk yet. -------
     live = _assert_shape("objective_set_hash", objective_set.hash,
                          "the Objective Set the TRIPWIRE loaded")
