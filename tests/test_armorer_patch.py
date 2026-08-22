@@ -121,14 +121,24 @@ def test_two_failures_halt_rather_than_looping():
 
 def test_the_repair_carries_the_validator_error_and_nothing_else():
     """The temptation at 11pm is to add "and two benign fixtures failed", which
-    would hand the ARMORER the signal it is blind to by design."""
+    would hand the ARMORER the signal it is blind to by design.
+
+    THE SCORE STRING IS DERIVED. This list held the literal `"24/24"` until
+    2026-08-22 - a day after ruling 43 moved the floor to 26, so the leak
+    detector was watching for a string the loop had stopped producing. A
+    detector pinned to a dead value is a check that cannot fail: the same defect
+    it exists to prevent, aimed at itself.
+    """
+    from corpus.model import BENIGN_TOTAL
+
     stub = Stub(GIBBERISH, GOOD)
     armorer(stub).propose(SCENARIOS["s01"], seed(), 1)
     repair = stub.seen[1]["user"]
     tail = repair.split("That patch was rejected by the validator.")[-1]
     assert "E_" in tail
-    for forbidden in ("fixture", "benign", "24/24", "fx_", "near-miss",
-                      "passed", "rolled back"):
+    for forbidden in ("fixture", "benign",
+                      "%d/%d" % (BENIGN_TOTAL, BENIGN_TOTAL),
+                      "fx_", "near-miss", "passed", "rolled back"):
         assert forbidden not in tail.lower(), (
             "%r reached the repair message" % forbidden)
 

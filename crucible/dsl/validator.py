@@ -52,7 +52,10 @@ path no tool accepts does not silently never fire - IT FIRES ON EVERY CALL IN
 ITS CLASS, while validating cleanly. That is measured, not hypothetical:
 `r_new6` spelled `recipient` instead of `to` - an argument of no tool on this
 target - scored **20/24** on the benign floor against **24/24** spelled `to`
-(`separability-proof.md` 13.3b, `architecture-spec.md` 5.2). Before V10 the
+(`separability-proof.md` 13.3b, `architecture-spec.md` 5.2). *(Annotated
+2026-08-22: taken on the 24-fixture benign set AS IT STOOD, 2026-08-20. Ruling
+43 moved the floor to 26 and this was NOT re-run. A measurement is reported
+against the ruler it was taken with - annotated, never rescaled.)* Before V10 the
 product lexicon was the ONLY constraint on arg-path vocabulary, and it does not
 constrain it at all: it harvests tool LEAF NAMES and descriptions, so `recipient`
 is admissible under it and always was.
@@ -429,7 +432,10 @@ class Validator:
         can never be evaluated therefore does not sit inert; it fires on EVERY
         call in its capability class. `r_new6` spelled `recipient` rather than
         `to` measured 20/24 on the benign floor against 24/24 spelled correctly
-        (`separability-proof.md` 13.3b). One misspelled argument is worth four
+        (`separability-proof.md` 13.3b; annotated 2026-08-22 - taken on the
+        24-fixture floor as it stood, not re-run against the 26 ruling 43 moved
+        it to, and a measurement is annotated rather than rescaled). One
+        misspelled argument is worth four
         benign fixtures, and nothing before this check could see it: the product
         lexicon harvests tool leaf names, so `recipient` was admissible under
         V3 and always would have been.

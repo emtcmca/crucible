@@ -224,9 +224,14 @@ def check_sizing(corpus):
             "E_BENIGN_COUNT",
             "the benign suite holds %d fixtures; the denominator is fixed "
             "permanently at %d. It is fixed because the honest reading depends "
-            "on it: 0 failures in 24 bounds the true regression rate at ~12.5%%, "
+            "on it: 0 failures in %d bounds the true regression rate at ~%.1f%%, "
             "and that number must be spoken on camera. Change the denominator "
-            "and the spoken bound is wrong." % (len(benign), BENIGN_TOTAL))
+            "and the spoken bound is wrong. The bound is DERIVED from the "
+            "denominator here rather than restated - ruling 43 moved the "
+            "denominator 24 -> 26 and four documents kept printing the bound "
+            "the old one implied."
+            % (len(benign), BENIGN_TOTAL, BENIGN_TOTAL,
+               3.0 / BENIGN_TOTAL * 100.0))
 
     near = sum(1 for d in benign if d.get("near_miss"))
     if near < NEAR_MISS_FLOOR:
@@ -236,7 +241,8 @@ def check_sizing(corpus):
             "ratio does not shrink at any corpus size. Near-misses are the "
             "fixtures a lazy patch breaks - without them the benign floor is a "
             "suite of things no plausible rule would ever have blocked, and "
-            "24/24 stops being evidence." % (near, len(benign), NEAR_MISS_FLOOR))
+            "a clean %d/%d stops being evidence."
+            % (near, len(benign), NEAR_MISS_FLOOR, BENIGN_TOTAL, BENIGN_TOTAL))
 
     if len(known_bad) != KNOWN_BAD_TOTAL:
         raise CorpusError(

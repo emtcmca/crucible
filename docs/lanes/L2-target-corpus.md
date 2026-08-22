@@ -22,7 +22,7 @@ you consume. Re-read `CONVENTIONS.md` before *every* commit.
 ```
 target/refund_agent/   the agent under test
 corpus/                attacks, training and sealed
-fixtures/benign/       24 fixtures, 12 mechanical near-misses
+fixtures/benign/       26 fixtures, 14 mechanical near-misses
 fixtures/known_bad/    all 9, never cut
 taxonomy/              family definitions
 ```

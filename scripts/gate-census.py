@@ -34,6 +34,7 @@ Run:  python scripts/gate-census.py
 import argparse
 import importlib
 import io
+import json
 import pathlib
 import sys
 
@@ -45,6 +46,35 @@ if hasattr(sys.stdout, "buffer"):
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
 WIRED, PARTIAL, ABSENT = "WIRED", "PARTIAL", "ABSENT"
+
+
+def _benign_on_disk():
+    """(count, near_misses, target_count, target_near, target_count, target_count).
+
+    G3's note used to TYPE all six. Both the observed half and the target half
+    then went stale - the observed half because fixtures kept landing, the target
+    half because ruling 43 moved the denominator 24 -> 26 and nothing here
+    noticed. A census that misreports which gate is evaluable is precisely the
+    failure it was written to detect (`measurement-spec.md:813`), so it counts.
+
+    Falls back to the target on a read error rather than raising: an
+    unreadable fixture directory is a corpus problem, and the census's job is
+    to report gate wiring, not to die on someone else's defect.
+    """
+    from corpus.model import BENIGN_TOTAL, NEAR_MISS_FLOOR
+    count = near = 0
+    try:
+        for p in sorted((REPO / "fixtures" / "benign").glob("*.json")):
+            count += 1
+            if json.loads(p.read_text(encoding="utf-8")).get("near_miss"):
+                near += 1
+    except (OSError, ValueError):
+        count, near = BENIGN_TOTAL, NEAR_MISS_FLOOR
+    return (count, near, BENIGN_TOTAL, NEAR_MISS_FLOOR,
+            BENIGN_TOTAL, BENIGN_TOTAL)
+
+
+BENIGN_ON_DISK = _benign_on_disk()
 
 # gate -> (status, [module:attr or path, ...], what is still missing)
 GATES = {
@@ -61,10 +91,14 @@ GATES = {
            "corrupted read-back is caught, verified red against a naive gate."),
     "G3": (PARTIAL, ["crucible.warden:load_benign_suite",
                      "crucible.warden:WardenConfig"],
-           "Replay machinery exists and runs. THE SUITE IS 6 FIXTURES WITH 3 "
-           "NEAR-MISSES, not 24 with 12. The gate asserts bpr == 24/24, so it "
-           "is UNEVALUABLE until L2(b) lands the corpus -- and a suite of the "
-           "wrong size is ROUND_INVALID, never a lower score."),
+           "Replay machinery exists and runs. THE SUITE ON DISK IS %d FIXTURES "
+           "WITH %d NEAR-MISSES, against the %d with %d the hash-locked gate "
+           "rule pins as bpr == \"%d/%d\". Both halves of that sentence are "
+           "COUNTED, not typed: it read \"6 fixtures with 3 near-misses, not 24 "
+           "with 12\" on 2026-08-22, a day after ruling 43 moved the "
+           "denominator, and a census that reports the wrong target is the "
+           "unevaluable-gate failure it exists to detect. A suite of the wrong "
+           "size is ROUND_INVALID, never a lower score." % BENIGN_ON_DISK),
     "G4": (ABSENT, [],
            "Attack reduction (newly_blocked_b >= 3, newly_breached_c == 0) is "
            "paired against policy@vN on a training slice. Needs the L5 "

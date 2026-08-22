@@ -24,7 +24,10 @@ The same argument the canon drift gate makes: repetition across documents is
 not enforcement. A banned phrase gets into a README the same way a dead value
 gets into a spec - by somebody writing the natural sentence. The natural
 sentence here is "no legitimate behavior was lost", which is exactly the one
-CONVENTIONS forbids and exactly the one 0/24 does not support.
+CONVENTIONS forbids and exactly the one a clean benign sweep does not support.
+(The denominator is deliberately not written here. This line said 0/24 until
+2026-08-22, a day after ruling 43 moved it to 26 - a docstring restating a
+number is the cheapest place for one to rot.)
 """
 
 import json
@@ -338,7 +341,11 @@ FORBIDDEN = {
     r"production[- ]ready": "eleven days, solo, one target agent",
     r"enterprise[- ]grade": "same",
     r"no legitimate behaviou?r was lost":
-        "0/24 bounds the true regression rate at ~12.5%; it does not show zero",
+        # Derived, not typed. This read "0/24 ... ~12.5%" until 2026-08-22,
+        # a full day after ruling 43 moved the denominator to 26 - the reason
+        # a rule against saying the wrong thing was itself saying it.
+        "0/%d bounds the true regression rate at ~%.1f%%; it does not show zero"
+        % (BENIGN_DENOMINATOR, regression_upper_bound(0, BENIGN_DENOMINATOR)),
     r"vulnerability in google": "a defect in a sample application's stubbed tools",
     r"model armor missed": "same data, adversarial framing, and wrong",
     r"google (?:has )?(?:reviewed|endorsed|approved)": "nothing implying Google responded",
@@ -471,11 +478,21 @@ def test_the_claim_check_can_actually_fire():
 
 def test_the_readme_carries_the_labels_it_is_required_to_carry():
     """Section 7 and the lane brief: the exact numbers, next to the exact
-    qualifiers, on the surface a judge reads first."""
+    qualifiers, on the surface a judge reads first.
+
+    THE BOUND IS COMPUTED, NOT TYPED. This check demanded the literal `"12.5%"`
+    until 2026-08-22 - the figure ruling 43 obsoleted on 08-21. It went on
+    passing because README.md still carried the string inside its own amendment
+    note (*"amended from 24/24 and ~12.5%"*), so the gate was satisfied by a
+    sentence recording that the number was WRONG. Same failure as the SEP-BY
+    check below, one number over: a guard enforcing a stale value is worse than
+    no guard, because it looks like the value was checked.
+    """
     assert README.exists(), "README.md is the judge-reproduction path"
     text = README.read_text(encoding="utf-8")
+    bound = "%.1f%%" % regression_upper_bound(0, BENIGN_DENOMINATOR)
     for phrase in ("single-sample, no stability estimate",
-                   "12.5%",
+                   bound,
                    "project Owner",
                    "python -m crucible.replay"):
         assert phrase in text, "README.md does not carry %r" % phrase

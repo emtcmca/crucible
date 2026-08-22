@@ -133,9 +133,13 @@ def regression_upper_bound(failures, denominator):
     THE FIGURE MOVED WITH THE DENOMINATOR. Ruling 43 took the benign suite from
     24 to 26, so the bound went 12.5% -> ~11.5%. It is COMPUTED here, from
     `BENIGN_DENOMINATOR`, precisely so it cannot be quoted against a corpus it
-    was not measured on. `README.md` and `docs/CONVENTIONS.md` section 4 still
-    say 12.5%; that is reported to the coordinator rather than rewritten here,
-    because which number is spoken on camera is a ruling, not a lane's edit.
+    was not measured on. `README.md` and `docs/CONVENTIONS.md` section 4 carried
+    12.5% for a day after ruling 43 and were corrected 2026-08-22 at
+    SPINE_VERSION 14; this function was right through both days without being
+    touched, which is the argument for deriving a number instead of restating it.
+    `contracts/run_manifest.schema.json:109` still carries 12.5% in a `$comment`
+    and is DELIBERATELY not corrected - editing it re-hashes contract C7, so it
+    is a recorded coordinator decision rather than a fix made in passing.
 
     Returns None rather than a softened number when a failure was observed,
     because the rule of three is a bound on an UNOBSERVED rate and simply does

@@ -12,6 +12,13 @@ issue_store_credit, `payout_instrument_id` is an argument of the first alone,
 and an unevaluable `when` RETAINS the rule. The loop would have halted and we
 would have reported that the shape did not transfer. It transferred. The
 language could not say so.
+
+BOTH FIGURES ARE ANNOTATED, NEVER RESCALED (2026-08-22). Every 20/24 and
+24/24 in this file is the same 2026-08-20 measurement, taken on the benign
+floor AS IT STOOD. Ruling 43 moved the floor to 26 and none of it was
+re-run. A measurement is reported against the ruler it was taken with;
+rescaling one to make a page look consistent falsifies the record. The
+LIVE denominator lives in `corpus/model.py::BENIGN_TOTAL`.
 """
 
 import pytest
