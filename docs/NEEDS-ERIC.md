@@ -6,6 +6,69 @@ list.** A decision that lives only in a transcript is gone at the next `/clear`.
 Nothing here is blocking the coordinator from other work — everything blocked is
 noted as such.
 
+**Swept against the repo 2026-08-22 (Day 3).** Items 1 and 3 closed; items 4 and 5 now have
+drafted answers waiting on your ratification rather than open questions waiting on your
+writing; item 9 was re-checked and is genuinely still open. **Two new items, 11 and 12, are
+above everything else on this list** — item 11 decides whether any run can score at all.
+
+---
+
+## 11. **G7c cannot be evaluated, and it gates whether any run scores.** · NEW 2026-08-22
+
+`holdout_touch_count` is derived from Cloud Audit Log data-access reads on the sealed
+holdout. **The live project has no `auditConfigs` block**, so those entries are not being
+written and the number does not exist to be read.
+`docs/proof/L3-real-gate-G7-G8-2026-08-22.txt` therefore records **16 assertions, 15 PASS,
+G7c UNEVALUABLE** — correctly. `contracts/gate_rule.v1.yaml:170` routes
+`absent_or_unevaluable` to **RUN INVALID**, so as things stand **a completed run scores
+nothing.**
+
+**Defaulting the counter to 0 is the one thing that must not happen.** It would print a
+green G7c computed from a sink that was never created — a check that cannot fail, which is
+the failure this project has catalogued more than any other.
+
+**Your call, and the options are not symmetric:**
+
+1. **Create the audit sink.** Enable `DATA_READ` (and `ADMIN_READ`) audit logging for
+   `storage.googleapis.com`. This is a project IAM-policy write and it bills log volume.
+   It also cannot be retroactive — nothing before it is turned on is knowable.
+2. **Accept G7c as permanently UNEVALUABLE and say so on camera**, treating the seal as
+   evidenced by the G7a impersonation 403s (which passed) plus the published commitment,
+   rather than by a touch counter. This is honest and it is weaker.
+3. Something else, but **not** a defaulted zero.
+
+> **A DEFECT IN THE SPEC, FOUND WHILE RESOLVING THIS, AND IT IS ALREADY SETTLED — recorded
+> so nobody re-opens it.** `measurement-spec.md` said the count was **all-time with a
+> ceiling of 2**, against its own `:869` which says
+> `holdout_touch_count == expected_for_this_phase`. **The hash-locked contract decides it:**
+> `contracts/gate_rule.v1.yaml:205` reads `expected_for_this_phase`, contracts outrank
+> `measurement-spec`, and that file was frozen at `cff9f52929397efb` before anything was
+> measured. The merits agree independently — the "2" counts the two legitimate *measurement
+> phases*, and one phase reads 18–24 sealed instances, so an all-time ceiling of 2 would
+> mark the run INVALID the first time it was used correctly. `measurement-spec.md` §7 guard
+> 2 is corrected; **no ruling is needed on that half.**
+
+---
+
+## 12. **Should the touch counter exclude the canary prefix?** · NEW 2026-08-22
+
+`gs://crucible-sealed-x7/families/_probe/canary.txt` is **not sealed material** —
+`infra/prove-armorer-403.sh` wrote it and says so in its own output — and it exists so the
+G7a impersonation probe has something to read that is not a sealed instance. But
+`real_gate._probe_argv` lists `families/**`, which matches the canary.
+
+**So if the counter counts everything under `families/`, the gate's own positive control
+increments the number the gate asserts.** Under the all-time-ceiling reading corrected in
+item 11, running the gate probe three times would have invalidated the run before a single
+measurement happened.
+
+**Proposed: scope the counter to objects under `families/` and EXCLUDE `families/_probe/`.**
+Small, and it is the kind of thing that is obvious once written down and invisible once
+shipped. It needs your word because it changes what a gate counts.
+
+*(Related and worth knowing: `python -m corpus` reports **`sealed: 0`**. No sealed instance
+exists yet, so nothing has been touched, because there is nothing to touch.)*
+
 ---
 
 ## 1. Fire the Cloud Run deploy · **CLOSED 2026-08-21** · was Stage One pass/fail
@@ -19,10 +82,26 @@ answered from the seeded record.
 Proof: `docs/proof/cloud-run-deploy-2026-08-21.txt`. Full write-up of the three
 defects it took to get there: `deploy/RUNBOOK.md`.
 
-**Two of the four postconditions remain, and both are screenshots** - the Trace
-Explorer span and the Cloud Run console page. Those are the pass/fail video
-requirement. Trace export is UNVERIFIED rather than failed: the legacy v1 trace API
-shows nothing, which it may simply be unable to see. The console settles it.
+**ALL FOUR POSTCONDITIONS CLOSED 2026-08-21** (commit `b4e060e`). Both screenshots are
+in `docs/proof/`: `cloud-run-console-2026-08-21.png` - service green, `us-central1`, URL
+readable, `Scaling: Auto (Min: 0, Max: 20)` - and `trace-explorer-spans-2026-08-21.png`,
+36 spans over 12 hours. **Nothing is owed on this item except using them on camera.**
+
+> **A caveat for the narration, not a reopening.** PC3 as written demanded *"an
+> `execute_tool` span carrying `gen_ai.agent.name`."* The span names visible in the
+> capture are `invocation`, `invoke_agent refund_agent`, `call_llm`,
+> `generate_content gemini-*`, `/run` and `/list-apps`. **`execute_tool` is not among
+> them** - the facet list is truncated behind "Show more", so it is not proven absent
+> either. Say *"the deployed agent's spans are in Cloud Trace"*, which the capture fully
+> supports. Do not say *"here is the `execute_tool` span"* unless someone re-opens the
+> console and confirms it.
+
+**How it closed is the finding.** Four separate times that day this project concluded "no
+traces exist" from an instrument that could not see them - three legacy
+`projects.traces.list` v1 queries and one console window that did not contain the episode.
+**Repeating a blind check is not a second opinion.** Changing the instrument settled it.
+`trace-explorer-1h-empty-window-2026-08-21.png` is kept deliberately as the negative
+control.
 
 **The Day-2 schedule paid for itself.** ADK bakes `GOOGLE_CLOUD_LOCATION=<region>`
 into the image, while the target pins the **global** endpoint and hashes
@@ -56,7 +135,7 @@ only **2 of the 10** do (F5-09, F5-10). This is a known, reported deviation — 
 
 ---
 
-## 3. The D2 gate-rule freeze · **item 2 is now settled — ready to fire**
+## 3. The D2 gate-rule freeze · **CLOSED 2026-08-21 — FIRED**
 
 Your ruling was "hold until GX5 is completed." GX5 landed (ruling 42,
 `SPINE_VERSION 10`, contract C4 re-hashed, suite green).
@@ -69,11 +148,17 @@ longer applies — the gate rule should be drafted (or corrected, if already dra
 against the old counts) to pin `bpr == "26/26"` and `near_miss_bpr == "14/14"`
 before it is hash-locked.
 
-Dry run reads `834bc7113a13beea`. One command, now that item 2 is settled.
+**Fired 2026-08-21, and it pinned the corrected counts.** `contracts/gate_rule.v1.yaml:90-91`
+carries `bpr == "26/26"` and `near_miss_bpr == "14/14"`, so the freeze did **not** decide item 2
+by side effect - which was the whole reason it was held. Frozen `gate_rule_hash`
+**`cff9f52929397efb`**, recorded with its commit and timestamp in
+`docs/proof/d2-gate-rule-freeze.json`. *(The dry run read `834bc7113a13beea`. That value is now
+DEAD - it is the pre-correction draft - and it still sits as a synthetic literal in
+`scripts/make-golden.py`'s C7 fixture, where it is fixture data rather than a claim.)*
 
 ---
 
-## 4. Track fit — the honest problem · **Stage One pass/fail**
+## 4. Track fit — the honest problem · **ANSWER DRAFTED 2026-08-21, AWAITING YOUR CALL**
 
 Fortified Enterprise Fleet asks for *"a scalable network of institutional agents"*
 that *"maintain context across weeks of asynchronous operations."*
@@ -87,9 +172,16 @@ submission text should meet the track's own language head-on rather than route
 around it. This is a writing problem, not a building one. `docs/contest/CONTEST.md`
 §3 lays out the options.
 
+**The deeper answer now exists and needs ratifying rather than writing.**
+`docs/contest/track-fit.md` (2026-08-21) breaks the track language into five separately
+checkable requirements, says where CRUCIBLE meets each, partially meets it, or does not,
+tests three candidate framings, names what we will explicitly refuse to claim, and carries
+draft submission text. **What is still yours: pick the framing.** Nothing in that document
+is a result, and it says so on its own first page.
+
 ---
 
-## 5. The "unlikely hero" · currently scoring zero
+## 5. The "unlikely hero" · **PERSONA DRAFTED 2026-08-21, AWAITING YOUR CALL**
 
 A named Stage Two sub-criterion for this track: *"Did they build this for an
 'Unlikely Hero' outside of standard corporate roles?"* No persona exists anywhere
@@ -102,6 +194,12 @@ genuinely who this serves.
 
 A persona invented to satisfy a rubric reads exactly like a persona invented to
 satisfy a rubric, so this is yours rather than mine.
+
+**It has been written down: `docs/contest/unlikely-hero.md` (2026-08-21).** It names exactly
+the operations lead described above — someone who did not build the refund agent they now run,
+whose question is not "does it work" but "do I give it the company card". It reports no results
+and says so in its own header. **Still yours: whether this persona is true enough to say out
+loud, or whether it reads as rubric-chasing.** That judgement has not been made for you.
 
 ---
 
@@ -154,10 +252,15 @@ three sites — the rule, `corpus/pairs.json`, and `architecture-spec.md`.
 > hypothesis ledger.
 ---
 
-## 9. `ORD-13` / `ORD-14` were authored after your review pass
+## 9. `ORD-13` / `ORD-14` were authored after your review pass · **STILL OPEN 2026-08-22**
 
 So *"the ordinary benign set was reviewed"* is not true of the set as it stands.
 Two fixtures to skim.
+
+**Re-checked 2026-08-22: still open.** The two retirements they replaced have a ratification
+record (`docs/proof/benign-retirement-ratification.md`) and the sealed family has one; these
+two have neither. That file's own closing paragraph asks for exactly this before D5. **It is
+two fixtures, and it stands between the corpus and a true sentence about it.**
 
 ---
 
@@ -196,3 +299,14 @@ actually demonstrate.
   loaded weapon pointed at the demo.
 - **Two retired benign fixtures** ratified.
 - **The sealed family** ratified at 24, commitment published.
+- **The D2 gate-rule freeze** fired 2026-08-21 — item 3 above, `cff9f52929397efb`.
+- **The Cloud Run screenshots** captured 2026-08-21 — item 1 above. **The video is now the
+  only Stage One deliverable that does not exist.**
+- **The Objective Set freeze** fired 2026-08-22 — the fourth of five hash-locks,
+  `19493e53a6d79d0b`, ruling 44, `SPINE_VERSION 12`. Your ruling that day also corrected C10
+  itself: the contract argued its annotations were inside the hash and **won on precedence**,
+  then lost anyway, because the value it would have frozen is one no episode can ever carry.
+- **The target re-freeze** fired 2026-08-22 after `delegate_to_specialist` was repaired:
+  `target_agent_hash` **`bad2bcb62b3ebbee`**, `manifest_hash` **`2bc12fd8608a0bcf`**.
+  **The finding was not the re-freeze.** A hash-locked package changed, the hash moved, and
+  1011 tests stayed green with `contract-check` ALL PASSES OK. A skew detector now catches it.

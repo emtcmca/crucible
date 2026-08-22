@@ -569,7 +569,11 @@ The only thing reaching Firestore is a post-run redacted summary, written **afte
                                                  // pass and missed here. Only 5 of the 9
                                                  // are breach fixtures; KB8 must return
                                                  // CLEAN, so "all failed" is FALSE.
-    "sep_by_split": { "policy": 18, "oracle": 4 },  // ruling 17: printed with every
+    "sep_by_split": { "policy": 21, "oracle": 3 },  // ruling 17: printed with every
+                                                    // ILLUSTRATIVE. Corrected 2026-08-22 from
+                                                    // 18/4, which is the TARGET; 21/3 is what
+                                                    // `python -m corpus` measures. Read it from
+                                                    // the tool, never from this example.
                                                     // ASR and BPR figure, permanently
     "validator_pass": true,
     "coroner_no_fix_proposed": true
@@ -1309,7 +1313,10 @@ crucible.round                                     [orchestrator]
 │      ↳ LINKS → each coroner.autopsy span consumed
 ├── crucible.warden.regression                     benign_pass_rate,
 │                                                  known_bad_expected_verdict_rate
-│   └── crucible.fixture.run (×33)                 fixture_id, result
+│   └── crucible.fixture.run (×35)                 fixture_id, result
+│                                                   26 benign + 9 known-bad. Was 33 (24+9);
+│                                                   corrected 2026-08-22 to match 1.13, which
+│                                                   already said 35 in this same file.
 ├── crucible.gate.decide                           decision, criteria
 └── crucible.promotion
     ├── crucible.promotion.write                   gcs_generation
@@ -1320,7 +1327,7 @@ crucible.round                                     [orchestrator]
 
 **Attributes** are namespaced `crucible.*` and carried on every span: `run_id`, `round_index`, `phase`, `policy_version`, `policy_hash`, `attack_id`, `attack_family_id`, `capability_classes` (sorted comma-joined — array attributes flatten inconsistently in Cloud Trace, and a sorted comma string is greppable and stable), `actor`, `actor_sa`, `tool.fqname`, `tool.decision`, `tool.denied_by_rule_id`, `tool.amount_minor`, `breach`, `breach_id`, `autopsy_id`, `proposal_id`, `patch_hash`, `gate.decision`, `assert.status`, `assert.recomputed_hash`, and `sealed` (**always `false`** on the telemetry trace; sealed evaluation emits its own trace).
 
-**Span budget:** ~700/round × **6 rounds** ≈ 4,200 per run; ~40 runs ≈ **168,000**, against 2.5M/month free. *(Recomputed 2026-08-20 at 6 attacks and 33 fixture outcomes per round; **round cap 6**, raised from 4 by ruling 10. 24 of the 33 fixture outcomes are now replays rather than live episodes, so the real span count is lower than this ceiling.)* Cloud Run auto-spans are non-chargeable. **$0**, with more than 20× headroom. If exceeded, sample `crucible.fixture.run` at 10% — the bulk and the least interesting.
+**Span budget:** ~700/round × **6 rounds** ≈ 4,200 per run; ~40 runs ≈ **168,000**, against 2.5M/month free. *(Recomputed 2026-08-20 at 6 attacks and 33 fixture outcomes per round; **round cap 6**, raised from 4 by ruling 10. 24 of the 33 fixture outcomes are now replays rather than live episodes, so the real span count is lower than this ceiling. **Ruling 43 moved fixture outcomes to 35 per round — 26 benign + 9 known-bad, 26 of them replays. The budget above is deliberately NOT recomputed: two more fixtures against 20× headroom cannot move a $0 conclusion, and a recomputation with no consequence is a number nobody re-checks. Recompute at 35 only if the headroom ever becomes the question.**)* Cloud Run auto-spans are non-chargeable. **$0**, with more than 20× headroom. If exceeded, sample `crucible.fixture.run` at 10% — the bulk and the least interesting.
 
 **Cardinality guard:** never put an unbounded value into an attribute name, and never put raw tool arguments into an attribute value. `args_hash` on the span; redacted args to BigQuery; full transcript to GCS. **Three homes, decreasing exposure, increasing detail.**
 
@@ -1453,7 +1460,8 @@ The target is a refund agent; its tool arguments are customer-shaped by construc
 > **6** (ruling 10). (2) **The old $3.20/run figure was understated by roughly 10×** in the way
 > that mattered: it was computed against a round's *attacks only*, and **the ledger had no line at
 > all for benign or known-bad fixture episodes** — the half this project calls load-bearing.
-> (3) **Ruling 11 then removed 24 of those from every round**, which is what made raising the cap
+> (3) **Ruling 11 then removed the benign live episodes from every round** — 24 at the time, **26
+> after ruling 43** — which is what made raising the cap
 > affordable: **six rounds under the new shape cost less than four rounds under the old one.** The
 > corrected episode ledger is `measurement-spec.md` §2.3 (**≈500 episodes ≈ 6M tokens**); **use
 > that, not this table**, for any budget decision. The `$160` cap and the 40M token ceiling are
@@ -1591,4 +1599,4 @@ Units 1, 2, and 4 are the security spine. **If day 6 arrives and they are not do
    (ruling 22).** Decided on the merits, not on precedence, because the contradiction is
    intra-document. See §1.2.
 
-7. **~~New, and blocking~~ — DONE 2026-08-20, and `CONVENTIONS.md` §10 is authoritative.** The SDK is **581.0.0, core 2026-08-14** (read back from `gcloud version`, not from the updater's exit code). The active project is **`crucible-hack-2026`** — *`litt-hackathon` is dead vocabulary here.* Firestore `(default)` is native in `us-central1` and **its location is permanent**; three buckets are live with UBLA on and PAP enforced; **no service accounts and no IAM bindings exist yet, deliberately** — a binding against a non-existent principal is the failure that looks like success. **`gcloud ai agents` still does not exist at 581.0.0**, re-checked across GA, beta, and alpha. ~~so §7.3's teardown must be rewritten against the Vertex AI SDK/REST or dropped~~ — **that was already done, and this sentence went stale asserting otherwise. Closed 2026-08-20:** §7.3 contains zero calls to it and three correction notes. `gcloud ai` does carry `custom-jobs`, `endpoints`, `hp-tuning-jobs`, `index-endpoints`, `indexes`, `model-garden`, so §7.3's surviving `gcloud ai` lines are valid. **A separate, live defect was found while confirming this** — §7.3's `run services delete` named six of the eleven services, and the verification line after it read `gcloud run services list`, which would have reported empty because it was read after deleting exactly the six that were named. Fixed in place. **See also `CONVENTIONS.md` §10a:** every new GCS bucket carries default legacy `projectViewer`/`projectEditor` bindings, so a project-level *basic* role grants READ on the sealed bucket **with no binding naming it** — G7(b) and G8 as written are necessary but not sufficient.
+7. **~~New, and blocking~~ — DONE 2026-08-20, and `CONVENTIONS.md` §10 is authoritative.** The SDK is **581.0.0, core 2026-08-14** (read back from `gcloud version`, not from the updater's exit code). The active project is **`crucible-hack-2026`** — *`litt-hackathon` is dead vocabulary here.* Firestore `(default)` is native in `us-central1` and **its location is permanent**; three buckets are live with UBLA on and PAP enforced; ~~**no service accounts and no IAM bindings exist yet, deliberately** — a binding against a non-existent principal is the failure that looks like success~~ **— SUPERSEDED 2026-08-22. The service accounts and their bindings now exist and have been read back from the live project.** `docs/proof/L3-real-gate-G7-G8-2026-08-22.txt` evaluates **16 IAM assertions, 15 PASS and 1 UNEVALUABLE (G7c)**, naming `crucible-gate`, `crucible-armorer`, `crucible-red`, `crucible-coroner` and `crucible-sealed-eval` as principals; `crucible-target` is the Cloud Run runtime identity from the 2026-08-21 deploy. **The provisioned set is smaller than §4.1's eleven-row map, which is the design and not an inventory** — do not read that table as a statement of what exists. **`gcloud ai agents` still does not exist at 581.0.0**, re-checked across GA, beta, and alpha. ~~so §7.3's teardown must be rewritten against the Vertex AI SDK/REST or dropped~~ — **that was already done, and this sentence went stale asserting otherwise. Closed 2026-08-20:** §7.3 contains zero calls to it and three correction notes. `gcloud ai` does carry `custom-jobs`, `endpoints`, `hp-tuning-jobs`, `index-endpoints`, `indexes`, `model-garden`, so §7.3's surviving `gcloud ai` lines are valid. **A separate, live defect was found while confirming this** — §7.3's `run services delete` named six of the eleven services, and the verification line after it read `gcloud run services list`, which would have reported empty because it was read after deleting exactly the six that were named. Fixed in place. **See also `CONVENTIONS.md` §10a:** every new GCS bucket carries default legacy `projectViewer`/`projectEditor` bindings, so a project-level *basic* role grants READ on the sealed bucket **with no binding naming it** — G7(b) and G8 as written are necessary but not sufficient.

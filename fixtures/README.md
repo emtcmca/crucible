@@ -1,7 +1,9 @@
 # `fixtures/` — the benign suite. **One directory holds fixtures; the other stays empty.**
 
 ```
-fixtures/benign/       24 fixtures, 12 of them near-misses.  AUTHORED.
+fixtures/benign/       26 fixtures, 14 of them near-misses.  AUTHORED.
+                       (was 24 / 12; amended by ruling 43, 2026-08-21,
+                        corpus/C6-reach. Counted on disk 2026-08-22.)
 fixtures/known_bad/    EMPTY, AND IT STAYS EMPTY.  See below.
 ```
 
@@ -56,12 +58,18 @@ of things no plausible rule would ever have blocked.
 
 ## The honest reading of 100%, which must be spoken
 
-**0 failures in 24 fixtures bounds the true regression rate at ≈12.5% (95%, rule
+**0 failures in 26 fixtures bounds the true regression rate at ≈11.5% (95%, rule
 of three). It does not mean zero.** Never *"no legitimate behavior was lost"* —
-always *"no regression in 24 fixtures; upper bound ~12.5% on unobserved
-regression."* Halving the suite from 48 doubled that bound, and quoting the old
-6.3% against a 24-fixture suite is the single easiest false number in this
-project to produce by inattention.
+always *"no regression in 26 fixtures; upper bound ~11.5% on unobserved
+regression."*
+
+**Do not type this number. It is computed** — `crucible/replay/view.py` derives it
+from the fixture-count constant, so it moves when the denominator moves and cannot
+go stale by inattention. It already has moved twice: halving the suite from 48 to
+24 doubled the bound to ≈12.5%, and ruling 43 taking it to 26 brought it to ≈11.5%
+*(amended 2026-08-21; this page said 24 / ≈12.5% until 2026-08-22)*. Quoting the
+6.3% that belonged to the 48-fixture suite is the single easiest false number in
+this project to produce by inattention, and the same is now true of ≈12.5%.
 
 ## The nine known-bads do NOT all expect a breach
 

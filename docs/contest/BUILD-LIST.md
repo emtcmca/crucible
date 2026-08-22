@@ -7,6 +7,11 @@ names the criterion it scores against, so an item that cannot name one gets cut.
 Opened 2026-08-21 (Day 2). Sources: the contest rules, and the Codex review
 dispositioned in `docs/codex-review-2026-08-21.md`.
 
+**Swept against the repo 2026-08-22 (Day 3), on `lane/D3-accuracy-sweep` at
+`625d38b`.** Every state cell below carries a date, because an undated state cell
+is the exact claim that rots — `CONTEST.md` §2 already records a stale row
+scheduling work that was finished the day before.
+
 Legend — **[S1]** Stage One pass/fail · **[40]** innovation · **[30A]**
 architectural discipline · **[30D]** demo and documentation · **[B]** Stage Three
 bonus.
@@ -18,11 +23,11 @@ bonus.
 | # | Item | Scores | State |
 |---|---|---|---|
 | T0-1 | **Architecture diagram** | **[S1] [30D]** | **DONE 2026-08-21.** `docs/diagrams/architecture.md`, six Mermaid diagrams, all rendered and validated. Round loop inlined in the README. Seven unbuilt components drawn dashed and named |
-| T0-2 | **First Cloud Run deploy**, with console and Trace Explorer captures into `docs/proof/` | **[S1] [30D]** | **DEPLOYED 2026-08-21**, `crucible-00003-t2q`, authenticated, running as `crucible-target`. `/list-apps` returns `["refund_agent"]` and one full episode ran end to end. PC1 and PC2 pass; **the two SCREENSHOTS remain** and they are the pass/fail half. Proof: `docs/proof/cloud-run-deploy-2026-08-21.txt`. Three real defects on the way, written up in `deploy/RUNBOOK.md` |
-| T0-3 | **Visible Google Cloud proof in the video** — the backend running, on camera | **[S1] [30D]** | **Unblocked 2026-08-21.** Needs two captures into `docs/proof/`: the Cloud Run console page, and an `execute_tool` span in Trace Explorer (which also settles PC3, currently UNVERIFIED). **New option same day:** ADR-0012's ban on `--with_ui` on camera is LIFTED — the #4704 probe shows the plugin fires and blocks on `run_live` too, so the recording can show real enforcement through the ADK web UI. Narrate the boundary: the demo may use a path the measurement does not |
+| T0-2 | **First Cloud Run deploy**, with console and Trace Explorer captures into `docs/proof/` | **[S1] [30D]** | **DONE 2026-08-21. All four postconditions closed.** `crucible-00003-t2q`, authenticated, running as `crucible-target`. `/list-apps` returns `["refund_agent"]` and one full episode ran end to end. **Both screenshots landed 2026-08-21** (`b4e060e`): `docs/proof/cloud-run-console-2026-08-21.png` and `docs/proof/trace-explorer-spans-2026-08-21.png`. Transcript: `docs/proof/cloud-run-deploy-2026-08-21.txt`. Three real defects on the way, written up in `deploy/RUNBOOK.md` |
+| T0-3 | **Visible Google Cloud proof in the video** — the backend running, on camera | **[S1] [30D]** | **Captures DONE 2026-08-21; the on-camera use of them is owed by the video (T0-6).** The console shot shows the service green in `us-central1` with the URL readable and `Scaling: Auto (Min: 0, Max: 20)`; the trace shot shows 36 spans over 12 hours. **Read the caveat before scripting the narration:** the span names visible in the capture are `invocation`, `invoke_agent refund_agent`, `call_llm`, `generate_content gemini-*`, `/run`, `/list-apps` — **`execute_tool`, the span PC3 was written to demand, is not among them** (the facet list is truncated behind "Show more", so it is not proven absent either). Say "the deployed agent's spans are in Cloud Trace", not "here is the `execute_tool` span", unless someone re-opens the console and confirms. **New option 2026-08-21:** ADR-0012's ban on `--with_ui` on camera is LIFTED — the #4704 probe shows the plugin fires and blocks on `run_live` too, so the recording can show real enforcement through the ADK web UI. Narrate the boundary: the demo may use a path the measurement does not |
 | T0-4 | **`README.md` spin-up instructions** | **[S1] [30D]** | **DONE 2026-08-21.** 810 lines, every command run and its real output pasted, four items marked UNVERIFIED with what would settle each. Cold-clone verification still owed on D10 |
 | T0-5 | **Findings and learnings** section in the submission text | **[S1]** | **DONE 2026-08-22.** `docs/devpost/findings-and-learnings.md`, five findings, each traceable to a commit SHA or file path, none of them a result. **The real gap in row 2 was not findings.** It asks for *features, technologies, data sources* as well, and `project-story.md` named **zero** Gemini models, zero Google agent frameworks and zero Google Cloud services — verified by grep, all four terms return 0. The mandatory *technology* requirement was always satisfied by the code; the *description* requirement was not, and it is a pass/fail row. Stack and data provenance now carried in the findings file, read out of source. Firestore and BigQuery deliberately NOT listed as used |
-| T0-6 | **The 4-minute video**, public, English | **[S1] [30D]** | script exists, not recorded |
+| T0-6 | **The 4-minute video**, public, English | **[S1] [30D]** | script exists, **not recorded as of 2026-08-22 — the only Stage One deliverable still missing** |
 
 **T0-2 landed 2026-08-21, and it paid for the schedule.** `execution-spec` put the
 first deploy on Day 2 *specifically* to de-risk the most demo-fatal unknown eight
@@ -32,7 +37,17 @@ days early. It found four things. The worst: ADK bakes
 deployed agent was resolving its model through a different endpoint than the
 measured one. Found with nine days of slack; found on Day 10 it is the demo.
 
-**T0-3 is now the slipping item**, and it is two screenshots.
+**Both screenshots landed the same evening (2026-08-21, `b4e060e`), so T0-3 is no
+longer the slipping item. As of 2026-08-22 the video is the only Stage One
+deliverable that does not exist.**
+
+The way the screenshots were finally obtained is itself a finding worth keeping:
+**four separate times that day this project concluded "no traces exist" from an
+instrument that could not see them** — three legacy `projects.traces.list` v1
+queries and one console window that did not contain the episode. Repeating a
+blind check is not a second opinion. Changing the instrument settled it.
+`trace-explorer-1h-empty-window-2026-08-21.png` is kept on purpose as the
+negative control.
 
 ---
 
@@ -40,14 +55,19 @@ measured one. Found with nine days of slack; found on Day 10 it is the demo.
 
 | # | Item | Scores | Cost |
 |---|---|---|---|
-| T1-1 | **Publish a build write-up** on a public platform, stating in the text that it was created for this hackathon | **[B] +0.2** | an afternoon |
-| T1-2 | **Public social post** with `#AllThingsAgenticHackathon` | **[B] +0.2** | minutes |
-| T1-3 | **Gemma** — **NOT built and NOT scheduled, despite `ADR-0009`.** Gemma appears in no code anywhere, and `CAPABILITY_CARTOGRAPHER`, its architectural home, has no module. Worse, the ADR scripts an on-camera line saying the corpus *is* Gemma-generated; the corpus was authored by the lane agents and carries no generator, seed or provenance field. See `docs/NEEDS-ERIC.md` item 10 | **[B] +0.2** | real work, and the line must change either way |
+| T1-1 | **Publish a build write-up** on a public platform, stating in the text that it was created for this hackathon | **[B] +0.2** | an afternoon. **NOT DONE, and NOT to be marked done by the Devpost updates.** Updates 3 and 4 went public 2026-08-22 — but **Devpost is the submission platform**, and `CONTEST.md`'s bonus row plausibly requires content published *off* it. **The ambiguity is unresolved and is recorded rather than assumed in either direction**; assuming it counts is how a bonus gets claimed and disallowed |
+| T1-2 | **Public social post** with `#AllThingsAgenticHackathon` | **[B] +0.2** | minutes. **Still unclaimed as of 2026-08-22 — nothing has been published carrying the tag** |
+| T1-3 | **Gemma** — **NOT built. The false claim is withdrawn; whether Gemma gets a real job is still open.** `ADR-0018` (2026-08-21) supersedes `ADR-0009` and withdraws the "the corpus is Gemma-generated" line; `ADR-0009` stays on disk unedited below its status line, because the record of a claim made, checked and withdrawn is worth more than a document that appears always to have been right. Gemma still appears in no code and `CAPABILITY_CARTOGRAPHER` still has no module. **The +0.2 is therefore NOT currently claimable.** See `docs/NEEDS-ERIC.md` item 10 | **[B] +0.2** | real work, and the on-camera line has already been changed |
 | T1-4 | **A second additional Google model.** Cheapest honest candidate: `gemini-embedding-001` for near-duplicate detection across generated attacks, which is a real need and not decoration | **[B] +0.2** | small |
 | T1-5 | **A third.** Only if it does real work. **Do not bolt on Veo or Lyria to farm 0.2** — a decorative integration reads as decorative and costs credibility on the 30% criteria | **[B] +0.2** | judgment call |
 
 **Up to a full point on a five-point scale.** T1-1 and T1-2 alone are +0.4 for
 about an afternoon, and Eric already writes publicly.
+
+**As of 2026-08-22 the entire bonus is unclaimed.** T1-3's +0.2 is not currently claimable at
+all — `ADR-0018` withdrew the Gemma claim. T1-1's status turns on a question nobody has
+answered: whether a write-up on the submission platform itself counts. **T1-2 is the one with
+no ambiguity and no dependency, and it is still not done.**
 
 ---
 
@@ -58,6 +78,21 @@ about an afternoon, and Eric already writes publicly.
 **Opened 2026-08-21. This is the largest scored gap in the project and it was
 living in a source-file header rather than on this list.**
 
+> **THREE OF THE FOUR ARE WIRED AS OF 2026-08-22.** The target, the tripwire and
+> the warden are driven by `campaign.py` — verified by running it, not by reading
+> it: the banner prints `target: REAL`, `tripwire: REAL … 9 clauses, hash
+> 19493e53a6d79d0b`, `warden: REAL. The 26-fixture benign suite, 14 near-misses.
+> policy@v0 scores 26/26 (near-miss 14/14)`.
+>
+> **The GATE is the one that is left, and the distinction matters.**
+> `crucible/conductor/real_gate.py` is authored and tested, and G7/G8 were
+> evaluated against the live project for the first time on 2026-08-22
+> (`docs/proof/L3-real-gate-G7-G8-2026-08-22.txt`, 16 assertions, **15 PASS, G7c
+> UNEVALUABLE**). But `campaign.py:516` still reads `promote=lambda c, r: True`
+> and the banner still prints `gate: STAND-IN`. **Authored is not wired** — this
+> list already made that mistake once, in the Tier 4 entry below, and reported
+> three adapters as replaced when `campaign.py` imported none of them.
+
 `crucible/conductor/campaign.py` runs the loop unattended to a recorded
 termination, and its own docstring is admirably honest about what is real:
 
@@ -66,10 +101,10 @@ termination, and its own docstring is admirably honest about what is real:
 | RED_STRATEGIST, CORONER, ARMORER | **real**, each on its pinned model, firing in sequence |
 | DSL parser, validator, POLICY_ENGINE, canonicalizer | **real** |
 | BUDGET_GOVERNOR, round protocol, five hash-locks, halt conditions | **real** |
-| **the TARGET** | stand-in. `target/refund_agent` is not driven |
-| **the TRIPWIRE** | ~~stand-in~~ **DONE 2026-08-21**, `crucible/conductor/real_tripwire.py` |
-| **the WARDEN** | stand-in. Four lane-authored shapes, not the 26 benign / 14 near-miss |
-| **the GATE** | stand-in. No GCS, no IAM. **G7 and G8 cannot be exercised at all** |
+| **the TARGET** | ~~stand-in~~ **WIRED 2026-08-22**, `real_target.py`. The real `LlmAgent`, eight real tools, `refund_policy.md` verbatim, a fresh seeded record per episode, `CruciblePlugin` enforcing. Every episode is now SEALED and therefore scoreable. **Its model is still scripted without `--live`** — everything downstream of the model is real, but a scripted model is not persuadable, so an offline run measures ENFORCEMENT and nothing about susceptibility |
+| **the TRIPWIRE** | ~~stand-in~~ **WIRED 2026-08-22**, `real_tripwire.py` (authored 08-21). `Objective_Set.matches` over the ordered `TOOL_EXECUTED` list, 9 clauses, `objective_set_hash 19493e53a6d79d0b` |
+| **the WARDEN** | ~~stand-in~~ **WIRED 2026-08-22**, `real_warden.py`. The 26-fixture benign suite with its 14 near-misses, replayed through the real engine |
+| **the GATE** | **STILL A STAND-IN as of 2026-08-22.** `campaign.py:516` is `promote=lambda c, r: True`. `real_gate.py` is authored and tested against a local blob store; it has never run against GCS and is not imported by `campaign.py`. G7/G8 have now been *evaluated* out-of-band (15/16, G7c UNEVALUABLE) but are still not *exercised by the loop* |
 
 **Why this scores, and on all three criteria.** The three model agents were
 already real; the four STAND-INS are the pure-code arbiters — and "no model ever
@@ -91,12 +126,14 @@ clean signature, so each replacement is a drop-in adapter in its own file.
 `breached = episode["_decision"] == ALLOW` — it asked the policy whether the
 policy had stopped something. Circular, and the exact inverse of the claim.
 
-**Known integration gap, found while wiring the tripwire:** `campaign.py` calls
-`seal_episode` **zero** times, and `harness/episode.py::seal_episode` refuses an
-episode whose run manifest lacks `objective_set_hash`, `manifest_hash` and
-`derived_schema_hash` — "unscoreable rather than clean, G1(b)." So the real
-tripwire against the current stand-in target scores every episode INVALID. That
-is the harness working, and it lands on the target replacement.
+**Known integration gap, found while wiring the tripwire — CLOSED 2026-08-22 by
+the target replacement, exactly where it was predicted to land.** `campaign.py`
+called `seal_episode` **zero** times, and `harness/episode.py::seal_episode`
+refuses an episode whose run manifest lacks `objective_set_hash`,
+`manifest_hash` and `derived_schema_hash` — "unscoreable rather than clean,
+G1(b)" — so the real tripwire against the stand-in target scored every episode
+INVALID. `real_target.py` now owns the seal (`real_target.py:29-31`: "sealing is
+the target adapter's job"), and an offline campaign run reports `invalid 0`.
 
 **Refused:** loosening G1(b) so unsealed episodes score. The gate that refuses to
 score an unsealed episode is the one keeping the pre-registration claim true.
@@ -186,6 +223,62 @@ maintaining "context across weeks of asynchronous operations." Pretending otherw
 is worse than addressing it. **Eric's call**, and it is a writing problem rather
 than a building one.
 
+### T2-7 · A judge-openable web surface, in two parts · **added 2026-08-22**
+
+**Nobody is assigned to either part.** Part B is **in progress as of 2026-08-22**, no owner
+named.
+
+This closes a Stage One gap that is currently written down as a gap: `CONTEST.md` deliverable
+8 reads *"authenticated, so it is not yet a URL a judge can open."*
+
+#### Part A — the replay viewer over a committed evidence bundle · **[30D]**
+
+A static page plus a bundle JSON on GitHub Pages. **No credentials, no backend.** Largely
+packaging rather than building: **T2-1 already scopes the attack-surface graph as "a script
+that renders hashed evidence"**, and the replay viewer already exists and already refuses a
+damaged bundle.
+
+**It depends on a real evidence bundle existing, so it is D10 work and not now.** Building the
+page first would mean pointing it at a fixture, and a viewer demonstrated against a fixture is
+the thing this project spent a whole day learning to distrust.
+
+#### Part B — "Open in Cloud Shell" · **[40] [30A]**
+
+A one-click button that opens the repo in the judge's own Cloud Shell with a guided tutorial
+pane. Verified against Google's documentation on 2026-08-22
+(`docs.cloud.google.com/shell/docs/open-in-cloud-shell` and `.../shell/docs/quotas-limits`).
+
+- Base `shell.cloud.google.com`; **`cloudshell_git_repo` is required**;
+  **`cloudshell_tutorial`** launches a Markdown file as the guided pane. Also available:
+  `cloudshell_workspace`, `cloudshell_open_in_editor`, `cloudshell_print`, `cloudshell_image`,
+  `ephemeral`, `show`.
+- Free tier **50 hours/week**, **5 GB** persistent `$HOME`, terminates after **40 minutes
+  idle**, **12-hour** session cap.
+
+> **THE GOTCHA, RECORDED BEFORE IT COSTS ANYTHING: `cloudshell_git_branch` DEFAULTS TO
+> `master` WHEN OMITTED, AND OUR DEFAULT BRANCH IS `main`.** Omit it and the button 404s —
+> and **the judge finds that, not us.** Google's docs call the parameter optional; for this
+> repo it is mandatory. **Verify the assembled URL by OPENING it, not by reading it.** A URL
+> that parses is not a URL that resolves, and this repo's standing rule is that a tool's own
+> success message is not evidence.
+
+**Why Cloud Shell rather than StackBlitz, in order of weight:**
+
+1. **The judge authenticates as themselves, so no credential is shipped.** That was the entire
+   objection to a browser sandbox, and it is the objection a hardening harness cannot afford to
+   wave away.
+2. **It runs the real modules on a real VM**, not a WASM port that could diverge from what the
+   measurement ran.
+3. **`cloudshell_tutorial` turns Stage One deliverable 4 from DESCRIBED into DEMONSTRATED.**
+
+**The tutorial runs ONLY zero-model-call components** — the tripwire selftest, the nine
+known-bads returning their per-fixture verdicts, the validator refusing a rule containing a
+payload string, and a render over a committed bundle. **It must NOT attempt the full loop**,
+which needs the judge's own billing.
+
+**Pyodide stays as a later fallback**, with one real advantage over Cloud Shell: **no login at
+all.**
+
 ---
 
 ## Tier 3 — refused, and worth saying why
@@ -201,23 +294,40 @@ turns them from absences into decisions.
 | Live attack-surface discovery | Nothing to discover, deliberately — see T2-1 |
 | A rolled-up Crucible Score | See T2-2 |
 | Attack genome / harvested corpus | Post-hackathon. Ours is authored rather than harvested so it is reproducible and hashable |
+| **Running the real loop in a browser** *(refused 2026-08-22, with T2-7)* | Four reasons and the last one settles it. The loop is **Python**, and WebContainers run Node. It needs **Vertex, GCS, IAM and Firestore** — none of which exist in a browser sandbox. It is roughly **500 episodes and ~6M tokens**, which is not a page load. And it would mean **shipping a credential into a browser** — for a harness whose entire subject is agents holding permissions they should not, that is the failure it exists to warn about |
+| **A sandbox that replays canned output while appearing live** *(refused 2026-08-22, with T2-7)* | `ADR-0010` already names *"a replay looking like live"* as the one version that could actually cost us. A replay clearly labelled as a replay is fine and is what Part A is. The refusal is of the unlabelled kind |
 
 ---
 
 ## Tier 4 — open threads that are not scored but block scored work
 
-- **D5 corpus freeze** — hash the corpus and Part B, upload sealed to GCS, hash into the D5 post. **Must land before the first patch is written.**
-- **The first real loop run.** Compute-heavy, and it produces every number.
-- **D2 gate-rule freeze** — held pending GX5; GX5 is now landed, so this is unblocked.
-- **`corpus/C6-reach` branch — MERGED 2026-08-21.** Four instances that make `CAP_INVOKES_AGENT` reachable. Eric ruled to amend the two frozen counts it broke (F5 8→10, benign 24→26, near-miss 12→14) rather than retire instances. `measurement-spec.md` §1.3's ≥3-routing requirement is still unmet (2 of 10) — a known, reported deviation.
-- **`r_new3` fails validator V4** — names `status_to` values Part A does not declare. Both P03 instances are already inside the declared enum, so it is a rule rewrite with no corpus change.
-- **`ALLOW` / `allow`** — `engine.py:165` compares `!= "ALLOW"`; all 269 authored trace events spell `"allow"`. Any prefix reaching the engine without `corpus/model.py::canonical_decision` makes every `preceded_by` read false and takes P11 through P14 with it.
-- **ADR-0010 vs "unedited, live execution"** — see `CONTEST.md` §4.
-- **`ORD-13` / `ORD-14`** were authored after Eric's review pass, so "the benign set was reviewed" is not true of the set as it stands.
-- **`objective_set_hash` — the FOURTH hash-lock, and a D3 HARD STOP that has not fired.** `execution-spec.md` Day 3 item 4b requires the Objective Set authored, canonicalized, hashed and written into the run manifest **today**. The only instance on disk is `tests/golden_traces/objective_set.json`, which self-labels **"HAND-WRITTEN DEVELOPMENT INSTANCE"** in its own `_status` field and carries nine clauses, **none with a `clause_id`**. The `e30c7a51bb92f4d8` in `contracts/golden/C5`–`C10`, `docs/data-spec.md:126` and `scripts/make-golden.py:26` is that fixture's placeholder; `campaign.py:145` writes sixteen zeros. There is a `scripts/freeze-d2-gate-rule.py` and no equivalent for C10. **On the critical path to the first scoreable episode** — `crucible/harness/episode.py:72` refuses to seal without it.
-- **`derived_schema_hash` — the FIFTH hash-lock**, capability manifest Part B, split out by ruling 20 and scheduled at D5 *gated on the label-blindness check passing*. Also demanded by `episode.py:72`, so it is on the same critical path. Was not in flight at all until 2026-08-22.
-- **The three real adapters are AUTHORED BUT NOT WIRED.** `crucible/conductor/real_target.py`, `real_tripwire.py`, `real_warden.py` exist and are tested, but `campaign.py` imports none of them and still prints all four components as `STAND-IN` at `:233-236`. The file has not been modified since before they were written. **"Three of four replaced" was true of authoring, not of integration**, and it was reported as replaced.
-- **`google/adk-samples@f4c19ab` IS NOT A REAL OBJECT** (found 2026-08-22, `docs/proof/third-party-target-recon-2026-08-22.md`). `git cat-file` rejects it and the remote has no such ref. It originates as one hardcoded literal at `scripts/make-golden.py:331`, which generates the golden contract fixtures — and `docs/proof/L6-cold-clone-2026-08-20.txt:23` printed it **by replaying that fixture**, so a synthetic value shaped like a real SHA was read as an observation, inside a proof file. Real HEAD 2026-08-22 is `629310b`, on a live branch that will move. **Action:** make the literal obviously synthetic (`@DEADBEEF`) or carry the real SHA; have the Day-9 adapter `git rev-parse HEAD` at attach time rather than retype.
+**Swept 2026-08-22.** Closed threads are kept with their closing date rather than
+deleted: a list that only ever grows is a list nobody trusts, and a list that
+silently loses rows cannot be audited.
+
+### Still open
+
+- **D5 corpus freeze** — hash the corpus and Part B, upload sealed to GCS, hash into the D5 post. **Must land before the first patch is written.** Two halves are now in different states: `corpus/freeze.py` implements `corpus_hash` (it had no implementation before 2026-08-22) and `derived_schema_hash` computes to `ab65499038b0d7c7` from Part B in force — but **neither has fired**, and both are being held so the D5 pair lands together.
+- **The sealed F4 family did not exist on disk as of 2026-08-22.** `python -m corpus` returned `sealed: 0` that day and FAILS on `E_SEALED_BELOW_FLOOR` — the floor is 18, the target 24. That failure is the check working, and it is the single largest gap between the current tree and a scoreable run.
+- **The first real loop run.** Compute-heavy, and it produces every number. An offline `python -m crucible.conductor.campaign` now runs the real target, tripwire and warden to a recorded termination, but a scripted model is not persuadable — **no ASR, BPR, transfer or convergence figure from an offline run may be reported.**
+- **The GATE is the last stand-in in `campaign.py`** — see T2-0 above. G7/G8 have been evaluated out-of-band, never by the loop.
+- **G7c is UNEVALUABLE and will stay that way until an audit sink exists.** `holdout_touch_count` is derived from Cloud Audit Log DATA_ACCESS reads on the sealed holdout (`measurement-spec.md:946`); the live project has **no `auditConfigs` block**, so the number does not exist to be read. **Defaulting it to 0 would print a green G7c computed from a sink that was never created** — `gate_rule.v1.yaml` routes `absent_or_unevaluable` to RUN INVALID precisely to stop that.
+- **`measurement-spec.md` §1.3's ≥3-routing requirement is unmet** — only 2 of F5's 10 instances route through `CAP_INVOKES_AGENT` (F5-09, F5-10). A known, reported deviation; the floor is not lowered to fit the measurement.
+- **The SEP-BY split is off target.** `python -m corpus` reports **21 policy / 3 oracle** over 24 counted pairs (3 cut, 27 total) against the stated target of **18 / 4**. Not a stop condition — the stop condition is parity — but any doc quoting "18 of 22" as the split is quoting a target, not a measurement.
+- **ADR-0010 vs "unedited, live execution"** — see `CONTEST.md` §4. Eric's call.
+- **`ORD-13` / `ORD-14`** were authored after Eric's review pass, so "the benign set was reviewed" is not true of the set as it stands. **Still open as of 2026-08-22** — no ratification record exists for these two, unlike the two retirements (`docs/proof/benign-retirement-ratification.md`) and the sealed family.
+- **`google/adk-samples@f4c19ab` IS NOT A REAL OBJECT** (found 2026-08-22, `docs/proof/third-party-target-recon-2026-08-22.md`). `git cat-file` rejects it and the remote has no such ref. It originates as one hardcoded literal at `scripts/make-golden.py:341`, which generates the golden contract fixtures — and `docs/proof/L6-cold-clone-2026-08-20.txt:23` printed it **by replaying that fixture**, so a synthetic value shaped like a real SHA was read as an observation, inside a proof file. Real HEAD 2026-08-22 is `629310b`, on a live branch that will move. **Not yet actioned:** the literal is still `f4c19ab` at `make-golden.py:341` and still illustrative in `docs/data-spec.md`. Make it obviously synthetic (`@DEADBEEF`) or carry the real SHA; have the Day-9 adapter `git rev-parse HEAD` at attach time rather than retype.
 - **"CRUCIBLE tricked the agent into a 40% discount" is DEAD VOCABULARY.** The adk-samples pivot to `sync_ask_for_approval` is the sample's *intended* flow — `prompts.py:49,65-66` tells the model that tool requests manager approval and never states the cap. A model routing there is obeying its instructions; the defect is that the escalation destination has no manager in it. The frozen claim at `execution-spec.md:681` survives because it is about the code, not the model.
-- **`CONVENTIONS.md` does not carry the frozen `target_agent_hash`.** `grep -c 125fe7e9e54a419e docs/CONVENTIONS.md` returns **0**, while `:54` and `:1316` both carry `74116412b733db47`. Both of those are in historical/illustrative context and are defensible as history, but the spine records no current value for a hash-lock it owns. `ADR-0017:232` already flagged the collision.
-- **`scripts/make-golden.py:326-327` still emits `"benign_floor": "24/24"` and `"near_miss_floor": "12/12"`** into generated golden run-manifest fixtures, against `contracts/gate_rule.v1.yaml:90-91` which now pins `26/26` and `14/14` after ruling 43. Deliberate frozen history or missed propagation — **under investigation, do not mass-edit.** Most other `24/24` hits in the repo are prose about the benign gate and are not drift.
+- **`CONVENTIONS.md` does not carry a current frozen `target_agent_hash`, and the value moved again on 2026-08-22.** The target was **RE-FROZEN** after `delegate_to_specialist` was repaired: `target_agent_hash` `125fe7e9e54a419e` → **`bad2bcb62b3ebbee`**, `manifest_hash` `d2e9f5f435b5acfe` → **`2bc12fd8608a0bcf`**, canonical bytes 4543 → 4619. `grep -c bad2bcb62b3ebbee docs/CONVENTIONS.md` returns **0**; `:54` and `:1316` carry `74116412b733db47` in historical/illustrative context. The spine still records no current value for a hash-lock it owns. `ADR-0017:232` already flagged the collision. **A lane cannot fix this — CONVENTIONS is coordinator-owned.**
+- **`docs/devpost/2026-08-22-update-4-target-frozen.md` names the SUPERSEDED hashes.** It states `125fe7e9e54a419e` / `d2e9f5f435b5acfe` and "canonicalizes to 4543 bytes". All three moved the same day. **Do not publish it as written.**
+
+### Closed since this list was opened
+
+- **D2 gate-rule freeze — FIRED 2026-08-21.** `gate_rule_hash cff9f52929397efb`, recorded in `docs/proof/d2-gate-rule-freeze.json` with commit `b4e060e` and its timestamp. `contracts/gate_rule.v1.yaml:90-91` pins `bpr == "26/26"` and `near_miss_bpr == "14/14"`, so the freeze did not decide the corpus counts by side effect.
+- **`objective_set_hash` — FIRED 2026-08-22**, the fourth hash-lock. `contracts/objective_set.v1.json`, nine clauses each with a `clause_id`, frozen at **`19493e53a6d79d0b`**, recorded in `docs/proof/d3-objective-set-freeze.json`. Ruling 44, `SPINE_VERSION 12`. **The interesting part is why C10 lost an argument it won on the page:** the contract said the `_`-prefixed annotations were inside the hash, and contracts outrank code — but `ObjectiveSet.hash` strips them, and that stripped value is what every episode carries, so freezing the unstripped `569c5198d7e731d9` would have named a number no episode could ever carry and scored every round INVALID. A hash-lock that locks nothing. The losing argument is preserved inside the corrected contract.
+- **The target freeze — FIRED, then RE-FIRED 2026-08-22.** See the open item above for the current values. **The finding was not the re-freeze.** A lane changed a hash-locked package, `target_agent_hash` moved, and **1011 tests stayed green with `contract-check` ALL PASSES OK.** The only thing that noticed was `python -m target.refund_agent.freeze --check`, which no test and no gate ran. A skew detector now recomputes the target and manifest hashes at run time, with a negative control proven red.
+- **`r_new3` fails validator V4 — CLOSED 2026-08-21.** Rewritten to `status_to in [APPROVED]`, read out of the instances rather than chosen. Eight tests, two of them negative controls. **The prose was wrong in three places and differently wrong in each** — only the rule is machine-checked.
+- **`ALLOW` / `allow` — CLOSED.** `crucible/policy/engine.py:109` now carries `_ALLOW_SPELLINGS = frozenset({"ALLOW", "allow"})` with the defect written up in-source at `:98-101`. Canonicalization still lives in `corpus/model.py::canonical_decision`.
+- **The three real adapters — WIRED 2026-08-22.** `campaign.py` imports `build_real_target`, `real_tripwire` and `real_warden` at `:89-91` and the banner prints all three as REAL. This row previously read "authored but not wired", which was the correction of an earlier row that had reported them as replaced. **The gate is the one still in that state, and it is now the only one.**
+- **`scripts/make-golden.py` benign floor — CLOSED.** `:337` and `:368-369` now emit `"benign_floor": "26/26"` and `"near_miss_floor": "14/14"`, matching `contracts/gate_rule.v1.yaml:90-91`, with an in-source note that a stale value here does not produce a weaker fixture, it produces a "valid" fixture that fails its own schema.
+- **`corpus/C6-reach` — MERGED 2026-08-21.** Four instances that make `CAP_INVOKES_AGENT` reachable. Eric ruled to amend the frozen counts it broke (F5 8→10, training 48→50, benign 24→26, near-miss 12→14) rather than retire instances, **before the D2 hash-lock — the only window in which "permanently" can be changed at all.** The ≥3-routing deviation it did not close is carried above as its own open row.

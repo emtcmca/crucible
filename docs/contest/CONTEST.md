@@ -52,9 +52,9 @@ reasonably addresses a Challenge, and reasonably applies the requirements."
 | 3 | Public code repository URL | `emtcmca/crucible`, public, Apache-2.0 |
 | 4 | **Spin-up instructions in `README.md`**, step by step | **DONE 2026-08-21** — every command run, real output pasted |
 | 5 | **Architecture diagram** — a visual of how Gemini connects to backend, database, frontend | **DONE 2026-08-21** — `docs/diagrams/architecture.md`, six Mermaid, all rendered |
-| 6 | **Demo video, 4 minutes maximum**, public on YouTube or Vimeo, English or English subtitles | script exists, **not recorded** |
-| 7 | Video **must demonstrate the backend running on Google Cloud** | **deployed and serving 2026-08-21**; the two on-camera captures are still owed |
-| 8 | Hosted project URL for judges to test — "highly encouraged", not mandatory | `https://crucible-vgp5owkxyq-uc.a.run.app` — **authenticated**, so it is not yet a URL a judge can open |
+| 6 | **Demo video, 4 minutes maximum**, public on YouTube or Vimeo, English or English subtitles | script exists, **not recorded as of 2026-08-22** |
+| 7 | Video **must demonstrate the backend running on Google Cloud** | **deployed and serving 2026-08-21. Both captures landed the same day** (`b4e060e`): `docs/proof/cloud-run-console-2026-08-21.png` and `docs/proof/trace-explorer-spans-2026-08-21.png`. **Nothing is owed here but the recording.** Narration caveat in `BUILD-LIST.md` T0-3: the captured span names do not include `execute_tool` |
+| 8 | Hosted project URL for judges to test — "highly encouraged", not mandatory | `https://crucible-vgp5owkxyq-uc.a.run.app` — **authenticated as of 2026-08-22**, so it is not yet a URL a judge can open. *(The console screenshot shows the same service under its project-number form, `https://crucible-752793770087.us-central1.run.app`. Cloud Run serves both; verify which one you paste before it goes in a submission field.)* |
 
 **Updated 2026-08-21. This table previously read "NOT WRITTEN", "DOES NOT EXIST"
 and "no Cloud Run deploy yet" for rows 4, 5 and 7, all three of which had been
@@ -63,11 +63,13 @@ row here does not merely mislead: it schedules work that is already finished, an
 it makes a finished deliverable look like a gap in the one document that exists to
 say which gaps are fatal.
 
-**As of 2026-08-21, one of those eight does not exist: the video.** Row 7's
-requirement is now two screenshots rather than a deploy, and row 8 is one IAM
-binding away from being a real judge-testable URL — see the Cost note in
-`deploy/RUNBOOK.md` for why it is locked down by default and what opening it
-would mean.
+**As of 2026-08-22, one of those eight does not exist: the video.** *(Re-checked
+2026-08-22. On 2026-08-21 this sentence also owed two screenshots under row 7;
+both were captured that evening, `b4e060e`.)* Row 8 is one IAM binding away from
+being a real judge-testable URL — see the Cost note in `deploy/RUNBOOK.md` for
+why it is locked down by default and what opening it would mean, and
+`BUILD-LIST.md` **T2-7** for the two ways to give a judge something openable
+without opening the service.
 
 > The undated version of that sentence **failed `contract-check`'s STATUS pass**,
 > correctly. A bare "one of eight does not exist" is the exact claim that rots:
@@ -113,8 +115,11 @@ and draft submission text: `docs/contest/track-fit.md`.**
 > intelligently delegate tasks to specialized sub-agents? Did they build this for
 > an 'Unlikely Hero' outside of standard corporate roles?"
 
-Two of three are strong. **"Unlikely Hero" we currently score nothing on** — there
-is no named persona anywhere in the project.
+Two of three are strong. **"Unlikely Hero" had no named persona anywhere in the
+project until 2026-08-21.** One now exists — `docs/contest/unlikely-hero.md`, the
+operations lead who inherited an agent somebody else built and has to decide
+whether to give it the company card. **It is drafted, not ratified**: whether it
+is true enough to say out loud is Eric's call, `docs/NEEDS-ERIC.md` item 5.
 
 ---
 
@@ -175,11 +180,17 @@ Final score is **1 to 6**: up to 5 from Stage Two, up to **1.0** from bonuses.
 |---|---|---|
 | Publish a piece of content (blog, podcast, video) covering how the project was built, public, **stating it was created for this hackathon** | **+0.2** | not done |
 | A public social post on X, LinkedIn, Instagram or Facebook with **`#AllThingsAgenticHackathon`** | **+0.2** | not done |
-| Each **additional Google AI model** integrated (Gemma, Veo, Lyria…), max three | **+0.2 each, up to +0.6** | Gemma planned for corpus generation (ADR-0009) = +0.2. Two more unclaimed |
+| Each **additional Google AI model** integrated (Gemma, Veo, Lyria…), max three | **+0.2 each, up to +0.6** | **All three unclaimed as of 2026-08-22.** *(This cell read "Gemma planned for corpus generation (ADR-0009) = +0.2". **`ADR-0018` superseded `ADR-0009` on 2026-08-21 and withdrew that claim** — Gemma was never built and appears in no code. Counting a planned integration as a claimed bonus is how a +0.2 becomes a disallowed one.)* |
 
 **A full point on a five-point scale is twenty percent of the maximum score, and
 none of it requires the loop to work.** The two publishing bonuses are an
 afternoon. Eric already writes for LinkedIn.
+
+**Status 2026-08-22: the entire 1.0 is still unclaimed.** Devpost updates 3 and 4
+went public that afternoon, but **Devpost is the submission platform** and the
+write-up bonus plausibly requires content published off it — **unresolved, and
+recorded as unresolved rather than assumed either way** (`BUILD-LIST.md` T1-1).
+Nothing carrying `#AllThingsAgenticHackathon` has been posted anywhere.
 
 ---
 
@@ -203,7 +214,9 @@ afternoon. Eric already writes for LinkedIn.
 
 1. **Best Architectural Design — $5,000, two winners.** Strict separation of
    concerns enforced in IAM and in pure code, five hash-locks, ten frozen
-   contracts, seventeen ADRs, a published pre-commitment. This is the closest
+   contracts, **eighteen ADRs** *(recounted 2026-08-22 from `docs/adr/`; this read
+   seventeen. Counts here are read from the directory, never recalled)*, a
+   published pre-commitment. This is the closest
    match between what the project *is* and what a prize *asks for*.
 2. **Individual / Hobbyist — $10,000, two winners.** Eric is solo. Twice the money
    and twice the slots of the architecture prize.
@@ -226,12 +239,21 @@ verification.
 
 ## 8. What this means for the build, in one paragraph
 
-Three mandatory deliverables do not exist and two of them are pass/fail: the
-**architecture diagram** and **visible proof of Google Cloud deployment in the
-video**. A full **1.0 bonus point** sits unclaimed and almost none of it depends on
-the loop working. The strongest scoring surface is **architectural discipline**,
-where the criterion literally asks how the system recovers when a worker agent
-returns a hallucination — which is what the tripwire and the gate do. The weakest
-is **track fit**, which is a writing problem rather than a building one, and the
-**"unlikely hero"** persona, which does not exist at all. Live work items are
-tracked in `docs/contest/BUILD-LIST.md`.
+**Rewritten 2026-08-22, because every specific in it had been overtaken.**
+
+**One mandatory deliverable does not exist: the video.** The architecture diagram
+landed 2026-08-21; the Cloud Run deploy and both on-camera captures landed the
+same day. A full **1.0 bonus point** still sits unclaimed and almost none of it
+depends on the loop working. The strongest scoring surface is **architectural
+discipline**, where the criterion literally asks how the system recovers when a
+worker agent returns a hallucination — which is what the tripwire and the gate do.
+The weakest is **track fit**; that and the **"unlikely hero"** persona both now
+have drafted answers (`track-fit.md`, `unlikely-hero.md`, both 2026-08-21) waiting
+on Eric's ratification rather than on anyone's writing. Live work items are tracked
+in `docs/contest/BUILD-LIST.md`.
+
+*(The version of this paragraph before 2026-08-22 said three deliverables did not
+exist and named two that did. It is kept in mind rather than in the file for one
+reason: §2 above already records why a stale row here is worse than a stale row
+anywhere else — this is the document that says which gaps are fatal, so a gap it
+invents gets worked on.)*
