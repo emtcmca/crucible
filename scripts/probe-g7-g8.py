@@ -16,10 +16,29 @@ G7 and G8 as `crucible.conductor.real_gate` will run them inside a campaign, so
 the artifact on disk is the same evaluation the loop performs and not a
 second implementation of it.
 
+G7c IS NOW WIRED. IT USED TO BE HARDCODED TO `None`.
+-----------------------------------------------------
+Until 2026-08-22 this file passed `holdout_touch=None` on line 41, so G7c
+reported UNEVALUABLE on every run and `absent_or_unevaluable: RUN_INVALID`
+meant no scored run was possible. It now injects a real
+`infra.holdout_touch.HoldoutTouchCounter`, which is READ-ONLY (`gcloud logging
+read` plus `gcloud projects get-iam-policy`) and so belongs in a probe that
+creates nothing.
+
   python scripts/probe-g7-g8.py
+  python scripts/probe-g7-g8.py --holdout-since 2026-08-23T14:00:00Z
   -> docs/proof/L3-real-gate-G7-G8-YYYY-MM-DD.txt
+
+READ THE `--holdout-expected` DEFAULT AS A CONTRACT VALUE, NOT A PREDICTION.
+`expected_for_this_phase` is defined by a RUN. This probe is not a run, so
+outside one the comparison is not meaningful and G7c will normally read FAIL
+here. That is a true statement about a window in which no run happened, and it
+is deliberately not massaged into a green line: what this probe demonstrates
+about G7c is that the number now EXISTS and is derived from a live log, printed
+in full in its own section below.
 """
 
+import argparse
 import datetime
 import pathlib
 import subprocess
@@ -29,16 +48,40 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from crucible.conductor import real_gate as rg     # noqa: E402
+from infra import holdout_touch as ht              # noqa: E402
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--holdout-since", default=ht.ATTESTATION_FLOOR_UTC,
+                    help="RFC3339 UTC window start. Defaults to the attestation "
+                         "floor: everything the audit log can speak to.")
+    ap.add_argument("--holdout-expected", type=int, default=2,
+                    help="expected_for_this_phase. 2 is the contract value; "
+                         "outside a run there is no phase.")
+    # MEASURED, not guessed. The first wired run of this script queried the log
+    # seconds after its own G7a impersonation probes and saw NINE entries where
+    # the probes should have added several more - Cloud Logging had not ingested
+    # them yet. An undercount reads exactly like a pass, so the settle is on by
+    # default and turning it off is the thing you have to ask for.
+    ap.add_argument("--holdout-settle", type=float, default=45.0,
+                    help="seconds to wait for Cloud Logging ingestion before "
+                         "counting. 0 disables it and will UNDERCOUNT reads "
+                         "made by this same probe run.")
+    args = ap.parse_args()
+
     day = datetime.date.today().isoformat()
     out_path = REPO / "docs" / "proof" / ("L3-real-gate-G7-G8-%s.txt" % day)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    env = rg.gcp_env(REPO)
+    counter = ht.HoldoutTouchCounter(env, since=args.holdout_since,
+                                     settle_seconds=args.holdout_settle)
+
     gate = rg.RealGate(
         ledger=None, run_id="probe", blob_writer=None, blob_reader=None,
-        repo_root=REPO, holdout_touch=None)
+        repo_root=REPO, holdout_touch=counter,
+        holdout_expected=args.holdout_expected)
     findings = gate.preflight()
     bad = [f for f in findings if f["status"] != rg.PASS]
 
@@ -64,6 +107,7 @@ def main():
         % (len(findings), len(findings) - len(bad), len(bad)),
         "",
     ]
+    lines += _holdout_section(counter, args)
     if bad:
         lines += [
             "NOT A CLEAN RESULT, AND THAT IS THE POINT OF RUNNING IT.",
@@ -76,7 +120,19 @@ def main():
     lines += [
         "What this does NOT show, stated so the claim stays exactly true:",
         "  * The operator (a human with roles/owner) can read everything here.",
-        "    You are the trust root and no control defends against you.",
+        "    You are the trust root and no control defends against you. What",
+        "    changed on 2026-08-22 is only that an operator read of the sealed",
+        "    bucket now LEAVES A RECORD, and holdout_touch does not exempt the",
+        "    human from its permitted set. A record is not a defence.",
+        "  * G7c attests from %s FORWARD and says" % ht.ATTESTATION_FLOOR_UTC,
+        "    nothing about the seal's earlier lifetime. Data Access logging was",
+        "    enabled 2026-08-22 and Cloud Logging is not retroactive: a G7a",
+        "    probe at 18:27:30Z that day left NO entry (denials are logged, so",
+        "    that is evidence of absence of coverage) while a read at",
+        "    19:31:10Z did. The bucket has existed since 2026-08-20.",
+        "  * The sealed BIGQUERY DATASET is not covered. The live auditConfig",
+        "    names storage.googleapis.com only, so a read of the sealed dataset",
+        "    would be counted as zero touches.",
         "  * Nothing was promoted. This is preflight only; the write path with",
         "    its read-back assertion is exercised by tests/test_real_gate.py",
         "    against a local blob store, and has NEVER run against GCS.",
@@ -90,6 +146,85 @@ def main():
     print(out_path.read_text(encoding="utf-8"))
     print("wrote %s (%d bytes)" % (out_path, out_path.stat().st_size))
     return 1 if bad else 0
+
+
+def _holdout_section(counter, args):
+    """G7c's evidence, printed whatever the finding said.
+
+    The finding above is one line and a verdict. This is the number's
+    provenance: the exact read-only command, the window, and every entry that
+    filter matched, broken out by kind. A judge who cannot re-derive a number
+    has been asked to take the builder's word for it, which is the thing this
+    whole project refuses to do.
+    """
+    head = [
+        "-" * 70,
+        "G7c EVIDENCE - holdout_touch_count, and how it was derived",
+        "-" * 70,
+        "Until 2026-08-22 this probe passed holdout_touch=None, so G7c was",
+        "UNEVALUABLE on every run and no scored run was possible.",
+        "",
+    ]
+    # REUSE the tally the gate's own G7c call already produced. Recomputing
+    # would query the log a second time, sleep the ingestion settle a second
+    # time, and - the part that matters - could print a DIFFERENT number beside
+    # the finding it is supposed to explain.
+    if counter.last_tally is not None:
+        return head + _tally_lines(counter.last_tally, args)
+    try:
+        result = counter.compute()
+    except ht.HoldoutTouchInvalid as e:
+        return head + [
+            "RUN INVALID - THE COUNTER WORKED AND CAUGHT SOMETHING.",
+            "  %s" % e,
+            "",
+        ]
+    except Exception as e:                           # noqa: BLE001
+        return head + [
+            "UNEVALUABLE - the counter declined to guess, which is not zero:",
+            "  %s" % e,
+            "",
+        ]
+    return head + _tally_lines(result, args)
+
+
+def _tally_lines(result, args):
+    """The tally, plus the two things a reader would otherwise get wrong."""
+    out = [
+        ht.render_tally(result),
+        "",
+        "  expected_for_this_phase used above: %d" % args.holdout_expected,
+        "  A probe is not a run, so outside a run this comparison is not",
+        "  meaningful. What it shows is that the number now exists.",
+        "",
+    ]
+    if result["count"] == args.holdout_expected:
+        out += [
+            "  ** THE G7c PASS ABOVE IS A COINCIDENCE. READ IT AS ONE. **",
+            "  The count equals %d because ONE `gcloud storage cat` emits two"
+            % args.holdout_expected,
+            "  granted storage.objects.get entries - a metadata fetch and a",
+            "  media download of the same object. It is NOT evidence that the",
+            "  expected value is right, and no run has happened. A green line",
+            "  produced by an accident is the shape this project keeps killing,",
+            "  so it is printed rather than suppressed.",
+            "",
+            "  The expected value is also contradicted by its own spec. A run",
+            "  that evaluates a 24-episode sealed holdout cannot produce 2 by",
+            "  any counting rule over this log: 24 objects means at least 24",
+            "  granted reads. measurement-spec.md:946's 2 counts EVALUATION",
+            "  PASSES (the v0 arm and the vFinal arm), a grouping the audit log",
+            "  does not carry. Either the unit or the value needs restating,",
+            "  and this module will not pick one for you.",
+            "",
+        ]
+    return out + [
+        "  WHY A ZERO HERE WOULD MEAN SOMETHING: before any count is returned,",
+        "  the same filter is run over the whole attestable window and must",
+        "  match at least one entry. A misspelled bucket, a renamed log, and a",
+        "  seal nobody touched otherwise produce identical output.",
+        "",
+    ]
 
 
 def _gcloud_version():

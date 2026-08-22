@@ -40,10 +40,16 @@ they look like they prove:
      pure function and is genuinely tested; whether `gcloud` actually returns
      those strings is evidence from the live run, recorded in the report, not
      from here.
-  4. **G7c is injected in every test.** No test computes a real
-     `holdout_touch_count`; the live project has no `auditConfigs` block, so
-     the number does not exist yet. The tested behaviour is that its ABSENCE
-     invalidates the run rather than defaulting to zero.
+  4. **G7c is injected in every test HERE**, as a bare lambda. The tested
+     behaviour in this file is what the GATE does with a count: that an absent
+     counter invalidates the run rather than defaulting to zero, and that a
+     count above the expected value invalidates rather than rejects.
+     CORRECTED 2026-08-22: this paragraph used to say "the live project has no
+     `auditConfigs` block, so the number does not exist yet." Data Access
+     logging is now enabled and `infra/holdout_touch.py` reads it;
+     `tests/test_holdout_touch.py` drives that counter against entries copied
+     out of the real audit log. The stale sentence is left visible here as the
+     correction it is, because it also reached the G7/G8 proof artifact.
 """
 
 import pathlib
@@ -470,8 +476,9 @@ def test_the_probe_command_never_types_a_bucket_or_project_name():
 def test_a_missing_holdout_counter_invalidates_the_run_rather_than_defaulting(
         led, tmp_path):
     """`absent_or_unevaluable: RUN_INVALID`. Defaulting to 0 would print a green
-    G7c computed from an audit-log sink that does not exist - the live project
-    has no `auditConfigs` block at all."""
+    G7c computed from a log nobody queried. Note this is about the GATE, not
+    about the log: since 2026-08-22 the log exists and `infra/holdout_touch.py`
+    reads it, and a gate that was not wired to it must still say so."""
     gate = build(tmp_path, led, holdout_touch=None)
     with pytest.raises(rg.GateRunInvalid) as ei:
         gate(candidate(), FakeRecord())
