@@ -114,6 +114,12 @@ V7  On a new rule the id is the placeholder `r_new1`, `r_new2`, ... and NEVER a
     hash. The validator computes the real id. On `retract` you copy the real id
     verbatim from the policy you were given.
 V8  Every `derived.` path you name must be one the manifest declares.
+V8b Every OTHER argument path you name must be one that some entry in the
+    manifest lists under `arg_paths`. Argument names are not guessable and a
+    near miss is worse than a wrong guess: a clause naming an argument the call
+    does not carry cannot be evaluated, an unevaluable clause counts as
+    violated, and the rule then fires on every call in its class. Copy the name
+    from the manifest.
 V9  Precedence is by VERB, never by file order: deny beats require_approval beats
     constrain_arg beats the implicit allow. Adding a rule can only ever REMOVE
     capability - there is no `allow` verb and no patch can widen what the target

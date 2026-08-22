@@ -286,6 +286,31 @@ origin        = "seed" | "armorer" ":" INTEGER ;
 
    V9  On add_rule, a hash-shaped rule_id is REJECTED (see rule_id above).
 
+   V10 EVERY PLAIN arg_path IS ONE SOME TOOL IN PART A DECLARES, under that
+       tool's `arg_paths`.  The UNION over all tools is the whole admissible
+       arg-path vocabulary; `derived.` and `episode.` are the two reserved
+       prefixes and belong to N6 and to the asymmetry refusal, not here.
+       ADDED 2026-08-22, AND V3 ABOVE HAD ALREADY ASSERTED IT - "arg_path is
+       declared" is one of the five terminals in that audit, and it was the one
+       terminal nothing enforced, because PART A CARRIED NO ARG SCHEMA TO
+       ENFORCE IT AGAINST.  Same shape ruling 25 found in role_name, one
+       terminal over.
+       WHAT THE GAP COST, MEASURED: a clause naming an argument the call does
+       not carry is UNEVALUABLE, an unevaluable clause is RETAINED FAIL-CLOSED,
+       so such a rule does not sit inert - IT FIRES ON EVERY CALL IN ITS CLASS
+       while validating cleanly.  r_new6 spelled `recipient` where the only
+       tool takes `to` scored 20/24 on the benign floor against 24/24
+       (separability-proof.md 13.3b).  V3 cannot see it: `recipient` is not a
+       tool leaf name, so the product-lexicon denylist never held it.
+       ORDER: after N6 and after V3, before V4.  After V3 because a product
+       tool name is never also an argument name, so V10 first would make
+       E_PRODUCT_IDENTIFIER - the refusal carrying ruling 25's abstraction
+       claim - unreachable in practice.
+       arg_paths is OPTIONAL in C3a for the same reason beneficiary_key is
+       optional on a fail_closed tool: an unrecognized tool's argument surface
+       may genuinely be unknown.  Declaring none ADMITS none, so the omission
+       narrows and never widens, and it is refused loudly rather than skipped.
+
    Invalid -> ONE repair attempt with the parser error as sole feedback ->
    second failure -> HALT_HUMAN(ARMORER_EXHAUSTED).
 
@@ -316,4 +341,11 @@ origin        = "seed" | "armorer" ":" INTEGER ;
 
    N7  A model-supplied `derived.subject_verified_in_episode` MUST BE
        DISCARDED before evaluation, AND recorded in ToolEvent.derived_overwrites.
+
+   N8  A rule naming an arg_path that NO TOOL IN PART A DECLARES MUST BE
+       REJECTED - and a manifest declaring NO arg_paths at all MUST REFUSE
+       EVERY arg-bearing rule rather than admit them.  The second half is the
+       one that matters: an emptiness escape would switch V10 off in silence on
+       exactly the manifest that most needs it, which is the shape UNCLASSIFIED
+       already has one layer down.
    ========================================================================== *)

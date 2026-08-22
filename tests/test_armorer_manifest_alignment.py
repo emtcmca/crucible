@@ -353,6 +353,20 @@ def test_NEGATIVE_CONTROL_bare_product_nouns_were_never_covered_by_either_harves
     `refund.tools.*` happened to be named after the product domain. That is a
     coincidence of a fixture, not a control - and this test is the evidence for
     that claim rather than an assurance about it.
+
+    AMENDED 2026-08-22 WHEN V10 LANDED, AND THE AMENDMENT IS THE POINT. The
+    claim above is unchanged and still true: **V3 never covered `customer` and
+    still does not.** What changed is that `customer` no longer reaches the end
+    of the pipeline, because it is not an argument of any tool and V10
+    (`E_UNDECLARED_ARG_PATH`) now refuses it. So this test asserts V3's blindness
+    where V3 actually lives - `check_product_lexicon` in isolation - rather than
+    through `validate_rule`, which now has a second gate downstream of it.
+
+    That is the honest reading of the drop `harvest_product_lexicon` logged: the
+    hole was real, it was never V3's to close, and the thing that closed it was
+    the terminal audit the contract had already promised. Recorded here rather
+    than in a comment, because a gate this test used to prove OPEN is now
+    partially covered, and the next reader needs to know by which check.
     """
     _validator, running, derived_b = C.build_validator()
     golden = _golden_part_a()
@@ -360,11 +374,19 @@ def test_NEGATIVE_CONTROL_bare_product_nouns_were_never_covered_by_either_harves
     assert "customer" not in harvest_product_lexicon(running)
     assert "customer" not in harvest_product_lexicon(golden)
 
+    parsed = parse_policy(
+        "rule r_new1: cap:CAP_MOVES_MONEY when customer >= 1 => deny").rules[0]
     for manifest in (running, golden):
         v = Validator(manifest, derived_b,
                       product_lexicon=harvest_product_lexicon(manifest))
-        v.validate_rule(parse_policy(
-            "rule r_new1: cap:CAP_MOVES_MONEY when customer >= 1 => deny").rules[0])
+        # V3 in isolation: silent. This is the claim.
+        v.check_product_lexicon(parsed)
+        # The full pipeline: refused, by V10 and NOT by V3. State which.
+        with pytest.raises(ValidationError) as exc:
+            v.validate_rule(parsed)
+        assert exc.value.code == "E_UNDECLARED_ARG_PATH", (
+            "if this ever reads E_PRODUCT_IDENTIFIER, V3's harvest changed and "
+            "the drop logged in harvest_product_lexicon needs re-measuring")
 
     # And the token that DOES survive still refuses, on both.
     for manifest, tok in ((running, "issue_refund"), (golden, "issue_refund")):
@@ -376,3 +398,51 @@ def test_NEGATIVE_CONTROL_bare_product_nouns_were_never_covered_by_either_harves
                 "rule r_new1: cap:CAP_MOVES_MONEY when %s >= 1 => deny"
                 % tok).rules[0])
         assert exc.value.code == "E_PRODUCT_IDENTIFIER"
+
+
+def test_the_arg_path_vocabulary_and_the_product_denylist_ARE_DISJOINT():
+    """V10 AND V3 MUST NOT DISAGREE ABOUT A WORD, and this is the test that says
+    so before anyone discovers it in a live round.
+
+    V10's refusal message NAMES the declared arg paths, because the ARMORER gets
+    ONE repair attempt with that string as its sole feedback and the defect class
+    is a near miss on a name. That message is appended to the payload and re-fired
+    WITHOUT a second `assert_no_leak` (`armorer.py:199`). So if any declared arg
+    path were also in the product lexicon, V10 would be handing the model a word
+    V3 then refuses it for using - which is `project_manifest`'s own recorded
+    defect ("naming a container after a token the validator will reject the model
+    for using is offering it a word it cannot write"), one field over.
+
+    The two sets are disjoint by construction rather than by luck: the lexicon
+    harvests tool LEAF NAMES and descriptions, and no tool on either manifest is
+    named after one of its own parameters. Construction is not evidence, so this
+    measures it on both manifests instead.
+    """
+    _validator, running, derived_b = C.build_validator()
+    golden = _golden_part_a()
+
+    for label, manifest in (("running", running), ("golden", golden)):
+        v = Validator(manifest, derived_b,
+                      product_lexicon=harvest_product_lexicon(manifest))
+        overlap = sorted(v.declared_arg_paths & v.product_lexicon)
+        assert not overlap, (
+            "%s manifest: %s are BOTH a declared arg path and a product "
+            "identifier. V10 would print them in its repair message and V3 "
+            "would refuse the model for writing them back." % (label, overlap))
+
+
+def test_V10s_repair_message_survives_the_leak_gate():
+    """The end-to-end form of the test above, on the real assembled payload.
+    Asserts the postcondition - `assert_no_leak` returning on the text that
+    actually gets fired - rather than reasoning about which tokens are in which
+    set."""
+    _validator, running, _derived_b = C.build_validator()
+    v = _validator
+    with pytest.raises(ValidationError) as exc:
+        v.validate_rule(parse_policy(
+            "rule r_new1: cap:CAP_EXTERNAL_COMMS when recipient >= 1 => deny"
+        ).rules[0])
+    assert exc.value.code == "E_UNDECLARED_ARG_PATH"
+    prompt_mod.assert_no_leak(
+        prompt_mod.build_repair_message(exc.value.code, exc.value.detail),
+        running)

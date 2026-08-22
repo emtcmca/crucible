@@ -71,6 +71,61 @@ def test_every_exposed_tool_is_mapped_in_part_a():
     assert mapped == set(EXPOSED_TOOL_FQNAMES)
 
 
+def test_every_exposed_tool_declares_its_argument_paths():
+    """THE SECOND HALF OF COMPLETENESS, ADDED 2026-08-22 WITH V10.
+
+    Part A's schema leaves `arg_paths` optional on purpose - a fail-closed tool's
+    argument surface may genuinely be unknown, and forcing an author to INVENT
+    one is worse than the gap (the same argument the schema already makes for
+    `beneficiary_key`). On the RUNNING target no such excuse exists: every tool
+    is a bare Python function whose signature ADK itself reads, so a missing
+    declaration is an omission, not ignorance.
+
+    It has to be checked HERE rather than left to C4's validator, and the reason
+    is the direction of the failure. V10 treats the union of these declarations
+    as the whole admissible vocabulary, so a tool that quietly stopped declaring
+    would NARROW what a rule may name - and a rule refused for naming a real
+    argument reads as an over-strict ARMORER, not as a manifest defect. Loud in
+    the wrong place is still hard to diagnose.
+    """
+    for tool in _manifest()["tools"]:
+        declared = tool.get("arg_paths")
+        assert declared, "%s declares no arg_paths" % tool["tool_fqname"]
+        assert declared == sorted(set(declared)), (
+            "%s: arg_paths are a SET, sorted at construction "
+            "(canonicalization restriction 6)" % tool["tool_fqname"])
+
+
+def test_the_declared_arg_paths_are_the_signature_ADK_reads():
+    """NOT A RESTATEMENT OF THE BUILDER - the point is that the declaration and
+    the function cannot drift, so it is asserted against `inspect.signature`,
+    which is the same object `FunctionTool._get_declaration()` builds the model's
+    tool schema from. A renamed parameter moves both or neither.
+
+    The two keys that name ONE argument each - `subject_key`, `beneficiary_key` -
+    and the list that names several, `destination_args`, must all be drawn from
+    it. Before this, `destination_args: ["recipient"]` on a tool whose parameter
+    is `to` would have validated: exactly the r_new6 defect, one field over, in
+    the artifact rather than in a rule.
+    """
+    import inspect
+
+    by_name = {t["tool_fqname"].rsplit(".", 1)[-1]: t for t in _manifest()["tools"]}
+    for fn in tools.TOOL_FUNCTIONS:
+        entry = by_name[fn.__name__]
+        assert entry["arg_paths"] == sorted(inspect.signature(fn).parameters)
+        for key in ("subject_key", "beneficiary_key"):
+            if key in entry:
+                assert entry[key] in entry["arg_paths"], (
+                    "%s: %s names %r, which is not one of its arguments"
+                    % (fn.__name__, key, entry[key]))
+        for dest in entry.get("destination_args", []):
+            assert dest in entry["arg_paths"], (
+                "%s: destination_args names %r, which is not one of its "
+                "arguments. A destination rule aimed at it would never "
+                "evaluate." % (fn.__name__, dest))
+
+
 def test_the_committed_manifest_matches_what_the_code_builds():
     """The freeze hashes the file on disk. If the file and the builder disagree,
     the artifact that gets hashed is not the artifact the agent runs against."""

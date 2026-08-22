@@ -75,17 +75,154 @@ def test_V4_an_enum_symbol_must_be_declared_for_its_exact_path():
     """"For that exact path" is the whole of it. `DEFECTIVE` is a declared
     `reason_code`, and that says nothing about whether it is legal anywhere
     else - a shared symbol table would let a rule compare an approval tier to a
-    refund reason and validate."""
+    refund reason and validate.
+
+    THE `E_UNDECLARED_ENUM_PATH` EXAMPLE CHANGED 2026-08-22 WHEN V10 LANDED, AND
+    WHAT IT PROVES DID NOT. It used to be `some_other_path`, which is wrong
+    TWICE - no tool accepts an argument by that name, and *therefore* no enum is
+    declared at it. V10 now refuses the path first, which is the correct
+    diagnosis and the one that leaves the ARMORER's single repair attempt
+    somewhere useful. `amount_minor` is the honest example of the thing this
+    check is for: a REAL declared argument of a real tool, carrying no enum, so
+    the only defect is the symbol at it. `some_other_path` is kept below as the
+    V10 case it always was.
+    """
     assert _code(lambda: _v().validate_rule(parse_rule(
         "rule r_new1: cap:CAP_MOVES_MONEY when reason_code == INVENTED => deny"))) \
         == "E_UNDECLARED_ENUM_SYMBOL"
     assert _code(lambda: _v().validate_rule(parse_rule(
-        "rule r_new1: cap:CAP_MOVES_MONEY when some_other_path == DEFECTIVE => deny"))) \
+        "rule r_new1: cap:CAP_MOVES_MONEY when amount_minor == DEFECTIVE => deny"))) \
         == "E_UNDECLARED_ENUM_PATH"
 
     # CONTROL: the declared symbol on the declared path validates.
     _v().validate_rule(parse_rule(
         "rule r_new1: cap:CAP_MOVES_MONEY when reason_code == DEFECTIVE => deny"))
+
+
+# --------------------------------------------------------------------------
+# V10 / N8 - `arg_path is manifest-declared`, which the contract asserted for
+# months and nothing enforced.
+# --------------------------------------------------------------------------
+
+def test_V10_an_arg_path_must_be_declared_by_some_tool():
+    """`policy.ebnf` V3 audits this grammar's terminals and says every one is
+    "abstract or manifest-declared", listing `arg_path is declared`. Ruling 25
+    and `architecture-spec.md` 5.2 constraint 4 repeat it. Until V10 the other
+    four terminals were enforced and this one was not - Part A carried no arg
+    schema at all, so there was nothing to resolve a plain path against."""
+    assert _code(lambda: _v().validate_rule(parse_rule(
+        "rule r_new1: cap:CAP_MOVES_MONEY when some_other_path == DEFECTIVE => deny"))) \
+        == "E_UNDECLARED_ARG_PATH"
+    assert _code(lambda: _v().validate_rule(parse_rule(
+        "rule r_new1: cap:CAP_MOVES_MONEY when amount_minr >= 5 => deny"))) \
+        == "E_UNDECLARED_ARG_PATH"
+
+    # CONTROL: every declared path validates, in every clause form that carries
+    # one, and in the action.
+    for text in (
+        "rule r_new1: cap:CAP_MOVES_MONEY when amount_minor >= 5 => deny",
+        "rule r_new1: cap:CAP_MOVES_MONEY when order_id is present => deny",
+        "rule r_new1: cap:CAP_MOVES_MONEY when order_id is absent => deny",
+        "rule r_new1: cap:CAP_MOVES_MONEY when reason_code in [DEFECTIVE] => deny",
+        "rule r_new1: cap:CAP_MOVES_MONEY when episode_sum(amount_minor) > 5 => deny",
+        "rule r_new1: cap:CAP_EXTERNAL_COMMS "
+        "when to == episode.account_holder_email => deny",
+        "rule r_new1: cap:CAP_MOVES_MONEY => constrain_arg(amount_minor <= 5)",
+    ):
+        _v().validate_rule(parse_rule(text))
+
+
+def test_V10_reaches_the_action_and_the_episode_scoped_clause_forms():
+    """`_paths` yields the action's path and every clause's, so a misspelling in
+    `constrain_arg` or inside `episode_sum(...)` is caught in the same pass. A
+    check that covered only the `when` comparison would leave the two forms that
+    F7 and the sealed-F4 transfer test are written in."""
+    assert _code(lambda: _v().validate_rule(parse_rule(
+        "rule r_new1: cap:CAP_MOVES_MONEY => constrain_arg(amount_minr <= 5)"))) \
+        == "E_UNDECLARED_ARG_PATH"
+    assert _code(lambda: _v().validate_rule(parse_rule(
+        "rule r_new1: cap:CAP_MOVES_MONEY when episode_sum(amount_minr) > 5 => deny"))) \
+        == "E_UNDECLARED_ARG_PATH"
+    assert _code(lambda: _v().validate_rule(parse_rule(
+        "rule r_new1: cap:CAP_EXTERNAL_COMMS "
+        "when recipient == episode.account_holder_email => deny"))) \
+        == "E_UNDECLARED_ARG_PATH"
+
+
+def test_V10_is_the_check_that_would_have_caught_r_new6():
+    """THE MEASURED INSTANCE, not a hypothetical. `r_new6` spelled `recipient`
+    where the only tool involved takes `to`. `architecture-spec.md` 5.2 and
+    `separability-proof.md` 13.3b record what that cost: **20/24 on the benign
+    floor spelled `recipient`, 24/24 spelled `to`.**
+
+    The mechanism is why it is a refusal and not a lint. An argument the call
+    does not carry makes the clause UNEVALUABLE; an unevaluable clause is
+    RETAINED fail-closed; so the rule does not sit inert, IT FIRES ON EVERY CALL
+    IN ITS CLASS. Nothing before V10 could see it - `recipient` is admissible
+    under V3, whose denylist is harvested from tool leaf names and descriptions,
+    and it always would have been."""
+    v = _v(product_lexicon=harvest_product_lexicon(fx.MANIFEST_A))
+    bad = ("rule r_new1: cap:CAP_EXTERNAL_COMMS "
+           "when recipient != episode.account_holder_email "
+           "=> require_approval(EXT_COMM_THIRD_PARTY)")
+    good = bad.replace("recipient", "to")
+
+    # V3 alone lets it through. That is the hole, stated rather than implied.
+    v.check_product_lexicon(parse_rule(bad))
+    assert _code(lambda: v.validate_rule(parse_rule(bad))) == "E_UNDECLARED_ARG_PATH"
+    v.validate_rule(parse_rule(good))
+
+
+def test_V10_CANNOT_BE_SWITCHED_OFF_BY_A_MANIFEST_THAT_DECLARES_NOTHING():
+    """THE NEGATIVE CONTROL ON THE CHECK ITSELF. `check_context_fields` and
+    `check_product_lexicon` both skip when their declared set is empty, which is
+    defensible for a backstop and would be fatal here: a manifest carrying no
+    `arg_paths` would turn the whole vocabulary check off IN SILENCE, which is
+    the shape `UNCLASSIFIED` already has one layer down.
+
+    Declaring none therefore ADMITS none. The refusal is loud and immediate, and
+    it names the emptiness rather than blaming the rule."""
+    import copy
+    stripped = copy.deepcopy(fx.MANIFEST_A)
+    for t in stripped["tools"]:
+        t.pop("arg_paths", None)
+    v = Validator(stripped, fx.DERIVED_B)
+
+    with pytest.raises(ValidationError) as ei:
+        v.validate_rule(parse_rule(
+            "rule r_new1: cap:CAP_MOVES_MONEY when amount_minor >= 5 => deny"))
+    assert ei.value.code == "E_UNDECLARED_ARG_PATH"
+    assert "declares no arg_paths at all" in ei.value.detail
+
+    # A rule with NO arg-bearing clause is still admissible - V10 constrains the
+    # vocabulary, it does not require one.
+    v.validate_rule(parse_rule("rule r_new1: cap:CAP_MOVES_MONEY => deny"))
+
+
+def test_V10_leaves_the_two_reserved_prefixes_to_their_own_checks():
+    """`derived.*` is N6's and `episode.*` is the grammar-asymmetry refusal's.
+    V10 skipping both is what keeps the diagnosis specific: an undeclared
+    derived field reported as "not an argument of any tool" would send the
+    repair after the wrong half of the line."""
+    assert _code(lambda: _v().validate_rule(parse_rule(
+        "rule r_new1: cap:CAP_MOVES_MONEY when %s == true => deny"
+        % fx.UNDECLARED_DERIVED))) == "E_UNDECLARED_DERIVED_PATH"
+    assert _code(lambda: _v().validate_rule(parse_rule(
+        "rule r_new1: cap:CAP_EXTERNAL_COMMS "
+        "when episode.account_holder_email == NOBODY => deny"))) \
+        == "E_EPISODE_PATH_AS_ARGUMENT"
+
+
+def test_V10_does_not_swallow_V3():
+    """ORDERING, PINNED. A product tool name is never also an argument name, so
+    every `E_PRODUCT_IDENTIFIER` case is ALSO an `E_UNDECLARED_ARG_PATH` case.
+    Run V10 first and the refusal that carries ruling 25's abstraction claim -
+    the one a judge would ask to see fire - becomes unreachable in practice.
+    V3 goes first, and this is the test that says so out loud."""
+    v = _v(product_lexicon=harvest_product_lexicon(fx.MANIFEST_A))
+    assert _code(lambda: v.validate_rule(parse_rule(
+        "rule r_new1: cap:CAP_MOVES_MONEY when issue_refund >= 1 => deny"))) \
+        == "E_PRODUCT_IDENTIFIER"
 
 
 def test_derived_approval_tier_validates_from_part_A_alone():
