@@ -130,22 +130,32 @@ def test_the_bundle_says_no_number_in_it_may_be_quoted(tmp_path):
     in. This asserted `stand_ins == {target, tripwire, warden, gate}` and the
     fixed phrase "measures nothing".
 
-    Both had to move, and neither move is a relaxation. THE GATE IS STILL A
-    STAND-IN and that is still asserted here. What changed is that three
-    components stopped being stand-ins, so a test demanding they be listed as
-    such would have been a test enforcing a FALSE claim. The disclaimer is now
+    Both had to move, and neither move is a relaxation. What changed is that
+    three components stopped being stand-ins, so a test demanding they be listed
+    as such would have been a test enforcing a FALSE claim. The disclaimer is now
     assembled from what was actually wired (`campaign._disclaimer`) rather than
     kept as frozen prose, because a disclaimer that cannot move is how a stale
     claim survives a rewrite. The narrower assertions - which component is real,
     what the banner says, where each hash-lock came from - are in
-    `tests/test_campaign_wiring.py`."""
+    `tests/test_campaign_wiring.py`.
+
+    UPDATED AGAIN 2026-08-22 when the GATE was wired. This asserted
+    `"gate" in stand_ins`, and after `promote=lambda c, r: True` became
+    `RealGate` that sentence is false. It is REPLACED, not deleted: the claim
+    that matters was never "the gate is a stand-in" but "nothing here measures
+    G7 or G8", and `summary.gate.g7_g8_exercised` is the field that carries it -
+    computed from the gate's own findings, so it stays false on a `--live` run
+    that never reached a candidate. Dropping the assertion instead of moving it
+    would have retired the only line in this file that guards the claim.
+    """
     out = tmp_path / "bundle.json"
     run(["--out", str(out)])
     summary = json.loads(out.read_text(encoding="utf-8"))["summary"]
-    assert "gate" in summary["stand_ins"]
-    assert not ({"target", "tripwire", "warden"} & set(summary["stand_ins"]))
+    assert not ({"gate", "target", "tripwire", "warden"}
+                & set(summary["stand_ins"]))
+    assert summary["gate"]["g7_g8_exercised"] is False
     disclaimer = summary["no_result_may_be_quoted_from_this_run"]
-    assert "G7/G8 are NOT EXERCISED" in disclaimer
+    assert "G7/G8 WERE NOT EXERCISED" in disclaimer
     assert "single-sample" in summary["reps"]
 
 

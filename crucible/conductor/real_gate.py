@@ -420,6 +420,37 @@ def classify_probe(expect, returncode, output):
             "the storage boundary was not exercised")
 
 
+# THE PROBE PREFIX. It is DELIBERATELY NOT the prefix the corpus lives under,
+# and re-unifying the two would break the positive control. Read this before
+# "tidying" it.
+#
+# Eric's ruling on `docs/NEEDS-ERIC.md` item 12, executed 2026-08-22: the canary
+# was MOVED, not excluded.
+#
+#     was:  gs://crucible-sealed-x7/families/_probe/canary.txt
+#     now:  gs://crucible-sealed-x7/_probe/canary.txt
+#     gs://crucible-sealed-x7/families/  is now EMPTY
+#
+# An exclusion would have been a permanent named hole, and it would mean THE
+# GATE DECLARES WHICH READS DO NOT COUNT - self-certification, one layer over
+# from the thing G8 exists to prevent. Relocation removes the need for the rule.
+#
+# The consequence for this file is not cosmetic. `families/**` now matches ZERO
+# objects, so the permitted identity's probe would exit 0 having listed nothing
+# - and `classify_probe` files that as UNEVALUABLE, which is RUN INVALID. The
+# positive control would have stopped proving anything while still looking
+# green in three of its four lines.
+#
+# WHY ONE PREFIX FOR ALL FOUR ARMS, INCLUDING THE DENIALS. `crucible-sealed-eval`
+# holds `roles/storage.objectViewer` BUCKET-WIDE with no IAM condition, and
+# uniform bucket-level access is ON, so there are no per-prefix grants to
+# distinguish: a `storage.objects.list` denial on any prefix of this bucket is
+# the same denial. Probing the empty `families/**` for the deny arms would add
+# no evidence and would put the gate's own probe back inside the corpus
+# namespace for no gain.
+_PROBE_PREFIX = "_probe/**"
+
+
 def _probe_argv(env, sa_name):
     """The read-only G7a command.
 
@@ -431,15 +462,19 @@ def _probe_argv(env, sa_name):
 
     Run against the live bucket on 2026-08-22 by the PROJECT OWNER, that exact
     form exits 0 and prints nothing, while `gcloud storage ls -r` on the same
-    prefix lists `families/_probe/canary.txt`. A trailing-slash prefix is not a
-    match pattern to `objects list`. So the specified command CANNOT SUCCEED for
-    a permitted identity, which means it has no positive control - and a 403
-    with no positive control is the uninformative shape
-    `infra/prove-armorer-403.sh` exists to refuse. The `**` suffix here is the
-    form that actually lists, and it is what makes the positive control possible.
+    prefix listed the canary. A trailing-slash prefix is not a match pattern to
+    `objects list`. So the specified command CANNOT SUCCEED for a permitted
+    identity, which means it has no positive control - and a 403 with no
+    positive control is the uninformative shape `infra/prove-armorer-403.sh`
+    exists to refuse. The `**` suffix here is the form that actually lists, and
+    it is what makes the positive control possible.
+
+    The PREFIX moved 2026-08-22 for a second and separate reason: see
+    `_PROBE_PREFIX` above. Two different things are wrong with the contract's
+    one-line form and they are fixed independently.
     """
     return ["gcloud", "storage", "objects", "list",
-            "%s/families/**" % env["CRUCIBLE_SEALED_BUCKET"],
+            "%s/%s" % (env["CRUCIBLE_SEALED_BUCKET"], _PROBE_PREFIX),
             "--impersonate-service-account=%s@%s.iam.gserviceaccount.com"
             % (sa_name, env["CRUCIBLE_PROJECT"]),
             "--format=value(name)"]
