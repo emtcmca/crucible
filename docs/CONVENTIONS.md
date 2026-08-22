@@ -11,7 +11,50 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 12` · last changed 2026-08-22
+`SPINE_VERSION: 13` · last changed 2026-08-22
+
+> **SPINE_VERSION 13 — ruling 45, 2026-08-22. `arg_path` IS manifest-declared, and it always
+> should have been: the contract already said so.**
+>
+> `contracts/policy.ebnf:269` lists **`arg_path is declared`** among V3's five normative
+> terminals, and **nothing enforced it.** `validator.py` resolved only `derived.*` (N6) and
+> enum-bearing paths (V4); Part A emitted `arg_enums` with no arg schema to check a plain path
+> against. So `docs/architecture-spec.md:685` and ruling 25 were **not over-claiming** — this was
+> a *contract the code did not implement*, which is a different and worse defect than a document
+> outrunning its code.
+>
+> **Part A now declares a per-tool `arg_paths` set**, derived from `inspect.signature` — the same
+> object ADK builds the model's tool schema from — never hand-listed. Enforced as **V10 /
+> `E_UNDECLARED_ARG_PATH`**, with negative check **N8**.
+>
+> **V10 HAS NO EMPTINESS ESCAPE, and that is the load-bearing choice.** `check_context_fields` and
+> `check_product_lexicon` both *skip* when their declared set is empty. V10 does not: a manifest
+> declaring no paths admits none and refuses loudly. Skipping would switch the check off **in
+> silence** on exactly the manifest that needs it — which is the `UNCLASSIFIED`-is-always-allowed
+> shape one layer up, and that one cost this project a day.
+>
+> **V3 now runs before V4, and V10 after V3.** A product tool name is never also an argument name,
+> so a rule naming one violates both; V10-first would make `E_PRODUCT_IDENTIFIER` nearly
+> unreachable, and that refusal is what carries ruling 25's abstraction claim. The reorder is a
+> behaviour change in its own right and is pinned by a test.
+>
+> **Measured, not asserted:** 185 rule strings — seed, corpus, and every DSL literal in the tree —
+> were run through the real validator against both manifests, before and after. **One newly
+> fails, and it was always the defect**: `customer >= 1` was the negative control proving V3's
+> whole-token harvest never caught bare product nouns. V3 is still blind to it; **V10 closes it**,
+> and the test now names which check did. Zero corpus rules and zero seed rules newly fail; the
+> benign floor is unchanged at 26/26 and 14/14.
+>
+> **This re-hashes contracts C3 and C4** (`capability_manifest.schema.json`, `policy.ebnf`) **and
+> therefore `MANIFEST.json`, and it moves the D3 target freeze.** C8's gate rule
+> `cff9f52929397efb` is untouched.
+> **Invalidates nothing measured. Nothing has been measured.**
+>
+> **Left open, deliberately, for a later ruling:** the class-scoped form of V10 — admitting only
+> paths declared by tools carrying the *selected* capability class. It was measured as viable
+> (every existing rule survives it), and it was **not taken**, because it would make a rule's
+> admissibility a function of today's tool surface, which is the lookup-versus-boundary
+> distinction ruling 25 decided the other way.
 
 > **SPINE_VERSION 12 — ruling 44, Eric, 2026-08-22. The Objective Set's annotation prose is
 > OUTSIDE `objective_set_hash`, and C10 was the document that was wrong.**
