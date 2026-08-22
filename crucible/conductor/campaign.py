@@ -742,6 +742,25 @@ def run(argv=None):
             "run would spend the whole model budget to reach a voided result. "
             "Open question on the unit: docs/NEEDS-ERIC.md item 12.")
 
+    # SAME BLOCK, SAME REASON, ADDED 2026-08-22. A live run on 08-22 produced 72
+    # copies of `ValueError: No API key was provided` because
+    # `GOOGLE_GENAI_USE_VERTEXAI` was unset and ADK built the target's client
+    # against the Gemini Developer API. Setting it to 1 cleared the error - and
+    # that is the shallow reading. The defect is that NOTHING ASSERTED IT: the
+    # target passed a bare model string and let the shell choose, while
+    # `crucible/armorer/client.py:79` had pinned `vertexai=True` since day one.
+    # The target is now pinned too (`agent._pinned_model`), which closes the
+    # client; this closes the half a client pin cannot reach, because ADK reads
+    # this variable directly when it builds tool declarations. Both halves are
+    # argued in `target/refund_agent/agent.py`.
+    #
+    # `--live` only. Offline runs never construct the pinned client and never
+    # send a declaration anywhere, and `python -m pytest tests/` has to stay
+    # runnable on a machine with no egress and no environment.
+    if args.live:
+        from target.refund_agent.agent import assert_provider_matches_descriptor
+        assert_provider_matches_descriptor()
+
     validator, manifest_a, derived_b = build_validator()
     policy = build_seed_policy(validator)
 
@@ -803,6 +822,17 @@ def run(argv=None):
     print("  models       : %s" % ("LIVE" if args.live else "NONE (degraded)"))
     print("  target       : REAL. target/refund_agent driven through ADK, "
           "policy enforced by CruciblePlugin, every episode SEALED.")
+    # PRINTED, because a provider that is only asserted is a provider nobody can
+    # read off the transcript afterwards. `provider` is in the frozen descriptor
+    # and therefore inside `target_agent_hash`; the env value beside it is the
+    # half ADK reads for tool declarations, which no hash covers.
+    from target.refund_agent.agent import TARGET_ENDPOINT, TARGET_PROVIDER, env_provider
+    print("  provider     : %s @ %s, PINNED IN CODE and in the D3 descriptor. "
+          "GOOGLE_GENAI_USE_VERTEXAI resolves to %r%s"
+          % (TARGET_PROVIDER, TARGET_ENDPOINT, env_provider(),
+             "" if env_provider() == TARGET_PROVIDER else
+             " -- DISAGREES; tool declarations will not match the frozen target. "
+             "Offline run, so nothing was sent."))
     print("  target model : %s" % (
         "LIVE. The pinned target binding decides every call."
         if args.live else

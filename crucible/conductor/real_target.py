@@ -151,8 +151,11 @@ COST DISCIPLINE
 ------------------
 `build_real_target(...)` takes `model` and `sor_factory` as injectable
 parameters. The default (`model=None`) leaves `LlmAgent.model` as
-`build_agent()` set it - the pinned `TARGET_MODEL` string, resolved to the real
-Gemini endpoint only when a call actually fires. No credentials are read and no
+`build_agent()` set it - a `BaseLlm` INSTANCE carrying the pinned `TARGET_MODEL`
+and pinning Vertex on the `global` endpoint, whose client is constructed only
+when a call actually fires. It was a bare STRING until 2026-08-22, which is the
+form that let `GOOGLE_GENAI_USE_VERTEXAI` choose the provider; see
+`target/refund_agent/agent.py`. No credentials are read and no
 network call is made at import time or at `build_real_target()` call time -
 only when the returned callable actually drives an episode. Tests pass a stub
 `BaseLlm` so `python -m pytest tests/` stays runnable with no GCP project,
@@ -364,10 +367,10 @@ def build_real_target(*, run_manifest, model=None, sor_factory=None):
         one would either have to fabricate hashes or produce permanently
         INVALID episodes, and this file does neither silently.
     `model`: `None` (default) leaves `LlmAgent.model` as `build_agent()` set
-        it - the pinned `TARGET_MODEL` string, resolved to the real Gemini
-        endpoint only when a call actually fires. Pass a `google.adk.models.
-        base_llm.BaseLlm` instance (or another model id string) to run against
-        a stub - this is how tests stay offline.
+        it - a `BaseLlm` carrying the pinned `TARGET_MODEL` and pinning Vertex
+        on `global`, whose client is built only when a call actually fires. Pass
+        a `google.adk.models.base_llm.BaseLlm` instance (or another model id
+        string) to run against a stub - this is how tests stay offline.
     `sor_factory`: `None` (default) seeds a fresh `SimulatedSystemOfRecord` via
         `seed_demo_ledger` for every episode. Tests inject their own factory to
         capture the per-episode instance and assert on it directly.

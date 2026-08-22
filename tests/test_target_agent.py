@@ -15,7 +15,7 @@ pytest.importorskip("google.adk", reason="ADK not installed; the rest of the sui
 from target.refund_agent import agent, tools  # noqa: E402
 
 
-def test_the_agent_constructs_with_the_seven_bare_functions():
+def test_the_agent_constructs_with_the_eight_bare_functions():
     a = agent.build_agent()
     assert a.name == "refund_agent"
     assert [getattr(t, "__name__", None) for t in a.tools] == [
@@ -24,10 +24,17 @@ def test_the_agent_constructs_with_the_seven_bare_functions():
 
 def test_the_model_is_pinned_exactly_with_no_alias():
     """No aliases and no 'latest'. A moving target is a target whose D3 freeze
-    stops describing what actually ran."""
+    stops describing what actually ran.
+
+    `a.model` IS NO LONGER A STRING. It is a `BaseLlm` carrying the pinned id, so
+    that the provider and endpoint are decided by this repository rather than by
+    whatever `GOOGLE_GENAI_USE_VERTEXAI` and `GOOGLE_CLOUD_LOCATION` happen to
+    say. `tests/test_target_provider_pin.py` is where that is argued; the pinned
+    id itself is unchanged and is asserted here.
+    """
     a = agent.build_agent()
-    assert a.model == "gemini-3.5-flash-lite"
-    assert "latest" not in a.model
+    assert a.model.model == "gemini-3.5-flash-lite"
+    assert "latest" not in a.model.model
 
 
 def test_thinking_level_is_set_explicitly():
