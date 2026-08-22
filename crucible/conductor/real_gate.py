@@ -76,18 +76,44 @@ G7c IS INJECTED, AND WITHOUT IT THE RUN IS INVALID. THAT IS NOT A BUG.
 ------------------------------------------------------------------
 `holdout_touch_count` is derived from Cloud Audit Logs DATA ACCESS reads on the
 sealed holdout, exported and counted (`measurement-spec.md`:946, expected value
-**2**). Read against the live project on 2026-08-22, `gcloud projects
-get-iam-policy crucible-hack-2026 --format=json` returns **no `auditConfigs`
-block at all** - Data Access audit logging is not enabled, so the number does
-not exist to be read. G7's contract says `absent_or_unevaluable: RUN_INVALID`.
+**2**). G7's contract says `absent_or_unevaluable: RUN_INVALID`, so this gate
+takes `holdout_touch` as an injected callable with NO DEFAULT and, with none
+supplied, reports G7c UNEVALUABLE and raises. It does not default to zero and it
+does not skip the assertion. Defaulting to zero would print a green G7c computed
+from a log nobody read - a gate reporting a boundary it did not inspect, which
+is the one thing `verify_iam.py` was written to prevent.
 
-So this gate takes `holdout_touch` as an injected callable and, with none
-supplied, reports G7c UNEVALUABLE and raises. It does NOT default to zero, and
-it does not skip the assertion. Defaulting to zero would print a green G7c
-computed from a log sink that was never created - a gate reporting a boundary it
-did not inspect, which is the one thing `verify_iam.py` was written to prevent.
-Enabling the sink is a MUTATING project-level change and belongs to the
-coordinator, not to this module.
+**STATUS CORRECTED 2026-08-22, and the old text had already reached an
+artifact.** This paragraph used to end "the live project returns no
+`auditConfigs` block at all - Data Access audit logging is not enabled, so the
+number does not exist to be read", and `_holdout_finding` said the same thing in
+a string that `scripts/probe-g7-g8.py` prints into the G7/G8 proof file. Both
+halves are now false:
+
+  * Data Access logging IS enabled. `gcloud projects get-iam-policy
+    crucible-hack-2026 --format=json` carries an `auditConfigs` entry for
+    `storage.googleapis.com` with `logType: DATA_READ`, applied 2026-08-22.
+  * The counter EXISTS: `infra/holdout_touch.py`, wired in
+    `scripts/probe-g7-g8.py`. It queries `gcloud logging read` over the sealed
+    bucket and refuses to return 0 for any reason other than "nothing read the
+    holdout in this window" - a canary query over the whole attestable window
+    must match at least one entry before any count is trusted, so a misspelled
+    bucket is UNEVALUABLE rather than a clean seal.
+
+What has NOT changed: the log is not retroactive. It attests from
+`holdout_touch.ATTESTATION_FLOOR_UTC` forward and says nothing about the seal's
+earlier lifetime. Enabling the audit config was a MUTATING project-level change
+and was made by the coordinator, not by this module.
+
+G7c NOW HAS TWO FAILURE SHAPES AND THEY ARE NOT THE SAME FINDING
+------------------------------------------------------------------
+`holdout_touch.HoldoutTouchInvalid` means the instrument WORKED and caught
+something: a granted read of the sealed holdout by a principal outside the
+permitted set. `measurement-spec.md`:946 - "Any read from another SA ... marks
+the run INVALID." That is a FAIL carrying `invalidates`, not an UNEVALUABLE.
+Everything else the counter raises is UNEVALUABLE: the instrument declined to
+guess. Both route to RUN INVALID, and filing them as one status would throw away
+the interesting half - the same shape as `ALLOW`/`allow`, one level up.
 
 WHAT IS STUB-ONLY IN THE TESTS, STATED HERE TOO
 ------------------------------------------------------------------
@@ -104,6 +130,7 @@ that tests green and has never been called.
 import subprocess
 import time
 
+from infra import holdout_touch as ht
 from infra import verify_iam
 from ..canon import canonicalize
 from ..gate import PromotionError, object_name, promote
@@ -599,12 +626,19 @@ class RealGate:
                 "G7c", check, UNEVALUABLE,
                 "no holdout_touch counter was injected. The count is derived "
                 "from Cloud Audit Logs DATA ACCESS reads on the sealed holdout "
-                "(measurement-spec.md:946); the live project has NO auditConfigs "
-                "block, so the number does not exist to be read. Defaulting it "
-                "to 0 would print a green G7c computed from a sink that was "
-                "never created.")
+                "(measurement-spec.md:946), and infra/holdout_touch.py now "
+                "reads them - but NOTHING WAS WIRED IN HERE, so this gate did "
+                "not look. Defaulting it to 0 would print a green G7c computed "
+                "from a log nobody queried.")
         try:
             count = int(self.holdout_touch())
+        except ht.HoldoutTouchInvalid as e:
+            # NOT unevaluable. The counter worked and caught a granted read of
+            # the sealed holdout by an identity outside the permitted set.
+            # measurement-spec.md:946 - "Any read from another SA ... marks the
+            # run INVALID." That is a measurement, so it is a FAIL that
+            # invalidates, and it must not be filed as "we could not tell".
+            return finding("G7c", check, FAIL, str(e), invalidates=True)
         except Exception as e:                              # noqa: BLE001
             return finding("G7c", check, UNEVALUABLE,
                            "the counter raised: %s" % e)
