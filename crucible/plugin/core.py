@@ -101,18 +101,67 @@ class EnforcementCore:
         self.default_role = role
         self._caps = {}
         self._handle_by_fqname = {}
+        self._handle_by_leaf = {}
+        _ambiguous_leaves = set()
         for tool in self.manifest.get("tools", []):
             self._caps[tool["tool_handle"]] = tuple(
                 sorted(tool.get("capability_classes", ())))
-            self._handle_by_fqname[tool.get("tool_fqname")] = tool["tool_handle"]
+            fqname = tool.get("tool_fqname")
+            self._handle_by_fqname[fqname] = tool["tool_handle"]
+
+            # ADK NAMES A BARE-FUNCTION TOOL BY `fn.__name__`, NOT BY ITS DOTTED
+            # PATH, AND THAT MISMATCH FAILED OPEN. Added 2026-08-21, found the
+            # first time the target was driven through a real `Runner`.
+            #
+            # The manifest keys on `target.refund_agent.tools.issue_refund`.
+            # ADK's FunctionTool arrives as `issue_refund`. Every lookup missed,
+            # every call fell through to the synthetic handle, `capabilities_for`
+            # returned UNCLASSIFIED - and UNCLASSIFIED IS ALWAYS ALLOWED, by
+            # deliberate design. So the policy would have enforced NOTHING
+            # against the real agent, silently, with no exception raised.
+            #
+            # The designed safety net does not cover this. `capabilities_for`
+            # says the gap is "the D3 completeness check's job" - but that check
+            # asks whether the MANIFEST is complete, and the manifest is
+            # complete. The defect is in the lookup KEY, so the completeness
+            # check passes while every runtime resolution misses.
+            #
+            # REJECTED: renaming the FunctionTool to the dotted fqname. It works
+            # offline and breaks live - a function-declaration name must match
+            # ^[a-zA-Z0-9_-]{1,64}$ and a dot is not in that set, so the rename
+            # passes a stub-LLM test suite and is refused by the real API on the
+            # first call.
+            leaf = (fqname or "").rsplit(".", 1)[-1]
+            if leaf:
+                if leaf in self._handle_by_leaf:
+                    _ambiguous_leaves.add(leaf)
+                self._handle_by_leaf[leaf] = tool["tool_handle"]
+
+        # AMBIGUITY IS REFUSED, NOT RESOLVED. Two tools in different modules
+        # sharing a bare name would make the leaf lookup pick one arbitrarily,
+        # and a policy silently applied to the wrong tool is worse than no
+        # lookup at all - it would LOOK enforced.
+        for leaf in _ambiguous_leaves:
+            del self._handle_by_leaf[leaf]
+        self._ambiguous_leaves = frozenset(_ambiguous_leaves)
 
     # -- lookups -----------------------------------------------------------
     def handle_for(self, tool_name):
         """Product name -> opaque handle. An unmapped tool keeps a synthetic
         handle so the event is still recordable; the D3 manifest-completeness
         check is what turns that into a reported coverage gap rather than a
-        silent one."""
-        return self._handle_by_fqname.get(tool_name)
+        silent one.
+
+        RESOLVES THE DOTTED FQNAME FIRST, THEN THE BARE FUNCTION NAME. ADK hands
+        a bare-function tool over as `fn.__name__`; the manifest keys on the
+        dotted path. See the constructor for why that mismatch was a fail-open
+        rather than an error, and why the bare-name index refuses ambiguity
+        instead of guessing.
+        """
+        hit = self._handle_by_fqname.get(tool_name)
+        if hit is not None:
+            return hit
+        return self._handle_by_leaf.get(tool_name)
 
     def capabilities_for(self, tool_handle):
         """UNCLASSIFIED for anything the manifest does not map.
