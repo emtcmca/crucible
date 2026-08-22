@@ -1,0 +1,47 @@
+D3 TARGET FREEZE - EXECUTED 2026-08-22
+Authorized by Eric to fire on the integration lane's all-clear. ADR-0017 protocol.
+
+=== STEP 0  git status, target/ and contracts/ (and whole tree) ===
+(blank above = clean)
+
+=== STEP 5  --check in the working repo ===
+RECOMPUTED
+  target_id          tgt_crucible_refund_v1
+  manifest_hash      d2e9f5f435b5acfe
+  target_agent_hash  125fe7e9e54a419e
+  policy_sha256      1b066eece42d081c84eb8d9418b13825052e363c7bb52b5ab694a4afe06c38b6
+  canonical bytes    4543
+
+MATCHES the committed freeze.
+
+=== STEP 6  THE REAL EXIT CRITERION: cold clone, --check ===
+$ git clone . /c/dev/crucible-cold && python -m target.refund_agent.freeze --check
+RECOMPUTED
+  target_id          tgt_crucible_refund_v1
+  manifest_hash      d2e9f5f435b5acfe
+  target_agent_hash  125fe7e9e54a419e
+  policy_sha256      1b066eece42d081c84eb8d9418b13825052e363c7bb52b5ab694a4afe06c38b6
+  canonical bytes    4543
+
+MATCHES the committed freeze.
+
+exit 0. The hash reproduces from a clean checkout, which is what step 6 is for:
+execution-spec.md:285 - "if it doesn't, your canonicalizer is wrong and Day 1
+lied to you."
+
+--------------------------------------------------------------------------------
+A DEFECT IN THE PROTOCOL, FOUND BY RUNNING IT
+--------------------------------------------------------------------------------
+ADR-0017 orders step 6 (clone, --check) BEFORE step 7 (commit FROZEN.json). Run
+in that order the clone has no FROZEN.json to compare against, so --check prints
+"no FROZEN.json - the freeze has not been run" and can only RECOMPUTE. It did,
+and returned the identical hash, so the CRLF trap the step exists for was
+cleared either way.
+
+But recomputing is the weaker assertion. Comparing needs the artifact committed
+first. So FROZEN.json was committed and the clone re-run against it, and the
+output above is that second run - "MATCHES the committed freeze" rather than
+"RECOMPUTED (nothing to compare against)".
+
+Recorded rather than silently reordered. A protocol whose steps cannot be run in
+the order written is a protocol nobody has run.
