@@ -53,6 +53,55 @@ about an afternoon, and Eric already writes publicly.
 
 ## Tier 2 — the highest-leverage scoring work
 
+### T2-0 · Replace the four stand-ins in the runnable loop · **[40] [30A] [30D]**
+
+**Opened 2026-08-21. This is the largest scored gap in the project and it was
+living in a source-file header rather than on this list.**
+
+`crucible/conductor/campaign.py` runs the loop unattended to a recorded
+termination, and its own docstring is admirably honest about what is real:
+
+| Component | State |
+|---|---|
+| RED_STRATEGIST, CORONER, ARMORER | **real**, each on its pinned model, firing in sequence |
+| DSL parser, validator, POLICY_ENGINE, canonicalizer | **real** |
+| BUDGET_GOVERNOR, round protocol, five hash-locks, halt conditions | **real** |
+| **the TARGET** | stand-in. `target/refund_agent` is not driven |
+| **the TRIPWIRE** | ~~stand-in~~ **DONE 2026-08-21**, `crucible/conductor/real_tripwire.py` |
+| **the WARDEN** | stand-in. Four lane-authored shapes, not the 26 benign / 14 near-miss |
+| **the GATE** | stand-in. No GCS, no IAM. **G7 and G8 cannot be exercised at all** |
+
+**Why this scores, and on all three criteria.** The three model agents were
+already real; the four STAND-INS are the pure-code arbiters — and "no model ever
+decides whether a breach happened" is the sentence the whole demo is built on.
+A judge who opens `campaign.py` reads that claim and its stub in the same file.
+On **[30A]** that is the architectural argument simulated rather than enforced;
+on **[40]** the loop measures nothing about an agent's susceptibility to
+persuasion, which is the entire thing the target exists to measure; on **[30D]**
+the demo's headline pair has no real number behind it.
+
+**The good news: all four are WIRING, not building.** Every real module already
+exists — `crucible/tripwire/`, `crucible/warden/`, `crucible/gate/`,
+`target/refund_agent/` — and the 2026-08-21 ADK probe
+(`docs/proof/adk-4704-probe-2026-08-21.txt`) proved the enforcement plugin fires
+and blocks through a real `Runner` on both invocation paths. Each stand-in has a
+clean signature, so each replacement is a drop-in adapter in its own file.
+
+**The stand-in worth reading twice** is the tripwire's, now replaced:
+`breached = episode["_decision"] == ALLOW` — it asked the policy whether the
+policy had stopped something. Circular, and the exact inverse of the claim.
+
+**Known integration gap, found while wiring the tripwire:** `campaign.py` calls
+`seal_episode` **zero** times, and `harness/episode.py::seal_episode` refuses an
+episode whose run manifest lacks `objective_set_hash`, `manifest_hash` and
+`derived_schema_hash` — "unscoreable rather than clean, G1(b)." So the real
+tripwire against the current stand-in target scores every episode INVALID. That
+is the harness working, and it lands on the target replacement.
+
+**Refused:** loosening G1(b) so unsealed episodes score. The gate that refuses to
+score an unsealed episode is the one keeping the pre-registration claim true.
+
+
 ### T2-1 · The attack surface graph, as a render over frozen data · **[30A] [30D] [40]**
 
 Adopted from the Codex review; the reasoning is in
