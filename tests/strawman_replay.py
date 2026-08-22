@@ -15,7 +15,7 @@ must come out right. Then once against a strawman here, where a NAMED,
 PRE-DECLARED case must come out WRONG. If a strawman ever behaves correctly,
 the SUITE is broken and that is reported as a failure, not as a green run.
 
-WHY THESE FOUR AND NOT SOME OTHER FOUR
+WHY THESE FIVE AND NOT SOME OTHER FIVE
 --------------------------------------
 Each one is a plausible thing to actually write, and each one produces a viewer
 that looks like it works:
@@ -41,6 +41,17 @@ that looks like it works:
                         does not list it as required. The C6 known-bad fixture
                         names that absence as one of its four failure reasons
                         and the schema catches only the other three.
+
+  fieldwise_read        checks every field is present, well-formed and in
+                        range, and never compares two fields to each other.
+                        ADDED 2026-08-22 with the C6 extension, and it is the
+                        one a good engineer actually writes. It is blind to a
+                        label that contradicts the parameter it describes, to
+                        coverage of a different Objective Set, to mode 'live'
+                        beside a stand-in component, and to an exclusion share
+                        past the 5% ceiling - every field in each of those is
+                        individually valid, and the defect exists only BETWEEN
+                        them.
 
   CREDENTIAL_SOURCE     source text, never imported, for the offline lint to
   NETWORK_SOURCE        chew on. A lint aimed only at code that is already
@@ -166,7 +177,79 @@ def schema_only_read(raw_bytes, validator):
 
 
 # --------------------------------------------------------------------------
-# Strawmen 4 and 5 - source text for the offline lint. NEVER IMPORTED.
+# Strawman 4 - the FIELD-WISE reader. Checks every field; compares none.
+# --------------------------------------------------------------------------
+
+FIELDWISE_MUST_NOT_REJECT = {
+    "label_k_disagrees":
+        "labels.k says one thing and the run manifest's frozen reps_k says "
+        "another. Both fields are present and well-formed, so nothing that "
+        "looks at fields ONE AT A TIME can see it. A caveat that has stopped "
+        "being true is worse than a missing one, because a reader believes it.",
+    "coverage_hash_disagrees":
+        "clause_coverage names a DIFFERENT Objective Set than the run locks. "
+        "Both are valid 16-hex strings. Coverage of a different definition of "
+        "breach is not coverage of this one, and only comparing the two says so.",
+    "provenance_live_with_standin":
+        "execution_provenance.mode is 'live' while a component is 'stand_in'. "
+        "'live' is a legal mode and 'stand_in' is a legal implementation; the "
+        "contradiction exists only BETWEEN them. This is the mislabelling this "
+        "project cannot survive - every other field in the bundle looks "
+        "identical either way.",
+    "exclusion_ceiling_breached":
+        "a round excludes far more than 5% of what it attempted and still "
+        "records itself as SCORED. Every integer is in range. The defect is "
+        "arithmetic across three fields, which is the shape measurement-spec "
+        "5.1 exists to catch and no per-field check can.",
+    "exclusion_ledger_short":
+        "a round's census claims more exclusions than excluded[] names. Silent "
+        "exclusion turns flakiness into apparent hardening, and a ledger that "
+        "does not add up is what that looks like from the outside.",
+}
+
+
+def fieldwise_read(raw_bytes, validator):
+    """Validate against C6, then check every required field is present and
+    well-formed - and never compare two fields to each other.
+
+    This is not a lazy reader. It is what a careful engineer writes: it walks
+    the hash-locks, checks each is 16 hex, walks the episodes, checks each stamp
+    is 16 hex, checks the labels are non-empty strings, checks every census row
+    has non-negative integers. Every check is real and every check is local, and
+    the entire class of defect above is invisible to it.
+
+    `validator` is injected so this strawman shares the real reader's schema and
+    cannot pass for a reason the real reader would not.
+    """
+    bundle = json.loads(raw_bytes.decode("utf-8"))
+    errors = sorted(validator.iter_errors(bundle), key=lambda e: list(e.path))
+    if errors:
+        raise ValueError("schema: %s" % errors[0].message)
+
+    hexish = "0123456789abcdef"
+
+    def _hex16(v):
+        return isinstance(v, str) and len(v) == 16 and all(c in hexish for c in v)
+
+    for key, value in bundle["run_manifest"]["hash_locks"].items():
+        if not _hex16(value):
+            raise ValueError("hash lock %s is malformed" % key)
+    for ep in bundle["episodes"]:
+        for key in ("objective_set_hash", "manifest_hash", "derived_schema_hash"):
+            if not _hex16(ep.get(key)):
+                raise ValueError("episode %s: %s" % (ep.get("episode_id"), key))
+    for name, text in bundle["labels"].items():
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("label %s is empty" % name)
+    for row in bundle["round_census"]:
+        for key in ("attempted", "scorable", "excluded"):
+            if not isinstance(row.get(key), int) or row[key] < 0:
+                raise ValueError("census r%s: %s" % (row.get("round_index"), key))
+    return bundle
+
+
+# --------------------------------------------------------------------------
+# Strawmen 5 and 6 - source text for the offline lint. NEVER IMPORTED.
 # --------------------------------------------------------------------------
 # Held as strings so that a test can hand them to the lint without this module
 # acquiring a network import or an environment read of its own. A lint pointed
@@ -261,6 +344,55 @@ def mutate(bundle, how):
         b["cost"]["input_tokens"] = 412000.0
     elif how == "null_in_payload":
         b["episodes"][0]["policy_hash"] = None
+
+    # ---- the 2026-08-22 extension. Attack text, autopsies, rule text, clause
+    # ---- coverage, the exclusion ledger, execution provenance, the labels.
+    elif how == "attacks_missing":
+        b.pop("attacks", None)
+    elif how == "generated_attack_text_missing":
+        for entry in b["attacks"]:
+            if entry.get("provenance") == "generated":
+                entry.pop("instruction", None)
+    elif how == "attack_uncatalogued":
+        b["attacks"] = [e for e in b["attacks"]
+                        if e["attack_id"] != b["episodes"][0]["attack_id"]]
+    elif how == "autopsies_missing":
+        b.pop("autopsies", None)
+    elif how == "autopsy_missing_for_breach":
+        b["autopsies"] = []
+    elif how == "policy_rules_missing":
+        b["policy_chain"][0].pop("rules", None)
+    elif how == "coverage_missing":
+        b.pop("clause_coverage", None)
+    elif how == "coverage_hash_disagrees":
+        b["clause_coverage"]["objective_set_hash"] = "9" * 16
+    elif how == "coverage_never_fired_for_a_breach":
+        for clause in b["clause_coverage"]["clauses"]:
+            clause["episodes_fired"] = 0
+            clause.pop("first_fired_round", None)
+    elif how == "labels_missing":
+        b.pop("labels", None)
+    elif how == "label_k_disagrees":
+        b["labels"]["k"] = ("k = 3: three reps per instance, any-of-3 breach "
+                            "semantics.")
+    elif how == "label_tier_disagrees":
+        b["labels"]["target_tier"] = "a frontier model at thinking_level=high."
+    elif how == "provenance_missing":
+        b.pop("execution_provenance", None)
+    elif how == "provenance_live_with_standin":
+        b["execution_provenance"]["components"]["target"]["implementation"] = "stand_in"
+    elif how == "provenance_live_without_model_calls":
+        b["execution_provenance"]["model_calls"] = 0
+    elif how == "exclusion_ledger_missing":
+        b.pop("excluded", None)
+    elif how == "exclusion_ledger_short":
+        b["excluded"] = b["excluded"][:1]
+    elif how == "exclusion_ceiling_breached":
+        for row in b["round_census"]:
+            if row["outcome"] == "INCOMPLETE":
+                row["outcome"] = "SCORED"
+    elif how == "census_arithmetic_broken":
+        b["round_census"][0]["scorable"] = b["round_census"][0]["attempted"] + 1
     else:                                             # pragma: no cover
         raise KeyError("no such mutation: %r" % how)
     return b

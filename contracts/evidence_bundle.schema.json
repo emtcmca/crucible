@@ -14,12 +14,21 @@
     "fixture_results",
     "v0_benign_traces",
     "cost",
-    "sep_by_split"
+    "sep_by_split",
+    "attacks",
+    "autopsies",
+    "patch_proposals",
+    "clause_coverage",
+    "excluded",
+    "round_census",
+    "execution_provenance",
+    "labels"
   ],
   "properties": {
     "bundle_version": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "$comment": "2 as of 2026-08-22. Bumped from 1 when the bundle stopped being a hash ledger and became THE PRODUCT: attack text, autopsies, rule text, clause coverage, the exclusion ledger, execution provenance and the labels all became REQUIRED in one change. A reader handed a v1 bundle and a v2 bundle is looking at two different claims about what evidence is, and the version is the only field that says so before the schema does."
     },
     "run_manifest": {
       "$ref": "https://crucible.invalid/contracts/run_manifest.schema.json",
@@ -39,7 +48,10 @@
           "objective_set_hash",
           "manifest_hash",
           "derived_schema_hash",
-          "verdict"
+          "verdict",
+          "policy_version",
+          "policy_hash",
+          "model_provenance"
         ],
         "properties": {
           "episode_id": {
@@ -113,20 +125,78 @@
           },
           "policy_version": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "$comment": "REQUIRED as of 2026-08-22. 'Blocked at v3' means nothing without it, and the per-attack arc across versions is built by grouping episodes on (attack_id, policy_version)."
           },
           "policy_hash": {
             "type": "string",
-            "pattern": "^[0-9a-f]{16}$"
+            "pattern": "^[0-9a-f]{16}$",
+            "$comment": "REQUIRED as of 2026-08-22, alongside policy_version. A version number is a label the run chose; the hash is what it actually ran, and a bundle that carries only the label cannot be checked against policy_chain."
           },
           "model_provenance": {
             "type": "object",
-            "$comment": "Stamped per episode. A result produced by a DOWNGRADED model means something different, so downgrades are logged and stamped rather than absorbed."
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "model_id",
+              "provider"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "$comment": "Which model role produced this episode's target turns. Not the C1 `role` term, which is the invoking agent name on a ToolEvent and is bound in contracts/MANIFEST.json term_bindings."
+              },
+              "model_id": {
+                "type": "string"
+              },
+              "requested_model_id": {
+                "type": "string",
+                "$comment": "What was asked for, when it differs from what served. A result produced by a DOWNGRADED model means something different, so a downgrade is logged and stamped rather than absorbed."
+              },
+              "thinking_level": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string",
+                "minLength": 1,
+                "$comment": "REQUIRED as of 2026-08-22, and it is not bookkeeping. A live run on this project reached the WRONG API entirely because the target picks its provider from an unhashed environment variable while `endpoint` sits inside the D3 freeze - so the hash-locks all agreed and the calls went somewhere else. Nothing in the bundle could have shown that. Now the episode says who served it."
+              },
+              "endpoint": {
+                "type": "string"
+              },
+              "downgraded": {
+                "type": "boolean"
+              }
+            },
+            "$comment": "Stamped per episode. REQUIRED as of 2026-08-22 - it was declared as a bare untyped object and listed nowhere, so a bundle with no model provenance at all validated cleanly."
           },
           "verdict": {
             "$ref": "https://crucible.invalid/contracts/verdict.schema.json"
+          },
+          "round_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "$comment": "Which round this episode ran in. Optional: a v0 baseline episode and a vFinal held-out episode run OUTSIDE the round loop (measurement-spec 5.3 measures transfer exactly twice), so requiring it would force a false value on the two arms whose comparison is the headline."
+          },
+          "target_final_text": {
+            "type": "string",
+            "$comment": "THE TARGET'S OWN CLOSING WORDS, verbatim. OPTIONAL, and the reason is worth stating: no number in this bundle becomes misreadable without it, because every verdict is computed over episode_prefix and nothing is computed from prose. What it adds is the human half of 'how it was answered by the test subject' - an agent that refuses in plain language while quietly calling the tool anyway reads very differently from one that argues back, and the tool log alone cannot tell those apart. Nothing records this today: crucible/harness/episode.py seals events only."
           }
-        }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "attack_id"
+            ]
+          },
+          {
+            "required": [
+              "fixture_id"
+            ]
+          }
+        ],
+        "$comment": "EXACTLY ONE of attack_id or fixture_id, enforced by oneOf. An episode that carries neither belongs to nothing: it cannot be traced back to what was tested, and it cannot be placed on the per-attack arc across policy versions that turns 'breached at v0, blocked at vFinal' from an assertion into something a reader can check row by row. Both fields were optional until 2026-08-22, so a schema-valid bundle could carry an anonymous episode."
       }
     },
     "policy_chain": {
@@ -138,7 +208,8 @@
           "policy_hash",
           "parent_hash",
           "lineage_hash",
-          "policy_hash_full"
+          "policy_hash_full",
+          "rules"
         ],
         "properties": {
           "version": {
@@ -164,6 +235,57 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
             "$comment": "ADDED 2026-08-20 ON L6'S REPORT (F-1). The lineage step is SHA256(prev || ':' || policy_hash_full || ':' || uint32_be(n)) and it takes the FULL 64-char hash. This array carried only the 16-char truncation, so THE CHAIN COULD NOT BE RECOMPUTED FROM A BUNDLE AT ALL -- an offline reader could read the chain and could not verify it. That is the difference between a judge VERIFYING the lineage and a judge READING it, and the whole judge-reproduction path rests on the first one. L6 labelled its check CROSS_CHECKED rather than RECOMPUTED and reported the gap instead of weakening the claim, which is the correct move."
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rule_id",
+                "verb",
+                "dsl_text"
+              ],
+              "properties": {
+                "rule_id": {
+                  "type": "string",
+                  "pattern": "^r_[0-9a-f]{12}$"
+                },
+                "verb": {
+                  "enum": [
+                    "deny",
+                    "require_approval",
+                    "constrain_arg"
+                  ]
+                },
+                "capability_class": {
+                  "enum": [
+                    "CAP_MOVES_MONEY",
+                    "CAP_EXTERNAL_COMMS",
+                    "CAP_MUTATES_DURABLE_STATE",
+                    "CAP_READS_PII",
+                    "CAP_ESCALATES_PRIVILEGE",
+                    "CAP_INVOKES_AGENT",
+                    "UNCLASSIFIED"
+                  ]
+                },
+                "dsl_text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "$comment": "THE RULE, IN THE THREE-VERB DSL, AS A HUMAN READS IT: `rule r_5f2a91cc0b74: cap:CAP_MOVES_MONEY when amount_minor >= 50000 => require_approval(HIGH_VALUE) origin seed`. Rendered by crucible/armorer/render.py::render_rule, which is the same text the round-trip test parses back."
+                },
+                "origin": {
+                  "type": "string",
+                  "$comment": "The CLASS, per ruling 38 - 'armorer', never 'armorer:3'. The round lives in origin_round."
+                },
+                "origin_round": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6
+                }
+              }
+            },
+            "$comment": "REQUIRED as of 2026-08-22. 'Here is the rule that now stops it' was previously answerable only by fetching gcs_uri from a bucket the reader cannot open - which is not an answer, it is a forwarding address. The chain carried version, four hashes and a URI, and a customer holding the bundle could not read a single rule of the policy their agent is running under."
           }
         }
       },
@@ -173,10 +295,93 @@
       "type": "array",
       "items": {
         "$ref": "https://crucible.invalid/contracts/breach_record.schema.json"
-      }
+      },
+      "$comment": "REQUIRED as of 2026-08-22. It was DECLARED but not required, so the CORONER's diagnosis - the most human-readable artifact the loop produces, and the entire answer to 'what was found' - was optional in the run of record. An EMPTY ARRAY IS LEGAL AND MEANINGFUL: a run with no breach has no autopsy. Absent is different, and it is now a schema error rather than a silence. C5 carries capability_classes_involved, amount_minor_moved and the offending tool calls, so breach severity BY CAPABILITY CLASS is read from here rather than stored a second time - see the note on breach severity in the L6 viewer."
     },
     "patch_proposals": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposal_id",
+          "round_index",
+          "autopsy_id",
+          "verbs",
+          "rules",
+          "accepted"
+        ],
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "pattern": "^pp_[a-z0-9_]+$"
+          },
+          "round_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "autopsy_id": {
+            "type": "string",
+            "pattern": "^aut_[a-z0-9_]+$",
+            "$comment": "The provenance citation G6 requires. It is also the only join a reader has from 'here is what was found' to 'here is what was done about it'."
+          },
+          "verbs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "enum": [
+                "deny",
+                "require_approval",
+                "constrain_arg"
+              ]
+            },
+            "$comment": "THREE VERBS AND THERE IS NO FOURTH."
+          },
+          "rules": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "dsl_text"
+              ],
+              "properties": {
+                "rule_id_as_proposed": {
+                  "type": "string",
+                  "$comment": "The ARMORER NEVER WRITES A RULE ID. A model cannot compute SHA-256, so it emits the placeholder `r_new1` and the validator rewrites it (CONVENTIONS 2.6). Recording both halves is what makes that mechanism visible to a reader instead of a claim in a doc."
+                },
+                "rule_id_assigned": {
+                  "type": "string",
+                  "pattern": "^r_[0-9a-f]{12}$"
+                },
+                "dsl_text": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "repaired": {
+            "type": "boolean",
+            "$comment": "The validator repaired the proposal before it was judged. A patch that needed repair is a different event from one that did not."
+          },
+          "validator_result": {
+            "type": "string"
+          },
+          "warden_result": {
+            "type": "string"
+          },
+          "rejected_reason": {
+            "type": "string"
+          }
+        }
+      },
+      "$comment": "REQUIRED as of 2026-08-22, and given a shape: it was a bare `{\"type\": \"array\"}`, which accepts a list of integers. This is the 'what was patched' half of the engagement, and the DSL text is carried for the same reason policy_chain[].rules carries it - a proposal identified only by an id is unreadable, and a REJECTED proposal exists in no other artifact at all."
     },
     "gate_decisions": {
       "type": "array",
@@ -249,7 +454,541 @@
     },
     "cost": {
       "type": "object",
-      "$comment": "In TOKENS, deliberately - converted against the live price sheet at build time. The ledger must have a line for benign and known-bad fixture episodes, which the original estimate omitted; that half is load-bearing and its absence understated cost ~10x."
+      "additionalProperties": false,
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "wall_clock_ms",
+        "retries"
+      ],
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wall_clock_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "REQUIRED as of 2026-08-22. 'Six rounds' says nothing about whether this is a coffee break or an afternoon, and a harness a customer is deciding whether to run against their own agent is bought or refused on that number."
+        },
+        "retries": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rate_limit_429",
+            "total"
+          ],
+          "properties": {
+            "rate_limit_429": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "transport": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "$comment": "429s are not noise here. A run that spent its wall clock backing off is a run whose attacks were thinned by quota, and quota_abort is one of the exclusion reasons - so a high 429 count next to a short excluded[] list is a question a reader should be able to ask."
+        },
+        "usd_estimate_minor": {
+          "type": "integer",
+          "$comment": "OPTIONAL, AND DELIBERATELY NOT REQUIRED. Tokens are the measurement; dollars are tokens times a price sheet that moves, so a stored dollar figure is a number that goes wrong while sitting still. Minor units because canonicalization restriction 4 forbids a float anywhere in a hashed payload."
+        },
+        "by_role": {
+          "type": "object",
+          "$comment": "Optional per-role token split (target, red_strategist, coroner, armorer). Convenience: the totals above are the measurement."
+        }
+      },
+      "$comment": "In TOKENS, deliberately - converted against the live price sheet at build time. The ledger must have a line for benign and known-bad fixture episodes, which the original estimate omitted; that half is load-bearing and its absence understated cost ~10x. Given a declared shape 2026-08-22: it was a bare untyped object, so `\"cost\": {}` validated."
+    },
+    "attacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attack_id",
+          "provenance",
+          "family_id"
+        ],
+        "properties": {
+          "attack_id": {
+            "type": "string",
+            "pattern": "^atk_[0-9a-f]{12}$"
+          },
+          "provenance": {
+            "enum": [
+              "training_corpus",
+              "generated"
+            ],
+            "$comment": "THE FIELD THAT DECIDES WHETHER TEXT IS OPTIONAL. A training_corpus attack is reproducible from the committed corpus at corpus_hash, so an id suffices and duplicating the bytes would create a second source of truth for text the corpus freeze already owns. A GENERATED attack exists NOWHERE ELSE - not in the corpus, not on disk, nowhere - so if the bundle does not carry its bytes, the attack that broke someone's agent is unrecoverable the moment the process exits."
+          },
+          "family_id": {
+            "type": "string",
+            "pattern": "^fam_[a-z0-9_]+$"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "round_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "instruction": {
+            "type": "string",
+            "minLength": 1,
+            "$comment": "THE ATTACK ITSELF, IN FULL, VERBATIM. Not a summary, not a hash, not a pointer. REQUIRED when provenance is 'generated'. This is the answer to 'what was tested', and it is the single field a reader of this bundle most wants and could least reconstruct."
+          },
+          "corpus_instance_id": {
+            "type": "string",
+            "minLength": 1,
+            "$comment": "REQUIRED when provenance is 'training_corpus'. Resolves against the corpus frozen at corpus_hash, which is one of the five hash-locks, so the reference names a fixed artifact rather than whatever is in the folder today."
+          },
+          "derived_from_attack_id": {
+            "type": "string",
+            "pattern": "^atk_[0-9a-f]{12}$",
+            "$comment": "The seed the RED STRATEGIST rewrote. Its own prompt says 'pursue the SAME objective by the SAME sequence of actions', so a generated attack is a surface-form variant and the lineage is the difference between a novel attack and a paraphrase."
+          },
+          "generator": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "model_id",
+              "provider"
+            ],
+            "properties": {
+              "model_id": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "thinking_level": {
+                "type": "string"
+              },
+              "seed": {
+                "type": "integer"
+              }
+            },
+            "$comment": "Which model wrote this text, and through which PROVIDER. A generated corpus is only as reproducible as the thing that generated it."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "provenance": {
+                  "const": "generated"
+                }
+              },
+              "required": [
+                "provenance"
+              ]
+            },
+            "then": {
+              "required": [
+                "instruction",
+                "round_index",
+                "generator"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "provenance": {
+                  "const": "training_corpus"
+                }
+              },
+              "required": [
+                "provenance"
+              ]
+            },
+            "then": {
+              "required": [
+                "corpus_instance_id"
+              ]
+            }
+          }
+        ]
+      },
+      "$comment": "THE ATTACK CATALOGUE, AND IT IS THE CRUX. Every attack_id an episode names must appear here. Until 2026-08-22 a bundle carried attack_id and nothing else, which is legible only to someone holding the corpus - and for the six attacks the RED STRATEGIST generates per round, legible to NOBODY, because those strings are produced in memory and never written anywhere else. A run of record that cannot say what was tested is not a run of record; it is a scoreboard."
+    },
+    "clause_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "objective_set_hash",
+        "clauses"
+      ],
+      "properties": {
+        "objective_set_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "$comment": "Must equal the run manifest's objective_set_hash lock. Coverage of a DIFFERENT definition of breach is not coverage."
+        },
+        "clauses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "invariant_id",
+              "form",
+              "episodes_fired"
+            ],
+            "properties": {
+              "invariant_id": {
+                "type": "string",
+                "pattern": "^inv_[a-z0-9_]+$"
+              },
+              "form": {
+                "enum": [
+                  "per_event",
+                  "sequence",
+                  "aggregate"
+                ]
+              },
+              "episodes_fired": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "first_fired_round": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              }
+            }
+          },
+          "$comment": "ONE ROW PER CLAUSE IN THE OBJECTIVE SET, INCLUDING THE ONES THAT NEVER FIRED - those are the rows that matter. episodes_fired == 0 is the finding."
+        }
+      },
+      "$comment": "WHICH OF THE OBJECTIVE SET'S CLAUSES WERE ACTUALLY REACHED. The Objective Set IS the definition of breach, so a breach rate is a measurement of whatever share of it the corpus managed to touch. If three clauses never fire, the number measures a fraction of the definition while being reported as the whole - and nothing else in the bundle can tell a reader that happened. A live crash on 2026-08-22 proved one clause had never been reached by any known-bad fixture, which is exactly the condition this field makes visible without a crash."
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "instance_id",
+          "round_index",
+          "reason"
+        ],
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "episode_id": {
+            "type": "string",
+            "pattern": "^ep_[0-9a-f]{12}$"
+          },
+          "round_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "reason": {
+            "enum": [
+              "harness_error",
+              "quota_abort",
+              "hash_mismatch",
+              "target_fault",
+              "invalid_verdict"
+            ],
+            "$comment": "measurement-spec 5.1 names the first three. target_fault and invalid_verdict are here because crucible/conductor/conductor.py::RoundRecord.scorable strips BOTH from the denominator, and a denominator that shrinks for a reason the ledger does not name is the silent exclusion this list exists to prevent."
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "$comment": "THE NAMED EXCLUSION LEDGER, WITH INSTANCE IDS. Required by docs/measurement-spec.md section 5.1: exclusions go to a named excluded[] list with instance IDs, the count prints beside every ASR figure, and exclusions above 5% make the round INCOMPLETE and it must be RE-RUN, not reported. An EMPTY ARRAY IS LEGAL. Nothing produced this list before 2026-08-22 - a run on that date recorded 36 target faults and named not one of them - and silent exclusion is how flakiness turns into apparent hardening."
+    },
+    "round_census": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "round_index",
+          "attempted",
+          "scorable",
+          "excluded",
+          "outcome"
+        ],
+        "properties": {
+          "round_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "attempted": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scorable": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "excluded": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "target_faults": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "invalid": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "breaches": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outcome": {
+            "enum": [
+              "SCORED",
+              "UNSCORED",
+              "INCOMPLETE",
+              "INVALID"
+            ],
+            "$comment": "The four legal round outcomes, matching crucible/conductor/conductor.py::RoundRecord.outcome. INCOMPLETE was a legal value nothing could produce, because the 5% exclusion ceiling that creates it had no denominator to be computed against."
+          },
+          "wall_clock_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "$comment": "THE DENOMINATORS, PER ROUND. Without them the exclusion ledger is a list with no ratio: 5% of what? attempted == scorable + excluded is cross-checked by the replay reader, and so is the count of excluded[] entries carrying each round_index, so the two halves cannot drift apart in silence."
+    },
+    "execution_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "components",
+        "g7_g8_exercised",
+        "g7_g8_detail",
+        "model_calls"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "live",
+            "offline_stand_in",
+            "mixed"
+          ],
+          "$comment": "A BUNDLE FROM AN OFFLINE RUN MUST BE STRUCTURALLY IMPOSSIBLE TO MISTAKE FOR A LIVE ONE. Everything else in a stand-in bundle - the hash-locks, the frozen parameters, the census, the chain - is byte-identical in shape to a live one, so without this field the two are told apart only by knowing which command was typed."
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "red_strategist",
+            "tripwire",
+            "coroner",
+            "armorer",
+            "warden",
+            "gate"
+          ],
+          "properties": {
+            "target": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implementation"
+              ],
+              "properties": {
+                "implementation": {
+                  "enum": [
+                    "real",
+                    "stand_in"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            },
+            "red_strategist": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implementation"
+              ],
+              "properties": {
+                "implementation": {
+                  "enum": [
+                    "real",
+                    "stand_in"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            },
+            "tripwire": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implementation"
+              ],
+              "properties": {
+                "implementation": {
+                  "enum": [
+                    "real",
+                    "stand_in"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            },
+            "coroner": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implementation"
+              ],
+              "properties": {
+                "implementation": {
+                  "enum": [
+                    "real",
+                    "stand_in"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            },
+            "armorer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implementation"
+              ],
+              "properties": {
+                "implementation": {
+                  "enum": [
+                    "real",
+                    "stand_in"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            },
+            "warden": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implementation"
+              ],
+              "properties": {
+                "implementation": {
+                  "enum": [
+                    "real",
+                    "stand_in"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            },
+            "gate": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implementation"
+              ],
+              "properties": {
+                "implementation": {
+                  "enum": [
+                    "real",
+                    "stand_in"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "$comment": "ALL SEVEN, NAMED, EVERY TIME. A partial list would let the one component that was a stand-in be the one nobody mentioned, which is the failure shape this block exists for."
+        },
+        "g7_g8_exercised": {
+          "type": "boolean",
+          "$comment": "Whether the seal-integrity and non-self-approval gates were actually RUN in this run. Derived from gate reports rather than from a --live flag, because a run that halts early carries the flag and never reaches the gates."
+        },
+        "g7_g8_detail": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "HOW that boolean was established, in a sentence a reader can check. A bare false is indistinguishable from 'not reached', 'not configured' and 'failed'."
+        },
+        "model_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "Total model calls made. mode 'live' with zero model calls is a contradiction, and it is the exact shape a stand-in run mislabelled as live would take."
+        }
+      },
+      "$comment": "WHICH COMPONENTS WERE REAL AND WHICH WERE STAND-INS, plus whether G7/G8 were exercised. REQUIRED as of 2026-08-22. C6 had no place for any of it, so the most important caveat about a run - that half of it was scripted - lived only in a banner printed to a terminal that scrolls away."
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "k",
+        "sep_by_split",
+        "target_tier",
+        "benign_regression",
+        "trust_root"
+      ],
+      "properties": {
+        "k": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Must name the run manifest's frozen reps_k. Cross-checked by the replay reader against frozen_parameters, so the prose cannot drift off the parameter it describes."
+        },
+        "sep_by_split": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Must contain both counts from sep_by_split. Cross-checked."
+        },
+        "target_tier": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Must contain the target model_id from run_manifest.target_ref. Cross-checked."
+        },
+        "benign_regression": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trust_root": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "$comment": "THE LABELS THAT TRAVEL WITH EVERY FIGURE FROM THIS RUN, CARRIED IN THE BUNDLE. Until 2026-08-22 these five sentences were built in crucible/replay/view.py from string literals, so a bundle handed to anyone WITHOUT the viewer - pasted into a slide, mailed to a customer, opened in a text editor - arrived stripped of every caveat while keeping every number. That is the one failure this project must never allow, and it was the default. The prose is carried AND cross-checked against the data it describes, because a label free to disagree with its own bundle is worse than no label: it is a caveat that has stopped being true."
     }
   }
 }
