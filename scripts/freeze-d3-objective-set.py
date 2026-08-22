@@ -300,9 +300,18 @@ def main():
                         "EVERY _-PREFIXED ANNOTATION REMOVED, which is exactly what "
                         "crucible.tripwire.objective_set.ObjectiveSet.hash computes "
                         "and therefore the only value G1(b) can ever see stamped on "
-                        "an episode. contracts/objective_set.schema.json's "
-                        "description argues the annotations SHOULD be covered; that "
-                        "divergence is open and named here rather than absorbed.",
+                        "an episode. RESOLVED BY RULING 44 (Eric, 2026-08-22), "
+                        "SPINE_VERSION 12: contracts/objective_set.schema.json "
+                        "argued the annotations SHOULD be covered, and contracts "
+                        "outrank code, so C10 won on the page. It lost anyway - "
+                        "recording the unstripped value would name a number no "
+                        "episode can ever carry, scoring every round INVALID, which "
+                        "is a hash-lock that locks nothing. C10 is corrected and "
+                        "re-hashed with the losing argument preserved inside it. "
+                        "RESIDUAL, stated not hidden: prose outside the hash stays "
+                        "editable after the freeze. Bounded, because the evaluator "
+                        "walks only non-_ keys - such an edit can mislead a reader "
+                        "but cannot change a verdict.",
         "contract": "C10",
         "file": REL,
         "objective_set_hash": short,

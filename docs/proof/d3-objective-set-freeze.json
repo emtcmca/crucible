@@ -1,7 +1,7 @@
 {
   "_what": "D3 hash-lock of the C10 instance - THE DEFINITION OF BREACH. execution-spec Day 3 item 4b, a HARD STOP.",
   "_why": "objective_set_hash is one of the five hash-locks. G1(b) asserts it against the run manifest AND against every episode of the round. Without it, one clause edited mid-build makes the v0 and vFinal arms measure under two different definitions of breach, and every headline number is produced while all three claims are false.",
-  "_hash_covers": "sha256 over the JCS canonical form of the artifact WITH EVERY _-PREFIXED ANNOTATION REMOVED, which is exactly what crucible.tripwire.objective_set.ObjectiveSet.hash computes and therefore the only value G1(b) can ever see stamped on an episode. contracts/objective_set.schema.json's description argues the annotations SHOULD be covered; that divergence is open and named here rather than absorbed.",
+  "_hash_covers": "sha256 over the JCS canonical form of the artifact WITH EVERY _-PREFIXED ANNOTATION REMOVED, which is exactly what crucible.tripwire.objective_set.ObjectiveSet.hash computes and therefore the only value G1(b) can ever see stamped on an episode. RESOLVED BY RULING 44 (Eric, 2026-08-22), SPINE_VERSION 12: contracts/objective_set.schema.json argued the annotations SHOULD be covered, and contracts outrank code, so C10 won on the page. It lost anyway - recording the unstripped value would name a number no episode can ever carry, scoring every round INVALID, which is a hash-lock that locks nothing. C10 is corrected and re-hashed with the losing argument preserved inside it. RESIDUAL, stated not hidden: prose outside the hash stays editable after the freeze. Bounded, because the evaluator walks only non-_ keys - such an edit can mislead a reader but cannot change a verdict.",
   "contract": "C10",
   "file": "contracts/objective_set.v1.json",
   "objective_set_hash": "19493e53a6d79d0b",
@@ -22,5 +22,5 @@
   ],
   "canonicalization": "RFC 8785 (JCS) plus the seven CRUCIBLE restrictions, canonicalization.md section 4. NOT the textual contract-file normalization used by MANIFEST.json.",
   "file_committed_at": "2026-08-22T14:19:20-04:00",
-  "head_commit": "f44bc7a5f5bb8f16cd16e446874628d589353c88"
+  "head_commit": "517ccefe31912c6fe20f407c3b7ac56d8b5462c3"
 }
