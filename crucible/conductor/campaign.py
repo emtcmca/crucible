@@ -112,8 +112,8 @@ from ..ledger import Ledger
 from ..policy import ALLOW, APPROVAL_REQUIRED, DENY, evaluate
 from ..red import AttackSeed, RedStrategist
 from ..tripwire import RunManifest
-from .conductor import REQUIRED_HASHES, Conductor
-from .hashlocks import load_hash_locks
+from .conductor import Conductor
+from .hashlocks import LOCK_FIELDS, load_hash_locks
 from .real_gate import (
     UNEVALUABLE,
     GateHalt,
@@ -574,6 +574,11 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
         # mapped explicitly here rather than teaching either one a second
         # spelling of the other's name.
         "target_hash": locks.values["target_agent_hash"],
+        # `runs.corpus_hash` is a column `store.py` has always written and this
+        # call has never filled, so every run record said NULL for the one field
+        # that names WHICH SUITE the run measured. The loader did not have the
+        # value until 2026-08-22; now it does.
+        "corpus_hash": locks.values["corpus_hash"],
         "derived_schema_hash": locks.values["derived_schema_hash"],
     })
 
@@ -835,13 +840,17 @@ def run(argv=None):
               "target, passes the benign floor for free, and is promoted. Only "
               "`cap:`-scoped rules can bite. Read this before quoting any "
               "convergence claim.")
+    # LOCK_FIELDS, not REQUIRED_HASHES. The conductor requires five; the banner
+    # prints six, because ruling 20's fifth lock is two fields and `corpus_hash`
+    # is the one that says WHICH SUITE every rate below was measured against. It
+    # was absent from this banner - and from the bundle - until 2026-08-22.
     print("  hash-locks   :")
-    for name in REQUIRED_HASHES:
+    for name in LOCK_FIELDS:
         prov = locks.provenance[name]
         print("    %-20s %s  %-8s %s"
               % (name, locks.values[name], prov["kind"], prov["source"]))
     if locks.unfrozen:
-        print("  >>> %d of 5 hash-locks have NO DATED FREEZE RECORD (%s). Their "
+        print("  >>> %d of 6 lock fields have NO DATED FREEZE RECORD (%s). Their "
               "values are the real hashes of the artifacts in force, so the run "
               "is internally consistent - but they do not evidence that those "
               "artifacts were pinned BEFORE the first measurement."
@@ -924,8 +933,12 @@ def run(argv=None):
                    "rounds": [_round_json(r) for r in result.rounds]},
                   fh, indent=2, default=str)
     print("\n  bundle -> %s" % out)
-    print("  five hashes present: %s"
-          % all(h in result.hashes for h in REQUIRED_HASHES))
+    # SIX FIELDS. `REQUIRED_HASHES` is the five the conductor refuses to start
+    # without; a BUNDLE needs the sixth, `corpus_hash`, or it cannot say which
+    # suite its rates were measured against. This line said "five" and checked
+    # five until 2026-08-22.
+    print("  six lock fields present: %s"
+          % all(h in result.hashes for h in LOCK_FIELDS))
     return 0
 
 

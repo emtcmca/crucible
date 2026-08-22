@@ -48,6 +48,7 @@ import pathlib
 import pytest
 
 from crucible.conductor import REQUIRED_HASHES
+from crucible.conductor.hashlocks import LOCK_FIELDS
 from crucible.conductor import campaign as C
 from crucible.conductor import real_gate as rg
 from crucible.conductor.conductor import (
@@ -424,7 +425,7 @@ def test_the_campaign_reports_RUN_INVALID_distinctly_from_a_rejection(
     assert summary["gate"]["stop"]["findings"][0]["gate"] == "G7c"
     # A voided bundle still carries the locks and the floor. It is the bundle a
     # reader most needs and would otherwise least have.
-    assert set(summary["hash_locks"]["values"]) == set(REQUIRED_HASHES)
+    assert set(summary["hash_locks"]["values"]) == set(LOCK_FIELDS)
     assert summary["benign_floor_at_v0"]["total"] == 26
 
 

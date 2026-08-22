@@ -23,6 +23,7 @@ import json
 import pytest
 
 from crucible.conductor import REQUIRED_HASHES
+from crucible.conductor.hashlocks import LOCK_FIELDS
 from crucible.conductor.campaign import (
     SEEDS,
     capability_retained,
@@ -116,13 +117,21 @@ def test_a_degraded_run_halts_rather_than_faking_a_patch(tmp_path, capsys):
     assert bundle["summary"]["halt"] == "ARMORER_EXHAUSTED"
 
 
-def test_the_bundle_carries_all_five_hashes_on_the_run_and_on_every_round(tmp_path):
+def test_the_bundle_carries_all_six_lock_fields_on_the_run_and_on_every_round(
+        tmp_path):
+    """SIX FIELDS, not five. Ruling 20's fifth lock is `corpus + derived_schema`
+    and this asserted only the second half until 2026-08-22 - so a bundle could
+    not say WHICH SUITE its rates were measured against. `REQUIRED_HASHES` still
+    names the five the conductor refuses to start without; `LOCK_FIELDS` names
+    the six a bundle must carry, and widening this to it is a stronger
+    assertion, not a relaxed one."""
     out = tmp_path / "bundle.json"
     run(["--out", str(out)])
     bundle = json.loads(out.read_text(encoding="utf-8"))
-    assert set(bundle["hashes"]) == set(REQUIRED_HASHES)
+    assert set(REQUIRED_HASHES) < set(LOCK_FIELDS)
+    assert set(bundle["hashes"]) == set(LOCK_FIELDS)
     for record in bundle["rounds"]:
-        assert set(record["hashes"]) == set(REQUIRED_HASHES)
+        assert set(record["hashes"]) == set(LOCK_FIELDS)
 
 
 def test_the_bundle_says_no_number_in_it_may_be_quoted(tmp_path):
