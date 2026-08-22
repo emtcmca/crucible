@@ -13,40 +13,60 @@ above everything else on this list** — item 11 decides whether any run can sco
 
 ---
 
-## 11. **G7c cannot be evaluated, and it gates whether any run scores.** · NEW 2026-08-22
+## 11. **G7c — CLOSED 2026-08-22, same day it was opened.** No longer gates a run.
 
-`holdout_touch_count` is derived from Cloud Audit Log data-access reads on the sealed
-holdout. **The live project has no `auditConfigs` block**, so those entries are not being
-written and the number does not exist to be read.
-`docs/proof/L3-real-gate-G7-G8-2026-08-22.txt` therefore records **16 assertions, 15 PASS,
-G7c UNEVALUABLE** — correctly. `contracts/gate_rule.v1.yaml:170` routes
-`absent_or_unevaluable` to **RUN INVALID**, so as things stand **a completed run scores
-nothing.**
+**Written while a parallel lane was closing it.** Two lanes ran simultaneously: one swept the
+documents and recorded G7c as unevaluable; the other enabled audit logging and built the reader.
+Neither could see the other. The text below is what the sweep found; everything after it is
+what actually happened, and the sequence is kept rather than overwritten because *the record of
+two correct lanes disagreeing about the present tense* is worth more than a clean page.
 
-**Defaulting the counter to 0 is the one thing that must not happen.** It would print a
-green G7c computed from a sink that was never created — a check that cannot fail, which is
-the failure this project has catalogued more than any other.
+> ~~The live project has no `auditConfigs` block, so those entries are not being written and
+> the number does not exist to be read. `contracts/gate_rule.v1.yaml:170` routes
+> `absent_or_unevaluable` to **RUN INVALID**, so as things stand a completed run scores
+> nothing.~~
 
-**Your call, and the options are not symmetric:**
+**What was done, in the order it happened.**
 
-1. **Create the audit sink.** Enable `DATA_READ` (and `ADMIN_READ`) audit logging for
-   `storage.googleapis.com`. This is a project IAM-policy write and it bills log volume.
-   It also cannot be retroactive — nothing before it is turned on is knowable.
-2. **Accept G7c as permanently UNEVALUABLE and say so on camera**, treating the seal as
-   evidenced by the G7a impersonation 403s (which passed) plus the published commitment,
-   rather than by a touch counter. This is honest and it is weaker.
-3. Something else, but **not** a defaulted zero.
+1. **Data Access audit logging enabled**, 2026-08-22. `auditConfigs` for
+   `storage.googleapis.com`, `logType: DATA_READ`. Applied from a backed-up policy with a
+   diff proving only that key was added; **all 18 bindings verified byte-identical afterwards.**
+2. **The reader was built** — `infra/holdout_touch.py` — because enabling the log was necessary
+   and **not sufficient**: `probe-g7-g8.py` passed `holdout_touch=None`, hardcoded. Nothing read it.
+3. **`G7c` now evaluates. 16 assertions, 16 PASS** — the first time G7 has been fully evaluable.
 
-> **A DEFECT IN THE SPEC, FOUND WHILE RESOLVING THIS, AND IT IS ALREADY SETTLED — recorded
-> so nobody re-opens it.** `measurement-spec.md` said the count was **all-time with a
-> ceiling of 2**, against its own `:869` which says
-> `holdout_touch_count == expected_for_this_phase`. **The hash-locked contract decides it:**
-> `contracts/gate_rule.v1.yaml:205` reads `expected_for_this_phase`, contracts outrank
-> `measurement-spec`, and that file was frozen at `cff9f52929397efb` before anything was
-> measured. The merits agree independently — the "2" counts the two legitimate *measurement
-> phases*, and one phase reads 18–24 sealed instances, so an all-time ceiling of 2 would
-> mark the run INVALID the first time it was used correctly. `measurement-spec.md` §7 guard
-> 2 is corrected; **no ruling is needed on that half.**
+**Option 2 in the original item — accept it as permanently unevaluable — was not taken, and the
+defaulted zero was never on the table.**
+
+> **The counter had to learn that an ENTRY IS NOT A TOUCH.** Measured rather than assumed: a
+> recursive listing emits **four** log entries including an `objects.get` on the *prefix*; a
+> single content read emits **three**, because metadata and media are separate fetches; a
+> **denied** read is logged too; and one real entry came back `granted: true` **with status code
+> 5** (NOT_FOUND on a prefix). An implementation reading only `authorizationInfo[].granted`
+> counts that last one as a read of the holdout. The same log also carries `iamcredentials`
+> token-mint entries, one per impersonation — so a filter keyed on log name alone counts a **G7a
+> probe** as a seal touch.
+
+> **Five routes to a fabricated zero all RAISE instead**, the load-bearing one being a **canary
+> query**: the same filter over the whole attestable window must match at least one entry before
+> any count is trusted, so a misspelled bucket or a renamed log surfaces as UNEVALUABLE rather
+> than as a clean seal. **Coverage begins 2026-08-22T19:31:10Z** — not when the config was
+> applied, but the earliest instant coverage has been *shown*, because a probe at 18:27:30Z left
+> no entry and denials are logged, which makes that evidence of absence. G7c attests forward from
+> there and says nothing about the seal's lifetime since 08-20.
+
+**Still open and stated rather than covered by silence:** the `auditConfig` names storage only,
+so a read of the sealed **BigQuery dataset** counts as zero touches. Closing it is a second
+`auditConfigs` entry — a project-IAM write, not made.
+
+**The spec half is settled and needs no ruling.** `measurement-spec.md` said the count was
+all-time with a ceiling of 2, against its own `:869`. **The hash-locked contract decides it:**
+`contracts/gate_rule.v1.yaml:205` reads `expected_for_this_phase`, contracts outrank
+`measurement-spec`, and that file was frozen at `cff9f52929397efb` before anything was measured.
+The merits agree independently — the "2" counts the two legitimate measurement *phases*, and one
+phase reads 18–24 sealed instances, so an all-time ceiling of 2 would mark the run INVALID **the
+first time it was used correctly.** A guard that fires on correct behaviour is not a guard.
+`measurement-spec.md` §7 guard 2 is corrected.
 
 ---
 
