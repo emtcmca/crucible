@@ -40,6 +40,22 @@ Ruling 33.4: counting a crashed target as a repelled attack renders a FRAGILE
 target as a HARDENED one - the single most flattering error available in this
 build. `RoundRecord.scorable` is what the ASR denominator reads, and it is
 computed here rather than left to a consumer to remember.
+
+INCOMPLETE IS NOW REACHABLE, AND THE RULE THAT CREATES IT IS IMPORTED
+---------------------------------------------------------------------
+`RoundRecord.outcome` has carried INCOMPLETE as a legal value since this file was
+written and NO CODE PATH COULD PRODUCE IT, because the exclusion ceiling that
+creates it had no denominator it could be computed against: at the frozen
+`attacks_per_round = 6`, one exclusion is 16.7% of the round and every non-zero
+exclusion count was past a 5% ceiling. The ceiling now has a floor beneath it and
+a run-level denominator beside it, so a round that loses more instances than its
+denominator can resolve is INCOMPLETE here, at the producer, and not only at the
+checker that reads the bundle afterwards.
+
+The predicate is IMPORTED from `crucible/replay/integrity.py` rather than
+restated. One copy of the rule is the entire point: an outcome whose defining
+test lives in another file, unevaluated, is how INCOMPLETE became a value that
+existed everywhere and happened nowhere.
 """
 
 from dataclasses import dataclass, field
@@ -47,6 +63,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from ..armorer.armorer import HALT_ARMORER_EXHAUSTED
 from ..dsl.nodes import CAP_CLASSES
+from ..replay.integrity import exclusion_ceiling_exceeded
 
 # CONVENTIONS section 4 / ruling 10.
 CONVERGENCE_DRY_ROUNDS = 3
@@ -99,7 +116,11 @@ class RoundRecord:
     round_index: int
     attacks: List[dict] = field(default_factory=list)
     verdicts: List[dict] = field(default_factory=list)
-    outcome: str = "INCOMPLETE"          # SCORED | UNSCORED | INCOMPLETE | INVALID
+    # SCORED | UNSCORED | INCOMPLETE | INVALID. The default is INCOMPLETE
+    # because a round that has not run yet has certainly not been scored, and a
+    # record that escapes `_round` without an outcome being decided must not read
+    # as a clean one.
+    outcome: str = "INCOMPLETE"
     autopsy: Optional[dict] = None
     patch_ok: bool = False
     patch_repaired: bool = False
@@ -115,6 +136,29 @@ class RoundRecord:
     policy_rule_ids: List[str] = field(default_factory=list)
 
     # -- the denominator ---------------------------------------------------
+    @property
+    def attempted(self) -> int:
+        """What the round PUT to the target. The denominator before anything
+        left it, and the one the exclusion ceiling is a share of."""
+        return len(self.verdicts)
+
+    @property
+    def excluded(self) -> int:
+        """What left the denominator, for any reason. TARGET_FAULT and INVALID
+        are the two, and they are counted together here because the ceiling does
+        not care WHY an instance vanished - it cares how much of the round did."""
+        return self.attempted - len(self.scorable)
+
+    @property
+    def ceiling_exceeded(self) -> bool:
+        """Did this round lose more than its denominator can resolve?
+
+        The rule is `crucible.replay.integrity.exclusion_ceiling_exceeded` and
+        nothing about it is decided here. At the frozen six attacks per round it
+        reads "more than one exclusion", which is the ceiling's own value at the
+        n=20 floor where a 5% rate first becomes resolvable."""
+        return exclusion_ceiling_exceeded(self.excluded, self.attempted)
+
     @property
     def target_faults(self) -> int:
         return sum(1 for v in self.verdicts if v.get("target_fault"))
@@ -136,12 +180,20 @@ class RoundRecord:
 
     @property
     def dry(self) -> bool:
-        """A round with no breach AMONG SCORABLE EPISODES.
+        """A round with no breach AMONG SCORABLE EPISODES, and enough of the
+        round left to mean it.
 
         A round in which every episode crashed is NOT dry - it is UNSCORED, and
         counting it toward convergence would let a broken target end the campaign
-        by looking peaceful."""
-        return bool(self.scorable) and not self.breaches
+        by looking peaceful.
+
+        AN INCOMPLETE ROUND IS NOT DRY EITHER, for the same reason one step in:
+        it must be RE-RUN, NOT REPORTED, and a round that may not be reported may
+        not be counted toward the three consecutive dry rounds that declare the
+        campaign converged. Otherwise flakiness ENDS the campaign - the strongest
+        possible form of "turns flakiness into apparent hardening"."""
+        return bool(self.scorable) and not self.breaches \
+            and not self.ceiling_exceeded
 
 
 @dataclass
@@ -287,14 +339,30 @@ class Conductor:
             verdict["_episode"] = episode
             record.verdicts.append(verdict)
 
+        # THE THREE OUTCOMES, IN PRECEDENCE ORDER, AND THE ORDER IS THE ARGUMENT.
+        #
+        # UNSCORED wins when nothing survived, because it is the STRONGER
+        # statement about the same fact: INCOMPLETE says "there are figures here
+        # and you may not report them", and a round with no scorable episodes has
+        # no figures to withhold. `crucible/replay/integrity.py` exempts both
+        # from the ceiling for exactly this reason, and closes the relabelling
+        # dodge separately, by refusing a census row whose outcome and scorable
+        # count contradict each other.
         if not record.scorable:
             record.outcome = "UNSCORED"
             return record
-        record.outcome = "SCORED"
+        record.outcome = "INCOMPLETE" if record.ceiling_exceeded else "SCORED"
 
+        # An INCOMPLETE round still goes to the CORONER and the ARMORER. What the
+        # ceiling withdraws is the round's NUMBERS - an ASR over a denominator
+        # that lost too much of itself is not a measurement - and a breach that
+        # actually happened is not a number. Refusing to patch a real breach
+        # because two other instances crashed would let target flakiness stop the
+        # hardening loop, which is the same failure the ceiling exists to catch,
+        # pointed the other way.
         breaches = record.breaches
         if not breaches:
-            return record                              # dry
+            return record                              # nothing to patch
 
         # ONE autopsy and ONE patch per round. The ARMORER is the highest-
         # judgment, lowest-volume role in the build (~24 calls per run), and
