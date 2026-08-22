@@ -34,7 +34,11 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$HERE/docs/proof/armorer-403.txt"
 mkdir -p "$HERE/docs/proof"
 
-PROBE_OBJECT="$CRUCIBLE_SEALED_BUCKET/families/_probe/canary.txt"
+# MOVED OUT OF families/ 2026-08-22. The canary is not sealed material and it
+# has no business sharing a prefix with the sealed instances.
+PROBE_OBJECT="$CRUCIBLE_SEALED_BUCKET/_probe/canary.txt"
+# The PREFIX form, for the positive control only. See probe() below.
+PROBE_PREFIX="$CRUCIBLE_SEALED_BUCKET/_probe/**"
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
@@ -68,18 +72,54 @@ SEEDED=$?
   echo ""
 } >> "$TMP"
 
+# WHY THE TWO ARMS USE DIFFERENT OPERATIONS. Added 2026-08-22, NEEDS-ERIC item 12.
+#
+# G7c counts Cloud Audit Log data-access reads on this bucket, and
+# infra/holdout_touch.py::classify counts by OPERATION KIND, not by path:
+#   * a GRANTED storage.objects.get on a real object  -> CONTENT_READ, COUNTED
+#   * storage.objects.list, any storage.buckets.*     -> ENUMERATION, not counted
+#   * a DENIED read (granted:false / status 7)        -> not counted
+#
+# So only one arm can pollute the counter, and the split follows from that:
+#   DENY arms keep 'cat'. A denied read is not counted, AND cat is the correct
+#     probe for them - it proves objects.get is refused, which IS the boundary.
+#     Proving 'list' is refused would prove a weaker and different thing.
+#   The ALLOW arm uses 'objects list'. Its job is to prove the probe PATH IS
+#     REAL - bucket exists, impersonation works, gcloud functioning - so the
+#     403s above it mean something. A listing proves that and is NOT counted.
+#     Using cat here would add one counted touch to the sealed bucket EVERY
+#     TIME THE GATE PROBES, which under a phase-scoped expected value makes
+#     the number depend on how often we probed. Untenable.
+#
+# WHAT THIS COSTS, stated rather than hidden: the positive control no longer
+# proves sealed-eval can read CONTENT, only that it can reach the bucket. That
+# grant is evidenced independently - roles/storage.objectViewer bucket-wide
+# with no condition, UBLA on, no object ACLs - and by G7c's own canary query,
+# which requires a real granted content read in the window before any count is
+# trusted. A weaker positive control, chosen over a counter that measures its
+# own probing.
 probe() {  # probe <sa> <expect: allow|deny>
-  local sa="$1" expect="$2" email out rc
+  local sa="$1" expect="$2" email out rc cmd
   email="$(sa_email "$sa")"
-  out="$(gcloud storage cat "$PROBE_OBJECT" \
-          --impersonate-service-account="$email" 2>&1)"
+  # An ARRAY, not a string. $PROBE_PREFIX ends in ** and an unquoted string
+  # expansion would hand that to pathname expansion against the local
+  # filesystem before gcloud ever sees it.
+  local -a argv
+  if [ "$expect" = "allow" ]; then
+    argv=(gcloud storage objects list "$PROBE_PREFIX")
+    cmd="gcloud storage objects list $PROBE_PREFIX"
+  else
+    argv=(gcloud storage cat "$PROBE_OBJECT")
+    cmd="gcloud storage cat $PROBE_OBJECT"
+  fi
+  out="$("${argv[@]}" --impersonate-service-account="$email" 2>&1)"
   rc=$?
 
   {
     echo "----------------------------------------------------------------------"
     echo "identity : $email"
     echo "expected : $expect"
-    echo "command  : gcloud storage cat $PROBE_OBJECT \\"
+    echo "command  : $cmd \\"
     echo "             --impersonate-service-account=$email"
     echo "exit     : $rc"
     echo "output   :"

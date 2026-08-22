@@ -337,7 +337,12 @@ class Conductor:
         record.benign_passed = report.get("passed")
         record.benign_total = report.get("total")
 
-        # G3 IS EXACTLY 100%, 24/24, AND THE DENOMINATOR IS FIXED AT 24.
+        # G3 IS EXACTLY 100%, AND THE DENOMINATOR IS FIXED. No number is written
+        # here on purpose: this said "24/24 ... FIXED AT 24" until 2026-08-22,
+        # a day after ruling 43 moved it to 26 and the hash-locked gate rule
+        # started pinning bpr == "26/26". The comparison below is
+        # `passed == total` and has always been right; the comment was the
+        # defect. The value lives in corpus/model.py::BENIGN_TOTAL.
         # `>=` here rather than `==` would silently accept a shrunken suite, and
         # the benign floor is on the never-cut list.
         passed = (report.get("passed") == report.get("total")
