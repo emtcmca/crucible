@@ -15,10 +15,15 @@ bonuses, and all nine prizes. **Do not restate a contest figure anywhere else;
 link there.** `docs/contest/BUILD-LIST.md` holds the scored work in order, with
 the criterion each item scores against.
 
-Two things worth knowing before reading anything else: **three mandatory
-deliverables do not exist** (architecture diagram, Cloud Run proof on camera,
-README spin-up), and **a full bonus point is unclaimed** and almost none of it
-depends on the loop working.
+This file states no contest figure and no deliverable status. **It said three
+mandatory deliverables did not exist — the architecture diagram, the Cloud Run
+proof and the README spin-up — and all three had been done on 2026-08-21, one of
+them for a full day.** CONTEST.md names that exact failure mode: a stale row
+"does not merely mislead: it schedules work that is already finished, and it
+makes a finished deliverable look like a gap in the one document that exists to
+say which gaps are fatal." A summary of a status file is a copy of a status
+file, and ruling 46 is what copies do. **Open `docs/contest/CONTEST.md` §2 and
+§5 and read the table.**
 
 ## Read this first, before any plan
 
