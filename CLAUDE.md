@@ -145,99 +145,40 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-21 (Day 2 of 11) · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-22 (Day 3 of 11) · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
 **READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
-The first is the single copy of the contest rules, weights and prizes; the second
-is the owner's decision queue. Do not restate a contest figure anywhere else.
 
-`integration` verified: **757 tests pass**, `contract-check` ALL PASSES OK,
-tripwire `--selftest` exit 0, w2-smoke exit 0, **0 leaks across 409 tracked
-files**, `SEAL INTACT (2cde0250de00e692)`. Rulings **1-42**, SPINE_VERSION
-**10**, TEN contracts, repo public and Apache-2.0.
+`main` verified: **843 tests**, `contract-check` ALL PASSES OK, `SEAL INTACT`.
+Rulings **1-43**, SPINE_VERSION **11**. **THREE of five hash-locks down** — D2
+gate rule `cff9f52929397efb`, D3 target `125fe7e9e54a419e` + `manifest_hash
+d2e9f5f435b5acfe`. Cloud Run live, both postconditions closed; **only the VIDEO
+remains of Stage One**. Corpus after ruling 43: 50 training (F5 at 10), 24
+sealed, 26 benign / 14 near-miss, 9 known-bad.
 
 **Nothing has been measured.** No loop run, no attack scored, no quotable number.
 
-**Corpus**: 50 training (F5 amended 8→10, ruling 43, `corpus/C6-reach`, 2026-08-21),
-**24 sealed**, 26 benign (14 near-miss, amended from 24/12), 9 known-bad,
-27 pairs. SEP-BY **21 policy / 3 oracle** against an 18/4 target — reported, not
-absorbed. Blindness 0.7708 vs 0.7500 baseline over 96 instances *(pre-amendment;
-not recomputed against the amended counts — flagged, not recomputed)*. Sealed
-instances live ONLY at `C:\dev\crucible-wt-SEAL\corpus\sealed\`; any other
-worktree reads sealed=0 and `python -m corpus` FAILS there on
-`E_SEALED_BELOW_FLOOR`, which is correct rather than broken.
-
-**Landed 2026-08-21**
-- **GX5, ruling 42** — grammar grew by ONE production, `arg_path is present`.
-  Contract C4 re-hashed. Without it `r_new19`, the rule the F4 sealed family
-  depends on, scored **BPR 20/24** against a floor of 24/24 that is never cut.
-- **`ALLOW`/`allow` was a FAIL-OPEN**, not a spelling nit. `engine.py` dropped
-  every lowercase event from the visible prefix, so `preceded_by` read false and
-  the attack passed. The Warden's differential check could not catch it: the
-  reference engine takes TYPED events and never touches the string.
-- **The target was told it had seven tools.** `delegate_to_specialist` was
-  missing from `refund_policy.md` §14 — the prompt the agent actually reads —
-  one day before that prompt gets hashed.
-- **Architecture diagram** (`docs/diagrams/architecture.md`, 6 Mermaid) and
-  **README** (810 lines) both exist. Two of six Tier-0 pass/fail items closed.
-- **Two more sealed payout instruments** were public in benign fixtures. Fixed
-  on the public side, never the sealed side.
-- **CONVENTIONS §4 had three stale frozen-number rows**, including round cap 4
-  against ruling 10's 6 — wrong number at the TOP of the precedence order.
-
-**NEXT ACTION: fire the D2 gate-rule freeze** (`docs/NEEDS-ERIC.md` item 3). The
-corpus-count ruling landed — Eric ruled to AMEND (F5 8→10, benign 24→26,
-near-miss 12→14) rather than retire, `corpus/C6-reach` is merged into `main`,
-and `docs/NEEDS-ERIC.md` item 2 is closed. The gate rule should now pin
-`bpr == "26/26"` and `near_miss_bpr == "14/14"`, not the old 24/24 and 12/12.
-Freezing it gates the **D3 target freeze on Sat 08-22**, which gates everything
-that produces a number. Nothing else on the critical path moves until it lands.
-
-**Cloud Run is DONE** — deployed 2026-08-21, `crucible-00003-t2q`, authenticated,
-running as `crucible-target`, `/list-apps` returns `["refund_agent"]`, one full
-episode ran end to end. **Do not re-attempt it.** Two screenshots remain (Cloud
-Run console, Trace Explorer span); those are Eric's and they also settle PC3.
-`deploy/RUNBOOK.md` + `docs/proof/cloud-run-deploy-2026-08-21.txt`.
-
-**Two defects found 2026-08-21 that would have destroyed the run. Read both
-before touching the enforcement path or the freeze.**
-
-1. **A DENIED call was recording `TOOL_EXECUTED`**, with `policy_decision` and
-   `denied_by_rule_id` stripped, in the ledger the oracle scores on
-   (`objective_set.py:285`). **Every blocked attack would have scored as a
-   breach**, `breached_at_vFinal` would never have fallen, and the gate would
-   have rejected every correct patch and halted `HALT_HUMAN` reporting "the loop
-   stopped learning." Fixed `85ee852`; traced in `ADR-0012`.
-2. **`tests/test_target_freeze.py` mutates `target/refund_agent/tools.py` on
-   disk.** Run concurrently it corrupted the file — `_INJECTED` twice — one day
-   before D3 locks it. Now lock-guarded. **Never run more than one `pytest` at a
-   time in this repo**, and check `grep -c _INJECTED target/refund_agent/tools.py`
-   before any commit that touches the target.
-
 **Open threads**
-- **`docs/NEEDS-ERIC.md`** — ten owner decisions. Two are Stage One pass/fail.
-- **D2 gate-rule freeze — item 2 is now settled, ready to fire.** The gate rule
-  should pin `bpr == "26/26"` and `near_miss_bpr == "14/14"` (amended from
-  24/24 and 12/12, ruling 43) rather than the pre-amendment values.
-- **`corpus/C6-reach` branch — MERGED 2026-08-21 (ruling 43).** Four instances
-  making `CAP_INVOKES_AGENT` reachable; the two frozen counts it broke (F5=8,
-  benign=24) were amended rather than the branch retired. `measurement-spec.md`
-  §1.3's ≥3-routing requirement is still unmet (2 of 10) — reported, not fixed.
-- **D5 corpus freeze** — must land before the first patch is written.
+- **The GATE** — last of the four `campaign.py` stand-ins. **G7 and G8 cannot be
+  exercised until it lands.** Touches GCS/IAM; held for a supervised window.
+- **D5 corpus freeze** must land before the first patch is written.
 - **The first real loop run** — produces every number.
-- P11 built, P20 **UNLEARNABLE** without GX5 (now available); `r_new3` fails V4.
+- **Devpost Update 4** (D3 freeze) writable now. LinkedIn draft `191-*` gated,
+  unpublished — the `TOOL_EXECUTED` story is deliberately unspent.
+- Eric's calls: publish decisions, Gemma go/no-go, `ORD-13`/`ORD-14`, `ADR-0010`
+  vs "unedited live execution".
 
 **Watch out for**
-- **Ask every check what change it would FAIL to notice.** Tonight: a hash-lock
-  that locked nothing, a unit test the spec cited that did not exist, a claim
-  gate that could not tell a disclaimer from a claim, and a label gate demanding
-  the README print a TARGET as if it were the corpus.
-- **A guard enforcing the wrong number is worse than no guard**, because it
-  looks like the number was checked.
+- **ONE pytest AT A TIME.** `tests/test_target_freeze.py` mutates
+  `target/refund_agent/tools.py` on disk; concurrent runs corrupted it. Check
+  `grep -c _INJECTED target/refund_agent/tools.py` before any commit.
+- **`UNCLASSIFIED` is ALWAYS ALLOWED**, so a missed tool-handle lookup switches
+  the policy off silently. The D3 completeness check cannot see it — it asks
+  whether the manifest is complete, and the manifest is.
+- **Never accept two spellings of one value** as a compatibility shim. That is
+  how `ALLOW`/`allow` and `outcome`/`target_fault` both happened.
+- **A stub validates nothing.** A fix that only holds where the test model is
+  looser than the real API passes the whole suite and fails on the first live call.
 - **`vault-project.ps1 -Activity` misreports this project** — scans only
-  `C:\dev\crucible`, misses twelve worktrees. Ignore its drift flag here.
-- **Heredocs mangle escapes.** `\b` arrived as a literal backspace byte tonight
-  and `\n` became a real newline. Use the Write tool or a script file.
-- Target freeze **Sat 08-22** · cut line **Tue 08-25** · code freeze **Fri
-  08-28** · **submission Mon 08-31 17:00 PT**.
+  `C:\dev\crucible`, misses the worktrees.
 <!-- VAULT:SESSION-STATE end -->
