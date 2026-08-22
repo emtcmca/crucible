@@ -48,7 +48,7 @@ reasonably addresses a Challenge, and reasonably applies the requirements."
 | # | Requirement | Where it stands |
 |---|---|---|
 | 1 | One of the three tracks selected | **Fortified Enterprise Fleet** |
-| 2 | Text description: features, technologies, data sources, **findings and learnings** | Project Story posted; findings section owed |
+| 2 | Text description: features, technologies, data sources, **findings and learnings** | **Findings DONE 2026-08-22.** Features live in `project-story.md`. **Technologies and data sources were covered nowhere in the submission text until 2026-08-22** — `project-story.md` names no Gemini model, no agent framework and no Cloud service. The code always satisfied the *technology* requirement above; this row is the *description*, and it was the half that was short. Now in `docs/devpost/findings-and-learnings.md` |
 | 3 | Public code repository URL | `emtcmca/crucible`, public, Apache-2.0 |
 | 4 | **Spin-up instructions in `README.md`**, step by step | **DONE 2026-08-21** — every command run, real output pasted |
 | 5 | **Architecture diagram** — a visual of how Gemini connects to backend, database, frontend | **DONE 2026-08-21** — `docs/diagrams/architecture.md`, six Mermaid, all rendered |
