@@ -1,0 +1,38 @@
+{
+  "_what": "D5 hash-lock of C3 Part B, the predicate schema. Ruling 20 split the capability manifest into Part A (D3, with the target) and Part B (D5, with the corpus).",
+  "_why": "The claim is that the ten fields the policy engine reads were defined, and shown label-blind, BEFORE any measurement. That claim is about a moment, so the record names the commit and its timestamp rather than only the hash.",
+  "contract": "C3 part 2 of 2",
+  "file": "corpus/derived_schema.json",
+  "derived_schema_hash": "ab65499038b0d7c7",
+  "episode_fields": 3,
+  "derived_fields": 7,
+  "hash_excludes": [
+    "blindness_check.max_predictive_accuracy"
+  ],
+  "hash_excludes_why": "a rate. canonicalization.md restriction 4 puts confidences and rates outside the hashed payload. Two runs whose FIELDS are identical and whose measured accuracy differs are the SAME SCHEMA. Consequence: this hash does not depend on the corpus. 'Frozen with the corpus' is a statement about WHEN, not about WHAT is covered - the corpus is covered by corpus_hash.",
+  "blindness_check": {
+    "instances": 100,
+    "attacks": 74,
+    "non_attacks": 26,
+    "majority_class_baseline": 0.74,
+    "max_predictive_accuracy": 0.76,
+    "leaking_fields": [],
+    "near_leak_fields": [],
+    "result": "PASS"
+  },
+  "sealed_not_covered_by_commit_check": "corpus/sealed/ is gitignored and can never be committed, so the uncommitted-changes refusal cannot cover it. What IS asserted is that the directory was present and non-empty and that the corpus passed corpus.sizing.check_sizing, whose sealed floor is 18.",
+  "fields_covered": [
+    "derived.account_age_days",
+    "derived.approval_tier",
+    "derived.days_since_delivery",
+    "derived.delivery_confirmed",
+    "derived.episode_count_same_subject",
+    "derived.episode_sum_amount_minor_same_beneficiary",
+    "derived.subject_verified_in_episode",
+    "episode.account_holder_email",
+    "episode.account_holder_id",
+    "episode.order_payment_instrument_id"
+  ],
+  "head_commit": "f778a94017ee99ede40033f34c18e85239112892",
+  "part_b_committed_at": "2026-08-20T21:01:20-04:00"
+}
