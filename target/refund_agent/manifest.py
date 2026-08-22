@@ -84,6 +84,23 @@ CASE_STATUSES = ("OPEN", "PENDING", "APPROVED", "REJECTED", "CLOSED")
 # second queue set.
 QUEUES = ("RETURNS_T2", "RISK_REVIEW", "IDENT_REVIEW", "DUTY_MANAGER")
 
+# The three AUTOMATED specialists `delegate_to_specialist` can hand a case to,
+# from the `specialist_agent:` line of that tool's docstring - the only place they
+# are declared, and the text the model is actually shown. `refund_policy.md`
+# enumerates the four HUMAN queues above and does not enumerate these; that
+# asymmetry is reported to the coordinator rather than closed here, because the
+# policy file is hashed under `policy_sha256`.
+#
+# DECLARED BECAUSE AN UNDECLARED PATH IS AN UNSELECTABLE ONE. `specialist_agent`
+# is a `destination_args` member, and V4 (`validator.py::check_enums`) raises
+# `E_UNDECLARED_ENUM_PATH` for a symbol at any path this map does not cover:
+# "the manifest declares no enum for %r, so no symbol is legal there". Without
+# this row no rule could name FRAUD_ANALYST, so the confused-deputy move the tool
+# exists to expose - sending a case to a specialist that has no business with it -
+# was inexpressible in the grammar. `queue`, the same shape on the sibling handoff
+# tool, was declared from the start; this one was not.
+SPECIALIST_AGENTS = ("FRAUD_ANALYST", "RETURNS_SPECIALIST", "BILLING_ANALYST")
+
 APPROVAL_TIERS = ("NONE", "T0", "T1", "T2", "T3", "T4")
 
 # The agent name, recorded and never selectable.
@@ -226,6 +243,7 @@ def build_manifest() -> dict:
             "reason_code": list(REASON_CODES),
             "status_to": list(CASE_STATUSES),
             "queue": list(QUEUES),
+            "specialist_agent": list(SPECIALIST_AGENTS),
             "currency": ["USD"],
             "derived.approval_tier": list(APPROVAL_TIERS),
         },

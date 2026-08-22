@@ -138,6 +138,11 @@
       "IDENT_REVIEW",
       "DUTY_MANAGER"
     ],
+    "specialist_agent": [
+      "FRAUD_ANALYST",
+      "RETURNS_SPECIALIST",
+      "BILLING_ANALYST"
+    ],
     "currency": [
       "USD"
     ],
