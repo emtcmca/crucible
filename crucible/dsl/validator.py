@@ -155,20 +155,88 @@ def validate_policy_document(doc: dict) -> None:
             "Got: %s" % ids)
 
 
+def tool_leaf_name(tool_fqname) -> str:
+    """The tool's OWN name, with the module path it happens to sit under
+    removed. `target.refund_agent.tools.issue_refund` -> `issue_refund`.
+
+    THE SPLIT IS THE WHOLE OF THE 2026-08-22 CORRECTION BELOW. A
+    fully-qualified name is two things welded together: what the tool IS, and
+    where its code SITS. Only the first half is the product's.
+    """
+    return str(tool_fqname).rsplit(".", 1)[-1]
+
+
 def harvest_product_lexicon(manifest_a: dict) -> frozenset:
-    """V3's denylist: tokens from tool names and descriptions, minus the
+    """V3's denylist: tokens from TOOL NAMES and descriptions, minus the
     capability vocabulary.
 
     L3 does not own this input - it is harvested at attach - so the constructor
     takes it explicitly and defaults to EMPTY rather than silently harvesting.
     A lexicon that appears from nowhere is a lexicon nobody can reproduce, and
     V3's whole value is that a judge can re-run it.
+
+    WHAT THIS DENYLIST DEFENDS, IN ONE SENTENCE. The words that name what the
+    target's tools ARE - the product's own feature vocabulary - must not reach
+    the ARMORER's input and must not appear in a rule body, so that every
+    learned rule binds to a capability class and an argument shape rather than
+    to this product's nouns (`architecture-spec.md` sections 4.1 and 5.4, R8).
+
+    NARROWED TO THE LEAF NAME 2026-08-22. THIS CORRECTS WHAT THE GATE READS,
+    NOT WHAT IT DEFENDS - AND THE DIFFERENCE IS NOT FREE. SEE "GIVES UP" BELOW.
+    ---------------------------------------------------------------------------
+    This used to tokenize the WHOLE dotted `tool_fqname`, which harvests the
+    module path along with the name. On the running target that path is
+    `target.refund_agent.tools.<leaf>` - three tokens that are CRUCIBLE'S OWN
+    DIRECTORY LAYOUT (`target/refund_agent/tools.py`), not the modelled
+    retailer's vocabulary. The consequences were not hypothetical:
+
+      * `target` reaches the ARMORER's own pinned guidance prose ("...no patch
+        can widen what the target may do"), so `assert_no_leak` refused the
+        payload and the campaign halted at the first ARMORER call. Verified
+        2026-08-22: `LeakError: product vocabulary reached the ARMORER:
+        ['target']`. THAT IS WHY THE ARMORER WAS STILL VALIDATING AGAINST THE
+        GOLDEN FIXTURE'S MANIFEST INSTEAD OF THE RUNNING TARGET'S.
+      * `tools` had ALREADY forced a workaround: `prompt.py::project_manifest`
+        keys its output `handles` rather than `tools` precisely because the
+        harvest of `refund.tools.issue_refund` banned our own structural key.
+        Two instances of one false positive is a tokenizer defect, not luck.
+
+    A denylist that changes when a Python file MOVES is not measuring product
+    vocabulary. The leaf name is what `tools.py` declares and what a judge would
+    call the tool; the package path is where we chose to put the file.
+
+    WHAT THE NARROWING GIVES UP, STATED RATHER THAN IMPLIED (section 8 rule 9).
+    This set also feeds V3, so a token that leaves it leaves the DENYLIST too -
+    the input gate and the output gate share one harvester on purpose. On the
+    RUNNING manifest exactly three tokens leave - `target`, `refund_agent`,
+    `tools` - and every product feature name survives. On the GOLDEN fixture
+    `refund.tools.issue_refund` one product noun leaves: `refund`.
+
+    That last one is a coincidence rather than a control, and there is a
+    negative control asserting so. Whole-token matching NEVER caught bare
+    product nouns: `customer` is admissible under BOTH harvests against BOTH
+    manifests, because no fqname segment is spelled `customer` - only
+    `lookup_customer` and `email_customer` are. `refund` was caught only
+    because a FIXTURE'S invented import path happened to be named after the
+    product domain. The designed defences against a product-shaped rule are the
+    grammar's own - `cap:` required and first, opaque tool handles, no free
+    strings, enums declared per exact path, `role:` cut by ruling 25 - and V3
+    is their backstop, not their substitute.
+
+    SUB-SPLITTING COMPOUND LEAVES WAS THE OTHER CANDIDATE AND IT DOES NOT WORK.
+    `lexicon_lint._tokens` splits `issue_refund` into `issue`, `refund` and
+    `issue_refund`, which would recover `refund`. Measured against the real
+    assembled payload on 2026-08-22, it also bans `to`, `human` and `order` -
+    and `to` is a declared destination argument of `email_customer`, printed in
+    the manifest projection itself. That harvest cannot assemble a prompt at
+    all. Recorded here so the next reader does not re-derive it.
     """
     toks = set()
     for tool in manifest_a.get("tools", []):
-        for field in ("tool_fqname", "description"):
-            for t in _TOKEN_RE.findall(str(tool.get(field, ""))):
-                toks.add(t)
+        for t in _TOKEN_RE.findall(tool_leaf_name(tool.get("tool_fqname", ""))):
+            toks.add(t)
+        for t in _TOKEN_RE.findall(str(tool.get("description", ""))):
+            toks.add(t)
     return frozenset(t for t in toks if t not in _DSL_VOCABULARY)
 
 
