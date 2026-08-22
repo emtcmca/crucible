@@ -21,13 +21,32 @@ in the lookup KEY, so the completeness check passed while every runtime
 resolution missed - a gap between two correct components rather than a fault in
 either.
 
-WHY THE FIRST FIX WAS WORSE THAN THE BUG. The lane that found it renamed each
-`FunctionTool` to the dotted path so the lookup would hit. That passes every test
-in this repo and is refused by a real endpoint on the first live call: a
-function-declaration name must match `^[a-zA-Z0-9_-]{1,64}$` and a dot is not in
-that set. The tests did not catch it because a STUB MODEL VALIDATES NOTHING - it
-emits whatever string it is handed. A fix that only holds where the stub is
-looser than production is the failure moved somewhere nothing is watching.
+WHY THE FIRST FIX WAS REVERTED, AND THE FALSE REASON THIS FILE GAVE FOR IT.
+The lane that found the bug renamed each `FunctionTool` to the dotted path so the
+lookup would hit. It was reverted, and this docstring claimed a real endpoint
+would refuse a dotted name because a function-declaration name must match
+`^[a-zA-Z0-9_-]{1,64}$`.
+
+THAT CLAIM WAS FALSE AND IT WAS NEVER CHECKED. `^[a-zA-Z0-9_-]{1,64}$` is
+OPENAI's constraint. Gemini's own rejection text enumerates dots as legal, and a
+live probe on 2026-08-22 against `gemini-3.5-flash-lite` on Vertex ACCEPTED
+`target.refund_agent.tools.issue_refund` - see
+`docs/proof/gemini-function-name-probe-2026-08-22.txt`. The rename would have
+worked. `crucible/conductor/real_target.py:118-126` had hedged correctly all
+along ("was NOT checked here") and `tests/test_adk_invocation_paths.py` already
+drove a real `Runner` against a dotted name without complaint. The flat claim
+outvoted both.
+
+THE CORRECT REASON TO RESOLVE BARE NAMES IS THAT ADK SUPPLIES BARE NAMES. That
+reason is sufficient, it is checked, and it never needed a second one. A true fix
+propped up by a false justification is still a false claim, and this one was
+strong enough to revert working code and reach a public draft.
+
+WHAT THIS FILE STILL PROVES, unchanged: the fail-open itself. ADK names a tool
+`fn.__name__`, the manifest keyed the dotted `tool_fqname`, `handle_for` matched
+only the dotted one, an unresolved handle is UNCLASSIFIED, and UNCLASSIFIED IS
+ALWAYS ALLOWED - so the policy enforced nothing, silently, while every test in
+the repo passed.
 """
 
 import json
@@ -41,8 +60,11 @@ from crucible.plugin.core import UNCLASSIFIED, EnforcementCore
 MANIFEST_PATH = (pathlib.Path(__file__).resolve().parent.parent
                  / "target" / "refund_agent" / "capability_manifest.json")
 
-# The constraint a tool name must satisfy to be declarable to the model API.
-DECLARABLE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+# The name ADK actually supplies for a tool: the bare Python function name.
+# NOT a vendor constraint - see the module docstring. This pattern was labelled
+# "the constraint a tool name must satisfy to be declarable to the model API",
+# which was OpenAI's rule applied to a Gemini target and was never sourced.
+ADK_SUPPLIED_LEAF = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 def _core(manifest):
@@ -93,22 +115,25 @@ def test_every_manifest_tool_resolves_by_its_bare_name():
         "%s do not resolve by the name ADK will supply" % unresolved)
 
 
-def test_every_manifest_tool_name_is_actually_declarable_to_a_model():
-    """The check that would have caught the rejected fix.
+def test_every_manifest_leaf_is_the_bare_name_adk_will_supply():
+    """Every tool's leaf name is the bare identifier ADK hands the plugin.
 
-    A rename to the dotted `tool_fqname` made resolution work offline and is
-    refused by a real endpoint, because a dot is not legal in a function
-    declaration name. Nothing in this repo asserted that, because the stub model
-    accepts any string.
+    CORRECTED 2026-08-22. This test was `..._is_actually_declarable_to_a_model`
+    and additionally asserted `not DECLARABLE.match(tool_fqname)` - a TRUE regex
+    fact wrapped in a FALSE inference, namely that a dotted name is therefore not
+    declarable. A live probe refuted it (module docstring;
+    `docs/proof/gemini-function-name-probe-2026-08-22.txt`).
+
+    The deleted assertion is not replaced by a corrected one. There is nothing
+    here to assert about the vendor: what this repo needs is that the manifest's
+    leaf matches what ADK supplies, and the vendor's own limits are the vendor's
+    to enforce. A test that restates a third party's rule is a second source of
+    truth for a fact it cannot check, which is exactly how this one went wrong.
     """
     for tool in _manifest()["tools"]:
         leaf = tool["tool_fqname"].rsplit(".", 1)[-1]
-        assert DECLARABLE.match(leaf), (
-            "%r cannot be declared as a function name to the model API" % leaf)
-        assert not DECLARABLE.match(tool["tool_fqname"]), (
-            "the dotted fqname %r is unexpectedly declarable - if this ever "
-            "becomes true the rejected rename stops being wrong and this "
-            "test's reasoning needs revisiting" % tool["tool_fqname"])
+        assert ADK_SUPPLIED_LEAF.match(leaf), (
+            "%r is not the shape ADK supplies as fn.__name__" % leaf)
 
 
 def test_an_unknown_tool_still_returns_None_so_the_gap_is_reportable():

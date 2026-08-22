@@ -1,0 +1,37 @@
+PROBE: does the live Gemini function-calling API accept a DOT in a
+declared function name?
+
+WHY THIS EXISTS. tests/test_handle_resolution.py asserted, flatly and with
+no vendor citation, that a function-declaration name must match
+^[a-zA-Z0-9_-]{1,64}$ and that a dotted name is therefore refused by a real
+endpoint. That assertion was used to justify reverting a rename, was
+repeated in a LinkedIn draft, and was called verified by the coordinator.
+It was verified against THIS REPO, which is where the claim lived.
+
+crucible/conductor/real_target.py:118-126 had already hedged correctly:
+'Whether Gemini's live function-calling API itself accepts a . in a
+declared function name was NOT checked here.' The hedge was right and the
+flat claim outvoted it.
+
+Flagged 2026-08-22 by the /linkedin session's quality critic, which asked
+for the vendor citation and found the constraint is OPENAI's.
+
+run_at (local): 2026-08-22T14:30:02
+model        : gemini-3.5-flash-lite
+endpoint     : vertex, location=global
+
+  issue_refund                               -> ACCEPTED
+  target.refund_agent.tools.issue_refund     -> ACCEPTED
+  refund.tools.issue_refund                  -> ACCEPTED
+
+RESULT. The dotted name is ACCEPTED. The repo's claim was false.
+
+WHAT SURVIVES, unchanged and still verified: the handle-resolution
+fail-open is real. ADK names a tool fn.__name__, the capability manifest
+keyed the dotted fqname, handle_for matched only the dotted one, an
+unresolved handle is UNCLASSIFIED, and UNCLASSIFIED is ALWAYS ALLOWED - so
+the policy enforced nothing, silently.
+
+WHAT DIES: 'the rename would have been refused by a real API'. It would
+not. Resolving bare names remains the correct fix because ADK supplies
+bare names - but it is correct for that reason, not this one.

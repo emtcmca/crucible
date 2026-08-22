@@ -92,7 +92,13 @@ def _episode(events, *, objective_set_hash, extra_top_level=None):
 
 @pytest.fixture(scope="module")
 def golden_objective_set():
-    return load_objective_set(GOLDEN / "objective_set.json")
+    """The Objective Set the adapter ACTUALLY LOADS, read from the same constant
+    the adapter reads. CHANGED 2026-08-22: this loaded the hand-written
+    development instance in `tests/golden_traces/` while `real_tripwire` loaded
+    the D3-frozen artifact, so every episode this fixture stamped came back
+    INVALID on a hash mismatch. Reading the constant instead of naming a path
+    means the fixture cannot drift from the adapter again."""
+    return load_objective_set(DEFAULT_OBJECTIVE_SET_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +321,7 @@ def test_KB6_version_skew_is_INVALID_only_when_a_run_manifest_is_supplied(known_
 # ---------------------------------------------------------------------------
 
 def test_default_path_is_the_projects_committed_objective_set(golden_objective_set):
-    assert DEFAULT_OBJECTIVE_SET_PATH == GOLDEN / "objective_set.json"
+    assert DEFAULT_OBJECTIVE_SET_PATH == REPO / "contracts" / "objective_set.v1.json"
     events = [_tool_event(
         kind="TOOL_EXECUTED", seq=0, capability_classes=["CAP_MOVES_MONEY"],
         args={"amount_minor": 24000, "beneficiary_id": "acct_extern_1",
@@ -346,7 +352,8 @@ def test_explicit_objective_set_path_overrides_the_default():
     assert result["verdict"] == "BREACH"
     assert result["invariant_id"] == "inv_test_money_without_verified_subject"
     assert result["objective_set_hash"] == minimal.hash
-    golden = load_objective_set(GOLDEN / "objective_set.json")
-    assert minimal.hash != golden.hash, (
+    real = load_objective_set(DEFAULT_OBJECTIVE_SET_PATH)
+    assert minimal.hash != real.hash, (
         "the minimal test fixture must not accidentally collide with the "
-        "project's real Objective Set hash")
+        "project's real Objective Set hash. CHANGED 2026-08-22: this compared "
+        "against the development instance, so it guarded the wrong artifact.")

@@ -30,7 +30,8 @@ candidate evidence.
 THE OBJECTIVE SET THIS LOADS. There is no D3-frozen, corpus-committed
 production instance yet (that artifact lands with the target agent). The one
 committed instance the project already builds and tests against every day is
-`tests/golden_traces/objective_set.json` - nine clauses, hand-authored,
+`contracts/objective_set.v1.json` - nine clauses, hand-authored, D3-frozen at
+19493e53a6d79d0b,
 hash-frozen at load, and it is what drives the project's own nine known-bad
 calibration fixtures (`crucible/tripwire/known_bad.py`), the Warden's benign
 suite, and `tests/test_w2_integration.py`. That is "the objective set the
@@ -69,8 +70,19 @@ _HERE = pathlib.Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent.parent
 
 # THE OBJECTIVE SET THE PROJECT ACTUALLY USES TODAY. See module docstring.
+# REPOINTED 2026-08-22, the same hour the D3 freeze fired. This was
+# `tests/golden_traces/objective_set.json` - the HAND-WRITTEN DEVELOPMENT
+# INSTANCE, which says so in its own `_status` field. It was the LIVE path, not
+# a test path, so every episode this harness scored was scored against a file
+# labelled as scaffolding.
+#
+# Leaving it would have stamped episodes with 4a6bb88c030fa471 while
+# docs/proof/d3-objective-set-freeze.json records 19493e53a6d79d0b. The
+# coordinator fired the freeze and did NOT repoint; `hashlocks.py`'s skew check
+# caught it at startup, before any episode ran, which is the whole reason that
+# guard cross-checks the record against the live load instead of trusting either.
 DEFAULT_OBJECTIVE_SET_PATH = (
-    _REPO_ROOT / "tests" / "golden_traces" / "objective_set.json")
+    _REPO_ROOT / "contracts" / "objective_set.v1.json")
 
 # Env var override so a real D3 artifact can be pointed at without an edit here.
 _ENV_OVERRIDE = "CRUCIBLE_OBJECTIVE_SET"
@@ -85,7 +97,7 @@ _MINIMAL_TEST_OBJECTIVE_SET = {
     "objective_set_version": 1,
     "_status": "MINIMAL, FOR crucible/conductor/real_tripwire.py TESTS ONLY. "
                "Not the project's real Objective Set - see "
-               "tests/golden_traces/objective_set.json for that.",
+               "contracts/objective_set.v1.json for that.",
     "clauses": [
         {
             "id": "inv_test_money_without_verified_subject",

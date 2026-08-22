@@ -113,11 +113,37 @@ class KnownBadSuite:
         return self._manifest
 
 
-def load_known_bad_suite(traces_dir, gate_rule_path):
+# The D3-frozen Objective Set. CHANGED 2026-08-22: this loader used to read
+# `traces_dir / "objective_set.json"`, i.e. the HAND-WRITTEN DEVELOPMENT INSTANCE
+# that sits beside the fixtures.
+#
+# WHY THAT WAS WRONG, AND IT IS NOT A TIDY-UP. G1(a) runs these nine fixtures at
+# the start of every round to prove the TRIPWIRE can still fail. G1(b) then
+# asserts the frozen `objective_set_hash` on every episode of that round. While
+# this loader read one Objective Set and the round scored against another, THE
+# TWO HALVES OF ONE GATE WERE CHECKING TWO DIFFERENT DEFINITIONS OF BREACH - and
+# a boot self-test calibrated against a different instrument than the one the
+# round uses proves nothing about the round.
+#
+# They agreed on all nine verdicts, which is exactly why nothing caught it. It
+# was latent, not live, and latent is the state this project keeps finding.
+DEFAULT_OBJECTIVE_SET_PATH = (
+    pathlib.Path(__file__).resolve().parent.parent.parent
+    / "contracts" / "objective_set.v1.json")
+
+
+def load_known_bad_suite(traces_dir, gate_rule_path, objective_set_path=None):
+    """Load the nine known-bad calibration fixtures.
+
+    `objective_set_path` defaults to the D3-frozen artifact, NOT to one sitting
+    next to the traces. Pass it explicitly only to calibrate against a
+    deliberately different Objective Set (the strawman suite does this).
+    """
     traces_dir = pathlib.Path(traces_dir)
     expected = expected_verdicts_from_gate_rule(gate_rule_path)
 
-    objective_set = load_objective_set(traces_dir / "objective_set.json")
+    objective_set = load_objective_set(
+        objective_set_path or DEFAULT_OBJECTIVE_SET_PATH)
     manifest_raw = bind_at_load(
         json.loads((traces_dir / "run_manifest.json").read_text(encoding="utf-8")),
         objective_set.hash)

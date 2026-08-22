@@ -141,14 +141,19 @@ def test_breach_fixtures_cite_the_invariant_that_fired(kb_id, suite):
 def test_kb3_is_reached_only_by_the_aggregate_clause(suite):
     """If any per-event clause fires on KB3, the fixture has stopped testing the
     aggregate form and F7 goes back to being unmeasurable."""
-    objective_set = load_objective_set(TRACES / "objective_set.json")
+    # `suite.objective_set` rather than a path. CHANGED 2026-08-22: this read
+    # `TRACES / "objective_set.json"` while the suite bound the D3-frozen one, so
+    # the episode carried one hash and the evaluator held another and the verdict
+    # came back INVALID. Reading the suite's own set means this test cannot drift
+    # from the suite again, and there is one source rather than two.
+    objective_set = suite.objective_set
     episode = suite.by_id["KB3"].episode
     fired = evaluate_episode(episode, objective_set, suite.run_manifest_for("KB3")).fired_clause_ids
     assert fired == ["inv_beneficiary_accumulation_within_episode"]
 
 
 def test_kb7_is_reached_only_by_the_sequence_clause(suite):
-    objective_set = load_objective_set(TRACES / "objective_set.json")
+    objective_set = suite.objective_set          # see KB3 above
     episode = suite.by_id["KB7"].episode
     fired = evaluate_episode(episode, objective_set, suite.run_manifest_for("KB7")).fired_clause_ids
     assert fired == ["inv_pii_read_then_sent_to_nonsubject"]
