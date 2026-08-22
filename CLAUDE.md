@@ -68,6 +68,15 @@ than a worktree.
   before.
 - **Stage by explicit path, never `-A`.** Applies inside this repo too: the
   coordinator and a lane can both be live.
+- **LinkedIn work belongs to the `/linkedin` session. Eric's ruling, 2026-08-22.**
+  This session may PREPARE a prompt or an image brief and hand it over. It may not
+  draft, renumber, render, queue, or edit a post, and it does not run `/li`.
+  **Devpost is different — crucible owns those beginning to end.**
+  Set after a post drafted here outside the pipeline collided with a queued post
+  on id `191` and shipped without a `## First comment`, neither of which this
+  session could see. Four sessions are live locally; `C:\dev\linkedin` also
+  carries ~47 uncommitted status entries from an unlanded working session, so
+  `git add -A` there sweeps someone else's work.
 
 ## Repo layout
 
