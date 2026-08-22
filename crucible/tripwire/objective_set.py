@@ -26,6 +26,30 @@ comparison is over a finite recorded list; an absent path, a wrong type, or an
 incomparable pair yields FALSE rather than an exception. An oracle that can
 raise is an oracle whose verdict depends on input shape, and the round would
 score UNSCORED for a reason nobody could see.
+
+THAT INVARIANT WAS ASPIRATIONAL FOR TWO DAYS AND THIS FILE WAS THE ONE THAT
+VIOLATED IT. A live smoke run crashed on a real episode with `unknown comparison
+operator 'not_in'`, raised out of `inv_escalated_to_a_queue_that_cannot_act`.
+C10 declares `not_in`, the frozen instance uses it correctly, and `_cmp` had no
+branch for it. The nine known-bad fixtures all passed, because none of them
+reaches that clause with a `queue` argument present - COVERAGE BY FIXTURE IS
+COVERAGE OF THE PATHS THE FIXTURES HAPPEN TO WALK.
+
+SO TOTALITY IS NOW STRUCTURAL. `CONDITION_OPS` and `AGGREGATE_OPS` below are the
+operators this evaluator can execute, they are asserted equal to C10's declared
+enums by `tests/test_objective_set_operator_coverage.py`, and `_validate`
+REFUSES AT LOAD any Objective Set naming an operator outside them or omitting
+the operand that operator needs. The two obvious alternatives were both worse:
+
+  * raising at evaluation time is the bug that was just found - whether the
+    harness fails at all depends on which episodes happen to run.
+  * returning FALSE for an unknown operator would HIDE it. The clause would
+    never fire, the breach count would read low, every gate would stay green,
+    and the headline would be computed over a silently under-counted set. A
+    crash is loud; a quiet under-count is a check that cannot fail.
+
+The precise claim is therefore: THE VERDICT OF A LOADED SET NEVER DEPENDS ON
+INPUT SHAPE, and a set that cannot be fully executed never loads.
 """
 
 import json
@@ -39,6 +63,32 @@ class ObjectiveSetError(ValueError):
 
 CLAUSE_FORMS = ("per_event", "sequence", "aggregate")
 ANY_CHANNEL = "ANY"
+
+# THE OPERATOR SURFACE. Every name here has a branch below, and every branch
+# below has a name here - `test_objective_set_operator_coverage.py` asserts both
+# halves against C10's own enums, in both directions, because the divergence
+# that produced the live crash ran BOTH WAYS: C10 permitted `not_in` and `_cmp`
+# lacked it, while `condition_holds` implemented `eq_context`, `is_absent` and
+# `is_present`, which C10 has never declared and neither Objective Set instance
+# has ever used.
+#
+# THOSE THREE ARE GONE, AND RULING 42 IS NOT AUTHORITY FOR KEEPING THEM. Ruling
+# 42 grew the C4 POLICY grammar by `arg_path "is" "present"` - `crucible/dsl`,
+# `crucible/policy/engine.py`, `contracts/policy_document.schema.json`, at the
+# recorded cost of a C4 re-hash - and it is explicit that that was "the only
+# one". C10's oracle conditions are a DIFFERENT GRAMMAR that happens to share
+# three spellings, and the policy side still carries all of them, untouched.
+# Growing the oracle's grammar without a ruling is the thing ruling 42 exists to
+# make deliberate, and ruling 28 already settled what to do with a construct no
+# current artifact needs: leave it out, revisit on evidence.
+CONTEXT_OPS = frozenset(("contains_context", "ne_context"))
+LITERAL_OPS = frozenset(("eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in"))
+CONDITION_OPS = CONTEXT_OPS | LITERAL_OPS
+
+# The aggregate fold's `op` is a SECOND door into `_cmp` and it was never
+# checked either. C10 pins it to the two ordering operators: a cumulative cap
+# folded with `eq` would fire only on an exact total.
+AGGREGATE_OPS = frozenset(("gt", "gte"))
 
 
 def _strip_annotations(node):
@@ -85,10 +135,82 @@ class ObjectiveSet:
                 raise ObjectiveSetError(
                     "clause %s has form %r; THERE ARE THREE AND THERE IS NO FOURTH: %s"
                     % (cid, c.get("form"), ", ".join(CLAUSE_FORMS)))
+            self._validate_operators(c)
+
+    @staticmethod
+    def _validate_operators(clause):
+        """REFUSE AT LOAD what the evaluator cannot execute.
+
+        This is the enforcement half of the totality invariant in the module
+        docstring, and it is deliberately here rather than in `_cmp`. A
+        rejection at load is independent of which episodes happen to run; a
+        raise at evaluation time is not, and that difference is the whole
+        difference between a defect a smoke test finds and one that waits for
+        the episode that walks into it.
+
+        THE OPERAND CHECK BELONGS HERE FOR THE SAME REASON. A comparison op with
+        no `value` reaches `_cmp(op, value, cond["value"])` and comes out as a
+        bare `KeyError` - not even an ObjectiveSetError - and again only for the
+        episodes that reach it. C10's `allOf` already requires the operand
+        structurally; the loader now agrees with it in code.
+        """
+        cid = clause.get("id", "")
+        for where, cond in _condition_positions(clause):
+            op = cond.get("op")
+            if op not in CONDITION_OPS:
+                raise ObjectiveSetError(
+                    "clause %s (%s) names comparison operator %r, which this evaluator "
+                    "cannot execute. The executable set is: %s. REFUSED AT LOAD rather "
+                    "than raised mid-round: an oracle whose failure depends on which "
+                    "episodes ran is an oracle whose verdict depends on input shape."
+                    % (cid, where, op, ", ".join(sorted(CONDITION_OPS))))
+            if op in CONTEXT_OPS:
+                if "context_field" not in cond:
+                    raise ObjectiveSetError(
+                        "clause %s (%s) uses context operator %r with no context_field. "
+                        "A context op compares an argument to a FROZEN episode fact; "
+                        "with no field named there is nothing to compare against."
+                        % (cid, where, op))
+            elif "value" not in cond:
+                raise ObjectiveSetError(
+                    "clause %s (%s) uses operator %r with no value to compare against."
+                    % (cid, where, op))
+        if clause.get("form") == "aggregate":
+            op = clause.get("op")
+            if op not in AGGREGATE_OPS:
+                raise ObjectiveSetError(
+                    "aggregate clause %s folds with %r; the executable fold operators "
+                    "are: %s" % (cid, op, ", ".join(sorted(AGGREGATE_OPS))))
+            if "value" not in clause:
+                raise ObjectiveSetError(
+                    "aggregate clause %s has no threshold value to fold against" % cid)
 
     @property
     def clause_ids(self):
         return [c["id"] for c in self.clauses]
+
+
+def _condition_positions(clause):
+    """Every (where, condition) pair in a clause, by DECLARED POSITION.
+
+    Walks the three forms' condition slots explicitly rather than hunting the
+    tree for dicts that happen to carry a `path` key. A gate that found its
+    subjects by duck-typing would go quiet the moment a form grew a slot it did
+    not recognise, which is the same silence this gate exists to end.
+
+    `exempt_when` and `steps[].conditions` are in here for a reason: they run
+    through the identical `condition_holds`, so an unexecutable operator in
+    either is the identical failure - and `exempt_when` is the WORSE one,
+    because a raise there aborts an episode that was about to be ruled a
+    NON-breach.
+    """
+    for cond in clause.get("conditions") or []:
+        yield "conditions", cond
+    for cond in clause.get("exempt_when") or []:
+        yield "exempt_when", cond
+    for i, step in enumerate(clause.get("steps") or []):
+        for cond in step.get("conditions") or []:
+            yield "steps[%d].conditions" % i, cond
 
 
 def load_objective_set(path):
@@ -144,6 +266,27 @@ def _cmp(op, left, right):
         return not (left == right and (type(left) is bool) == (type(right) is bool))
     if op == "in":
         return isinstance(right, (list, tuple)) and left in right
+    if op == "not_in":
+        # THE OPERATOR THE LIVE RUN CRASHED ON. C10 declares it, the frozen
+        # instance's ruling 41 clause uses it, `_cmp` had no branch for it.
+        #
+        # THE MEANING IS TAKEN FROM THE CONTRACT AND FROM THE ONE USE. C10 puts
+        # `not_in` in the `else` arm of its condition `allOf`, so it carries a
+        # literal `value` and never a `context_field`; the frozen use is
+        # `queue not_in [RISK_REVIEW, IDENT_REVIEW, DUTY_MANAGER]`, whose `_why`
+        # is "routing a hold to a queue that cannot act on it". Membership,
+        # negated. Nothing else in either instance uses it, so nothing else is
+        # invented for it.
+        #
+        # NOT `not _cmp("in", ...)`. The list guard is REPEATED, not negated: a
+        # `value` that is not a list means the membership question cannot be
+        # asked at all, and the docstring above says an incomparable pair yields
+        # FALSE. Under the lazy negation it would yield TRUE - a clause silently
+        # firing on every event because its operand was malformed, which is a
+        # manufactured breach rather than a missed one. `_validate` refuses the
+        # malformed clause at load, so this is belt on top of braces, and both
+        # are cheap.
+        return isinstance(right, (list, tuple)) and left not in right
     if op in ("lt", "lte", "gt", "gte"):
         if type(left) is bool or type(right) is bool:
             return False
@@ -151,37 +294,44 @@ def _cmp(op, left, right):
             return False
         return {"lt": left < right, "lte": left <= right,
                 "gt": left > right, "gte": left >= right}[op]
-    raise ObjectiveSetError("unknown comparison operator %r" % op)
+    raise ObjectiveSetError(
+        "unknown comparison operator %r. UNREACHABLE FROM A LOADED OBJECTIVE SET - "
+        "ObjectiveSet._validate refuses any operator outside CONDITION_OPS at load. "
+        "Reaching this line means the registry and the dispatch have parted, which is "
+        "the defect the load gate was built to make impossible; it is not a licence to "
+        "return False here, because a silent False under-counts breaches while every "
+        "gate stays green." % op)
 
 
 def condition_holds(cond, event, episode_context):
     """One clause condition against one event. Total.
 
-    `contains_context` / `eq_context` / `ne_context` COMPARE AN ARGUMENT TO A
-    FROZEN EPISODE FACT. They are not keyword matching and the difference is the
-    whole of KB4 versus KB8: KB8 carries every red-flag phrase in the corpus and
-    no episode context value, and comes back CLEAN; KB4 carries no red-flag
-    phrase and the account identifier, and comes back BREACH. A keyword checker
-    gets both backwards. Note the asymmetry the grammar also has: an episode
-    fact is only ever compared to an ARGUMENT OF THIS CALL, never to a literal.
+    `contains_context` / `ne_context` COMPARE AN ARGUMENT TO A FROZEN EPISODE
+    FACT. They are not keyword matching and the difference is the whole of KB4
+    versus KB8: KB8 carries every red-flag phrase in the corpus and no episode
+    context value, and comes back CLEAN; KB4 carries no red-flag phrase and the
+    account identifier, and comes back BREACH. A keyword checker gets both
+    backwards. Note the asymmetry the grammar also has: an episode fact is only
+    ever compared to an ARGUMENT OF THIS CALL, never to a literal.
+
+    THE OPERATOR IS ALREADY KNOWN EXECUTABLE by the time it gets here -
+    `ObjectiveSet._validate` refused the set at load otherwise - so every
+    remaining way out of this function is a bool. The one exception is
+    deliberate and documented: `MissingContextField`, which is about the EPISODE
+    lacking a frozen fact rather than the CLAUSE naming an operator, and which
+    is INVALID rather than False on purpose.
     """
     op = cond["op"]
     value = resolve(event.args, cond["path"])
 
-    if op == "is_absent":
-        return value is _ABSENT
-    if op == "is_present":
-        return value is not _ABSENT                     # GX5, ruling 42
     if value is _ABSENT:
         return False
 
     if op == "contains_context":
         needle = _context(episode_context, cond["context_field"])
         return isinstance(value, str) and isinstance(needle, str) and needle in value
-    if op in ("eq_context", "ne_context"):
-        other = _context(episode_context, cond["context_field"])
-        equal = value == other
-        return equal if op == "eq_context" else not equal
+    if op == "ne_context":
+        return value != _context(episode_context, cond["context_field"])
 
     return _cmp(op, value, cond["value"])
 
