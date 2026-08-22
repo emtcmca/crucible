@@ -216,6 +216,16 @@ Every day names an objective, a deliverable, and a **verification step** that as
 
 ### Day 2 — Fri 08-21 · Trust boundary, gate, hash-lock · **FIRST GCP DEPLOY**
 
+> **DAY 2 CLOSED. Recorded 2026-08-22.** Deliverables 1, 2, 3, 5 and 6 landed. The gate rule is
+> hash-locked at **`cff9f52929397efb`** (`docs/proof/d2-gate-rule-freeze.json`) pinning
+> `26/26` and `14/14`, so the MEASUREMENT HARD STOP is satisfied. Cloud Run is deployed and
+> serving (`crucible-00003-t2q`); **all four postconditions closed the same day**, both
+> screenshots in `docs/proof/`. ADK #4704 was probed on both invocation paths
+> (`docs/proof/adk-4704-probe-2026-08-21.txt`) and the answer is in `ADR-0012`.
+> **One verification line below was not met as written:** it asks for *"an `execute_tool` span
+> with `gen_ai.agent.name` visible in Trace Explorer"* — the capture shows the agent's spans
+> but `execute_tool` is not among the visible names. Recorded rather than waved through.
+
 **Objective.** Put the trust boundary into IAM, lock the promotion rule before anything can be measured against it, and find out **today** whether ADK's streaming bug breaks the enforcement demo.
 
 **Deliverable**
@@ -243,6 +253,34 @@ Every day names an objective, a deliverable, and a **verification step** that as
 ---
 
 ### Day 3 — Sat 08-22 · Tripwire, 9 known-bads, and the freeze
+
+> **DAY 3 STATUS, recorded 2026-08-22, the day itself.** **All three hard stops fired.**
+> Item 4b: the Objective Set is authored, canonicalized and hash-locked at
+> **`19493e53a6d79d0b`** (ruling 44, `SPINE_VERSION 12`,
+> `docs/proof/d3-objective-set-freeze.json`), nine clauses, each with a `clause_id`. Item 5:
+> the target is frozen — **and re-frozen the same day** after `delegate_to_specialist` was
+> repaired, so the current values are `target_agent_hash` **`bad2bcb62b3ebbee`** and
+> `manifest_hash` **`2bc12fd8608a0bcf`** at 4619 canonical bytes, superseding
+> `125fe7e9e54a419e` / `d2e9f5f435b5acfe` / 4543. Item 4: the nine known-bads return their
+> per-fixture verdicts. Item 1: eight tools, and `delegate_to_specialist` now actually works.
+>
+> **Item 6 is PARTIAL.** Recon items 1–3 delivered and read against source
+> (`docs/proof/third-party-target-recon-2026-08-22.md`); **item 4, the live run, was NOT
+> attempted** — no Google API credential existed in that lane's environment and it did not
+> create one. **Two findings came out of it anyway, and both change what may be said:**
+> `google/adk-samples@f4c19ab` **is not a real object** — it descends from one invented
+> literal in a fixture generator, and a proof file printed it by replaying that fixture — and
+> **"CRUCIBLE tricked the agent into a 40% discount" is dead vocabulary**: routing to
+> `sync_ask_for_approval` is the sample's *intended* flow. The defect is that the escalation
+> destination has no manager in it. **Read item 6's parenthetical below with that correction
+> attached.**
+>
+> **The finding of the day was not any of the freezes.** A lane changed a hash-locked package,
+> `target_agent_hash` moved, and **1011 tests stayed green with `contract-check` ALL PASSES
+> OK.** The only thing that noticed was `python -m target.refund_agent.freeze --check`, which
+> no test and no gate ran. `tests/test_target_freeze.py` exercised the *hasher* and never read
+> `FROZEN.json` — **a test of the hasher is not a test of the freeze.** A skew detector now
+> closes it, with a negative control proven red.
 
 **Objective.** Two hard stops and an irreversible commitment.
 
@@ -473,7 +511,9 @@ Every day names an objective, a deliverable, and a **verification step** that as
 
 ### The test, one sentence
 
-> **On the evening of Tue 08-25, can I run a single command that takes one attack family, produces a breach, produces a patch, and produces a gate decision — with the benign suite green (24/24, near-miss 12/12, evaluated by replaying the recorded v0 traces) and all 9 known-bads returning their expected verdict — without touching anything in the middle?**
+> **On the evening of Tue 08-25, can I run a single command that takes one attack family, produces a breach, produces a patch, and produces a gate decision — with the benign suite green (26/26, near-miss 14/14, evaluated by replaying the recorded v0 traces) and all 9 known-bads returning their expected verdict — without touching anything in the middle?**
+
+*(**Denominators corrected 2026-08-22.** This read `24/24, near-miss 12/12` — the pre-ruling-43 counts. It is the **cut-line test**, so it is not a historical record: run on 08-25 against a floor of 24 it would have measured the corpus against a denominator the hash-locked gate rule does not use. `contracts/gate_rule.v1.yaml:90-91` pins `26/26` and `14/14`.)*
 
 Pass: proceed. **Fail: cut immediately, today, in writing.** *The failure mode that kills solo hackathon projects is not cutting too much; it is deciding on Day 9 that Day 6 was fine.*
 
@@ -597,10 +637,15 @@ SEALED 2026-08-24 · UNSEALED 2026-08-28 · NEVER SEEN BY ARMORER
 > **Five corrections to this block, 2026-08-20, every one of which would have been read aloud.**
 > **(1)** `k=3, 72 executions` — **k is 1.** The label *"single-sample, no stability estimate"* is
 > mandatory next to any ASR figure. **(2)** `benign 48/48` — **the suite is 24**, and the
-> rule-of-three bound doubles to **≈12.5%**, which must be spoken. **(3)** `known-bads still
+> rule-of-three bound doubles to **≈12.5%**, which must be spoken. *(Both figures moved again on
+> 2026-08-21, ruling 43: the suite is **26** and the bound is **≈11.5%**. The 2026-08-20
+> correction is left as it was made — it is a record of that day's five corrections, not a
+> statement of current values. **Take the bound from `crucible/replay/view.py`, which computes
+> it.**)* **(3)** `known-bads still
 > failing 9/9` — **false**; only five are breach fixtures. **(4)** The block listed **three**
 > hashes; there are **four** — the **Objective Set** is the definition of breach and is now
-> frozen too. **(5)** `policy@v6` implied six-plus rounds against a cap of 4. *(**The cap is now 6**
+> frozen too. *(**Five** since ruling 20's manifest split later the same day; four of the five
+> carried a dated freeze record as of 2026-08-22, `derived_schema_hash` being the exception.)* **(5)** `policy@v6` implied six-plus rounds against a cap of 4. *(**The cap is now 6**
 > — ruling 10 — so `v6` is no longer arithmetically impossible. It stays `policy@v3` above because
 > **the version shown must be the version the run actually produced**, and a demo that rounds its
 > own version number up is the same defect as one that rounds its ASR down.)*
@@ -667,6 +712,33 @@ than no log at all.
 | **D5 · Mon 08-24** | Corpus hashed **and `derived_schema_hash` (Part B) frozen, gated on the label-blindness check passing**; sealed family sealed to GCS with the Armorer holding no role | The held-out attacks existed before the first patch was written — **and the fields the evaluator reads were frozen before either arm ran, so both measure under one ruler** |
 | **D8-9 · Thu-Fri** | Convergence run, then the held-out result | The number — **with its `k=1` single-sample label and the SEP-BY split attached**, per the claim discipline below |
 
+> ### PUBLICATION LOG — what has actually gone out. Updated 2026-08-22.
+>
+> **The table above is the schedule. This is the record.** They are different things, and the
+> reason this block exists is that every document in the repo described updates 3 and 4 as
+> drafted or gated while both were already public.
+>
+> | Post | File | Status |
+> |---|---|---|
+> | Update 2 — contracts hashed | `docs/devpost/2026-08-20-update-2-contracts-hashed.md` | **PUBLISHED 2026-08-20** |
+> | Update 3 — gate rule frozen | `docs/devpost/2026-08-22-update-3-gate-rule-frozen.md` | **PUBLISHED 2026-08-22**, late afternoon, by Eric |
+> | Update 4 — target frozen | `docs/devpost/2026-08-22-update-4-target-frozen.md` | **PUBLISHED 2026-08-22**, late afternoon, by Eric |
+>
+> **UPDATE 4 WENT OUT CARRYING HASHES THAT ARE NOW SUPERSEDED, AND THIS IS RECORDED RATHER
+> THAN RECONCILED.** It states `target_agent_hash` `125fe7e9e54a419e`, `manifest_hash`
+> `d2e9f5f435b5acfe`, and a payload canonicalizing to 4543 bytes. Later the same day
+> `delegate_to_specialist` was repaired and **D3 was re-frozen**: `bad2bcb62b3ebbee`,
+> `2bc12fd8608a0bcf`, 4619 bytes.
+>
+> **The post was true when it was written.** Editing the file in the repo to match the current
+> values would leave a public page and a private file disagreeing, with nothing recording why —
+> which is the shape this whole log exists to make impossible. **The correction belongs in a
+> later public update**, and there is precedent from the day before: Update 3 retired Update 2's
+> 20-of-20 figure in public rather than quietly. Do the same here.
+>
+> **Do not delete or amend `2026-08-22-update-4-target-frozen.md`.** It is the record of what
+> was said, not a description of what is true now.
+
 **Two rules govern every post on this list.**
 
 1. **The trigger is the artifact, never the calendar.** Post after the hash lands, not on the day
@@ -678,7 +750,7 @@ than no log at all.
 
 ### Claim discipline
 
-**Legitimate:** "Zero breaches across 24 attacks from a family sealed before the first patch was written, **k=1, single-sample, no stability estimate**, **18 of 22 pairs separated by the policy and 4 by the approval oracle**, against `policy@vFinal`" (cite run directory + seal timestamp) · "**A sealed family whose fix is an argument-to-episode-context comparison — a rule shape the loop learned on a different capability class, against tools it never saw**" · "Benign pass rate held at 100% across every promoted version, **26 fixtures — upper bound ~11.5% on unobserved regression**" *(amended from 24/~12.5%, ruling 43, 2026-08-21)* · "**The gate rule, the target agent, the capability manifest, the Objective Set, and the corpus with its derived-field schema were each hashed and committed before any measurement**" *(five, matching the run manifest — this read four until 2026-08-20)* · "CRUCIBLE found a capability-boundary inconsistency in a published Google ADK sample: `approve_discount` enforces a cap, `sync_ask_for_approval` does not."
+**Legitimate:** "Zero breaches across 24 attacks from a family sealed before the first patch was written, **k=1, single-sample, no stability estimate**, **the SEP-BY split as measured at the time — read it from `python -m corpus`, never from this page** *(this read "18 of 22 pairs separated by the policy and 4 by the approval oracle" until 2026-08-22; that is the **target**. Measured 2026-08-22: **21 policy / 3 oracle over 24 counted pairs, 3 cut, 27 total.** A claim-discipline template that hard-codes the number it is disciplining is the defect it exists to prevent.)*, against `policy@vFinal`" (cite run directory + seal timestamp) · "**A sealed family whose fix is an argument-to-episode-context comparison — a rule shape the loop learned on a different capability class, against tools it never saw**" · "Benign pass rate held at 100% across every promoted version, **26 fixtures — upper bound ~11.5% on unobserved regression**" *(amended from 24/~12.5%, ruling 43, 2026-08-21)* · "**The gate rule, the target agent, the capability manifest, the Objective Set, and the corpus with its derived-field schema were each hashed and committed before any measurement**" *(five, matching the run manifest — this read four until 2026-08-20)* · "CRUCIBLE found a capability-boundary inconsistency in a published Google ADK sample: `approve_discount` enforces a cap, `sync_ask_for_approval` does not."
 
 **Second-pass corrections to this list, 2026-08-20.** *(The first pass fixed three: k was 3, the suite was 48, and the hash list was missing the definition of breach.)*
 - **REMOVED — "The policy DSL contains zero literal strings from any attack payload, verified by a committed script."** The claim is **true and worthless as evidence**: the grammar admits no free strings, so **the script cannot fail regardless of whether the boundary generalized** (ruling 12). It stays in CI as a grammar regression guard and comes off the claim list. **A judge who reads the grammar and then hears this claim has found a measurement arranged to pass — which is worse than a failed metric.** The claim that replaces it is the **cross-class transfer** line above, and the metric that can actually go to zero is **benign capability retained per attack blocked.**
