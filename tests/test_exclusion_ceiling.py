@@ -197,11 +197,19 @@ def test_an_empty_round_that_calls_itself_scored_is_refused():
 
 def test_two_crashes_in_a_round_of_six_are_still_past_the_ceiling():
     """The substitute is a CHECK, not an amnesty. Both rules fire here, and the
-    message has to say which denominator it fired on."""
+    message has to say which denominator it fired on.
+
+    BOTH CODES, and that is not redundancy. Amended 2026-08-22 when the pooled
+    ceiling gained the same sub-floor substitute as the per-round one. On a
+    one-round bundle the round and the run are the same six episodes, so the two
+    tests read the same numbers - but they carry DIFFERENT VERDICTS. Per round:
+    this ROUND is INCOMPLETE and must be re-run. Pooled: no rate may be quoted
+    from the RUN at all. Collapsing them would lose the second sentence.
+    """
     assert _old_per_round_rule(2, 6, "SCORED")
 
     row, defects = check([(1, 6, 4, 2, "SCORED")])
-    assert codes(defects) == ["E_EXCLUSION_CEILING"]
+    assert codes(defects) == ["E_EXCLUSION_CEILING", "E_EXCLUSION_CEILING_RUN"]
     text = str(defects[0])
     assert "PER-ROUND DENOMINATOR" in text
     assert "below the n=%d floor" % EXCLUSION_RATE_MIN_N in text
@@ -301,23 +309,55 @@ def test_the_pooled_test_is_inapplicable_below_the_floor_and_prints_that():
     assert "counts may be quoted from this run, a rate may not" in row.note
 
 
+def test_three_rounds_losing_one_each_is_now_caught_by_the_pooled_subfloor():
+    """THIS TEST WAS WRITTEN THE OTHER WAY UP, AND SAID SO.
+
+    The lane that built the piecewise rule applied the floor to the pooled test
+    but not the sub-floor SUBSTITUTE, leaving three reported rounds at one
+    exclusion each - 3 of 18, 16.7% - firing nothing: each round sat inside the
+    per-round allowance and the run pool sat below the floor. It pinned that gap
+    as the widest in the rule and named this test as the one that must change if
+    a coordinator ever closed it.
+
+    Closed 2026-08-22. The lane's own argument for refusing a bare INAPPLICABLE
+    per round is that a check which can never fire is the same defect wearing
+    the other mask; a run that halts short sits below the floor for exactly the
+    same reason a round does, and PARTIAL and halted runs are both explicitly
+    publishable. So the pooled test degrades the same way, to the same derived
+    allowance - CONTINUOUS with the rate test rather than a second threshold,
+    because the rate test permits exactly one exclusion everywhere from n=20 to
+    n=39 and only reaches two at n=40.
+    """
+    row, defects = check(full_run([1, 1, 1]))
+    assert codes(defects) == ["E_EXCLUSION_CEILING_RUN"]
+    text = str(defects[0])
+    assert "3 exclusion(s) across 18 attempted" in text
+    assert "below the rate floor of %d" % EXCLUSION_RATE_MIN_N in text
+    assert "at most %d" % EXCLUSION_SUBFLOOR_ALLOWANCE in text
+    assert row.status == "FAIL"
+
+
 def test_the_loosest_the_rule_gets_is_pinned_here_rather_than_left_to_be_found():
     """A KNOWN LIMIT, ASSERTED SO IT CANNOT DRIFT INTO A SURPRISE.
 
-    Three reported rounds losing one instance each is 3 of 18 = 16.7% excluded,
-    and NOTHING FIRES: each round is inside the sub-floor allowance and the run
-    pool is below the floor. This is the widest gap in the piecewise rule and it
-    is the deliberate cost of the fix - the alternative is the old tripwire,
-    which invalidated every run containing a single crash.
+    With the pooled sub-floor in place the widest surviving gap is a run of ONE
+    reported round that lost one instance: 1 of 6, 16.7%, and nothing fires.
+
+    THIS ONE IS NOT CLOSEABLE AT n=6, and that is the honest statement rather
+    than an oversight. The allowance is derived - it is the number of exclusions
+    the rate test itself permits at the floor - and lowering it to zero restores
+    the original defect exactly: a single crash anywhere invalidates the run.
+    The rate is only unresolvable here because `attacks_per_round` is frozen at
+    6, three times below the floor a 5% rate needs. Raising the round size is
+    the only thing that would shrink this gap, and it is frozen into the D2 run
+    manifest.
 
     What stops it being silent is the row, which prints the pooled figure beside
-    the word INAPPLICABLE. If the coordinator later closes this by extending the
-    sub-floor substitute to the run level, THIS TEST IS THE ONE THAT MUST CHANGE,
-    and the `contracts/golden/C6-evidence_bundle.valid.json` fixture with it.
+    the word INAPPLICABLE.
     """
-    row, defects = check(full_run([1, 1, 1]))
+    row, defects = check(full_run([1]))
     assert codes(defects) == []
-    assert "run pooled 3/18 over 3 reported round(s)" in row.note
+    assert "run pooled 1/6 over 1 reported round(s)" in row.note
     assert "INAPPLICABLE below n=%d" % EXCLUSION_RATE_MIN_N in row.note
 
 

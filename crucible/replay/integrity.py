@@ -900,6 +900,39 @@ def _check_exclusions(bundle, defects):
     # THE POOLED RUN-LEVEL CEILING. Applicable only at or above the floor, for
     # the reason the docstring gives, and INAPPLICABLE is printed rather than
     # skipped.
+    #
+    # COORDINATOR AMENDMENT, 2026-08-22. The lane applied the floor to this test
+    # but NOT the subfloor substitute, and pinned the gap it left as the loosest
+    # point of the whole rule: three reported rounds carrying one exclusion each
+    # is 3 of 18, and 18 is below the floor - so the pooled rate was INAPPLICABLE
+    # and nothing fired on 16.7%.
+    #
+    # That is the lane's own argument left half-applied. Its reason for refusing
+    # a bare INAPPLICABLE per round is that a check which can never fire is the
+    # same defect wearing the other mask; a run that halts short sits below the
+    # floor for exactly the same reason a round does, and `PARTIAL` and `halted`
+    # are both explicitly publishable. So the pooled test degrades the same way,
+    # to the same derived allowance.
+    #
+    # CONTINUOUS, not a second threshold. The rate test permits exactly one
+    # exclusion everywhere from n=20 to n=39 and only reaches two at n=40, so
+    # `> ALLOWANCE` below the floor returns the verdict the rate test would
+    # return if it could resolve there.
+    pooled_subfloor = (pooled_attempted
+                       and not exclusion_rate_applicable(pooled_attempted)
+                       and pooled_excluded > EXCLUSION_SUBFLOOR_ALLOWANCE)
+    if pooled_subfloor:
+        defects.append(Defect(
+            "E_EXCLUSION_CEILING_RUN", "round_census",
+            "%d exclusion(s) across %d attempted over the reported round(s). "
+            "The pooled denominator is below the rate floor of %d, so the "
+            "ceiling degrades to at most %d - the same allowance the rate test "
+            "itself permits until n=%d. THE RUN IS INCOMPLETE: no rate may be "
+            "quoted from it (measurement-spec 5.1)."
+            % (pooled_excluded, pooled_attempted, EXCLUSION_RATE_MIN_N,
+               EXCLUSION_SUBFLOOR_ALLOWANCE,
+               (EXCLUSION_SUBFLOOR_ALLOWANCE + 1) * 100 // EXCLUSION_CEILING_PCT)))
+        bad += 1
     pooled_applicable = exclusion_rate_applicable(pooled_attempted)
     if pooled_applicable and \
             pooled_excluded * 100 > pooled_attempted * EXCLUSION_CEILING_PCT:
