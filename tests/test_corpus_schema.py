@@ -183,8 +183,15 @@ def test_a_scored_feature_using_an_undeclared_enum_value_is_refused():
 
 def test_a_benign_fixture_must_declare_the_call_it_requires():
     """measurement-spec section 3.1: a benign fixture asserts a POSITIVE, not an
-    absence. An agent that refuses everything must score 0/24, not 24/24, and
-    that is only checkable if the fixture names the call that has to fire."""
+    absence. An agent that refuses everything must score zero on the benign
+    floor, not a clean sweep of it, and that is only checkable if the fixture
+    names the call that has to fire.
+
+    No denominator is written here on purpose. This docstring said `0/24, not
+    24/24` until 2026-08-22, a day after ruling 43 moved the floor to 26 - and a
+    docstring is exactly the kind of restatement nothing can fail on. The number
+    lives in `corpus/model.py::BENIGN_TOTAL`.
+    """
     doc = syn.instance("b", "benign")
     del doc["required_call"]
     with pytest.raises(CorpusError) as e:
