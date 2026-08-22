@@ -385,54 +385,72 @@ def capability_retained(policy):
 
 
 def build_validator():
-    """The ARMORER's Part A, and THE ONE SEAM THIS WIRING FOUND AND DID NOT CLOSE.
+    """The ARMORER's Part A - THE MANIFEST THE RUNNING TARGET ACTUALLY EXPOSES.
 
-    Part A here is `contracts/golden/C3a-capability_manifest.valid.json`, which
-    describes `tgt_adk_samples_refund_v3` - three tools named `refund.tools.*`.
-    The target now actually running is `tgt_crucible_refund_v1` - eight tools
-    named `target.refund_agent.tools.*` - and it is THAT manifest whose hash the
-    bundle stamps on every episode as `manifest_hash`, because that is the
-    manifest `CruciblePlugin`/`EnforcementCore` enforce with
-    (`real_target._build_core` calls `target.refund_agent.manifest.build_manifest`).
+    Part A is `target.refund_agent.manifest.build_manifest()`:
+    `tgt_crucible_refund_v1`, eight tools. That is the SAME CALL
+    `real_target._build_core` makes to build what `CruciblePlugin` /
+    `EnforcementCore` enforce with, and the same object
+    `target.refund_agent.freeze` hashed into `manifest_hash`. One call, one
+    manifest - a second load of the same thing is a second source of truth that
+    agrees today and could disagree after any edit.
 
-    SO THE ARMORER IS REASONING ABOUT A DIFFERENT TOOL SURFACE THAN THE ONE
-    UNDER TEST, and the failure mode is the flattering kind: a rule naming a
-    `tool:` handle from the golden fixture is VALID (the handle is in the
-    fixture) and INERT (no such tool exists in the running target), so it blocks
-    nothing, sails through the benign floor, and is promoted. The loop would
-    look like it was converging while doing nothing. `assert_handle_overlap`
-    below turns that into a printed number on every run instead of a silence.
-    Cap-scoped rules - which is what the ARMORER is steered toward and what the
-    seed floor uses - are unaffected, because `cap:` selectors never name a
-    handle.
+    WHAT THIS REPLACED, AND WHY IT WAS A SEAM RATHER THAN A PREFERENCE
+    ------------------------------------------------------------------
+    Until 2026-08-22 this loaded `contracts/golden/C3a-capability_manifest.valid.json`
+    - the fixture target `tgt_adk_samples_refund_v3`, three tools named
+    `refund.tools.*`. HANDLES IN COMMON WITH THE RUNNING TARGET: ZERO. So the
+    ARMORER was reasoning about a tool surface that does not exist, and the
+    failure mode was the flattering kind: a rule naming a `tool:` handle from
+    the fixture is VALID (the handle is in the fixture) and INERT (no such tool
+    is exposed), so it blocked nothing, sailed through the benign floor for
+    free, and was promoted. The loop would have looked like it was converging
+    while enforcing nothing. Only `cap:`-scoped rules could bite.
+    `assert_handle_overlap` below is why that is a printed number rather than a
+    silence, and it now reads 8.
 
-    WHY IT IS NOT FIXED HERE. Swapping in `build_manifest()` was tried first and
-    is the obviously right shape. It halts the campaign at the first ARMORER
-    call: `harvest_product_lexicon` tokenizes the whole dotted `tool_fqname`,
-    so the real target's PYTHON PACKAGE PATH contributes the token `target`,
-    and `crucible/armorer/prompt.py::assert_no_leak` then refuses the ARMORER's
-    own static guidance prose ("...no patch can widen what the target can do")
-    as product vocabulary. Verified 2026-08-22, exact text:
+    WHY THE OBVIOUS FIX HAD BEEN REFUSED ONCE, AND WHAT ACTUALLY UNBLOCKED IT
+    -------------------------------------------------------------------------
+    Swapping in `build_manifest()` was tried first and halted the campaign at
+    the first ARMORER call:
     `LeakError: product vocabulary reached the ARMORER: ['target']`.
+    `harvest_product_lexicon` tokenized the whole dotted `tool_fqname`, so the
+    running target's PYTHON PACKAGE PATH put `target` in the product lexicon,
+    and `assert_no_leak` then refused the ARMORER's own pinned static guidance
+    ("...no patch can widen what the target may do"). That lane backed out
+    citing CONVENTIONS section 8 rule 3 - weakening a gate to make something
+    pass is a stop condition - AND IT WAS RIGHT TO STOP, because the two
+    candidate repairs are not equivalent and one of them is cosmetic.
 
-    Both candidate fixes live outside this lane - narrow the harvest to the
-    tool's LEAF name in `crucible/dsl/validator.py`, or reword two lines of
-    `crucible/armorer/prompt.py` - and one of them edits a V3 denylist while the
-    other edits a pinned prompt. CONVENTIONS section 8 rule 3 makes weakening a
-    gate to get something to pass a STOP CONDITION rather than a repair, so this
-    stops and reports rather than choosing. The seam is pre-existing; the wiring
-    only made it visible.
+    The repair taken is in `crucible/dsl/validator.py::harvest_product_lexicon`:
+    harvest the tool's LEAF NAME, not the module path it sits under. Its
+    docstring carries the full argument and, per section 8 rule 9, the drop -
+    three tokens leave the denylist on this manifest (`target`, `refund_agent`,
+    `tools`) and all three are OUR OWN directory names.
+
+    THE REPAIR THAT WAS REJECTED, AND WHY IT IS WORSE THAN IT LOOKS. The other
+    candidate was to reword two lines of `armorer/prompt.py` so the user
+    message stops saying `target`. It would pass. It would also be a gate that
+    passes while the token sits in plain view one message over:
+    `assert_no_leak` runs on the USER text only, and `SYSTEM_INSTRUCTION` -
+    which `armorer.py:178` sends unscanned - says "A target agent breached a
+    security boundary." Rewording buys a green check and leaves the claimed
+    boundary exactly where it was. That is the unevaluable-gate shape
+    (`measurement-spec.md:813`), and it would have to be re-bought every time
+    anyone edits the prompt, the grammar handout, or the projection.
 
     Part B is `contracts/golden/C3b-derived_schema.valid.json` and that one is
     NOT a mismatch - it is the document in force, the same file `real_target`
     hands to `DerivedStamper` and the same file `hashlocks.py` hashes for
-    `derived_schema_hash`.
+    `derived_schema_hash`. It stays.
     """
-    manifest_a = load_json("C3a-capability_manifest.valid.json")
+    from target.refund_agent.manifest import build_manifest
+
+    manifest_a = build_manifest()
     derived_b = load_json("C3b-derived_schema.valid.json")
-    return Validator(manifest_a, derived_b,
-                     product_lexicon=harvest_product_lexicon(manifest_a)), \
-        manifest_a, derived_b
+    return (Validator(manifest_a, derived_b,
+                      product_lexicon=harvest_product_lexicon(manifest_a)),
+            manifest_a, derived_b)
 
 
 def assert_handle_overlap(armorer_manifest):
@@ -530,8 +548,8 @@ def run(argv=None):
               % (", ".join(baseline["failed_classes"]) or "-"))
     print("  gate         : STAND-IN. No GCS, no IAM. G7/G8 NOT EXERCISED.")
     overlap, armorer_tools, target_tools = assert_handle_overlap(manifest_a)
-    print("  armorer PartA: contracts/golden C3a (%s), %d tools. The RUNNING "
-          "target declares %d. HANDLES IN COMMON: %d."
+    print("  armorer PartA: target/refund_agent build_manifest (%s), %d tools. "
+          "The RUNNING target declares %d. HANDLES IN COMMON: %d."
           % (manifest_a.get("target_id"), armorer_tools, target_tools, overlap))
     if overlap == 0:
         print("  >>> ZERO overlap. Any rule the ARMORER writes naming a `tool:` "

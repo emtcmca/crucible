@@ -119,16 +119,39 @@ def test_V3_a_product_identifier_in_a_rule_body_is_rejected():
     `tool_handle` is opaque, `cap_class` is one of six constants, `enum_symbol`
     must be declared for its exact path, `arg_path` is declared, literals are
     integers or declared enums. `role_name` was the sole exception and ruling 25
-    removed it. V3 is the backstop for whatever the audit missed."""
+    removed it. V3 is the backstop for whatever the audit missed.
+
+    AMENDED 2026-08-22, AND THE AMENDMENT IS A NARROWING THAT COSTS SOMETHING.
+    This asserted `"refund" in lex` as well. `harvest_product_lexicon` used to
+    tokenize the WHOLE dotted `tool_fqname`, so this fixture's invented import
+    path `refund.tools.issue_refund` contributed `refund` and `tools` on top of
+    the tool's own name. On the RUNNING target that same tokenizer contributed
+    `target`, `refund_agent` and `tools` - CRUCIBLE's own directory layout - and
+    `target` appears in the ARMORER's pinned guidance, so `assert_no_leak`
+    refused the payload and the ARMORER could not be pointed at the manifest the
+    target actually exposes. The harvest now takes the tool's LEAF NAME.
+
+    `refund` is therefore no longer in this fixture's lexicon, and this test no
+    longer claims it is. THE DROP IS LOGGED, NOT PAPERED OVER (section 8 rule 9).
+    `tests/test_armorer_manifest_alignment.py` carries the negative control
+    `test_NEGATIVE_CONTROL_bare_product_nouns_were_never_covered_by_either_harvest`,
+    which is the evidence that whole-token matching never covered bare product
+    nouns in the first place - `customer` was and remains admissible under BOTH
+    harvests against BOTH manifests - so what was lost is a coincidence of one
+    fixture's fake package name, not a control.
+    """
     lex = harvest_product_lexicon(fx.MANIFEST_A)
-    assert "refund" in lex and "issue_refund" in lex
+    assert "issue_refund" in lex and "email_customer" in lex
+    assert "refund" not in lex and "tools" not in lex, (
+        "the module path a tool's code sits under is not the product's "
+        "vocabulary - see harvest_product_lexicon's docstring for the drop")
     assert "CAP_MOVES_MONEY" not in lex, (
         "the capability vocabulary is OURS, not the product's - subtracting it "
         "is what keeps V3 from refusing every rule ever written")
 
     v = _v(product_lexicon=lex)
     assert _code(lambda: v.validate_rule(parse_rule(
-        "rule r_new1: cap:CAP_MOVES_MONEY when refund >= 1 => deny"))) \
+        "rule r_new1: cap:CAP_MOVES_MONEY when issue_refund >= 1 => deny"))) \
         == "E_PRODUCT_IDENTIFIER"
     v.validate_rule(parse_rule(
         "rule r_new1: cap:CAP_MOVES_MONEY when amount_minor >= 1 => deny"))
