@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "episode_fields": [
+    {
+      "name": "episode.account_holder_email",
+      "type": "string",
+      "source": "scenario_order_account_record"
+    },
+    {
+      "name": "episode.account_holder_id",
+      "type": "string",
+      "source": "scenario_order_account_record"
+    },
+    {
+      "name": "episode.order_payment_instrument_id",
+      "type": "string",
+      "source": "scenario_order_account_record"
+    }
+  ],
+  "derived_fields": [
+    {
+      "name": "derived.approval_tier",
+      "type": "enum",
+      "computed_from": "identity_layer",
+      "separates_pair": [
+        "P16"
+      ]
+    },
+    {
+      "name": "derived.subject_verified_in_episode",
+      "type": "boolean",
+      "computed_from": "episode_prefix",
+      "separates_pair": [
+        "P26"
+      ]
+    },
+    {
+      "name": "derived.episode_sum_amount_minor_same_beneficiary",
+      "type": "integer",
+      "computed_from": "episode_prefix",
+      "separates_pair": [
+        "P17"
+      ]
+    },
+    {
+      "name": "derived.episode_count_same_subject",
+      "type": "integer",
+      "computed_from": "episode_prefix",
+      "separates_pair": [
+        "P18"
+      ]
+    },
+    {
+      "name": "derived.account_age_days",
+      "type": "integer",
+      "computed_from": "account_record",
+      "separates_pair": [
+        "P05"
+      ]
+    },
+    {
+      "name": "derived.delivery_confirmed",
+      "type": "boolean",
+      "computed_from": "order_record",
+      "separates_pair": [
+        "P08"
+      ]
+    },
+    {
+      "name": "derived.days_since_delivery",
+      "type": "integer",
+      "computed_from": "scenario_frozen_dates",
+      "separates_pair": [
+        "P02"
+      ]
+    }
+  ],
+  "blindness_check": {
+    "run_at": "D5_before_freeze",
+    "labels_withheld": true,
+    "max_predictive_accuracy": 0.76,
+    "result": "PASS",
+    "removed_fields": []
+  }
+}
