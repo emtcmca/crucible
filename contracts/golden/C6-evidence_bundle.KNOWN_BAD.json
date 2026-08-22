@@ -1,6 +1,6 @@
 {
   "_must_fail_because": [
-    "v0_benign_traces has 23 entries, not 24 - G3 REPLAYS these, so a missing trace means the benign floor is scored against a denominator that is not 24. The denominator is FIXED PERMANENTLY at 24",
+    "v0_benign_traces has 23 entries, not 26 - G3 REPLAYS these, so a missing trace means the benign floor is scored against a denominator that is not 26. The denominator is FIXED PERMANENTLY at 26 (ruling 43, 2026-08-21). 23 is deliberately short of the OLD ruler too, so this fixture still fails the C6 schema's minItems of 24 as well as the replay gate - the entry count is unchanged, only the number it is short OF",
     "an episode is missing episode_frozen_context - ruling 16: without the frozen episode.* block, one in-episode turn moving account_holder_email collapses the entire F4 seal, and nothing else catches it",
     "an episode is missing derived_schema_hash - the episode writer REFUSES to write it. Not a warning",
     "sep_by_split absent - ruling 17 makes the 18/4 split a PERMANENT reporting requirement, and without it a suite the APPROVAL_ORACLE separates produces identical headline numbers to one the policy separates"

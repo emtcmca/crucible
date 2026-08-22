@@ -41,12 +41,15 @@ import pathlib
 import sys
 
 from .bundle import read_bundle
-from .integrity import BundleRejected
+# CONVENTIONS section 4, as amended by ruling 43: the benign denominator is fixed
+# permanently at 26. IMPORTED, NOT RESTATED - this module carried its own copy of
+# the value until 2026-08-22, and when ruling 43 moved the number the copy stayed
+# at 24, which silently turned `regression_upper_bound` into a function that
+# returns None on every real bundle. A gate that stops printing is quieter than a
+# gate that prints the wrong number, and it survived a full green suite.
+from .integrity import BENIGN_DENOMINATOR, BundleRejected
 
 WIDTH = 96
-
-# CONVENTIONS section 4. The benign denominator is fixed permanently at 24.
-BENIGN_DENOMINATOR = 24
 
 # Which day each lock freezes on, and the one-line reason a reader needs. Kept
 # beside the renderer rather than in the schema's $comment because a viewer that
@@ -123,9 +126,16 @@ def regression_upper_bound(failures, denominator):
     """The rule of three, or None when it does not apply.
 
     With zero failures observed in n trials, the true rate is bounded above by
-    roughly 3/n at 95% confidence. At n = 24 that is 12.5%, and that exact
+    roughly 3/n at 95% confidence. At n = 26 that is ~11.5%, and that exact
     number is what gets spoken rather than "no legitimate behavior was lost" -
     which is a claim the data cannot support at any sample size.
+
+    THE FIGURE MOVED WITH THE DENOMINATOR. Ruling 43 took the benign suite from
+    24 to 26, so the bound went 12.5% -> ~11.5%. It is COMPUTED here, from
+    `BENIGN_DENOMINATOR`, precisely so it cannot be quoted against a corpus it
+    was not measured on. `README.md` and `docs/CONVENTIONS.md` section 4 still
+    say 12.5%; that is reported to the coordinator rather than rewritten here,
+    because which number is spoken on camera is a ruling, not a lane's edit.
 
     Returns None rather than a softened number when a failure was observed,
     because the rule of three is a bound on an UNOBSERVED rate and simply does

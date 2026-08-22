@@ -38,6 +38,7 @@ GOLDEN = REPO / "contracts" / "golden" / "C6-evidence_bundle.valid.json"
 README = REPO / "README.md"
 
 from crucible.replay import read_bundle_bytes, write_bundle  # noqa: E402
+from crucible.replay.integrity import BENIGN_DENOMINATOR  # noqa: E402
 from crucible.replay.view import (  # noqa: E402
     WIDTH,
     regression_upper_bound,
@@ -143,11 +144,42 @@ def test_the_viewer_states_no_rate(rendered):
 # The rule of three, computed rather than recalled.
 # --------------------------------------------------------------------------
 
-def test_zero_of_twenty_four_bounds_regression_at_twelve_point_five_percent():
+def test_the_benign_denominator_agrees_with_its_owner():
+    """THE CHECK THAT WAS MISSING, and the reason ruling 43 reached the docs and
+    the fixtures but not the code.
+
+    `corpus/model.py::BENIGN_TOTAL` owns this number. `crucible/replay/` keeps a
+    typed copy on purpose - it is the offline judge-reproduction path and must
+    not import the corpus package - so the copy needs a mechanical pin, not a
+    comment asking the next person to remember. It carried 24 for a day after
+    the ruling with 880 tests green, because every test that mentioned it
+    asserted the literal 24 and therefore agreed with the copy rather than with
+    the corpus.
+
+    This test names no number. That is the point: it cannot go stale.
+    """
+    from corpus.model import BENIGN_TOTAL
+    assert BENIGN_DENOMINATOR == BENIGN_TOTAL, (
+        "crucible/replay/integrity.py:BENIGN_DENOMINATOR is %d and "
+        "corpus/model.py:BENIGN_TOTAL is %d. The replay gate is scoring against "
+        "a denominator the corpus does not have, which is a gate reading short "
+        "and reporting green." % (BENIGN_DENOMINATOR, BENIGN_TOTAL))
+
+
+def test_the_bound_is_computed_from_the_denominator_it_belongs_to():
     """The number spoken on camera and printed in the README. It is COMPUTED
     from 3/n so that it cannot drift away from the denominator it belongs to -
-    which has happened to other numbers in this project more than once."""
-    assert regression_upper_bound(0, 24) == pytest.approx(12.5)
+    which has happened to other numbers in this project more than once.
+
+    Ruling 43 moved n from 24 to 26, so the bound moved 12.5% -> ~11.5%. The
+    expected value is derived here rather than typed, so the next amendment
+    moves it without an edit.
+    """
+    assert regression_upper_bound(0, BENIGN_DENOMINATOR) == pytest.approx(
+        3.0 / BENIGN_DENOMINATOR * 100.0)
+    assert regression_upper_bound(0, 26) == pytest.approx(11.538, abs=0.01), (
+        "3/26 is ~11.5%. If this fails, either the denominator moved again or "
+        "somebody rounded a bound that gets spoken out loud.")
 
 
 def test_the_bound_is_withheld_when_its_precondition_fails():
@@ -155,14 +187,60 @@ def test_the_bound_is_withheld_when_its_precondition_fails():
     observed it does not apply, and stating a softened bound anyway would be
     the exact shape CONVENTIONS section 7 warns about - a sentence that
     survives because nobody checks the arithmetic behind it."""
-    assert regression_upper_bound(1, 24) is None
+    assert regression_upper_bound(1, BENIGN_DENOMINATOR) is None
     assert regression_upper_bound(0, 48) is None, (
-        "the benign denominator is fixed PERMANENTLY at 24. A bound quoted "
-        "against 48 is a bound against a corpus that was cut on 2026-08-20.")
+        "the benign denominator is fixed PERMANENTLY. A bound quoted against 48 "
+        "is a bound against a corpus that was cut on 2026-08-20.")
+    assert regression_upper_bound(0, 24) is None, (
+        "24 was the denominator until ruling 43 on 2026-08-21. A bound quoted "
+        "against it is a bound against a corpus that no longer exists - and "
+        "24 is the specific wrong ruler this function silently used for a day.")
 
 
 def test_the_forbidden_phrasing_is_not_what_gets_printed(rendered):
     assert "no legitimate behavior was lost" not in rendered.lower()
+
+
+def test_the_rule_of_three_bound_is_printed_for_a_full_clean_benign_suite():
+    """THE SECOND HALF OF THE RULING-43 DEFECT, and the quiet one.
+
+    `regression_upper_bound` returns None unless the denominator it is handed
+    equals the module's own. When ruling 43 took the suite to 26 and this
+    module's copy stayed at 24, EVERY REAL BUNDLE took the None branch, so the
+    viewer stopped printing the bound entirely and printed "0 of 26 benign
+    fixtures failed. The rule of three ... does not apply here" instead - a
+    sentence that is false about its own data. Nothing went red. A gate that
+    goes silent is harder to notice than one that prints a wrong number.
+
+    Renders a bundle whose benign suite is FULL and CLEAN, which is the shape
+    the demo is expected to produce, and asserts the sentence a judge reads.
+    """
+    from crucible.replay import verify_bundle
+
+    bundle = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    bundle["fixture_results"] = [
+        {"fixture_id": "fx_%012d" % i, "passed": True}
+        for i in range(BENIGN_DENOMINATOR)]
+    report = verify_bundle(bundle)
+    assert report.ok, [d.code for d in report.defects]
+
+    page = render(bundle, report, source="test")
+    expected = "%.1f%%" % (3.0 / BENIGN_DENOMINATOR * 100.0)
+    assert expected in page, (
+        "the rule-of-three bound is not printed for a full clean suite. "
+        "Expected %r somewhere in the render." % expected)
+    assert "does not apply here" not in page, (
+        "0 failures in a full suite is exactly when the rule of three DOES "
+        "apply; printing the withheld branch here is the silent failure.")
+    # NOT asserted here: the absence of "no legitimate behavior was lost".
+    # `_benign_label` prints that phrase inside its own PROHIBITION - "NEVER 'no
+    # legitimate behavior was lost'" - so this branch legitimately contains the
+    # string. Reported rather than absorbed: it means
+    # `test_the_forbidden_phrasing_is_not_what_gets_printed` passes only because
+    # the golden bundle carries an EMPTY `fixture_results` and never reaches
+    # this branch. Give that golden a benign result set and the existing check
+    # goes red on a quoted prohibition. Coordinator call - the fix is a
+    # narrower pattern, not a looser test.
 
 
 # --------------------------------------------------------------------------

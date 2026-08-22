@@ -5,7 +5,8 @@ Each benign fixture's legitimate tool-call trace is recorded ONCE, at v0, and
 the benign pass rate is computed by replaying those traces through a SHADOW
 policy engine. Not by re-running 24 live episodes every round.
 
-  - 24/24 BECOMES REPEATABLE INSTEAD OF FLAKY. A gate demanding exactly 100% on
+  - 26/26 BECOMES REPEATABLE INSTEAD OF FLAKY (ruling 43 - it was 24/24). A gate
+    demanding exactly 100% on
     nondeterministic live episodes, every round, with no repetition allowance,
     is the gate a deadline relaxes at 11pm - and weakening a never-cut gate is a
     stop condition, not a repair. The reviewers predicted that failure by name.

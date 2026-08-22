@@ -251,6 +251,12 @@ def mutate(bundle, how):
         b["sep_by_split"] = {"policy_separated": 11, "approval_oracle_separated": 11}
     elif how == "benign_traces_short":
         b["v0_benign_traces"] = b["v0_benign_traces"][:23]
+    elif how == "benign_traces_at_the_old_denominator":
+        # 24 was a COMPLETE benign suite until ruling 43 (2026-08-21) and is a
+        # SHORT one after it. Truncating to 23 proves the check fires at all;
+        # truncating to exactly 24 proves it fires at the RULER THAT MOVED,
+        # which is the case that passed clean while every other test was green.
+        b["v0_benign_traces"] = b["v0_benign_traces"][:24]
     elif how == "float_in_payload":
         b["cost"]["input_tokens"] = 412000.0
     elif how == "null_in_payload":
