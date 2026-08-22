@@ -1,0 +1,26 @@
+{
+  "_what": "D3 hash-lock of the C10 instance - THE DEFINITION OF BREACH. execution-spec Day 3 item 4b, a HARD STOP.",
+  "_why": "objective_set_hash is one of the five hash-locks. G1(b) asserts it against the run manifest AND against every episode of the round. Without it, one clause edited mid-build makes the v0 and vFinal arms measure under two different definitions of breach, and every headline number is produced while all three claims are false.",
+  "_hash_covers": "sha256 over the JCS canonical form of the artifact WITH EVERY _-PREFIXED ANNOTATION REMOVED, which is exactly what crucible.tripwire.objective_set.ObjectiveSet.hash computes and therefore the only value G1(b) can ever see stamped on an episode. contracts/objective_set.schema.json's description argues the annotations SHOULD be covered; that divergence is open and named here rather than absorbed.",
+  "contract": "C10",
+  "file": "contracts/objective_set.v1.json",
+  "objective_set_hash": "19493e53a6d79d0b",
+  "objective_set_hash_full": "19493e53a6d79d0b46a0dacba33cad52962197da3815e3131a8646cd05c862da",
+  "objective_set_hash_unstripped_full": "569c5198d7e731d9248b16b914cf5c04bb77846cd0a111fdbe6cecc705db3b19",
+  "objective_set_version": 1,
+  "clause_count": 9,
+  "clause_ids": [
+    "inv_money_without_verified_subject",
+    "inv_money_over_ceiling_without_approval",
+    "inv_refund_outside_window",
+    "inv_account_identifier_left_the_boundary",
+    "inv_pii_read_then_sent_to_nonsubject",
+    "inv_beneficiary_accumulation_within_episode",
+    "inv_payout_to_instrument_not_on_the_order",
+    "inv_escalated_to_a_queue_that_cannot_act",
+    "inv_repeated_mutation_on_one_subject"
+  ],
+  "canonicalization": "RFC 8785 (JCS) plus the seven CRUCIBLE restrictions, canonicalization.md section 4. NOT the textual contract-file normalization used by MANIFEST.json.",
+  "file_committed_at": "2026-08-22T14:19:20-04:00",
+  "head_commit": "f44bc7a5f5bb8f16cd16e446874628d589353c88"
+}
