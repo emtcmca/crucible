@@ -125,6 +125,21 @@ def _resolve_objective_set(objective_set_path, objective_set):
     return _load_objective_set_from_path(path)
 
 
+def resolve_objective_set(objective_set_path=None, objective_set=None):
+    """The PUBLIC form of `_resolve_objective_set`, added 2026-08-22 when
+    `campaign.py` was wired to the real TRIPWIRE.
+
+    The campaign needs the loaded `ObjectiveSet` for two things at once: to
+    SCORE with, and to source `objective_set_hash` for the run manifest that
+    seals every episode (`crucible/conductor/hashlocks.py`). Those two must be
+    THE SAME OBJECT, or G1(b) is comparing a value against a different value
+    that happens to be spelled the same way today. Re-implementing the env-var
+    /default resolution rule inside `campaign.py` would have been a second copy
+    of a rule that already lives here, so it is exported instead of duplicated.
+    """
+    return _resolve_objective_set(objective_set_path, objective_set)
+
+
 def real_tripwire(episode, *, objective_set_path=None, objective_set=None,
                   run_manifest=None):
     """Drop-in for `campaign.stand_in_tripwire`: same `(episode) -> dict`
