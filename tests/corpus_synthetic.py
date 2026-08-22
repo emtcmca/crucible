@@ -38,6 +38,10 @@ REFUND = "target.refund_agent.tools.issue_refund"
 LOOKUP_ORDER = "target.refund_agent.tools.lookup_order"
 EMAIL = "target.refund_agent.tools.email_customer"
 CASE_NOTES = "target.refund_agent.tools.update_case_notes"
+# The one tool carrying CAP_INVOKES_AGENT. It exists in Part A so the class is
+# instantiable at all (ruling 43); the tests that use it are the ones proving
+# the coverage check can now see a class reached only in an episode PREFIX.
+DELEGATE = "target.refund_agent.tools.delegate_to_specialist"
 
 
 def call(tool, args, *, scored=False, decision="allow", status="ok",
