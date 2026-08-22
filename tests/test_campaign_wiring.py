@@ -35,6 +35,7 @@ from crucible.conductor import REQUIRED_HASHES
 from crucible.conductor import campaign as C
 from crucible.conductor.hashlocks import (
     FROZEN,
+    LOCK_FIELDS,
     HashLockError,
     HashLockSkew,
     MissingFreeze,
@@ -298,9 +299,16 @@ def test_a_seal_missing_a_hash_lock_names_which_one():
 # 5. The hash-locks are READ, never fabricated.
 # ---------------------------------------------------------------------------
 
-def test_the_five_hash_locks_come_from_artifacts_on_disk():
+def test_the_six_lock_fields_come_from_artifacts_on_disk():
+    """SIX FIELDS across five locks (ruling 20). This asserted five until
+    2026-08-22 and `corpus_hash` was the missing one - frozen at D5, written
+    down, and read by nothing. `REQUIRED_HASHES` is still five, deliberately:
+    it is what the CONDUCTOR refuses to start without. `LOCK_FIELDS` is what a
+    bundle must carry, so asserting against it is strictly the stronger check.
+    """
     locks = load_hash_locks(resolve_objective_set())
-    assert set(locks.values) == set(REQUIRED_HASHES)
+    assert set(REQUIRED_HASHES) < set(LOCK_FIELDS)
+    assert set(locks.values) == set(LOCK_FIELDS)
     for name, value in locks.values.items():
         assert len(value) == 16 and value != "0" * 16, name
         assert not value.startswith("00000000c0ffee"), (
@@ -490,7 +498,7 @@ def test_the_bundle_records_hash_lock_provenance_per_lock(captured_wiring):
     from, so the claim is checkable rather than countable."""
     _kwargs, bundle = captured_wiring
     provenance = bundle["summary"]["hash_locks"]["provenance"]
-    assert set(provenance) == set(REQUIRED_HASHES)
+    assert set(provenance) == set(LOCK_FIELDS)
     for name, entry in provenance.items():
         assert entry["source"], name
         assert entry["kind"] in (FROZEN, "IN_FORCE"), name

@@ -61,6 +61,41 @@ value to itself, passes version skew happily, and attributes results to policies
 that were never active." The freeze record and the live artifact are the two
 independent sources. Reading only one of them re-creates the single-source bug
 one layer up.
+
+`corpus_hash`, AND WHY IT IS A STARTUP PRECONDITION RATHER THAN A GATE
+-----------------------------------------------------------------------
+This module loaded FIVE FIELDS until 2026-08-22 and `corpus_hash` was not one of
+them. The corpus was frozen at D5 - `docs/proof/d5-corpus-freeze.json`, a dated
+record with a head commit - and nothing in the running system ever opened it.
+Four of the six fields were asserted at run time; the sixth was written down and
+never read. `contracts/gate_rule.v1.yaml` does not mention `corpus_hash` either
+(`grep -c` returns 0), so the loop would happily run against a corpus that moved
+after D5 and print a number nobody could compare to any other number.
+
+**It is fixed HERE and not with a G-numbered gate, deliberately.** A gate decides
+promote-or-reject on a candidate; this decides whether the RUN MAY BEGIN, which
+is what every other raise in this file already does and why none of them carries
+a G number either. The stronger reason is that `gate_rule.v1.yaml` is itself
+hash-locked at `cff9f52929397efb` and is the one lock untouched since D2. Adding
+a gate for this would mean re-freezing it, which trades a pre-registration that
+predates every patch for one that does not - a worse artifact bought with a
+better-sounding word.
+
+**The recompute reads the WORKING TREE, not HEAD**, and the difference is the
+point. `scripts/freeze-d5-corpus.py --check` reads HEAD because it is auditing
+what was committed. This reads what the corpus loader will actually load, which
+is the disk - an uncommitted edit to a training instance is exactly the tamper a
+startup precondition exists to catch, and HEAD cannot see it. Both go through
+`corpus.freeze.corpus_hash_full`; there is no second implementation of the hash.
+
+**It does not need `corpus/sealed/`.** The sealed family is inside `corpus_hash`
+BY REFERENCE - content-addressed instance ids in `corpus/F4-MANIFEST.json` plus
+the published fingerprint in `docs/proof/sealed-family-commitment.json` - so the
+value is identical on a machine holding the held-out set and on a fresh clone
+that does not. A precondition that only fires on one machine is not a
+precondition. What this therefore does NOT assert is that the sealed BYTES still
+match their commitment; that is `scripts/seal-commitment.py --verify` and it
+needs the sealed set.
 """
 
 import json
@@ -84,8 +119,31 @@ PART_B_IN_FORCE = REPO / "contracts" / "golden" / "C3b-derived_schema.valid.json
 D3_OBJECTIVE_SET_FREEZE = REPO / "docs" / "proof" / "d3-objective-set-freeze.json"
 D5_DERIVED_SCHEMA_FREEZE = REPO / "docs" / "proof" / "d5-derived-schema-freeze.json"
 
+# THIS ONE DOES EXIST. `scripts/freeze-d5-corpus.py --write` landed it, and until
+# 2026-08-22 nothing at run time opened it - see the `corpus_hash` block in
+# `load_hash_locks` for what that cost.
+D5_CORPUS_FREEZE = REPO / "docs" / "proof" / "d5-corpus-freeze.json"
+
 ENV_OBJECTIVE_SET_FREEZE = "CRUCIBLE_OBJECTIVE_SET_FREEZE"
 ENV_DERIVED_SCHEMA_FREEZE = "CRUCIBLE_DERIVED_SCHEMA_FREEZE"
+ENV_CORPUS_FREEZE = "CRUCIBLE_CORPUS_FREEZE"
+
+# THE SIX FIELDS THE FIVE LOCKS OCCUPY. Ruling 20 split the fifth lock into two
+# artifacts frozen together at D5 - the corpus and Part B - so "five locks" and
+# "six fields" are both true and neither one is the other.
+#
+# This is NOT `conductor.REQUIRED_HASHES`, which names the five the CONDUCTOR
+# refuses to start without and deliberately stays at five. It is the tuple
+# `crucible/replay/integrity.py::HASH_LOCK_FIELDS` uses to decide whether a C6
+# bundle is evidence, typed here rather than imported for the reason that module
+# gives for its own copy of `BENIGN_DENOMINATOR`: the replay package's documented
+# property is that it needs nothing, and `crucible.conductor` reaching into it
+# would create a coupling `offline_lint` does not walk far enough to see. The
+# copy is pinned to its owner by
+# `tests/test_corpus_precondition.py::test_the_six_lock_fields_agree_with_their_owner`,
+# which is a mechanical check rather than a second statement of the value.
+LOCK_FIELDS = ("gate_rule_hash", "target_agent_hash", "manifest_hash",
+               "objective_set_hash", "corpus_hash", "derived_schema_hash")
 
 # The two provenance kinds. Reported per lock; never averaged into one word.
 FROZEN = "FROZEN"      # a dated freeze record on disk names this value
@@ -113,7 +171,7 @@ class HashLockSkew(HashLockError):
 
 
 class HashLocks:
-    """The five values plus, for each, where it came from and how strong that is.
+    """The six values plus, for each, where it came from and how strong that is.
 
     `values` is what the conductor and the run manifest consume. `provenance` is
     what the banner and the bundle print, and it exists so that "five hashes
@@ -197,8 +255,8 @@ def _optional_freeze_path(default_path, env_var):
     return pathlib.Path(override) if override else pathlib.Path(default_path)
 
 
-def load_hash_locks(objective_set, *, part_b_path=None):
-    """The five hash-locks, every one read from an artifact.
+def load_hash_locks(objective_set, *, part_b_path=None, corpus_root=None):
+    """The five hash-locks across six fields, every one read from an artifact.
 
     `objective_set`: REQUIRED. The `ObjectiveSet` the TRIPWIRE will actually
         score with. Its `.hash` is the objective_set_hash unless a D3 freeze
@@ -209,6 +267,11 @@ def load_hash_locks(objective_set, *, part_b_path=None):
         another.
     `part_b_path`: the derived-schema (Part B) document in force. Defaults to
         the one `crucible.conductor.real_target` hands `DerivedStamper`.
+    `corpus_root`: the repository root the CORPUS is read from when
+        `corpus_hash` is recomputed. Defaults to this repo, which is where
+        `corpus.load` resolves it. A parameter rather than a constant for the
+        same reason `part_b_path` is one: a check whose subject cannot be varied
+        cannot be shown to fail.
     """
     if objective_set is None or not getattr(objective_set, "hash", None):
         raise HashLockError(
@@ -311,6 +374,85 @@ def load_hash_locks(objective_set, *, part_b_path=None):
                     "dated D3 freeze record exists at %s, so this value pins "
                     "WHAT was measured and does not evidence WHEN it was pinned."
                     % _rel(D3_OBJECTIVE_SET_FREEZE)}
+
+    # -- corpus_hash. D5, dated. THE FIFTH LOCK'S FIRST HALF. -------------
+    #
+    # THE RUN STOPS HERE, AND IT IS THE ONLY PLACE IT CAN. `corpus_hash` was
+    # frozen at D5 with a dated record and a head commit, and then nothing
+    # opened it: `EPISODE_STAMP_FIELDS` is three fields and this is not one,
+    # `grep -c corpus_hash contracts/gate_rule.v1.yaml` is 0, and this loader
+    # did not know the name. A corpus edited after D5 moved no assertion in the
+    # entire system - and BUILD-LIST Tier 4 makes the D5 freeze land before the
+    # first patch precisely because a corpus that can move after that is a
+    # corpus the patch can be fitted to.
+    #
+    # Recomputed from the WORKING TREE. `corpus.load` resolves the corpus at
+    # `REPO/corpus` and nowhere else, so the disk is the suite this run will
+    # actually score against; `scripts/freeze-d5-corpus.py --check` reads HEAD
+    # instead because it is auditing what was committed, which cannot see an
+    # uncommitted edit. Same hasher either way - `corpus.freeze.corpus_hash_full`
+    # is the only implementation and this does not add a second one.
+    corpus_freeze = _optional_freeze_path(D5_CORPUS_FREEZE, ENV_CORPUS_FREEZE)
+    try:
+        from corpus.freeze import DiskSource, corpus_hash_full
+        recomputed_corpus = corpus_hash_full(
+            DiskSource(corpus_root or REPO))[:16]
+    except Exception as exc:
+        # A corpus that will not hash is not a corpus to measure against, and
+        # this is the cheapest moment to learn it - before a model client is
+        # constructed and before a cent is spent.
+        raise HashLockError(
+            "corpus_hash could not be recomputed from the corpus in force, so "
+            "the D5 freeze record cannot be verified: %s: %s. A lock that "
+            "cannot be re-derived is a lock nobody is checking."
+            % (type(exc).__name__, exc))
+    recomputed_corpus = _assert_shape(
+        "corpus_hash", recomputed_corpus,
+        "the corpus in force for this run (%s)" % _rel(
+            pathlib.Path(corpus_root or REPO) / "corpus"))
+    if corpus_freeze.exists():
+        doc = _read_json(corpus_freeze, "corpus_hash",
+                         "scripts/freeze-d5-corpus.py --write")
+        recorded = _assert_shape(
+            "corpus_hash",
+            _field(doc, "corpus_hash", corpus_freeze, "corpus_hash"),
+            _rel(corpus_freeze))
+        if recorded != recomputed_corpus:
+            raise HashLockSkew(
+                "corpus_hash: %s records %s, and the corpus in force hashes to "
+                "%s. THE SUITE MOVED AFTER IT WAS FROZEN. Every ASR and BPR "
+                "this run would print has a denominator and a set of instances "
+                "that the D5 record does not describe, so no number from it "
+                "would be comparable to any number taken before or after - "
+                "which is the whole reason the corpus is frozen before the "
+                "first patch is written. It stops here rather than being "
+                "absorbed. Re-freeze deliberately (python "
+                "scripts/freeze-d5-corpus.py --write, which is a coordinator "
+                "ruling with a written statement of what it invalidates) or "
+                "revert the corpus. To see WHICH files moved: python "
+                "scripts/freeze-d5-corpus.py --check."
+                % (_rel(corpus_freeze), recorded, recomputed_corpus))
+        values["corpus_hash"] = recorded
+        provenance["corpus_hash"] = {
+            "kind": FROZEN, "source": _rel(corpus_freeze), "freeze": "D5",
+            "cross_checked_against": "the corpus in force, recomputed from the "
+                                     "working tree",
+            "head_commit": doc.get("head_commit"),
+            "sealed_family": "BY REFERENCE ONLY - this check reads no file "
+                             "under corpus/sealed/ and passes identically on a "
+                             "clone that has none. It therefore does NOT "
+                             "re-verify the sealed bytes; that is "
+                             "scripts/seal-commitment.py --verify."}
+    else:
+        values["corpus_hash"] = recomputed_corpus
+        provenance["corpus_hash"] = {
+            "kind": IN_FORCE,
+            "source": _rel(pathlib.Path(corpus_root or REPO) / "corpus"),
+            "freeze": "D5 (NOT YET RECORDED)",
+            "note": "hashed from the corpus in force for this run. No dated D5 "
+                    "freeze record exists at %s, so this value pins WHICH "
+                    "suite was measured and does not evidence WHEN it was "
+                    "pinned." % _rel(D5_CORPUS_FREEZE)}
 
     # -- derived_schema_hash. D5, with the corpus. No record on disk yet. -
     part_b = pathlib.Path(part_b_path or PART_B_IN_FORCE)
