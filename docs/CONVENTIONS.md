@@ -11,7 +11,48 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 14` · last changed 2026-08-22
+`SPINE_VERSION: 15` · last changed 2026-08-22
+
+> **SPINE_VERSION 15 — ruling 46, 2026-08-22. A FROZEN HASH HAS ONE OWNER: THE ARTIFACT.
+> No document restates one, and this file does not either.**
+>
+> **The defect.** `target_agent_hash` was frozen, then re-frozen, four times on 2026-08-22.
+> Five documents each kept their own copy. The published Devpost update 4 carries the FIRST
+> freeze (`125fe7e9e54a419e` / `d2e9f5f435b5acfe` / 4543 bytes). The *corrections* written to
+> supersede it — `execution-spec.md:262`, `:730`, `contest/BUILD-LIST.md:321`,
+> `NEEDS-ERIC.md:330` — all carry the SECOND freeze (`bad2bcb62b3ebbee` /
+> `2bc12fd8608a0bcf` / 4619). The artifact in force is the FOURTH
+> (`target/refund_agent/FROZEN.json`, verified by `tests/test_target_freeze.py`, 13 passed,
+> exit 0, `tools.py` clean).
+>
+> **Every document that corrected the drift is itself stale. That is the whole finding.** The
+> correction did not fail because anyone was careless; it failed because a correction that
+> COPIES a moving value inherits the defect it was written to repair, and then goes stale by
+> standing still. Three layers of the same number, each one written to fix the layer above it.
+>
+> **The rule.** A hash-locked value is owned by the artifact that carries it and by the freeze
+> proof that records it — `target/refund_agent/FROZEN.json`, `docs/proof/d2-gate-rule-freeze.json`,
+> `docs/proof/d3-objective-set-freeze.json`, `docs/proof/d5-corpus-freeze.json`,
+> `docs/proof/d5-derived-schema-freeze.json`. **No prose document states a current hash value,
+> including this one.** Prose names the owner and the command that reads it. A document needing
+> the value prints it at the moment it is needed, from the artifact.
+>
+> **This file deliberately does not add a hash row to §4.** The spine owns frozen NUMBERS —
+> decisions a lane must not re-litigate. A hash is not a decision; it is a measurement of bytes
+> that already exist, and `crucible/conductor/hashlocks.py` already raises `HashLockSkew` at
+> startup when a frozen record disagrees with the artifact in force. **Code enforces this
+> better than a table can, and a table would be a sixth copy.** Adding one here would have reset
+> the drift clock rather than stopping it — the exact move that produced the second layer.
+>
+> **A HISTORICAL hash is different and stays.** `ADR-0017:169` and `tests/test_target_freeze.py:127`
+> both cite superseded values, both label them as historical, and both are CORRECT and untouched.
+> The defect is a dead value asserted as current, never a dated value recorded as past.
+>
+> **Do not edit `docs/devpost/2026-08-22-update-4-target-frozen.md`.** It was true when it was
+> published and it is the record of what was said. `execution-spec.md:735` already rules this;
+> the correction belongs in a later public update, which is now owed.
+>
+> **Invalidates nothing measured.** No number moved; five restatements of a number were removed.
 
 > **SPINE_VERSION 14 — ruling 43 propagation, 2026-08-22. The spoken bound is ≈11.5%, not 12.5%.**
 >

@@ -258,10 +258,10 @@ Every day names an objective, a deliverable, and a **verification step** that as
 > Item 4b: the Objective Set is authored, canonicalized and hash-locked at
 > **`19493e53a6d79d0b`** (ruling 44, `SPINE_VERSION 12`,
 > `docs/proof/d3-objective-set-freeze.json`), nine clauses, each with a `clause_id`. Item 5:
-> the target is frozen — **and re-frozen the same day** after `delegate_to_specialist` was
-> repaired, so the current values are `target_agent_hash` **`bad2bcb62b3ebbee`** and
-> `manifest_hash` **`2bc12fd8608a0bcf`** at 4619 canonical bytes, superseding
-> `125fe7e9e54a419e` / `d2e9f5f435b5acfe` / 4543. Item 4: the nine known-bads return their
+> the target is frozen — **and re-frozen three more times the same day**, the first after
+> `delegate_to_specialist` was repaired. **Ruling 46 forbids naming a current hash in prose:
+> read `target/refund_agent/FROZEN.json`.** This sentence named the second of four and was
+> stale within hours. Item 4: the nine known-bads return their
 > per-fixture verdicts. Item 1: eight tools, and `delegate_to_specialist` now actually works.
 >
 > **Item 6 is PARTIAL.** Recon items 1–3 delivered and read against source
@@ -727,8 +727,12 @@ than no log at all.
 > **UPDATE 4 WENT OUT CARRYING HASHES THAT ARE NOW SUPERSEDED, AND THIS IS RECORDED RATHER
 > THAN RECONCILED.** It states `target_agent_hash` `125fe7e9e54a419e`, `manifest_hash`
 > `d2e9f5f435b5acfe`, and a payload canonicalizing to 4543 bytes. Later the same day
-> `delegate_to_specialist` was repaired and **D3 was re-frozen**: `bad2bcb62b3ebbee`,
-> `2bc12fd8608a0bcf`, 4619 bytes.
+> `delegate_to_specialist` was repaired and **D3 was re-frozen — three more times.**
+>
+> **This paragraph originally named the second freeze as current, and by evening it was as
+> stale as the post it was written to correct.** That is ruling 46: a correction that COPIES a
+> moving value inherits the defect it was written to repair. **Read
+> `target/refund_agent/FROZEN.json`.**
 >
 > **The post was true when it was written.** Editing the file in the repo to match the current
 > values would leave a public page and a private file disagreeing, with nothing recording why —

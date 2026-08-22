@@ -326,7 +326,9 @@ actually demonstrate.
   `19493e53a6d79d0b`, ruling 44, `SPINE_VERSION 12`. Your ruling that day also corrected C10
   itself: the contract argued its annotations were inside the hash and **won on precedence**,
   then lost anyway, because the value it would have frozen is one no episode can ever carry.
-- **The target re-freeze** fired 2026-08-22 after `delegate_to_specialist` was repaired:
-  `target_agent_hash` **`bad2bcb62b3ebbee`**, `manifest_hash` **`2bc12fd8608a0bcf`**.
+- **The target re-freeze** fired 2026-08-22 after `delegate_to_specialist` was repaired — and
+  then re-fired twice more the same day. **Current values: `cat target/refund_agent/FROZEN.json`.**
+  Ruling 46 forbids restating them here; this line named the second of four and was stale within
+  hours of being written.
   **The finding was not the re-freeze.** A hash-locked package changed, the hash moved, and
   1011 tests stayed green with `contract-check` ALL PASSES OK. A skew detector now catches it.
