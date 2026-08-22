@@ -256,13 +256,24 @@ def main():
     print("  committed at         %s" % (when or "UNCOMMITTED"))
     print("  HEAD                 %s" % commit)
     print("")
-    print("  ANNOTATION DIVERGENCE, unresolved and printed rather than hidden:")
-    print("    stripped (recorded, and what the round stamps)  %s" % digest[:16])
-    print("    unstripped (C10's description says this one)    %s"
+    print("  ANNOTATION DIVERGENCE, RESOLVED BY RULING 44 (Eric, 2026-08-22):")
+    print("    stripped (RECORDED, and what the round stamps)  %s" % digest[:16])
+    print("    unstripped (what C10 said before ruling 44)     %s"
           % m["unstripped_full"][:16])
-    print("    C10 says _note/_status are NOT excluded from the hash; "
-          "objective_set.py strips them.")
-    print("    Contracts outrank code. The coordinator owes a ruling.")
+    print("    C10 said _note/_status are NOT excluded; objective_set.py strips "
+          "them. Contracts")
+    print("    outrank code, so C10 won on the page. It lost anyway: the stripped "
+          "value is what")
+    print("    real_tripwire stamps and G1(b) compares, so recording the "
+          "unstripped one would name")
+    print("    a number no episode can carry and score every round INVALID - a "
+          "hash-lock that")
+    print("    locks nothing. C10 corrected, SPINE_VERSION 12, C10 and MANIFEST "
+          "re-hashed.")
+    print("    RESIDUAL: prose outside the hash is editable after the freeze. "
+          "Bounded - the")
+    print("    evaluator walks only non-_ keys, so it can mislead a reader, not "
+          "change a verdict.")
     print("")
 
     if problems:
