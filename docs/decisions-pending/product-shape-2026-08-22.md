@@ -36,9 +36,22 @@ followed rather than reinvented: `RUN INVALID is not a rejection`,
 listed in the bundle. It consistently separates *this ran* from *this counts*.
 Exploratory mode is that distinction one level up.
 
-**Deliberately deferred past the hackathon.** It is not scored, and getting the
-mode separation wrong under deadline pressure is exactly how the integrity story
-springs a leak. The observer hook it would build on IS justified now, for a
+**Deliberately deferred past the hackathon, on TWO arguments — and Eric's is the
+one that decides it.**
+
+The coordinator's: getting the mode separation wrong under deadline pressure is
+how the integrity story springs a leak.
+
+**Eric's, which is stronger and is about the submission rather than the code:**
+*"it adds a risk of confusing the judges and/or weakening our position we've
+fought hard to define."* **Even implemented correctly, its presence invites the
+wrong question.** A judge skimming the submission sees a steering feature and
+asks whether the scoring was steered; by the time they reach the mode separation
+the doubt is already planted. We would be spending credibility to defend
+something that scores nothing.
+
+The first argument is about the risk of building it badly. The second holds even
+if we build it perfectly, which is why it is the one that settles it. The observer hook it would build on IS justified now, for a
 reason independent of any of this: a long sweep going wrong is currently
 invisible until it ends, and **you cannot kill a run you cannot see.**
 
