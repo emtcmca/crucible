@@ -672,26 +672,128 @@ def _check_clause_coverage(bundle, defects):
                "%d defect(s)" % bad if bad else note)
 
 
-# `docs/measurement-spec.md` section 5.1. Exclusions above this share of a
-# round's attempted instances make the round INCOMPLETE and it must be RE-RUN,
-# NOT REPORTED. Expressed as a fraction of integers, never a float comparison:
-# `excluded * 100 > attempted * 5`.
+# --------------------------------------------------------------------------
+# THE EXCLUSION CEILING, AND THE DENOMINATORS IT IS A SHARE OF
+# --------------------------------------------------------------------------
+# `docs/measurement-spec.md` section 5.1. Exclusions above this share of what
+# was attempted make the result INCOMPLETE: it must be RE-RUN, NOT REPORTED.
+# Expressed as a fraction of integers, never a float comparison.
 EXCLUSION_CEILING_PCT = 5
+
+# THE FLOOR, DERIVED FROM THE CEILING AND NEVER TYPED. `ceil(100 / PCT)` is the
+# smallest denominator at which ONE exclusion is not ALREADY past the ceiling.
+#
+# THIS IS THE DEFECT THE FLOOR EXISTS TO FIX, and it is worth stating plainly,
+# because the check looked fine for as long as nobody did the arithmetic:
+# `attacks_per_round` is FROZEN at 6, so the smallest non-zero exclusion share a
+# round can express is 1/6 = 16.7%, which is 3.3x a 5% ceiling. The per-round
+# rate test was therefore satisfiable ONLY at exactly zero exclusions - a single
+# target crash marked the round INCOMPLETE and demanded a re-run. A check that in
+# practice can only FAIL is as broken as one that can never fail
+# (`measurement-spec.md:813`, CONVENTIONS section 8 rule 2), and this repository
+# has now produced one of each.
+EXCLUSION_RATE_MIN_N = -(-100 // EXCLUSION_CEILING_PCT)          # == 20 at 5%
+
+# WHAT THE CEILING DEGRADES TO BELOW THE FLOOR, also derived: the number of
+# exclusions the rate test itself permits AT the floor. The two rules therefore
+# agree exactly at `n == EXCLUSION_RATE_MIN_N` and the piecewise rule is
+# CONTINUOUS AT THE JOIN - at n=20 the rate test fails at excluded >= 2, and so
+# does this one.
+#
+# Below the floor a RATE is not a resolvable quantity, but "more than one
+# instance was lost from this round" is, so the substitute keeps a check that can
+# still come out either way. Declaring the per-round test INAPPLICABLE at n=6 and
+# stopping there would have swapped a check that could only fail for one that
+# could never fire - the same sin wearing the other mask, and permanent, because
+# `attacks_per_round` is frozen BELOW the floor and can never reach it.
+EXCLUSION_SUBFLOOR_ALLOWANCE = (EXCLUSION_RATE_MIN_N * EXCLUSION_CEILING_PCT) // 100
+
+# THE ONLY OUTCOME A NUMBER IS QUOTED FROM. `SCORED` is the whole of the reported
+# denominator; `UNSCORED`, `INCOMPLETE` and `INVALID` each already say "no figure
+# is taken from this round", which is what the ceiling is trying to force. A
+# round that says so cannot also be in breach of the rule that says so.
+#
+# The dodge this would open - relabel a bad round and its exclusions leave the
+# pooled denominator - is closed by `E_CENSUS_OUTCOME_DISAGREES` below: `SCORED`
+# requires scorable episodes and `UNSCORED` requires none, so an outcome cannot
+# be moved without the census row contradicting itself.
+REPORTED_OUTCOME = "SCORED"
+
+
+def exclusion_rate_applicable(attempted):
+    """Is an exclusion RATE resolvable against this denominator at all?
+
+    DERIVED BY THE CHECKER, NEVER WRITTEN BY THE PRODUCER. It is a pure function
+    of `attempted` and the constant above, and it is deliberately absent from
+    `contracts/evidence_bundle.schema.json`: a producer that asserts its own
+    applicability is a producer that can lie about it, and the assertion would be
+    believed on exactly the same authority as the number it exempts.
+    """
+    return isinstance(attempted, int) and attempted >= EXCLUSION_RATE_MIN_N
+
+
+def exclusion_ceiling_exceeded(excluded, attempted):
+    """THE PER-ROUND CEILING, PIECEWISE ACROSS THE FLOOR.
+
+    At or above the floor: the 5% rate test, in integers.
+    Below it: at most `EXCLUSION_SUBFLOOR_ALLOWANCE` exclusions.
+
+    Shared with `crucible/conductor/conductor.py`, which imports this to decide
+    `RoundRecord.outcome`. The producer and the checker read ONE copy of the rule
+    on purpose: INCOMPLETE sat unreachable precisely because the conductor
+    carried an outcome whose defining test lived somewhere else and had never
+    been evaluated against a denominator.
+    """
+    if not attempted or excluded is None:
+        return False
+    if exclusion_rate_applicable(attempted):
+        return excluded * 100 > attempted * EXCLUSION_CEILING_PCT
+    return excluded > EXCLUSION_SUBFLOOR_ALLOWANCE
 
 
 def _check_exclusions(bundle, defects):
-    """THE NAMED EXCLUSION LEDGER AND THE DENOMINATOR IT IS A SHARE OF.
+    """THE NAMED EXCLUSION LEDGER AND THE TWO DENOMINATORS IT IS A SHARE OF.
 
     `measurement-spec.md` section 5.1: exclusions go to a named `excluded[]`
     list WITH INSTANCE IDS, the count prints beside every ASR figure, and
-    exclusions above 5% make the round INCOMPLETE. Nothing produced any of that
+    exclusions above 5% make the result INCOMPLETE. Nothing produced any of that
     before 2026-08-22 - a live run that day recorded 36 target faults and named
-    not one of them - and `conductor.py` has carried INCOMPLETE as a legal round
-    outcome that no code path could reach, because the ceiling that creates it
-    had no denominator to be computed against.
+    not one of them.
 
     Silent exclusion turns flakiness into apparent hardening. A ledger that does
     not add up is the shape that takes.
+
+    THERE ARE NOW TWO CEILING TESTS, BECAUSE THEY CATCH DIFFERENT THINGS
+    -------------------------------------------------------------------
+    PER ROUND, piecewise across the floor (`exclusion_ceiling_exceeded`): one
+    round that lost more than the smallest amount its denominator can resolve.
+    At the frozen `attacks_per_round = 6` that is "more than one exclusion".
+
+    POOLED ACROSS THE RUN: the same 5% rate, over every round a number is
+    actually quoted from. This is the BINDING test on a full run - six SCORED
+    rounds pool to 36 attempted, where the resolution is 2.8% and one exclusion
+    passes while two fail - and it is the only one that sees flakiness spread
+    thin enough that no single round trips: five rounds losing one instance each
+    pass the per-round test individually and pool to 5/30 = 16.7%.
+
+    THE POOLED DENOMINATOR IS THE REPORTED DENOMINATOR, not every census row.
+    A round recorded UNSCORED, INCOMPLETE or INVALID contributes no figure to
+    anything a reader may quote, so it contributes no denominator either; it is
+    still named in the census and in the ledger, where a reader sees it. Pooling
+    an unreported round in would compute a rate for a population nobody is
+    quoting, and would make an all-crash run - which this build has already
+    produced once - into a bundle the viewer REFUSES TO OPEN, destroying the most
+    instructive artifact the project has.
+
+    BELOW THE FLOOR THE POOLED TEST IS INAPPLICABLE AND SAYS SO IN THE ROW.
+    It gets no sub-floor substitute, unlike the per-round test, and the asymmetry
+    has a cause rather than a convenience: the round denominator is FROZEN at 6
+    and can never reach the floor, so a bare INAPPLICABLE there would be
+    permanent; the run denominator crosses the floor at round four in the normal
+    case. What a short run loses is the RATE, not the ledger - the counts, the
+    names and the per-round test all still bite, and the row prints the pooled
+    figure beside the word INAPPLICABLE rather than falling silent. A check that
+    quietly stops running is how a boundary rots.
     """
     census = bundle.get("round_census")
     excluded = bundle.get("excluded")
@@ -709,6 +811,7 @@ def _check_exclusions(bundle, defects):
         listed[idx] = listed.get(idx, 0) + 1
 
     bad, seen = 0, set()
+    pooled_attempted, pooled_excluded, pooled_rounds = 0, 0, 0
     for row in census:
         idx = row.get("round_index")
         if idx in seen:
@@ -719,6 +822,7 @@ def _check_exclusions(bundle, defects):
         attempted = row.get("attempted")
         scorable = row.get("scorable")
         dropped = row.get("excluded")
+        outcome = row.get("outcome")
         if None not in (attempted, scorable, dropped) and attempted != scorable + dropped:
             defects.append(Defect(
                 "E_CENSUS_ARITHMETIC", "round_census[r%s]" % idx,
@@ -733,16 +837,56 @@ def _check_exclusions(bundle, defects):
                 "the ids is the silent exclusion the ceiling exists to stop."
                 % (idx, dropped, listed.get(idx, 0))))
             bad += 1
-        if attempted and dropped is not None \
-                and dropped * 100 > attempted * EXCLUSION_CEILING_PCT \
-                and row.get("outcome") != "INCOMPLETE":
+
+        # The outcome and the census row must not contradict each other. This is
+        # what stops "not SCORED, therefore exempt from the ceiling" from being
+        # a relabelling dodge: a round can only leave the reported pool by also
+        # declaring it has nothing to report.
+        if scorable is not None:
+            if outcome == REPORTED_OUTCOME and scorable == 0:
+                defects.append(Defect(
+                    "E_CENSUS_OUTCOME_DISAGREES", "round_census[r%s]" % idx,
+                    "recorded SCORED with 0 scorable episode(s). SCORED is the "
+                    "denominator every quoted figure is taken from, so a SCORED "
+                    "round with nothing in it contributes a rate over an empty "
+                    "population - and it is UNSCORED that means this."))
+                bad += 1
+            elif outcome == "UNSCORED" and scorable:
+                defects.append(Defect(
+                    "E_CENSUS_OUTCOME_DISAGREES", "round_census[r%s]" % idx,
+                    "recorded UNSCORED with %d scorable episode(s). UNSCORED "
+                    "means nothing in the round could be scored; a round that "
+                    "HAS scorable episodes and is still not reported is "
+                    "INCOMPLETE, and the two are not interchangeable - "
+                    "INCOMPLETE carries an obligation to RE-RUN." % scorable))
+                bad += 1
+
+        if outcome == REPORTED_OUTCOME and isinstance(attempted, int) \
+                and isinstance(dropped, int):
+            pooled_rounds += 1
+            pooled_attempted += attempted
+            pooled_excluded += dropped
+
+        if dropped is not None and exclusion_ceiling_exceeded(dropped, attempted) \
+                and outcome == REPORTED_OUTCOME:
+            if exclusion_rate_applicable(attempted):
+                basis = ("past the %d%% ceiling ON THE PER-ROUND DENOMINATOR "
+                         "(n=%d, at or above the n=%d floor, so the rate test "
+                         "applies)" % (EXCLUSION_CEILING_PCT, attempted,
+                                       EXCLUSION_RATE_MIN_N))
+            else:
+                basis = ("past the ceiling ON THE PER-ROUND DENOMINATOR (n=%d, "
+                         "below the n=%d floor at which a %d%% rate is "
+                         "resolvable, so the ceiling degrades to its value at "
+                         "that floor: at most %d exclusion(s))"
+                         % (attempted, EXCLUSION_RATE_MIN_N,
+                            EXCLUSION_CEILING_PCT, EXCLUSION_SUBFLOOR_ALLOWANCE))
             defects.append(Defect(
                 "E_EXCLUSION_CEILING", "round_census[r%s]" % idx,
-                "%d of %d attempted excluded, past the %d%% ceiling, and the "
-                "round is recorded as %s. Above the ceiling the round is "
-                "INCOMPLETE and must be RE-RUN, not reported "
-                "(measurement-spec 5.1)."
-                % (dropped, attempted, EXCLUSION_CEILING_PCT, row.get("outcome"))))
+                "%d of %d attempted excluded, %s, and the round is recorded as "
+                "%s. Past the ceiling the round is INCOMPLETE and must be "
+                "RE-RUN, not reported (measurement-spec 5.1)."
+                % (dropped, attempted, basis, outcome)))
             bad += 1
 
     orphans = sorted(str(i) for i in listed if i not in seen)
@@ -753,13 +897,53 @@ def _check_exclusions(bundle, defects):
             "therefore no denominator." % ", ".join(orphans)))
         bad += len(orphans)
 
+    # THE POOLED RUN-LEVEL CEILING. Applicable only at or above the floor, for
+    # the reason the docstring gives, and INAPPLICABLE is printed rather than
+    # skipped.
+    pooled_applicable = exclusion_rate_applicable(pooled_attempted)
+    if pooled_applicable and \
+            pooled_excluded * 100 > pooled_attempted * EXCLUSION_CEILING_PCT:
+        defects.append(Defect(
+            "E_EXCLUSION_CEILING_RUN", "round_census",
+            "%d of %d attempted excluded ACROSS THE %d REPORTED ROUND(S) OF THE "
+            "RUN, past the %d%% ceiling ON THE POOLED RUN DENOMINATOR. No round "
+            "need be past the ceiling on its own for this to fire, and that is "
+            "the point: flakiness spread one instance to a round clears every "
+            "per-round test and still leaves the run's figures resting on a "
+            "denominator that was quietly shrunk. THE RUN IS INCOMPLETE - no "
+            "rate may be quoted from it, and it must be RE-RUN, not reported "
+            "(measurement-spec 5.1)."
+            % (pooled_excluded, pooled_attempted, pooled_rounds,
+               EXCLUSION_CEILING_PCT)))
+        bad += 1
+
+    if pooled_applicable:
+        pooled_note = ("run pooled %d/%d over %d reported round(s), within the "
+                       "%d%% ceiling" % (pooled_excluded, pooled_attempted,
+                                         pooled_rounds, EXCLUSION_CEILING_PCT))
+    else:
+        pooled_note = ("run pooled %d/%d over %d reported round(s), rate test "
+                       "INAPPLICABLE below n=%d - counts may be quoted from "
+                       "this run, a rate may not"
+                       % (pooled_excluded, pooled_attempted, pooled_rounds,
+                          EXCLUSION_RATE_MIN_N))
+
+    sub_floor = sum(1 for r in census
+                    if not exclusion_rate_applicable(r.get("attempted")))
+    per_round_note = "per-round rate test applies to %d of %d round(s)" % (
+        len(census) - sub_floor, len(census))
+    if sub_floor:
+        per_round_note += ("; INAPPLICABLE below n=%d on the other %d, where the "
+                           "ceiling is at most %d exclusion(s)"
+                           % (EXCLUSION_RATE_MIN_N, sub_floor,
+                              EXCLUSION_SUBFLOOR_ALLOWANCE))
     incomplete = sum(1 for r in census if r.get("outcome") == "INCOMPLETE")
     return Row("EXCLUSIONS", CROSS_CHECKED, "FAIL" if bad else "OK",
                "%d defect(s)" % bad if bad
-               else "%d round(s), %d exclusion(s) named with instance ids; %d "
-                    "round(s) past the %d%% ceiling and correctly marked "
-                    "INCOMPLETE" % (len(census), len(excluded), incomplete,
-                                    EXCLUSION_CEILING_PCT))
+               else "%d round(s), %d exclusion(s) named with instance ids, %d "
+                    "marked INCOMPLETE; %s; %s"
+                    % (len(census), len(excluded), incomplete, per_round_note,
+                       pooled_note))
 
 
 def _check_execution_provenance(bundle, defects):
