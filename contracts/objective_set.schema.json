@@ -19,10 +19,10 @@
       "$comment": "minItems 1. An EMPTY Objective Set is the failure that looks exactly like success: every episode comes back CLEAN, the breach rate reads 0%, and nothing distinguishes that from a perfectly hardened target. It is a known-bad fixture in L4's strawman set for precisely this reason."
     },
     "_note": {
-      "$comment": "Free prose, ignored by the evaluator. Present because the reasoning behind a clause is worth more than the clause and there is nowhere else for it to live. NOT excluded from the hash - see the note on _status."
+      "$comment": "Free prose, ignored by the evaluator. Present because the reasoning behind a clause is worth more than the clause and there is nowhere else for it to live. EXCLUDED FROM THE HASH - see the note on _status. This line said NOT excluded until 2026-08-22."
     },
     "_status": {
-      "$comment": "Free prose. NOT excluded from the hash either, and that is deliberate: unlike blindness_check.max_predictive_accuracy in Part B, prose here is a DEFINITION and not a MEASUREMENT. Editing it changes what a human reading this file believes breach means, so it should change the identity of the artifact."
+      "$comment": "Free prose, EXCLUDED FROM THE HASH. CORRECTED 2026-08-22 BY ERIC'S RULING; this contract previously said NOT excluded, and the contract was the defect. The original argument was good and is preserved because it is the reason this needed a ruling rather than a patch: unlike blindness_check.max_predictive_accuracy in Part B, prose here is a DEFINITION and not a MEASUREMENT, so editing it changes what a human reading this file believes breach means. WHAT DECIDED IT was not which argument was better. ObjectiveSet.hash strips _-prefixed keys before hashing, and that value is what real_tripwire stamps on every episode and what G1(b) compares. A freeze record naming the unstripped value 569c5198d7e731d9 would name a number NO EPISODE CAN EVER CARRY, so every episode of every round would score INVALID - a hash-lock that locks nothing, which CONVENTIONS already names as a failure this project has committed once. The residual risk is stated rather than hidden: prose outside the hash can be edited after the freeze without breaking the lock. It is bounded, because the evaluator walks only non-_ keys, so an edit can mislead a reader but cannot change a verdict. Frozen at 19493e53a6d79d0b."
     }
   },
   "$defs": {

@@ -11,7 +11,37 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 11` · last changed 2026-08-21
+`SPINE_VERSION: 12` · last changed 2026-08-22
+
+> **SPINE_VERSION 12 — ruling 44, Eric, 2026-08-22. The Objective Set's annotation prose is
+> OUTSIDE `objective_set_hash`, and C10 was the document that was wrong.**
+>
+> **This ruling goes AGAINST the precedence order and that is why it is written down.**
+> `contracts/objective_set.schema.json` said `_note` and `_status` are *"NOT excluded from the
+> hash"* and argued it well: unlike Part B's `max_predictive_accuracy`, prose in the Objective
+> Set is a **definition** rather than a **measurement**, so editing it changes what a reader
+> believes breach means. `crucible/tripwire/objective_set.py::_strip_annotations` does the
+> opposite. Contracts outrank code, so on the page C10 wins.
+>
+> **What decided it was not which argument was better.** `ObjectiveSet.hash` is the value
+> `real_tripwire` stamps on every episode and the value **G1(b) compares**. A freeze record
+> naming the unstripped `569c5198d7e731d9` would name a number **no episode can ever carry**, so
+> every episode of every round would score INVALID. That is *a hash-lock that locks nothing* —
+> a failure this spine already records having committed once, and the reason ruling 29-33 exists.
+> A contract that cannot be satisfied by the system it governs is the defect, however good its
+> reasoning.
+>
+> **Frozen at `19493e53a6d79d0b`.** C10's two `$comment` blocks are corrected and the losing
+> argument is **preserved inside them**, because the record of a claim checked and overturned is
+> worth more than a document that appears always to have been right — the same reason ADR-0009
+> was superseded rather than edited.
+>
+> **The residual is stated rather than hidden:** prose outside the hash can be edited after the
+> freeze without breaking the lock. It is bounded — the evaluator walks only non-`_` keys, so
+> such an edit can mislead a human reader but **cannot change a verdict**.
+>
+> **This re-hashes contract C10 and therefore `MANIFEST.json`.**
+> **Invalidates nothing measured. Nothing has been measured.**
 
 > **SPINE_VERSION 2 — the five D1 coordinator decisions are closed. Rulings 21-25 below.**
 >
