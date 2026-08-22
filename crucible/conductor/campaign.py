@@ -24,11 +24,26 @@ REAL:
   * the BUDGET_GOVERNOR, the round protocol, the five hash-locks, the two
     feedback channels, convergence and the halt conditions
 
+  * **the GATE, as of 2026-08-22.** `promote=` was `lambda c, r: True` - a
+    constant function returning PROMOTE for every candidate having inspected
+    nothing - until this line was written. It is now
+    `crucible.conductor.real_gate.RealGate`, built by `build_gate()` below and
+    driving L1's real `crucible.gate.promote` write path, with its
+    recompute-from-bytes read-back, against a real append-only `Ledger`. READ
+    THE FIRST ENTRY BELOW BEFORE QUOTING G7 OR G8 FROM ANY RUN.
+
 NOT REAL, AND THIS IS THE WHOLE LIST:
-  * **the GATE.** No GCS, no IAM, no `objectCreator` boundary. G7 and G8 are not
-    exercised and cannot be. `promote=` is `lambda c, r: True`, so what the
-    campaign calls a promotion is the BENIGN FLOOR PASSING and nothing else.
-    Another lane owns the replacement.
+  * **G7 and G8, unless `--live`.** The gate CODE is wired in both modes; what
+    differs is whether it looks at GCP. Offline it is built with
+    `skip_cloud=True`, which records G7/G8 UNEVALUABLE and RAISES
+    `GateRunInvalid` - offline it CANNOT return a promotion, ever. That is
+    deliberate twice over. There are no credentials in CI; and on the BUILD
+    MACHINE there ARE, so an offline run that fell through to the real
+    assertions would fire live gcloud from inside pytest and write entries into
+    the very Data Access log G7c counts. The banner and the bundle both carry
+    `g7_g8_exercised`, DERIVED FROM WHAT THE GATE DID rather than from the flag,
+    because a `--live` run that halts before the first candidate exercised them
+    exactly as little as an offline one.
   * **the target's MODEL, unless `--live`.** Without `--live` there are no
     credentials and no model, so the agent is driven by a SCRIPTED offline model
     (`build_offline_target_model`) that emits a fixed, family-keyed tool sequence.
@@ -38,10 +53,21 @@ NOT REAL, AND THIS IS THE WHOLE LIST:
     to persuasion. The banner and the bundle both say which mode produced them.
 
 SO: **NO ASR, BPR, TRANSFER OR CONVERGENCE NUMBER FROM AN OFFLINE RUN MAY BE
-REPORTED AS A RESULT**, and no run of any kind may be reported against G7 or G8.
-A `--live` run measures the real target against the real breach oracle; what it
-still cannot say is anything about the promotion boundary, because there isn't
-one yet.
+REPORTED AS A RESULT**, and **NO G7 OR G8 CLAIM MAY BE MADE FROM ANY RUN WHOSE
+BUNDLE SAYS `g7_g8_exercised: false`** - which is every offline run and any live
+run that never reached a candidate. A `--live` run that does reach one measures
+the real target against the real breach oracle AND evaluates the promotion
+boundary against live IAM.
+
+ONE THING IS STILL UNTESTED EVERYWHERE, AND IT IS ON THE LIVE PATH
+------------------------------------------------------------------
+`real_gate.GcsBlobIO` - the object writer a `--live` run uses - HAS NEVER RUN
+AGAINST GCS. Its create-only precondition, its 412 branch and its
+generation-pinned read-back are written from `data-spec.md` 3.1/3.2 and no test
+covers them; `local_blob_io` is the exercised path. The first `--live` run is
+therefore the first execution of that code, and the banner says so. `promote`'s
+read-back assertion is the thing standing behind it: a write that cannot be read
+back and rehashed HALTS rather than being recorded.
 
 THE FIVE HASH-LOCKS ARE READ FROM ARTIFACTS NOW, NEVER FABRICATED
 ------------------------------------------------------------------
@@ -68,6 +94,7 @@ import datetime
 import json
 import os
 
+from infra.holdout_touch import HoldoutTouchCounter
 from ..armorer.adapter import project
 from ..armorer.armorer import Armorer
 from ..armorer.experiment import (
@@ -81,11 +108,22 @@ from ..canon import policy_hash as compute_policy_hash
 from ..coroner import Coroner
 from ..dsl.validator import Validator, harvest_product_lexicon
 from ..governor import Budget, BudgetGovernor
+from ..ledger import Ledger
 from ..policy import ALLOW, APPROVAL_REQUIRED, DENY, evaluate
 from ..red import AttackSeed, RedStrategist
 from ..tripwire import RunManifest
 from .conductor import REQUIRED_HASHES, Conductor
 from .hashlocks import load_hash_locks
+from .real_gate import (
+    UNEVALUABLE,
+    GateHalt,
+    GateRunInvalid,
+    GcsBlobIO,
+    build_real_gate,
+    gcp_env,
+    local_blob_io,
+)
+from .real_gate import render as render_findings
 from .real_target import build_real_target
 from .real_tripwire import real_tripwire, resolve_objective_set
 from .real_warden import real_warden
@@ -468,6 +506,195 @@ def assert_handle_overlap(armorer_manifest):
     return len(armorer & running), len(armorer), len(running)
 
 
+# ---------------------------------------------------------------------------
+# THE GATE. `promote=lambda c, r: True` lived here until 2026-08-22.
+# ---------------------------------------------------------------------------
+
+# Exit codes. An ordinary rejection is not one of these: it is a RECORDED
+# `gate_decision` inside a completed run, and the campaign still exits 0,
+# because "the candidate was not good enough" is a MEASUREMENT. These two are
+# not, and giving them their own codes is what stops a wrapper script from
+# reading a voided run as a finished one.
+EXIT_RUN_INVALID = 2
+EXIT_GATE_HALT = 3
+
+
+def build_gate(run_id, locks, live, store_root, holdout_expected=None,
+               holdout_since=None, holdout_settle=45.0, repo_root=_REPO):
+    """Build the callable the conductor's `promote` hook calls, and describe it.
+
+    Returns `(gate, info)`. `info` is what the banner prints and what the bundle
+    records, assembled HERE from what was actually constructed rather than kept
+    as prose next to the print statement, because a description that does not
+    move when the wiring moves is how a stale claim survives a rewrite.
+
+    WHY THE OFFLINE MODE IS `skip_cloud=True` AND NOT A SOFTER GATE
+    ----------------------------------------------------------------
+    Three candidates were considered and two are worse than they look.
+
+    1. **Let the real assertions run offline and let them fail.** They would not
+       fail on this machine. `gcloud` is installed and the operator is
+       authenticated, so a pytest run would make live IAM and Cloud Logging
+       calls - and the G7a impersonation probe writes entries into the very
+       Data Access log G7c counts, so the test suite would move the number the
+       gate asserts. In CI it would instead hang on network timeouts, four
+       subprocesses per candidate.
+    2. **Give the offline gate a third outcome** - "promoted, ungated". That is
+       weakening a gate so something passes, which CONVENTIONS section 8 rule 3
+       makes a STOP CONDITION, and it would put a promotion in the ledger that
+       no boundary check stood behind.
+    3. **`skip_cloud=True`, taken.** `RealGate.preflight` records ONE
+       UNEVALUABLE finding for G7/G8 and `__call__` raises `GateRunInvalid`,
+       because `absent_or_unevaluable: RUN_INVALID` is G7's own contract
+       (`contracts/gate_rule.v1.yaml`). The offline gate is therefore STRICTLY
+       STRICTER than the stand-in it replaces, not looser: the stand-in
+       promoted everything, this promotes nothing. Nothing offline can be
+       mistaken for an exercised boundary, and no code path diverges except the
+       one that talks to GCP.
+
+    An offline run does not reach the gate today - the ARMORER has no model, so
+    round 1 halts at `ARMORER_EXHAUSTED` first - and this is written so that if
+    that ever changes, the answer is RUN INVALID rather than a green promotion.
+
+    THE LEDGER IS BUILT IN BOTH MODES ON PURPOSE. It is unused offline, and
+    building it anyway means `Ledger.open_run`'s five-lock refusal is exercised
+    by every offline test run rather than first meeting a missing lock during a
+    live one.
+    """
+    env = gcp_env(repo_root)
+    os.makedirs(store_root, exist_ok=True)
+
+    ledger = Ledger(os.path.join(store_root, "ledger.sqlite3"))
+    ledger.open_run(run_id, _utc_stamp(), {
+        "manifest_hash": locks.values["manifest_hash"],
+        "objective_set_hash": locks.values["objective_set_hash"],
+        "gate_rule_hash": locks.values["gate_rule_hash"],
+        # The ledger column is `target_hash`; the conductor's lock is
+        # `target_agent_hash`. ONE value, two schemas that both already exist -
+        # mapped explicitly here rather than teaching either one a second
+        # spelling of the other's name.
+        "target_hash": locks.values["target_agent_hash"],
+        "derived_schema_hash": locks.values["derived_schema_hash"],
+    })
+
+    info = {
+        "implementation": "crucible.conductor.real_gate.RealGate",
+        "replaces": "promote=lambda c, r: True",
+        "promoter_source": "scripts/gcp-env.sh",
+        "ledger": os.path.join(store_root, "ledger.sqlite3"),
+    }
+
+    if live:
+        # Bucket name SOURCED, never retyped. G7/G8 grep these literals, so a
+        # typo does not fail loudly - it yields an unevaluable gate, and an
+        # unevaluable gate is a check that cannot fail
+        # (`measurement-spec.md:813`).
+        blobs = GcsBlobIO(env["CRUCIBLE_POLICIES_BUCKET"])
+        counter = HoldoutTouchCounter(env, since=holdout_since,
+                                      settle_seconds=holdout_settle)
+        gate = build_real_gate(
+            ledger=ledger, run_id=run_id,
+            blob_writer=blobs.writer, blob_reader=blobs.reader,
+            repo_root=repo_root, holdout_touch=counter,
+            holdout_expected=holdout_expected, skip_cloud=False)
+        info.update({
+            "cloud_assertions": "LIVE",
+            "policy_store": "%s via GcsBlobIO" % env["CRUCIBLE_POLICIES_BUCKET"],
+            "holdout": {"wired": True, "counter": "infra.holdout_touch."
+                                                  "HoldoutTouchCounter",
+                        "since": holdout_since,
+                        "expected_for_this_phase": holdout_expected,
+                        "settle_seconds": holdout_settle},
+            "untested_against_live_gcs": [
+                "real_gate.GcsBlobIO - its create-only if_generation_match=0, "
+                "its 412 benign-duplicate branch and its generation-pinned "
+                "read-back are written from data-spec.md 3.1/3.2 and NO TEST "
+                "COVERS THEM. local_blob_io is the exercised path."],
+        })
+    else:
+        policies = os.path.join(store_root, "policies")
+        # ONE call. Two would build two closures over the same directory - the
+        # same shape as two loads of the Objective Set: they agree today and are
+        # a place for them to disagree later.
+        writer, reader = local_blob_io(policies)
+        gate = build_real_gate(
+            ledger=ledger, run_id=run_id,
+            blob_writer=writer, blob_reader=reader,
+            repo_root=repo_root,
+            # NOT a counter. Offline there is nothing to count and no log to
+            # read, and `holdout_touch` has no default precisely so that
+            # "nothing computed this" cannot be mistaken for "the count was 0".
+            holdout_touch=None, skip_cloud=True)
+        info.update({
+            "cloud_assertions": "SKIPPED_OFFLINE",
+            "policy_store": "local files at %s" % policies,
+            "holdout": {"wired": False,
+                        "why": "offline: skip_cloud=True short-circuits "
+                               "preflight before G7c is reached"},
+            "untested_against_live_gcs": [],
+        })
+    info["promoter"] = gate.promoted_by
+    return gate, info
+
+
+def gate_summary(gate, info):
+    """What the bundle records about the gate, computed AFTER the run.
+
+    `g7_g8_exercised` is the field this whole wiring exists to make honest, so
+    it is derived from the gate's own findings and NEVER from `--live`. A live
+    run that halted at the ARMORER before the first candidate produced zero
+    reports, and zero reports is zero assertions evaluated no matter what flag
+    was passed.
+    """
+    findings = [f for report in gate.reports for f in report["findings"]]
+    seal = [f for f in findings if f["gate"].startswith(("G7", "G8"))]
+    out = dict(info)
+    out["calls"] = len(gate.reports)
+    out["g7_g8_exercised"] = bool(
+        seal and not gate.skip_cloud
+        and any(f["status"] != UNEVALUABLE for f in seal))
+    out["reports"] = gate.reports
+    return out
+
+
+def gate_banner_lines(live, info):
+    """The gate's banner lines, as data.
+
+    A FUNCTION rather than two `print` calls inline, for one reason: the live
+    banner has to be quotable in a handoff and reviewable before anyone spends a
+    model budget to see it, and the only honest way to show it is to render the
+    one that will actually be printed. Two copies of banner prose - the printed
+    one and the one pasted into a report - is a second source of truth about
+    what the run claimed, which is the shape this repo keeps finding.
+    """
+    if live:
+        return [
+            "  gate         : REAL. RealGate, promoter %s read from %s. G7 "
+            "(a/b/b2/c) AND G8 EVALUATED AGAINST LIVE GCP before every "
+            "promotion. Policy store: %s. holdout_touch since %s, "
+            "expected_for_this_phase=%s."
+            % (info["promoter"], info["promoter_source"],
+               info["policy_store"], info["holdout"]["since"],
+               info["holdout"]["expected_for_this_phase"]),
+            "  >>> GcsBlobIO HAS NEVER RUN AGAINST GCS. Its create-only "
+            "precondition, its 412 branch and its generation-pinned read-back "
+            "are written from data-spec.md 3.1/3.2 and no test covers them, so "
+            "this run is their first execution. `promote`'s "
+            "recompute-from-bytes read-back is what stands behind them: a "
+            "write that cannot be read back and rehashed HALTS.",
+        ]
+    return [
+        "  gate         : REAL CODE, NOT EXERCISED. RealGate with "
+        "skip_cloud=True - no gcloud call is made, so G7/G8 NOT EXERCISED. Any "
+        "candidate reaching this gate is RUN INVALID, never a promotion. "
+        "Policy store: %s." % info["policy_store"],
+    ]
+
+
+def _utc_stamp():
+    return datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def run(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--live", action="store_true",
@@ -475,7 +702,40 @@ def run(argv=None):
                          "every model role degrades and the bundle SAYS SO.")
     ap.add_argument("--usd-cap", type=float, default=5.00)
     ap.add_argument("--out", default="")
+    # G7c. `contracts/gate_rule.v1.yaml:205` is `holdout_touch_count ==
+    # expected_for_this_phase`, and the PHASE decides the number - which is why
+    # `RealGate` takes it as a constructor argument and why this is a required
+    # flag rather than a default sitting in this file. `measurement-spec.md`'s
+    # absolute ceiling of 2 was found to be the defect: one evaluation phase
+    # reads 18-24 sealed instances, so a fixed 2 marks the run INVALID the
+    # first time it is used correctly, and a guard that fires on correct
+    # behaviour is not a guard. This campaign does not know its own phase
+    # count, so it refuses to invent one.
+    ap.add_argument("--holdout-expected", type=int, default=None,
+                    help="expected_for_this_phase for G7c. REQUIRED with "
+                         "--live. There is no default: guessing it here would "
+                         "settle a question the contract leaves to the phase.")
+    ap.add_argument("--holdout-since", default="",
+                    help="RFC3339 UTC start of the G7c window. Defaults to this "
+                         "run's own start instant.")
+    ap.add_argument("--holdout-settle", type=float, default=45.0,
+                    help="seconds to wait for Cloud Logging ingestion before "
+                         "counting. MEASURED, not guessed: a probe that "
+                         "counted immediately undercounted its own reads, and "
+                         "an undercount reads exactly like a pass.")
     args = ap.parse_args(argv)
+
+    # BEFORE any model client is constructed and before a cent is spent. A
+    # precondition checked after six rounds of model spend is a precondition
+    # checked too late - the same reason the benign floor is measured at v0.
+    if args.live and args.holdout_expected is None:
+        raise SystemExit(
+            "--live requires --holdout-expected. contracts/gate_rule.v1.yaml:205 "
+            "reads `holdout_touch_count == expected_for_this_phase`, and the "
+            "phase is not knowable from inside this file. Without it G7c is "
+            "UNEVALUABLE, `absent_or_unevaluable: RUN_INVALID` applies, and the "
+            "run would spend the whole model budget to reach a voided result. "
+            "Open question on the unit: docs/NEEDS-ERIC.md item 12.")
 
     validator, manifest_a, derived_b = build_validator()
     policy = build_seed_policy(validator)
@@ -494,8 +754,23 @@ def run(argv=None):
 
     governor = BudgetGovernor(Budget(usd_cap=args.usd_cap, token_cap=40_000_000,
                                      round_cap=6, call_cap=400))
+    started_at = _utc_stamp()
     run_id = "run_%s_%s" % (
         datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S"), "5100ff")
+
+    # The bundle path is resolved HERE rather than at the end, because the gate's
+    # policy store and its ledger sit beside it and must exist before the first
+    # candidate. `--out` into a temp directory therefore keeps a test run's
+    # sqlite file and policy objects out of `evidence/` too.
+    out = args.out or os.path.join(_REPO, "evidence", "%s.json" % run_id)
+    out_dir = os.path.dirname(os.path.abspath(out))
+    os.makedirs(out_dir, exist_ok=True)
+    gate, gate_info = build_gate(
+        run_id, locks, live=args.live,
+        store_root=os.path.join(out_dir, "%s-gate" % run_id),
+        holdout_expected=args.holdout_expected,
+        holdout_since=args.holdout_since or started_at,
+        holdout_settle=args.holdout_settle)
 
     base_manifest = RunManifest(
         policy_version=(policy.get("lineage") or {}).get("version", 0),
@@ -513,7 +788,9 @@ def run(argv=None):
         run_episode=build_campaign_target(base_manifest, live=args.live),
         score=lambda episode: real_tripwire(episode, objective_set=objective_set),
         benign_gate=real_warden,
-        promote=lambda c, r: True,
+        # THE REAL GATE. This was `lambda c, r: True` until 2026-08-22 - a
+        # constant function, the limiting case of a check that cannot fail.
+        promote=gate,
         hashes=locks.values, seeds=SEEDS, run_id=run_id)
 
     print("=" * 78)
@@ -546,7 +823,8 @@ def run(argv=None):
               "BE PROMOTED IN THIS RUN - it can only reach two rejections and "
               "HALT. Blocked classes at v0: %s."
               % (", ".join(baseline["failed_classes"]) or "-"))
-    print("  gate         : STAND-IN. No GCS, no IAM. G7/G8 NOT EXERCISED.")
+    for line in gate_banner_lines(args.live, gate_info):
+        print(line)
     overlap, armorer_tools, target_tools = assert_handle_overlap(manifest_a)
     print("  armorer PartA: target/refund_agent build_manifest (%s), %d tools. "
           "The RUNNING target declares %d. HANDLES IN COMMON: %d."
@@ -570,22 +848,51 @@ def run(argv=None):
               % (len(locks.unfrozen), ", ".join(locks.unfrozen)))
     print("=" * 78)
 
-    result = conductor.run(policy)
+    # RUN INVALID AND HALT ARE NOT REJECTIONS AND DO NOT COME BACK AS ONE.
+    # `Conductor.run` has no `except` around `self.promote(...)`, deliberately:
+    # a bool has room for two of the gate's three outcomes and the missing one
+    # is the one that voids the run. They are caught HERE, at the outermost
+    # boundary, only to be REPORTED - with their own status, their own bundle,
+    # and their own exit code - never to be folded back into a decision.
+    # Everything the bundle records that is NOT a property of the loop's
+    # outcome, assembled before the loop runs so a voided run carries it too. A
+    # RUN INVALID bundle that dropped the hash-locks and the benign floor would
+    # be the one bundle a reader most needs and least has.
+    preamble = {
+        "run_id": run_id,
+        "hash_locks": locks.as_dict(),
+        "objective_set_hash_scored_with": objective_set.hash,
+        "benign_floor_at_v0": baseline,
+        "armorer_manifest": {
+            "target_id": manifest_a.get("target_id"),
+            "tools": armorer_tools,
+            "running_target_tools": target_tools,
+            "tool_handles_in_common": overlap},
+        # The gate is no longer on this list. It is the real one in both modes;
+        # what varies is whether it LOOKED, and that is
+        # `summary.gate.g7_g8_exercised`, computed from findings not from flags.
+        "stand_ins": ([] if args.live else ["target_model"]),
+    }
+
+    try:
+        result = conductor.run(policy)
+    except GateRunInvalid as exc:
+        return _report_gate_stop("RUN_INVALID", exc, gate, gate_info, preamble,
+                                 args, out, locks, overlap, baseline, governor)
+    except GateHalt as exc:
+        return _report_gate_stop("GATE_HALT", exc, gate, gate_info, preamble,
+                                 args, out, locks, overlap, baseline, governor)
 
     retained = capability_retained(result.final_policy)
     summary = result.summary()
+    # `preamble["run_id"]` is the same `run_id` handed to the Conductor, so this
+    # overwrite is a no-op and there is deliberately no second assignment from
+    # `result.run_id`: two lines writing one value is where they diverge.
+    summary.update(preamble)
     summary["capability_retained_at_end"] = retained
-    summary["stand_ins"] = (["gate"] if args.live else ["gate", "target_model"])
-    summary["hash_locks"] = locks.as_dict()
-    summary["objective_set_hash_scored_with"] = objective_set.hash
-    summary["benign_floor_at_v0"] = baseline
-    summary["armorer_manifest"] = {
-        "target_id": manifest_a.get("target_id"),
-        "tools": armorer_tools,
-        "running_target_tools": target_tools,
-        "tool_handles_in_common": overlap}
+    summary["gate"] = gate_summary(gate, gate_info)
     summary["no_result_may_be_quoted_from_this_run"] = _disclaimer(
-        args.live, locks, overlap, baseline)
+        args.live, locks, overlap, baseline, summary["gate"])
 
     print("\n  status       : %s" % result.status)
     print("  halt         : %s" % (result.halt or "-"))
@@ -610,8 +917,6 @@ def run(argv=None):
     print("  spend        : $%.4f of $%.2f"
           % (governor.spent_usd, governor.budget.usd_cap))
 
-    out = args.out or os.path.join(_REPO, "evidence", "%s.json" % run_id)
-    os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as fh:
         json.dump({"summary": summary,
                    "hashes": result.hashes,
@@ -624,15 +929,38 @@ def run(argv=None):
     return 0
 
 
-def _disclaimer(live, locks, handle_overlap, baseline):
+def _disclaimer(live, locks, handle_overlap, baseline, gate):
     """One sentence per thing that is still not measurable, assembled from what
     was actually wired rather than kept as frozen prose. A disclaimer that does
-    not move when the build moves is how a stale claim survives a rewrite."""
-    bits = [
-        "The GATE is a lane-authored stand-in: there is no GCS bucket, no IAM "
-        "boundary, and G7/G8 are NOT EXERCISED, so nothing here measures "
-        "non-self-approval and a 'promotion' means only that the benign floor "
-        "passed."]
+    not move when the build moves is how a stale claim survives a rewrite.
+
+    `gate` is `gate_summary(...)`, so the G7/G8 sentence is written from what
+    the gate DID. This paragraph used to open "The GATE is a lane-authored
+    stand-in" unconditionally, and after the wiring landed that sentence would
+    have been false in one direction and, on a live run, false in the flattering
+    direction.
+    """
+    bits = []
+    if not gate["g7_g8_exercised"]:
+        why = ("the gate was built with skip_cloud=True (no --live), so it made "
+               "no gcloud call"
+               if gate["cloud_assertions"] == "SKIPPED_OFFLINE" else
+               "no candidate ever reached the gate, so it evaluated nothing")
+        bits.append(
+            "G7/G8 WERE NOT EXERCISED in this run: %s. The gate itself is the "
+            "real one - crucible.conductor.real_gate.RealGate, not the "
+            "`lambda c, r: True` stand-in it replaced - but nothing here "
+            "measures seal integrity or non-self-approval, and no G7 or G8 "
+            "claim may be made from this bundle." % why)
+    else:
+        bits.append(
+            "G7/G8 were evaluated against live GCP at %d candidate(s); every "
+            "assertion and its status is in summary.gate.reports. A PASS on an "
+            "IAM document is a snapshot, not a guarantee: a grant made later is "
+            "invisible to a check that ran earlier, which is why they are "
+            "re-asserted every round." % gate["calls"])
+    if gate.get("untested_against_live_gcs"):
+        bits.extend(gate["untested_against_live_gcs"])
     if baseline["passed"] != baseline["total"]:
         bits.append(
             "policy@v0 scored %d/%d on the benign floor BEFORE the first round, "
@@ -658,6 +986,75 @@ def _disclaimer(live, locks, handle_overlap, baseline):
             "those artifacts were pinned before the first measurement."
             % ", ".join(locks.unfrozen))
     return " ".join(bits)
+
+
+# The one sentence a reader of a voided bundle must not be able to miss.
+RUN_INVALID_BANNER = (
+    "RUN INVALID IS NOT A REJECTION AND IS NOT A FAILED RUN. FAILED means the "
+    "system under test behaved badly, and that is a measurement - publish it. "
+    "INVALID means THERE IS NO MEASUREMENT: no number from this run may be "
+    "reported, INCLUDING THE ONES THAT LOOK GOOD.")
+
+GATE_HALT_BANNER = (
+    "GATE HALT. A promotion assertion failed its retries, or the candidate was "
+    "unpromotable in a way a human must rule on. The next attack round does NOT "
+    "fire: an automatic resume past a failed assertion is exactly the "
+    "fabrication the assertion exists to prevent.")
+
+
+def _report_gate_stop(kind, exc, gate, gate_info, preamble, args, out, locks,
+                      handle_overlap, baseline, governor):
+    """Report a `GateRunInvalid` or a `GateHalt` AS ITSELF.
+
+    Neither is a rejection, and this function exists so that neither can be read
+    as one. An ordinary rejection is a `gate_decision` recorded INSIDE a
+    completed run whose exit code is 0, because "the candidate was not good
+    enough" is a measurement. These two produce no `CampaignResult` at all -
+    `Conductor.run` never returns - so the bundle is assembled from the
+    preamble plus the gate's own findings, and the process exits non-zero.
+
+    The findings are the valuable half and they survive: `gate.reports` carries
+    every assertion the gate evaluated, with its status, up to and including the
+    one that voided the run.
+    """
+    summary = dict(preamble)
+    summary["status"] = kind
+    summary["halt"] = kind
+    summary["halt_detail"] = str(exc)
+    summary["rounds"] = None            # the loop never returned one
+    summary["gate"] = gate_summary(gate, gate_info)
+    summary["gate"]["stop"] = {
+        "kind": kind,
+        "exception": type(exc).__name__,
+        "detail": str(exc),
+        "reason_code": getattr(exc, "reason_code", None),
+        "findings": getattr(exc, "findings", None),
+    }
+    summary["no_result_may_be_quoted_from_this_run"] = " ".join([
+        RUN_INVALID_BANNER if kind == "RUN_INVALID" else GATE_HALT_BANNER,
+        _disclaimer(args.live, locks, handle_overlap, baseline,
+                    summary["gate"])])
+
+    print("\n  status       : %s" % ("RUN INVALID" if kind == "RUN_INVALID"
+                                     else "GATE HALT"))
+    print("  halt         : %s" % (getattr(exc, "reason_code", None) or kind))
+    print("  rounds       : -   (the loop did not return; the gate stopped it)")
+    print("  >>> %s" % (RUN_INVALID_BANNER if kind == "RUN_INVALID"
+                        else GATE_HALT_BANNER))
+    print("  %s" % str(exc).replace("\n", "\n  "))
+    if getattr(exc, "findings", None):
+        print("\n  every assertion this gate evaluated:")
+        print(render_findings(exc.findings))
+    print("  spend        : $%.4f of $%.2f"
+          % (governor.spent_usd, governor.budget.usd_cap))
+
+    with open(out, "w", encoding="utf-8") as fh:
+        json.dump({"summary": summary,
+                   "hashes": dict(locks.values),
+                   "final_policy": None,
+                   "rounds": []}, fh, indent=2, default=str)
+    print("\n  bundle -> %s" % out)
+    return EXIT_RUN_INVALID if kind == "RUN_INVALID" else EXIT_GATE_HALT
 
 
 def _round_json(record):

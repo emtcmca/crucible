@@ -440,36 +440,47 @@ def test_the_loader_refuses_to_source_the_objective_set_hash_from_nowhere():
 # ---------------------------------------------------------------------------
 
 @adk_only
-def test_the_banner_no_longer_calls_the_target_the_tripwire_or_the_warden_a_stand_in(
-        tmp_path, capsys):
+def test_the_banner_no_longer_calls_any_component_a_stand_in(tmp_path, capsys):
     """The banner is what a judge reads. A stale banner is a false claim in the
-    demo, so its exact text is pinned - including the ONE line that must still
-    say STAND-IN."""
+    demo, so its exact text is pinned.
+
+    UPDATED 2026-08-22 with the gate wiring. This test used to pin
+    `gate : STAND-IN. No GCS, no IAM. G7/G8 NOT EXERCISED.` as the ONE line that
+    must still say STAND-IN. `promote=` is no longer a lambda, so the STAND-IN
+    half of that sentence is now false in the flattering direction - and the
+    NOT-EXERCISED half is still true offline, so both halves are re-pinned in
+    their new form rather than dropped.
+    """
     assert C.run(["--out", str(tmp_path / "b.json")]) == 0
     banner = capsys.readouterr().out.split("=" * 78)[1]
 
     assert "  target       : REAL." in banner
     assert "  tripwire     : REAL." in banner
     assert "  warden       : REAL." in banner
-    assert "  gate         : STAND-IN. No GCS, no IAM. G7/G8 NOT EXERCISED." \
-        in banner
+    assert "  gate         : REAL CODE, NOT EXERCISED." in banner
+    assert "G7/G8 NOT EXERCISED" in banner
+    assert "RUN INVALID, never a promotion" in banner
     for line in banner.splitlines():
         if line.startswith(("  target       :", "  tripwire     :",
-                            "  warden       :")):
+                            "  warden       :", "  gate         :")):
             assert "STAND-IN" not in line, line
 
 
 @adk_only
-def test_the_bundle_lists_the_gate_as_the_only_component_stand_in(
-        captured_wiring):
+def test_the_bundle_lists_no_component_stand_in_only_the_model(captured_wiring):
+    """UPDATED 2026-08-22: `gate` came off this list when it stopped being a
+    stand-in. The discriminator for whether the promotion boundary was actually
+    CHECKED is `summary.gate.g7_g8_exercised`, driven in
+    `tests/test_campaign_gate_wiring.py` - because an empty `stand_ins` must not
+    be readable as "everything was proven"."""
     _kwargs, bundle = captured_wiring
     summary = bundle["summary"]
-    assert "gate" in summary["stand_ins"]
-    for retired in ("target", "tripwire", "warden"):
+    for retired in ("gate", "target", "tripwire", "warden"):
         assert retired not in summary["stand_ins"]
-    # Offline runs additionally declare the scripted model. It is a stand-in for
-    # the MODEL, not for the target, and the two are not interchangeable.
+    # Offline runs declare the scripted model. It is a stand-in for the MODEL,
+    # not for the target, and the two are not interchangeable.
     assert "target_model" in summary["stand_ins"]
+    assert summary["gate"]["g7_g8_exercised"] is False
 
 
 @adk_only

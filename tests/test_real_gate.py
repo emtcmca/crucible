@@ -146,10 +146,14 @@ CLEAN_FETCH = fake_fetch(policies_bindings=CLEAN_POLICIES,
 
 
 def clean_probe_run(argv):
-    """Every identity behaves as the boundary requires. STUB-ONLY."""
+    """Every identity behaves as the boundary requires. STUB-ONLY.
+
+    The listed path moved 2026-08-22 with the canary itself - see
+    `test_the_probe_prefix_is_deliberately_not_the_corpus_prefix`.
+    """
     joined = " ".join(argv)
     if ENV["SA_SEALED_EVAL"] in joined:
-        return 0, "families/_probe/canary.txt\n"
+        return 0, "_probe/canary.txt\n"
     return 1, ("ERROR: does not have storage.objects.list access to the Google "
                "Cloud Storage bucket. Permission 'storage.objects.list' denied")
 
@@ -394,11 +398,11 @@ _IMPERSONATION_DENIAL = (
 
 
 @pytest.mark.parametrize("expect,rc,out,want", [
-    ("allow", 0, "families/_probe/canary.txt\n", rg.PASS),
+    ("allow", 0, "_probe/canary.txt\n", rg.PASS),
     ("allow", 0, "", rg.UNEVALUABLE),            # listed nothing: no control
     ("allow", 1, _STORAGE_DENIAL, rg.UNEVALUABLE),   # control dead: proves nothing
     ("deny", 1, _STORAGE_DENIAL, rg.PASS),
-    ("deny", 0, "families/_probe/canary.txt\n", rg.FAIL),   # boundary absent
+    ("deny", 0, "_probe/canary.txt\n", rg.FAIL),   # boundary absent
     ("deny", 1, "ERROR: connection reset by peer", rg.UNEVALUABLE),
     ("deny", 1, _IMPERSONATION_DENIAL, rg.UNEVALUABLE),
     ("allow", 1, _IMPERSONATION_DENIAL, rg.UNEVALUABLE),
@@ -453,6 +457,44 @@ def test_the_seal_probe_covers_all_four_identities_including_the_coroner():
                  ENV["SA_CORONER"]):
         assert any(name in cmd for cmd in seen), name
     assert all(f["status"] == rg.PASS for f in findings)
+
+
+def test_the_probe_prefix_is_deliberately_not_the_corpus_prefix():
+    """Eric's ruling on `docs/NEEDS-ERIC.md` item 12, executed 2026-08-22: the
+    canary was MOVED out of `families/`, not excluded from the count.
+
+        was:  gs://crucible-sealed-x7/families/_probe/canary.txt
+        now:  gs://crucible-sealed-x7/_probe/canary.txt
+        gs://crucible-sealed-x7/families/  is now EMPTY
+
+    An exclusion would have been a permanent named hole and would have meant the
+    gate declares which reads do not count - self-certification, one layer over
+    from the thing G8 exists to prevent.
+
+    THE FAILURE THIS TEST GUARDS IS SILENT AND GREEN-LOOKING. Left at
+    `families/**` the probe matches ZERO objects, so the PERMITTED identity
+    exits 0 having listed nothing, `classify_probe` files it UNEVALUABLE, and
+    `absent_or_unevaluable: RUN_INVALID` voids the run - while three of the four
+    probe lines still read PASS. Measured read-only against the live bucket
+    2026-08-22: `families/**` -> rc=0, zero objects listed; `_probe/**` -> rc=0,
+    `_probe/canary.txt`.
+
+    So the probe prefix and the counted namespace differ ON PURPOSE, and
+    re-unifying them "for consistency" reintroduces the exact defect. Pinned
+    here rather than left to the comment in `real_gate._PROBE_PREFIX`, because a
+    comment cannot fail.
+    """
+    argv = rg._probe_argv(ENV, ENV["SA_SEALED_EVAL"])          # noqa: SLF001
+    target = argv[4]
+    assert target.endswith("/_probe/**"), target
+    assert "/families/" not in target, (
+        "the probe is back inside the corpus prefix, which is now empty - the "
+        "positive control lists nothing and every denial becomes uninformative")
+    # All four arms use the one prefix. `crucible-sealed-eval` holds
+    # objectViewer BUCKET-WIDE with no IAM condition and UBLA is ON, so there is
+    # no per-prefix grant for a second prefix to exercise.
+    for name in (ENV["SA_ARMORER"], ENV["SA_RED"], ENV["SA_CORONER"]):
+        assert rg._probe_argv(ENV, name)[4] == target          # noqa: SLF001
 
 
 def test_the_probe_command_never_types_a_bucket_or_project_name():
