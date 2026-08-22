@@ -71,7 +71,13 @@ def test_the_golden_bundle_carries_what_c6_says_a_bundle_carries(valid_bundle):
     for ep in valid_bundle["episodes"]:
         assert ep["episode_frozen_context"]["frozen_at"] == "before_first_user_turn"
         assert isinstance(ep["episode_prefix"], list)
-    assert len(valid_bundle["v0_benign_traces"]) >= 24
+    from crucible.replay.integrity import BENIGN_DENOMINATOR
+    assert len(valid_bundle["v0_benign_traces"]) >= BENIGN_DENOMINATOR, (
+        "the golden bundle carries %d recorded v0 traces against a denominator "
+        "of %d. Read from the constant, never retyped: this assertion said "
+        ">= 24 while ruling 43 moved the denominator to 26, so the repo's own "
+        "canonical valid bundle was two traces short and this test agreed with "
+        "it." % (len(valid_bundle["v0_benign_traces"]), BENIGN_DENOMINATOR))
     assert valid_bundle["sep_by_split"] == {"policy_separated": 18,
                                             "approval_oracle_separated": 4}
 
@@ -106,7 +112,10 @@ REJECTIONS = [
     ("sep_by_split_at_parity",
      "ruling 17's authoring gate: parity means stop and re-author"),
     ("benign_traces_short",
-     "the benign denominator is fixed permanently at 24"),
+     "the benign denominator is fixed permanently, and 23 is short of it"),
+    ("benign_traces_at_the_old_denominator",
+     "24 traces was a COMPLETE suite until ruling 43 and is a SHORT one after "
+     "it. This is the exact bundle that passed the gate clean for a day"),
     ("float_in_payload",
      "canonicalization restriction 4 - no float may enter a hashed payload"),
     ("null_in_payload",

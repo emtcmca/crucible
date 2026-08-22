@@ -45,11 +45,23 @@ RECOMPUTED = "RECOMPUTED"
 CROSS_CHECKED = "CROSS_CHECKED"
 PRESENT = "PRESENT"
 
-# CONVENTIONS section 4: the benign denominator is fixed PERMANENTLY at 24, and
-# ruling 11 evaluates it by REPLAYING these recorded traces rather than by
-# re-running live episodes. A bundle short of 24 is a bundle whose benign floor
-# was scored against a denominator that is not 24.
-BENIGN_DENOMINATOR = 24
+# CONVENTIONS section 4, AS AMENDED BY RULING 43 (2026-08-21): the benign
+# denominator is fixed PERMANENTLY at 26, and ruling 11 evaluates it by REPLAYING
+# these recorded traces rather than by re-running live episodes. A bundle short of
+# 26 is a bundle whose benign floor was scored against a denominator that is not
+# 26. `contracts/gate_rule.v1.yaml` G3 pins `bpr == "26/26"`.
+#
+# THE OWNER OF THIS NUMBER IS `corpus/model.py::BENIGN_TOTAL`. It is typed here
+# rather than imported because this package is the judge-reproduction path and
+# its documented property is that IT NEEDS NOTHING - importing `corpus.model`
+# would pull `crucible.manifest.load` and a capability-manifest read into an
+# offline viewer, and `offline_lint` walks only `crucible/replay`, so it would
+# not see the coupling arrive. The copy is instead pinned to its owner by
+# `tests/test_replay_view.py::test_the_benign_denominator_agrees_with_its_owner`,
+# which is a mechanical check rather than a second statement of the value. This
+# constant carried 24 for a day after ruling 43 moved it, and the whole suite
+# stayed green, because nothing compared it to anything.
+BENIGN_DENOMINATOR = 26
 
 # Ruling 10 raised the round cap to 6. A gate decision outside 1..6 is either a
 # bundle from a run under different frozen parameters or a bug.

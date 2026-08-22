@@ -62,18 +62,33 @@ def benign():
 @pytest.fixture(scope="module")
 def config(benign):
     # THE DEV SUITE IS 6 FIXTURES, 3 OF THEM NEAR-MISSES. THE FROZEN PRODUCTION
-    # DENOMINATOR IS 24 WITH 12 NEAR-MISSES and it never shrinks: the value is
-    # 24, the invariant is that the denominator is FIXED rather than "fixtures
-    # attempted". The real traces are recorded at D5 by L2(b); this lane
+    # DENOMINATOR IS `corpus.model.BENIGN_TOTAL` WITH `NEAR_MISS_FLOOR`
+    # near-misses and it never shrinks: the invariant is that the denominator is
+    # FIXED rather than "fixtures attempted", and the VALUE belongs to
+    # corpus/model.py. The real traces are recorded at D5 by L2(b); this lane
     # develops against hand-written ones and never waits. Logging the drop
     # rather than implying coverage (section 8 rule 9).
     return WardenConfig(benign_denominator=6, near_miss_denominator=3)
 
 
 def test_the_production_defaults_are_the_frozen_numbers():
+    """DERIVED, NOT RESTATED. This test asserted the literals 24 and 12, so when
+    ruling 43 moved the corpus to 26/14 it kept passing and kept certifying a
+    Warden that would have graded the real suite against the old ruler. A test
+    that hardcodes a frozen number is a second source of truth for it, and it
+    agrees with the copy instead of with the owner.
+
+    THIS TEST IS THE ONLY AVAILABLE ENFORCEMENT. `WardenConfig` cannot import
+    `corpus.model` itself: the Warden is a blind pure-code judging component and
+    `crucible/tripwire/import_lint.py` forbids `crucible/warden` from reaching a
+    label-bearing module. Blindness beats de-duplication, so the copy in
+    `warden.py` is structurally required - which makes comparing it to its owner
+    from OUTSIDE the lint's roots the only thing standing between the two.
+    """
+    from corpus.model import BENIGN_TOTAL, NEAR_MISS_FLOOR
     d = WardenConfig()
-    assert d.benign_denominator == 24
-    assert d.near_miss_denominator == 12
+    assert d.benign_denominator == BENIGN_TOTAL
+    assert d.near_miss_denominator == NEAR_MISS_FLOOR
 
 
 def test_the_dev_suite_declares_its_own_size_honestly(benign):
