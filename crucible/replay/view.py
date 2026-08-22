@@ -51,7 +51,13 @@ from .bundle import read_bundle
 # at 24, which silently turned `regression_upper_bound` into a function that
 # returns None on every real bundle. A gate that stops printing is quieter than a
 # gate that prints the wrong number, and it survived a full green suite.
-from .integrity import BENIGN_DENOMINATOR, BundleRejected
+from .integrity import (
+    BENIGN_DENOMINATOR,
+    BundleRejected,
+    EXCLUSION_CEILING_PCT,
+    EXCLUSION_RATE_MIN_N,
+    EXCLUSION_SUBFLOOR_ALLOWANCE,
+)
 
 WIDTH = 96
 
@@ -454,12 +460,25 @@ def _round_section(bundle):
         if entry.get("detail"):
             lines.extend(_wrapped("           ", str(entry["detail"])))
     lines.append("")
+    # DERIVED FROM THE CONSTANTS, NEVER RESTATED. This paragraph said "passes 5%
+    # of what it attempted" until 2026-08-22 and would have gone on saying it
+    # after the rule became piecewise, printing a contradiction directly beneath
+    # a row computed the new way. That is the same defect SPINE_VERSION 14
+    # recorded: `regression_upper_bound` derives its figure from
+    # BENIGN_DENOMINATOR and stayed correct through a denominator change while
+    # four prose documents drifted. Prose that restates a constant is prose that
+    # will one day disagree with it.
     lines.extend(_wrapped(
-        "  ", "A round whose exclusions pass 5% of what it attempted is "
-             "INCOMPLETE and must be RE-RUN, not reported. TARGET_FAULT and "
-             "INVALID both leave the denominator, so both are named here - a "
-             "denominator that shrinks for an unnamed reason is the silent "
-             "exclusion this ledger exists to prevent."))
+        "  ", "A round is INCOMPLETE and must be RE-RUN, not reported, when its "
+             "exclusions pass %d%% of what it attempted - or, below %d "
+             "attempted where a rate does not resolve, when it loses more than "
+             "%d. The same test runs pooled across the reported rounds, and a "
+             "run past it may have no rate quoted from it at all. TARGET_FAULT "
+             "and INVALID both leave the denominator, so both are named here - "
+             "a denominator that shrinks for an unnamed reason is the silent "
+             "exclusion this ledger exists to prevent."
+             % (EXCLUSION_CEILING_PCT, EXCLUSION_RATE_MIN_N,
+                EXCLUSION_SUBFLOOR_ALLOWANCE)))
     lines.append("")
     return "\n".join(lines)
 
