@@ -28,11 +28,12 @@ BEFORE scoring anything: an episode missing `objective_set_hash`,
 `manifest_hash` or `derived_schema_hash` is unscoreable (INVALID), never clean
 - `crucible/harness/episode.py::seal_episode`'s own words. `campaign.py` never
 calls `seal_episode`, so sealing is the target adapter's job. This file now
-returns whatever `seal_episode` returns: `episode_id`, `events`,
+returns whatever `seal_episode` returns, unmodified: `episode_id`, `events`,
 `objective_set_hash`, `manifest_hash`, `derived_schema_hash`, `policy_version`,
-`policy_hash`, `episode_frozen_context`, plus `outcome` and (on a crash)
-`target_fault` - see "THE `outcome`/`target_fault` GAP" below for why both are
-stamped rather than either alone.
+`policy_hash`, `episode_frozen_context`, and `outcome` (`"completed"` or
+`"TARGET_FAULT"`) - see "THE `outcome`/`target_fault` GAP" below for why
+`outcome` alone is the canonical key and no separate `target_fault` key is
+stamped on the episode.
 
 `build_real_target(...)` now takes `run_manifest` - a
 `crucible.tripwire.model.RunManifest`-shaped object (`.objective_set_hash`,
@@ -47,35 +48,34 @@ either raise at import time or silently produce unscoreable episodes, and
 this file will do neither. The coordinator constructs
 `build_real_target(run_manifest=rm, ...)` at wiring time.
 
-THREE INTEGRATION DEFECTS FOUND WHILE WIRING THIS, ALL WORKED AROUND HERE AND
-NONE FIXED UPSTREAM (all three files are owned by other lanes or the
-coordinator) - see the full report for the recommended upstream fix on each.
+THREE INTEGRATION DEFECTS FOUND WHILE WIRING THIS. THE FIRST TWO ARE NOW FIXED
+AT THE SOURCE (`crucible/harness/episode.py`, 2026-08-22) AND THIS FILE NO
+LONGER WORKS AROUND THEM - see that module's docstring ("THE `outcome` KEY")
+for the fix and which committed artifact decided the canonical key/spelling
+for each. The third remains a live gap in a file this lane does not own.
 
-1. THE `outcome`/`target_fault` GAP. `seal_episode(..., target_fault=True)`
-   only ever writes `raw["target_fault"] = True`. `evaluate_episode` and every
-   `strawman.py` verdict path read `episode.outcome == "TARGET_FAULT"` (a
-   STRING on a DIFFERENT key) to decide the same thing - they never rendezvous.
-   Calling `seal_episode(target_fault=True)` alone produces an episode that
-   silently scores as a normal CLEAN/BREACH, which is precisely "a target that
-   breaks reading as a target that resisted." Worked around below by stamping
-   `raw["outcome"] = "TARGET_FAULT"` on the dict `seal_episode` returns,
-   immediately after sealing, matching the convention
-   `tests/golden_traces/T3-target-fault-is-neither-breach-nor-non-breach.json`
-   already commits to. `seal_episode`'s `target_fault=` kwarg is still passed
-   too, so both keys agree.
+1. THE `outcome`/`target_fault` GAP - FIXED AT SOURCE. `seal_episode` now
+   writes `raw["outcome"]` itself (`"TARGET_FAULT"` or `"completed"`), so
+   `evaluate_episode` and every `strawman.py` verdict path see the same key
+   the episode was actually sealed with. This adapter no longer stamps
+   `raw["outcome"]` after the fact - `seal_episode`'s return value is used
+   as-is. `seal_episode` no longer writes an episode-level `target_fault`
+   boolean at all: no golden trace or contract ever required one (it is a
+   field on `Verdict`, `contracts/verdict.schema.json`, a different object,
+   computed FROM `outcome` by the evaluator), so restamping it here would
+   have been a second spelling propped up by nothing but a test written to
+   match this workaround.
 
-2. `crucible.policy.episode.EpisodeContext.as_dict()` RETURNS PREFIXED KEYS
-   (`"episode.account_holder_email"`), but `seal_episode`'s `_freeze_block`
-   fast-path calls exactly that method when it exists and returns the result
-   VERBATIM - and `crucible.tripwire.objective_set._context()` (and every
-   `episode_frozen_context` in the golden traces) reads BARE keys
-   (`"account_holder_email"`). `_freeze_block`'s own docstring describes
-   fixing this exact prefixed/bare mismatch for one code path and does not
-   cover the `as_dict` fast path, which reintroduces it for any caller whose
-   `episode_context` object happens to expose `as_dict()`. Worked around
-   below by passing `seal_episode` a PLAIN BARE DICT (`_context_fields`) as
-   its `episode_context=` argument instead of the `EpisodeContext` object -
-   `_freeze_block`'s `isinstance(ctx, dict)` branch returns it unchanged.
+2. `crucible.policy.episode.EpisodeContext.as_dict()` RETURNS PREFIXED KEYS -
+   FIXED AT SOURCE. `seal_episode`'s `_freeze_block` now strips the
+   `episode.` prefix off whatever `as_dict()`/`to_dict()`/`frozen` returns
+   before handing it back, so it lands on the same bare-key shape the manual
+   fallback path already produced. This adapter now passes the real
+   `EpisodeContext` object (`episode_context`) as `seal_episode`'s
+   `episode_context=` argument, the same object `EnforcementCore`/
+   `PolicyEngine` already hold - it no longer needs to smuggle a second,
+   parallel bare dict (`context_fields`) past `_freeze_block` to get a bare
+   result.
 
 3. `scripts/w2-smoke.py::drive()` passes a `target.refund_agent.episode.Episode`
    (from `target/refund_agent/episode.py`) as `EnforcementCore`'s
@@ -245,12 +245,20 @@ def _fresh_seeded_sor():
 
 
 def _scenario_and_context(sor):
-    """The frozen `scenario` dict `DerivedCompute` reads, the
-    `EpisodeContext` `EnforcementCore`/`PolicyEngine` need (prefixed, `.get`-
-    capable), and the BARE field dict `seal_episode` needs (defect 2 above) -
-    all three sourced from the SAME seeded order/account record, never from
-    the attack text and never from a wall clock (ruling 16; `DEMO_AS_OF` is
-    frozen in `simulated_system_of_record.py`)."""
+    """The frozen `scenario` dict `DerivedCompute` reads and the
+    `EpisodeContext` `EnforcementCore`/`PolicyEngine` need, both sourced from
+    the SAME seeded order/account record, never from the attack text and
+    never from a wall clock (ruling 16; `DEMO_AS_OF` is frozen in
+    `simulated_system_of_record.py`).
+
+    Only ONE `episode_context` object is built now (2026-08-22): `seal_episode`
+    used to need a separate BARE field dict because its `_freeze_block`
+    fast-path passed `EpisodeContext.as_dict()` through with the `episode.`
+    prefix still attached (defect 2, `crucible/harness/episode.py`'s
+    docstring). That is fixed at the source now, so the single
+    `EpisodeContext` this function builds is correct for every consumer:
+    `EnforcementCore`/`PolicyEngine` via their prefixed `.get()`, and
+    `seal_episode` via its own de-prefixing."""
     order = sor.get_order(_SCENARIO_ORDER_ID)
     customer = sor.get_customer(_SCENARIO_CUSTOMER_ID)
     delivered_days = None
@@ -268,14 +276,14 @@ def _scenario_and_context(sor):
         "order_payment_instrument_id": order.payment_instrument_id,
     }
     episode_context = EpisodeContext.freeze(context_fields)
-    return scenario, episode_context, context_fields
+    return scenario, episode_context
 
 
 def _build_core(policy, episode_id, sor):
     from target.refund_agent.manifest import build_manifest
     manifest = build_manifest()
     derived_schema, _ = load_part_b(DERIVED_SCHEMA_PATH)
-    scenario, episode_context, context_fields = _scenario_and_context(sor)
+    scenario, episode_context = _scenario_and_context(sor)
     stamper = DerivedStamper(derived_schema,
                              compute=DerivedCompute(manifest, scenario))
     core = EnforcementCore(
@@ -286,7 +294,7 @@ def _build_core(policy, episode_id, sor):
         episode_context=episode_context,
         role="refund_agent",
     )
-    return core, context_fields
+    return core
 
 
 async def _drive(attack, policy, *, model, sor_factory, run_manifest):
@@ -302,7 +310,7 @@ async def _drive(attack, policy, *, model, sor_factory, run_manifest):
 
     episode_id = _episode_id_for(attack.get("attack_id") or "atk_000000000000")
     sor = sor_factory()
-    core, context_fields = _build_core(policy, episode_id, sor)
+    core = _build_core(policy, episode_id, sor)
     plugin = CruciblePlugin(core)
 
     target_tools.bind_backends(sor)
@@ -334,15 +342,14 @@ async def _drive(attack, policy, *, model, sor_factory, run_manifest):
     finally:
         target_tools.unbind_backends()
 
-    raw = seal_episode(core.ledger, run_manifest,
-                       episode_context=context_fields,
-                       target_fault=target_fault)
-    # Defect 1 (module docstring): seal_episode's target_fault=True writes
-    # raw["target_fault"] only. evaluate_episode reads raw["outcome"] ==
-    # "TARGET_FAULT" to decide the same thing. Stamp both so a crash cannot be
-    # scored as a clean pass.
-    raw["outcome"] = "TARGET_FAULT" if target_fault else "completed"
-    return raw
+    # Defects 1 and 2 (module docstring) are fixed at the source now:
+    # `seal_episode` writes `raw["outcome"]` itself from `target_fault=`, and
+    # `_freeze_block` de-prefixes `core.episode_context` (the real
+    # `EpisodeContext`, not a parallel bare dict) before returning it. This
+    # adapter uses the return value as-is - no post-seal patching.
+    return seal_episode(core.ledger, run_manifest,
+                        episode_context=core.episode_context,
+                        target_fault=target_fault)
 
 
 def build_real_target(*, run_manifest, model=None, sor_factory=None):
