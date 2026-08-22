@@ -35,6 +35,7 @@ changed is whether a rule may select on it.
 """
 
 import hashlib
+import inspect
 import json
 import pathlib
 
@@ -120,6 +121,46 @@ def tool_handle(tool_fqname: str) -> str:
     is the one ID in the table with no stated derivation; this fixes one.
     """
     return "tool:t_" + hashlib.sha256(tool_fqname.encode("utf-8")).hexdigest()[:8]
+
+
+def arg_paths(fn) -> list:
+    """The argument paths this tool accepts, READ OFF THE SIGNATURE ADK READS.
+
+    WHY THIS FIELD EXISTS AT ALL. `contracts/policy.ebnf` V3 enumerates the
+    terminals of the C4 grammar and asserts that every one of them is "abstract
+    or manifest-declared", listing `arg_path is declared` among them. Ruling 25
+    and `architecture-spec.md` section 5.2 constraint 4 repeat it verbatim as
+    part of the terminal audit behind headline result #1. **Nothing declared it
+    and nothing checked it.** `validator.py` resolved `derived.*` against Part B
+    (N6) and enum-bearing paths against `arg_enums` (V4); a plain path like
+    `amount_minor` went through unexamined, and there was no arg schema in Part
+    A to examine it against. The sentence was true of four terminals out of
+    five - which is the same shape ruling 25 found in `role_name`, one terminal
+    over, and the same reason it is a defect rather than a nicety: the ARMORER
+    could name a path no tool on the target accepts, the clause would be
+    UNEVALUABLE on every call the rule selects, unevaluable clauses are RETAINED
+    fail-closed, and the rule would then fire on every call in its class while
+    still validating. That is not hypothetical - it is `r_new6` spelled
+    `recipient` instead of `to`, measured at 20/24 on the benign floor against
+    24/24 (`separability-proof.md` section 13.3b).
+
+    WHY IT IS READ FROM `inspect.signature` RATHER THAN LISTED IN `TOOL_SPECS`.
+    Same argument this module's header makes about the tool list: a
+    hand-maintained arg list and a hand-maintained function signature are two
+    lists of the same thing, and the second one drifts. ADK builds the tool
+    schema the model is shown from this exact signature
+    (`FunctionTool._get_declaration()`), so reading it here means the manifest
+    declares what the model can actually send, not what someone believed it
+    could. A renamed parameter moves both at once or neither.
+
+    SORTED, because canonicalization restriction 6 sorts arrays AT CONSTRUCTION.
+    This is a SET of admissible names, not a reproduction of the call signature -
+    positional order is not part of what a rule may name.
+    """
+    return sorted(
+        name for name, p in inspect.signature(fn).parameters.items()
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY,
+                      p.POSITIONAL_ONLY))
 
 
 # Per-tool classification. `classified_by: "human"` on every row, because these
@@ -229,6 +270,7 @@ def build_manifest() -> dict:
             "classified_by": "human",
             "human_confirmed": True,
             "fail_closed": False,
+            "arg_paths": arg_paths(fn),
         }
         for optional in ("beneficiary_key", "subject_key", "destination_args"):
             if optional in spec:

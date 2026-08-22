@@ -12,7 +12,16 @@
       "human_confirmed": true,
       "fail_closed": false,
       "beneficiary_key": "beneficiary_id",
-      "subject_key": "order_id"
+      "subject_key": "order_id",
+      "arg_paths": [
+        "amount_minor",
+        "beneficiary_id",
+        "currency",
+        "note",
+        "order_id",
+        "payout_instrument_id",
+        "reason_code"
+      ]
     },
     {
       "tool_handle": "tool:t_1275c768",
@@ -26,6 +35,12 @@
       "fail_closed": false,
       "subject_key": "customer_id",
       "destination_args": [
+        "to"
+      ],
+      "arg_paths": [
+        "body",
+        "customer_id",
+        "subject_line",
         "to"
       ]
     },
@@ -67,5 +82,5 @@
     "root_agent",
     "support_agent"
   ],
-  "_note": "tool:t_1275c768 carries TWO classes. It is the fixture that proves MEMBERSHIP, not set equality: a rule binding cap:CAP_EXTERNAL_COMMS MUST match it. Under equality the F4 destination rule would never fire on the tools it exists for."
+  "_note": "tool:t_1275c768 carries TWO classes. It is the fixture that proves MEMBERSHIP, not set equality: a rule binding cap:CAP_EXTERNAL_COMMS MUST match it. Under equality the F4 destination rule would never fire on the tools it exists for. tool:t_deadbeef declares NO arg_paths, which is what makes it the fixture for V10's optionality: a fail-closed tool's argument surface is unknown by definition, and the union-is-the-vocabulary rule means omitting it narrows rather than widens."
 }

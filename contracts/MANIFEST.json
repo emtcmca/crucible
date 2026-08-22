@@ -49,8 +49,8 @@
     "C3": {
       "files": {
         "capability_manifest.schema.json": {
-          "sha256": "86f59271ae4f5b1078c2972f9be9c01e04b008a9212769f0408451e0e610f3e3",
-          "bytes": 9126,
+          "sha256": "04ef927d61e3b46fd6ec82b2bd7a14f8604184785a7810b9e0aa60859edb637e",
+          "bytes": 11027,
           "freezes": "D3_with_target"
         },
         "derived_schema.schema.json": {
@@ -69,8 +69,8 @@
     "C4": {
       "files": {
         "policy.ebnf": {
-          "sha256": "503c209ad98f71554f19a32f19226eee5e433a04d1c43fe38659bfc9ba54828d",
-          "bytes": 17740
+          "sha256": "367408ed32a39edf3d26a2b7afbc4f8fbac39466d126dc4f17446fdc30d538fa",
+          "bytes": 19896
         },
         "policy_document.schema.json": {
           "sha256": "cb7a133b9768cc9362a93342ea8f491b99ce2fb1411d0cad7ca3ea0fe71d6681",

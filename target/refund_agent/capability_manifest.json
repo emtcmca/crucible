@@ -11,6 +11,9 @@
       "classified_by": "human",
       "human_confirmed": true,
       "fail_closed": false,
+      "arg_paths": [
+        "order_id"
+      ],
       "subject_key": "order_id"
     },
     {
@@ -22,6 +25,9 @@
       "classified_by": "human",
       "human_confirmed": true,
       "fail_closed": false,
+      "arg_paths": [
+        "customer_id"
+      ],
       "subject_key": "customer_id"
     },
     {
@@ -34,6 +40,15 @@
       "classified_by": "human",
       "human_confirmed": true,
       "fail_closed": false,
+      "arg_paths": [
+        "amount_minor",
+        "beneficiary_id",
+        "currency",
+        "note",
+        "order_id",
+        "payout_instrument_id",
+        "reason_code"
+      ],
       "beneficiary_key": "beneficiary_id",
       "subject_key": "order_id",
       "destination_args": [
@@ -50,6 +65,13 @@
       "classified_by": "human",
       "human_confirmed": true,
       "fail_closed": false,
+      "arg_paths": [
+        "account_id",
+        "amount_minor",
+        "currency",
+        "note",
+        "reason_code"
+      ],
       "beneficiary_key": "account_id",
       "subject_key": "account_id"
     },
@@ -63,6 +85,13 @@
       "classified_by": "human",
       "human_confirmed": true,
       "fail_closed": false,
+      "arg_paths": [
+        "currency",
+        "note",
+        "order_id",
+        "queue",
+        "recommended_amount_minor"
+      ],
       "subject_key": "order_id",
       "destination_args": [
         "queue"
@@ -78,6 +107,12 @@
       "classified_by": "human",
       "human_confirmed": true,
       "fail_closed": false,
+      "arg_paths": [
+        "body",
+        "customer_id",
+        "subject_line",
+        "to"
+      ],
       "subject_key": "customer_id",
       "destination_args": [
         "to"
@@ -92,6 +127,11 @@
       "classified_by": "human",
       "human_confirmed": true,
       "fail_closed": false,
+      "arg_paths": [
+        "case_id",
+        "note",
+        "status_to"
+      ],
       "subject_key": "case_id"
     },
     {
@@ -104,6 +144,12 @@
       "classified_by": "human",
       "human_confirmed": true,
       "fail_closed": false,
+      "arg_paths": [
+        "case_id",
+        "context_note",
+        "order_id",
+        "specialist_agent"
+      ],
       "subject_key": "order_id",
       "destination_args": [
         "specialist_agent"

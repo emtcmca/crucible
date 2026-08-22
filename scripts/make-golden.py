@@ -109,6 +109,15 @@ F["C3a-capability_manifest.valid.json"] = {
             "fail_closed": False,
             "beneficiary_key": "beneficiary_id",
             "subject_key": "order_id",
+            # `payout_instrument_id` IS IN THIS LIST BECAUSE THE RULE WAS RIGHT
+            # AND THE FIRST DRAFT OF THE DECLARATION WAS WRONG. It was omitted,
+            # and `tests/test_dsl_is_present.py` - which uses exactly the example
+            # `policy.ebnf` uses to explain `is present` - went red. A rule that
+            # stops validating is either a real find or an incomplete
+            # declaration; this one was the declaration. The running target's
+            # `issue_refund` takes it, and the fixture models that tool.
+            "arg_paths": ["amount_minor", "beneficiary_id", "currency", "note",
+                          "order_id", "payout_instrument_id", "reason_code"],
         },
         {
             "tool_handle": "tool:t_1275c768",
@@ -119,6 +128,7 @@ F["C3a-capability_manifest.valid.json"] = {
             "fail_closed": False,
             "subject_key": "customer_id",
             "destination_args": ["to"],
+            "arg_paths": ["body", "customer_id", "subject_line", "to"],
         },
         {
             "tool_handle": "tool:t_deadbeef",
@@ -129,6 +139,14 @@ F["C3a-capability_manifest.valid.json"] = {
             ],
             "classified_by": "fail_closed_default",
             "fail_closed": True,
+            # NO `arg_paths`, ON PURPOSE, and this is the fixture that proves the
+            # field is optional. Fail-closed means WE DO NOT KNOW WHAT THIS TOOL
+            # DOES; we do not know its argument surface either, and demanding one
+            # would force an author to INVENT a mapping - the same argument the
+            # schema already makes for `beneficiary_key`. The compensating control
+            # is that it carries all six classes, and that C4's validator treats
+            # the UNION of the declarations as the whole vocabulary, so an omitted
+            # declaration NARROWS what a rule may name rather than widening it.
         },
     ],
     "arg_enums": {
@@ -137,7 +155,7 @@ F["C3a-capability_manifest.valid.json"] = {
         "derived.approval_tier": ["NONE", "T0", "T1", "T2", "T3", "T4"],
     },
     "role_names": ["root_agent", "support_agent"],
-    "_note": "tool:t_1275c768 carries TWO classes. It is the fixture that proves MEMBERSHIP, not set equality: a rule binding cap:CAP_EXTERNAL_COMMS MUST match it. Under equality the F4 destination rule would never fire on the tools it exists for.",
+    "_note": "tool:t_1275c768 carries TWO classes. It is the fixture that proves MEMBERSHIP, not set equality: a rule binding cap:CAP_EXTERNAL_COMMS MUST match it. Under equality the F4 destination rule would never fire on the tools it exists for. tool:t_deadbeef declares NO arg_paths, which is what makes it the fixture for V10's optionality: a fail-closed tool's argument surface is unknown by definition, and the union-is-the-vocabulary rule means omitting it narrows rather than widens.",
 }
 
 F["C3a-capability_manifest.KNOWN_BAD.json"] = {

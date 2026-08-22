@@ -87,6 +87,15 @@
               "type": "string"
             },
             "$comment": "Destination-bearing arguments. DECLARED SCALAR, NEVER LISTS. A list makes the arg-to-episode-context comparison TYPE-AMBIGUOUS AND SILENTLY UNENFORCEABLE, which would disable the F4 destination rule without any check noticing."
+          },
+          "arg_paths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "$comment": "EVERY ARGUMENT PATH THIS TOOL ACCEPTS. Added 2026-08-22 because policy.ebnf V3 ALREADY ASSERTED IT - 'arg_path is declared' is one of the five terminals in the audit behind headline result #1 (ruling 25, architecture-spec.md 5.2 constraint 4) - and nothing declared it, so nothing could check it. C4's validator resolved derived.* against Part B (N6) and enum-bearing paths against arg_enums (V4); a plain path like amount_minor was checked against nothing. THE DAMAGE IS FAIL-CLOSED AND SILENT: a rule naming a path no tool accepts has an UNEVALUABLE clause on every call it selects, an unevaluable clause is RETAINED, and the rule then fires on every call in its class while still validating. Measured instance: r_new6 spelled `recipient` instead of `to` scored 20/24 on the benign floor against 24/24 (separability-proof.md 13.3b). Read off the function signature ADK itself reads (FunctionTool._get_declaration), never hand-listed, so a renamed parameter moves the tool and the manifest together or neither. SORTED at construction (canonicalization restriction 6): this is a SET of admissible names, not a reproduction of positional order. NOT REQUIRED BY THIS SCHEMA, for the same reason beneficiary_key is not required of a fail_closed tool - an unrecognized tool's argument surface may genuinely be unknown, and forcing an author to INVENT one is worse than the gap. The gap is not silent: C4's validator treats the UNION of these declarations as the WHOLE admissible arg-path vocabulary, so a manifest declaring none admits none and refuses every rule, loudly and immediately. The D3 completeness check requires it of every tool on the running target."
           }
         },
         "allOf": [

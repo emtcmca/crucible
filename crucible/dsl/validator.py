@@ -29,8 +29,33 @@ The checks, and what each one is actually defending:
   V7  Zero rule bodies contain an >=8-token substring of any corpus payload.
   V8  The resulting rule set evaluates TOTAL on a synthetic call-shape sweep.
   V9  On add_rule, a hash-shaped rule_id is REJECTED.
+  V10 Every plain `arg_path` is one that some tool in Part A DECLARES.
   N3  A policy DOCUMENT containing `match_mode` at any depth is rejected.
   N6  A rule naming a `derived.*` path Part B does not declare is rejected.
+  N8  A rule naming an arg_path no tool declares is rejected.
+
+V10 IS THE ONE ADDED 2026-08-22, AND IT WAS ADDED BECAUSE THE CONTRACT ALREADY
+CLAIMED IT. `policy.ebnf` V3 audits the terminals of this grammar and asserts
+that every one is "abstract or manifest-declared", listing `arg_path is
+declared` among the five. CONVENTIONS ruling 25 and `architecture-spec.md`
+section 5.2 constraint 4 repeat the sentence verbatim, and it is part of the
+terminal audit behind headline result #1. **Four of the five terminals were
+enforced and this one was not**: `derived.*` resolved against Part B (N6),
+enum-bearing paths against `arg_enums` (V4), tool handles against the manifest
+(V5), cap classes against the six - and a plain path like `amount_minor` was
+checked against nothing, because Part A carried NO ARG SCHEMA to check it
+against. Same shape ruling 25 found in `role_name`, one terminal over.
+
+WHAT THE GAP COSTS, WHICH IS NOT "A RULE THAT DOES NOTHING". An unevaluable
+clause is RETAINED, fail-closed (`architecture-spec.md` 5.3). So a rule naming a
+path no tool accepts does not silently never fire - IT FIRES ON EVERY CALL IN
+ITS CLASS, while validating cleanly. That is measured, not hypothetical:
+`r_new6` spelled `recipient` instead of `to` - an argument of no tool on this
+target - scored **20/24** on the benign floor against **24/24** spelled `to`
+(`separability-proof.md` 13.3b, `architecture-spec.md` 5.2). Before V10 the
+product lexicon was the ONLY constraint on arg-path vocabulary, and it does not
+constrain it at all: it harvests tool LEAF NAMES and descriptions, so `recipient`
+is admissible under it and always was.
 
 ONE REFUSAL AT A TIME, AND THE ORDER MATTERS. `policy.ebnf` gives the ARMORER
 exactly one repair attempt with the error as its sole feedback, so a list of
@@ -38,6 +63,28 @@ twelve simultaneous complaints is not feedback. The order is chosen so the most
 specific diagnosis wins: an undeclared `derived.*` path is reported as such
 rather than as "undeclared enum for that path", which is what a naive ordering
 would say and which would send the repair after the wrong half of the line.
+**V10 RUNS AFTER N6 AND V3, AND BEFORE V4.** Three placements, three reasons:
+
+  * After N6, so `derived.made_up` is diagnosed as an undeclared DERIVED field
+    rather than as an undeclared argument. The reserved prefix is the more
+    specific fact about the same name.
+  * **After V3, and this one is not obvious. V10 would otherwise SWALLOW V3
+    almost entirely**: a product tool name is never also an argument name, so
+    `issue_refund >= 1` is refused by both, and if V10 went first the
+    `E_PRODUCT_IDENTIFIER` refusal - the gate that carries ruling 25's
+    abstraction claim, the one a judge would ask to see fire - would become
+    nearly unreachable in practice. A check that exists and never speaks is not
+    the check anyone thinks it is.
+  * Before V4, because when a rule writes `some_other_path == DEFECTIVE` two
+    things are wrong and only one is the cause: the path names no argument of
+    any tool, and *therefore* no enum is declared at it. Telling the ARMORER
+    "no enum is declared there" invites the repair `some_other_path > 5`, which
+    is refused again for a different reason - and a second failure is
+    `HALT_HUMAN(ARMORER_EXHAUSTED)`, not a third try.
+
+V3 MOVED UP TO SIT ABOVE V4 AT THE SAME TIME, and that is a behaviour change on
+its own: a rule carrying both a product noun and a bad enum now reports the
+product noun. Same argument - it is the refusal with the larger claim attached.
 """
 
 import json
@@ -263,6 +310,28 @@ class Validator:
         self.tool_handles = frozenset(
             t["tool_handle"] for t in manifest_a.get("tools", []))
         self.arg_enums = manifest_a.get("arg_enums", {}) or {}
+        # V10. The UNION over every tool's declaration, and the union is the
+        # WHOLE admissible arg-path vocabulary. Deliberately not scoped to the
+        # rule's selected capability class: a rule binds to a class, and the
+        # tools carrying that class are whatever the target exposes today plus
+        # whatever it exposes after the rule was written. Scoping the vocabulary
+        # to today's members would make a rule's admissibility a function of the
+        # current tool surface, which is the lookup-versus-boundary distinction
+        # ruling 25 decided in the other direction. The stronger class-scoped
+        # form is a real option and is left to a coordinator ruling, not taken
+        # here.
+        #
+        # NO EMPTINESS ESCAPE. `check_context_fields` and `check_product_lexicon`
+        # both skip when their declaration is empty, which is defensible for a
+        # backstop and indefensible for a vocabulary: a manifest that declares no
+        # arg_paths would switch V10 off in silence, which is the shape
+        # `UNCLASSIFIED` already has one layer down (a missed tool-handle lookup
+        # turns the policy off without the completeness check being able to see
+        # it). Declaring none therefore ADMITS none, and every rule with a `when`
+        # clause is refused loudly on the first call.
+        self.declared_arg_paths = frozenset(
+            p for t in manifest_a.get("tools", [])
+            for p in (t.get("arg_paths") or ()))
         self.declared_derived = frozenset(
             f["name"] for f in derived_schema_b.get("derived_fields", []))
         self.declared_episode = frozenset(
@@ -346,6 +415,47 @@ class Validator:
                     "only ever appear on the RIGHT of a comparison against an "
                     "argument of the pending call, never on the left and never "
                     "against a literal." % path, parsed.line)
+
+    def check_arg_paths(self, parsed):
+        """V10 / N8. Every plain `arg_path` is one some tool in Part A declares.
+
+        `derived.*` and `episode.*` are handled by `check_derived_paths`, which
+        runs first and owns both reserved prefixes; anything reaching here is a
+        bare argument name and resolves against the tool signatures.
+
+        WHY THIS IS A REFUSAL AND NOT A WARNING. A clause naming an argument the
+        pending call does not carry is UNEVALUABLE, and an unevaluable clause is
+        RETAINED - fail closed (`architecture-spec.md` 5.3). A rule whose `when`
+        can never be evaluated therefore does not sit inert; it fires on EVERY
+        call in its capability class. `r_new6` spelled `recipient` rather than
+        `to` measured 20/24 on the benign floor against 24/24 spelled correctly
+        (`separability-proof.md` 13.3b). One misspelled argument is worth four
+        benign fixtures, and nothing before this check could see it: the product
+        lexicon harvests tool leaf names, so `recipient` was admissible under
+        V3 and always would have been.
+
+        THE ERROR NAMES THE ALTERNATIVES. The ARMORER gets ONE repair attempt
+        with this string as its sole feedback, and the whole defect class here is
+        a near-miss on a name - so a message that says only "no" spends the
+        attempt. The declared set is not product vocabulary the ARMORER may not
+        see: it is already in the manifest projection it was handed, under
+        `arg_paths` on each handle.
+        """
+        for path in self._paths(parsed):
+            if path.startswith(DERIVED_PREFIX) or path.startswith(EPISODE_PREFIX):
+                continue
+            if path not in self.declared_arg_paths:
+                raise ValidationError(
+                    "E_UNDECLARED_ARG_PATH",
+                    "%r is not an argument of any tool in the capability "
+                    "manifest. A clause naming an argument no call can carry is "
+                    "UNEVALUABLE, unevaluable clauses are RETAINED fail-closed, "
+                    "and the rule would then fire on EVERY call in its class "
+                    "while validating cleanly. The declared paths are: %s"
+                    % (path, ", ".join(sorted(self.declared_arg_paths)) or
+                       "(none - this manifest declares no arg_paths at all, so "
+                       "no argument name is admissible)"),
+                    parsed.line)
 
     def check_context_fields(self, parsed):
         """The three `episode.*` bindings are Part B's too."""
@@ -477,10 +587,11 @@ class Validator:
             self.check_rule_id(parsed)
         self.check_selector(parsed)
         self.check_tool_handles(parsed)
-        self.check_derived_paths(parsed)      # before check_enums, see the
-        self.check_context_fields(parsed)     # module docstring on ordering
-        self.check_enums(parsed)
-        self.check_product_lexicon(parsed)
+        self.check_derived_paths(parsed)      # ORDER IS LOAD-BEARING. See the
+        self.check_context_fields(parsed)     # module docstring: reserved
+        self.check_product_lexicon(parsed)    # prefixes, then product nouns,
+        self.check_arg_paths(parsed)          # then the plain path, then the
+        self.check_enums(parsed)              # symbol declared at it.
         self.check_payload_substring(parsed)
         return compile_rule(parsed)
 
