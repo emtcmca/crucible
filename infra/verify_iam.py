@@ -30,8 +30,21 @@ import re
 import subprocess
 import sys
 
-if hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
+def _force_utf8_stdout():
+    """Windows consoles die on the non-ASCII this file prints.
+
+    MOVED OUT OF MODULE SCOPE 2026-08-22 and into `main()`. It used to run on
+    import, which was harmless while this file was only ever a CLI and became a
+    hazard the moment its predicates were imported:
+    `crucible/conductor/real_gate.py` reuses them rather than restating them,
+    and rebinding `sys.stdout` as a side effect of an import reaches into
+    whatever already wrapped it - pytest's capture, most obviously. Behaviour on
+    the command line is unchanged; `main()` calls this first.
+    """
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8",
+                                      errors="replace")
 
 # --------------------------------------------------------------------------
 # Names. Sourced from scripts/gcp-env.sh, never retyped -- G7 and G8 grep these
@@ -246,6 +259,34 @@ def check_retention_present_and_unlocked(bucket_meta, name):
     return None
 
 
+def check_versioning_on(bucket_meta, name):
+    """G8's fourth assertion, which nothing in this file checked until
+    2026-08-22: "bucket retention policy (14d) EXISTS and object versioning is
+    ON" (`contracts/gate_rule.v1.yaml` G8, `measurement-spec.md`:891).
+
+    Retention was covered; versioning was not. The two are the belt and the
+    braces of the same claim - `data-spec.md`:1031 calls them "belt-and-suspenders"
+    for "a promoted version is immutable" - and half a belt-and-braces claim,
+    silently, is worse than knowing you only have one.
+
+    Same MISSING discipline as `check_ubla_and_pap`: a key absent from BOTH the
+    JSON-API shape and the gcloud shape means this gate did not inspect the
+    setting, and that is not a pass.
+    """
+    v = _pick(bucket_meta, "versioning.enabled", "versioning_enabled")
+    if v is MISSING:
+        return ("%s: UNEVALUABLE - no versioning field in either the JSON-API "
+                "(`versioning.enabled`) or the gcloud (`versioning_enabled`) "
+                "shape. This gate did not inspect the setting and must not be "
+                "read as a pass" % name)
+    if not v:
+        return ("%s: object versioning is OFF. With objectCreator-only the "
+                "promoter cannot overwrite a version, but versioning is the "
+                "half of that claim that survives a role being widened later"
+                % name)
+    return None
+
+
 def check_ubla_and_pap(bucket_meta, name):
     """UBLA off means an object ACL is a second grant path the get-iam-policy
     grep cannot see -- the check passes while the boundary leaks."""
@@ -350,6 +391,15 @@ def selftest():
              {"retentionPolicy": {"retentionPeriod": "1209600",
                                   "isLocked": True}}, "b"), True)
 
+    case("versioning / PASSES on the JSON-API shape",
+         check_versioning_on({"versioning": {"enabled": True}}, "b"), False)
+    case("versioning / PASSES on the gcloud snake_case shape",
+         check_versioning_on({"versioning_enabled": True}, "b"), False)
+    case("versioning / FAILS when OFF",
+         check_versioning_on({"versioning": {"enabled": False}}, "b"), True)
+    case("versioning / FAILS as UNEVALUABLE when NEITHER shape is present",
+         check_versioning_on({"someOtherApiVersion": {}}, "b"), True)
+
     good_cfg = {"iamConfiguration": {
         "uniformBucketLevelAccess": {"enabled": True},
         "publicAccessPrevention": "enforced"}}
@@ -449,8 +499,11 @@ def run_live(repo_root, as_json):
         check_no_basic_roles(proj_pol, all_sas))
     add("G7", "armorer holds no project-level storage/bigquery role",
         check_no_storage_or_bq_at_project(proj_pol, armorer))
+    policies_meta = meta(policies)
     add("G8", "policies retention exists and is NOT locked",
-        check_retention_present_and_unlocked(meta(policies), policies))
+        check_retention_present_and_unlocked(policies_meta, policies))
+    add("G8", "policies object versioning is ON",
+        check_versioning_on(policies_meta, policies))
     for b in (policies, sealed, evidence):
         add("G7/G8", "UBLA on and PAP enforced: %s" % b, check_ubla_and_pap(meta(b), b))
 
@@ -472,6 +525,7 @@ def run_live(repo_root, as_json):
 
 
 def main():
+    _force_utf8_stdout()
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--json", action="store_true")
