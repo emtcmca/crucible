@@ -3,8 +3,8 @@
   "_why": "The claim is that the suite every number is measured against existed, complete and unchangeable, BEFORE the first patch was written. That claim is about a moment, so the record names the commit and its timestamp rather than only the hash.",
   "_hash_covers": "sha256 over the JCS canonical bytes of each covered file, assembled with its repo-relative path into one payload and hashed again. Covered: corpus/training/*.json, fixtures/benign/*.json, corpus/pairs.json, corpus/F4-MANIFEST.json, and the `fingerprint` field of docs/proof/sealed-family-commitment.json. The coverage decision and its citations live in corpus/freeze.py.",
   "_hash_does_not_cover": "The nine known-bad calibration fixtures (their digests are below, outside the hash - KB5 carries a rate and KB6/KB8 an explicit null, and canonicalization restrictions 4 and 5 forbid both in a hashed payload; editing a calibration fixture so a hash will accept it is weakening a gate to fit a check). Also out: capability manifest Part A (manifest_hash, D3), derived_schema.json (derived_schema_hash, D5), and every .py and .md under corpus/.",
-  "corpus_hash": "c5d257debce3b5f2",
-  "corpus_hash_full": "c5d257debce3b5f2e86b4ccb13f1e549eaea9e7e7366083f6af2546775b63dce",
+  "corpus_hash": "65facdf27fba51c4",
+  "corpus_hash_full": "65facdf27fba51c49f9ba86046a293f9a4eaa659be927b3beb99844f8b0d1828",
   "covered_files_total": 78,
   "counts": {
     "training": 50,
@@ -16,7 +16,7 @@
   "references": {
     "_why": "execution-spec D5 item 3: the corpus is hashed and committed 'referencing the frozen target hash and the gate rule hash'. These are REFERENCED, not hashed into the payload - a corpus_hash that moved when the target was re-frozen would stop being a function of the corpus. The reference is load-bearing because this script REFUSES when either prior record is absent.",
     "gate_rule_hash": "cff9f52929397efb",
-    "target_agent_hash": "2434172103377704",
+    "target_agent_hash": "1505f182a87d7f5b",
     "manifest_hash": "8cf2cad84008bde2"
   },
   "sealed_family": {
@@ -47,6 +47,14 @@
       "KB9": "d1e2313c13a80f30f248429a6e9741abb8b909fcfd36c140e4ec6bfcceddba12"
     }
   },
-  "head_commit": "22a4eead0ba8cae6e71b02889be7a1fc05873692",
-  "training_committed_at": "2026-08-22T21:19:10-04:00"
+  "head_commit": "f778a94017ee99ede40033f34c18e85239112892",
+  "training_committed_at": "2026-08-21T01:12:08-04:00",
+  "_superseded": {
+    "on": "2026-08-22",
+    "by": "docs/proof/d5-corpus-freeze.json, re-taken the same day",
+    "ruling": "CONVENTIONS ruling 47, SPINE_VERSION 16",
+    "new_corpus_hash": "c5d257debce3b5f2",
+    "what_it_invalidates": "NOTHING. No number was ever measured against this corpus. The only live loop run attacked with six hand-authored literals in campaign.py; the campaign did not read corpus/training/ until 2026-08-22, and every offline run is non-quotable by construction.",
+    "why_this_file_still_exists": "A superseded lock is evidence, not litter. The freeze script refuses to re-run over a record naming a different hash, and that refusal is the guard working. Deleting the record it guards would leave nothing to show that a lock was taken, held, and deliberately broken - which is the only reason the new one can be trusted."
+  }
 }
