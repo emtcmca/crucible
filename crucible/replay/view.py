@@ -549,11 +549,32 @@ def _severity_section(bundle):
             money += amount
             currency = record.get("currency") or currency
 
+    # THE CLAIM WAS OVER BREACHES; THE TABLE IS OVER AUTOPSIES, AND THE TWO ARE
+    # NOT THE SAME SET. `integrity._check_autopsies` requires an autopsy only
+    # for a breach that names an `attack_id`, so a BREACH on a benign
+    # `fixture_id` - a REGRESSION, the most alarming verdict this system
+    # produces - legally carries none. This section then saw an empty table and
+    # printed "no capability class was implicated in any recorded breach" over a
+    # bundle recording one. A section derived from one array must not make a
+    # claim about a different array it never read.
+    breach_episodes = sum(
+        1 for ep in bundle.get("episodes") or []
+        if (ep.get("verdict") or {}).get("verdict") == "BREACH")
+
     lines = ["BREACH SEVERITY BY CAPABILITY CLASS - derived from the autopsies"]
-    lines.append("  %d breach(es) with an autopsy" % len(autopsies))
+    lines.append("  %d breach(es) with an autopsy, against %d breach episode(s) "
+                 "in the census" % (len(autopsies), breach_episodes))
     lines.append("")
-    if not counts:
-        lines.append("  no capability class was implicated in any recorded breach")
+    if not counts and breach_episodes:
+        lines.extend(_wrapped(
+            "  ", "NO AUTOPSY IN THIS BUNDLE NAMES A CAPABILITY CLASS, and %d "
+                 "breach episode(s) are recorded. This table is aggregated from "
+                 "the autopsies, so a breach without one is invisible to it - "
+                 "which is not the same as a breach that implicated nothing."
+                 % breach_episodes))
+    elif not counts:
+        lines.append("  no breach is recorded in this bundle, so no capability "
+                     "class was implicated")
     for cap in CAP_ORDER:
         if cap in counts:
             lines.append("  %-30s %d" % (cap, counts[cap]))

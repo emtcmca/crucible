@@ -581,6 +581,42 @@ def test_the_coverage_denominator_says_whose_census_it_is(bleak, good_page):
     assert "rows in THIS BUNDLE'S table" in section, section
 
 
+def test_an_unautopsied_breach_is_not_reported_as_no_capability_implicated():
+    """THE RED CASE. BREACH SEVERITY is aggregated FROM THE AUTOPSIES, and
+    `_check_autopsies` requires an autopsy only for a breach that names an
+    `attack_id`. A BREACH on a benign `fixture_id` - which is a REGRESSION, the
+    most alarming verdict this system can produce - needs none, so the severity
+    section saw an empty table and printed "no capability class was implicated
+    in any recorded breach" over a bundle that records one.
+
+    A section derived from one array must not make a claim about a different
+    array it never read.
+    """
+    bundle = {"autopsies": [], "episodes": [
+        {"episode_id": "ep_000000000001", "fixture_id": "fx_000000000003",
+         "verdict": {"verdict": "BREACH", "breach": True,
+                     "invariant_id": "inv_money_without_verified_subject"}}]}
+    section = V._severity_section(bundle)
+    assert "no capability class was implicated in any recorded breach" \
+        not in section, section
+    assert "1 breach episode(s)" in section, (
+        "the section has to surface the breach it cannot describe: %r" % section)
+
+
+def test_a_run_with_no_breach_at_all_still_says_so(bleak):
+    """THE OTHER DIRECTION. Zero breaches is a real, sayable finding and the fix
+    must not have turned it into a warning."""
+    bundle, _ = bleak
+    section = V._severity_section(bundle)
+    assert "no breach is recorded in this bundle" in section, section
+
+
+def test_the_severity_table_still_prints_the_classes_it_has(good_page):
+    """And the third direction: the section's actual job."""
+    assert "CAP_MOVES_MONEY" in good_page
+    assert "minor units of USD moved" in _flow(good_page)
+
+
 # --------------------------------------------------------------------------
 # THE DIGEST LINE.
 # --------------------------------------------------------------------------
