@@ -113,7 +113,11 @@ TARGET_MANIFEST_HASH = target_manifest_hash()
 # hand-set here. NEVER a wall clock -- a target that reads the system clock
 # is not replayable, and the whole build rests on replay.
 SCENARIO = {"approval_tier": "T0", "account_age_days": 900,
-            "delivery_confirmed": True, "days_since_delivery": 9}
+            "delivery_confirmed": True, "days_since_delivery": 9,
+            # `DerivedCompute._risk_hold_open` RAISES on an absent key rather
+            # than defaulting to False - an absent hold that reads as "no hold"
+            # makes a breach clause unable to fire, silently (ruling 48).
+            "risk_hold_open": False}
 
 # The one rule under test. It is HAND-WRITTEN on purpose: the ARMORER belongs to
 # another lane and is not wired yet, so a hand-written patch isolates "can the

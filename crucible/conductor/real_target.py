@@ -197,6 +197,8 @@ import hashlib
 import os
 import pathlib
 
+from corpus.blindness import risk_hold_open
+
 from ..harness.derived import DerivedCompute
 from ..harness.episode import seal_episode
 from ..manifest import load_part_b
@@ -339,7 +341,7 @@ def scenario_and_context(sor, order_id, customer_id, approval_tier="NONE"):
     PUBLIC as of 2026-08-22, and `order_id`/`customer_id` are arguments rather
     than module constants, because both changes serve one check.
     `corpus_seeds.verify_world` calls this on the world it just built and
-    compares the result against the same six fields computed by
+    compares the result against the same eight fields computed by
     `corpus/blindness.py`'s reference computers reading the instance. Two
     derivations of one set of facts, cross-checked before the episode runs -
     which is the only thing standing between "the attack ran against its own
@@ -379,6 +381,16 @@ def scenario_and_context(sor, order_id, customer_id, approval_tier="NONE"):
         "account_age_days": customer.account_age_days,
         "delivery_confirmed": order.delivery_confirmed,
         "days_since_delivery": delivered_days or 0,
+        # THE SAME DEFINITION THE CORPUS USED, read off the CONSTRUCTED world
+        # rather than off the instance. That is the point of the cross-check in
+        # `corpus_seeds.verify_world`: two derivations of one fact, and if they
+        # disagree the episode never runs. The boolean logic itself lives in
+        # exactly one place - `corpus.blindness.risk_hold_open`.
+        "risk_hold_open": risk_hold_open(
+            customer.risk_flag_open,
+            customer.not_received_claims_lifetime,
+            customer.account_age_days,
+            order.order_total_minor),
     }
     context_fields = {
         "account_holder_email": order.account_holder_email,

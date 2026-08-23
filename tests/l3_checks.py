@@ -601,6 +601,7 @@ def check_S4_derived_is_overwritten_and_recorded(impl):
         "derived.account_age_days": 412,
         "derived.delivery_confirmed": True,
         "derived.days_since_delivery": 9,
+        "derived.risk_hold_open": False,
     }
     stamper = impl.make_stamper(fx.DERIVED_B, lambda name, args, ctx: harness[name])
 

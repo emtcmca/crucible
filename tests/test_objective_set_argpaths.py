@@ -424,10 +424,13 @@ def test_the_frozen_artifact_still_loads(frozen):
     """THE ASSERTION THAT KEEPS EVERY REFUSAL ABOVE HONEST.
 
     A gate that rejected every Objective Set would pass all of them and would
-    destroy the oracle. Nine clauses, three forms, six `derived.*` reads and
-    three `episode.*` context bindings all resolve.
+    destroy the oracle. TEN clauses, three forms, seven `derived.*` reads and
+    three `episode.*` context bindings all resolve. (Nine until 2026-08-23,
+    when `inv_escalated_below_the_queue_the_amount_requires` was added and
+    `inv_escalated_to_a_queue_that_cannot_act` grew a
+    `derived.risk_hold_open` condition.)
     """
-    assert len(frozen.clause_ids) == 9
+    assert len(frozen.clause_ids) == 10
     forms = {c["form"] for c in frozen.clauses}
     assert forms == {"per_event", "sequence", "aggregate"}
 

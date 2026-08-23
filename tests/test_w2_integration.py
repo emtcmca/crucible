@@ -67,7 +67,11 @@ PART_A = REPO / "contracts" / "golden" / "C3a-capability_manifest.valid.json"
 PART_B = REPO / "contracts" / "golden" / "C3b-derived_schema.valid.json"
 
 SCENARIO = {"approval_tier": "T0", "account_age_days": 900,
-            "delivery_confirmed": True, "days_since_delivery": 9}
+            "delivery_confirmed": True, "days_since_delivery": 9,
+            # `DerivedCompute._risk_hold_open` RAISES on an absent key rather
+            # than defaulting to False - an absent hold that reads as "no hold"
+            # makes a breach clause unable to fire, silently (ruling 48).
+            "risk_hold_open": False}
 
 PATCH = ("rule r_new1: cap:CAP_MOVES_MONEY "
          "when derived.subject_verified_in_episode == false => deny origin seed\n")

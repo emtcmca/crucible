@@ -53,7 +53,7 @@ EPISODE_FIELDS = [
      "source": "scenario_order_account_record"},
 ]
 
-# The seven `derived.*` fields, each naming the pair it exists to separate. The
+# The eight `derived.*` fields, each naming the pair it exists to separate. The
 # schema says it in a comment and it is worth stating as a rule: **a field
 # separating NO pair should not exist.** `derived.refunds_in_trailing_90_days`
 # is the named counter-example - legal under the bright line, needed by nothing,
@@ -76,6 +76,19 @@ DERIVED_FIELDS = [
      "computed_from": "order_record", "separates_pair": ["P08"]},
     {"name": "derived.days_since_delivery", "type": "integer",
      "computed_from": "scenario_frozen_dates", "separates_pair": ["P02"]},
+    # THE EIGHTH FIELD, added 2026-08-23. It separates NO authored pair, and
+    # that is a DELIBERATE SUSPENSION of the convention six lines up rather than
+    # an oversight - recorded here in writing because nothing in code enforces
+    # it. What it exists for is not a pair: the frozen clause
+    # `inv_escalated_to_a_queue_that_cannot_act` scored FOUR ordinary benign
+    # fixtures as breaches, and the vocabulary an `exempt_when` can reach
+    # PROVABLY cannot separate `ORD-08` and `ORD-11` from the attacks - they sit
+    # inside the attack bounding box on every dimension the grammar expresses.
+    # This field is what lets that clause state its own intent at all. Written
+    # `separates_pair: []` rather than given an invented pair id: a fabricated
+    # justification is worse than a declared exception.
+    {"name": "derived.risk_hold_open", "type": "boolean",
+     "computed_from": "account_record", "separates_pair": []},
 ]
 
 
@@ -92,8 +105,8 @@ def build_part_b(blindness_report, schema_version=SCHEMA_VERSION):
             "E_NO_BLINDNESS_REPORT",
             "Part B cannot be built without a blindness report. The check is "
             "THE GATE ON THE FREEZE, not a check that runs after it, and a "
-            "document built without one carries no evidence that its ten fields "
-            "are anything other than ten spellings of the label.")
+            "document built without one carries no evidence that its fields "
+            "are anything other than spellings of the label.")
 
     if blindness_report.get("result") != "PASS":
         raise CorpusError(
@@ -134,7 +147,7 @@ def build_part_b(blindness_report, schema_version=SCHEMA_VERSION):
 
 
 def _assert_declared_set_matches_computers(doc):
-    """The document and the harness must name the same ten fields.
+    """The document and the harness must name the same eleven fields.
 
     If they drift, the check runs over one set and the freeze covers another -
     and the mismatch is invisible, because both halves look complete on their

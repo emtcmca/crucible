@@ -124,10 +124,12 @@ def test_a_corpus_without_a_planted_leak_passes():
 
 def test_every_declared_field_is_actually_computed():
     """A field the harness silently skips is a field that cannot be caught
-    leaking. Ten fields are declared in Part B; ten must appear in the report."""
+    leaking. ELEVEN fields are declared in Part B - three `episode.*` and eight
+    `derived.*` - and eleven must appear in the report. (Ten until 2026-08-23,
+    when `derived.risk_hold_open` became the eighth derived field.)"""
     report = run_blindness_check(syn.labelled_corpus())
     assert set(report["per_field"]) == set(FIELD_COMPUTERS)
-    assert len(FIELD_COMPUTERS) == 10
+    assert len(FIELD_COMPUTERS) == 11
 
 
 def test_a_computer_that_reaches_for_the_label_is_stopped_at_the_view():

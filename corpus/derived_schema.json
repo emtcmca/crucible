@@ -73,6 +73,12 @@
       "separates_pair": [
         "P02"
       ]
+    },
+    {
+      "name": "derived.risk_hold_open",
+      "type": "boolean",
+      "computed_from": "account_record",
+      "separates_pair": []
     }
   ],
   "blindness_check": {
