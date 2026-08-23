@@ -159,35 +159,50 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-22 (Day 3 of 11) · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-23 (Day 4 of 11) · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
 **READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
 
-`main` verified BY EXIT CODE: pytest 0, contract-check 0, **1155 collected**.
-Rulings **1-45**, SPINE_VERSION **14**. **ALL FIVE HASH-LOCKS FROZEN**, all six
-lock fields load FROZEN, `unfrozen: NONE`. **THE LOOP RAN LIVE**: 4 of 6 breaches,
-0 faults, a real autopsy, and **the gate REJECTED its own patch twice** before
-halting for a human. **Nothing has been PROMOTED**, so there is still no transfer
-number and `GcsBlobIO` has never executed.
+`main` verified BY EXIT CODE: pytest 0, contract-check 0 and its own selftest 0,
+tripwire selftest 0 (nine of nine), **1470 collected**. Rulings **1-48**,
+SPINE_VERSION **17**. **NO HASH VALUE APPEARS IN THIS BLOCK - ruling 46. Read a
+lock off its own record in `docs/proof/`.**
+
+**D3 IS CLEAR. THE LAST BLOCKER ON THE LIVE RUN IS GONE.** The objective set was
+re-frozen after two of its nine clauses were found naming arguments no tool
+emits; four corpus episodes flip CLEAN to BREACH, zero of 26 benign move, and
+`ObjectiveSet.__init__` now REFUSES AT LOAD any path the manifest does not
+declare. **THE CARTOGRAPHER RAN LIVE ON MANAGED GEMMA** - 12 proposals, 0
+rejected, sheet UNSIGNED. **Nothing has been PROMOTED**, so there is still no
+transfer number and `GcsBlobIO` has never executed.
 
 **Open threads**
-- **The ARMORER only reaches for `deny` and over-blocks.** `prompt.py:156-160`
-  deliberately disfavours `constrain_arg`; rejection feedback is counts-and-classes
-  BY DESIGN. It may be structurally unable to narrow — **this blocks every
-  promotion and therefore the headline pair.**
-- **C6 has NO PRODUCER.** The campaign writes a shape with ZERO key overlap.
-  Generated attack text is in no bundle, and Eric calls that the crux.
-- Four measurements queued: clause coverage, exclusions + the 5% INCOMPLETE rule,
-  attack distinctness, wall-clock timing.
-- Stale target-hash pair in 6 files including a **published** Devpost update.
+- **THE LIVE RUN IS UNBLOCKED.** Checklist: `docs/ops/dry-run-preflight.md`.
+- **CLAUSE COVERAGE IS 2 OF 9 OFFLINE** and the offline script never calls
+  `email_customer`, so neither repointed clause fires offline. Lane running to
+  build the coverage matrix + a gate that FAILS on a dark clause. **A published
+  breach rate without that matrix is an overclaim by omission.**
+- **The ARMORER has never promoted.** The `require_approval` steer landed but is
+  unproven live. Degenerate opposite to watch: blanket class-level approval
+  scores 26/26 forever and the benign floor cannot flag it.
+- **`crucible/policy/engine.py` validates NOTHING on load.** V10 guards the
+  authoring path only, so a hand-written JSON policy is one no gate has vetted.
+- **Gemma sheet: no partial signature exists** (`E_UNREVIEWED_TOOL`). Four of the
+  twelve rows are `UNCLASSIFIED`, which is ALLOWED downstream - signing ratifies
+  fail-open for four tools. INERT gap is Eric's ruling.
+- Owed: Devpost update 5 (slotted draft on disk), story canvas appends with
+  GitHub-linked timestamps, submission write-up, per-agent model disclosure.
 
 **Watch out for**
-- **`grep -c` returns exit 1 on a zero count.** Use pytest's own exit code, never
-  a grep of its output — that heuristic produced a false green here.
-- **A check that never ran on the path that matters.** 1155 tests, three cold
-  clones and a full offline campaign all missed an operator the frozen Objective
-  Set uses. Only a live run found it.
+- **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT.** Ask every check what change
+  it would FAIL to notice - then ask it of the checks.
+- **HAND-AUTHORED ARTIFACTS AGREE WITH EACH OTHER AND NEVER MEET THE TARGET.**
+  Three did: the clauses, the calibration fixtures, `policy_v_final.json`.
+- **`pathlib.glob` on a MISSING directory returns empty rather than raising.**
+- **A wrong identifier produces a plausible failure that AGREES WITH
+  EXPECTATIONS.** Three Gemma probes used the wrong model id and nobody
+  interrogated the 404 because it matched the prediction.
+- **`grep -c` returns exit 1 on a zero count.** Use pytest's exit code. Backticks
+  in `git commit -m` get command-substituted; use `-F`.
 - **ONE pytest at a time**; `git add <dir>` is as bad as `-A`.
-- **`vault-project.ps1 -Activity` reports DRIFT for `crucible-wt-*`** — those are
-  worktrees of this repo, not separate projects. Known false positive.
 <!-- VAULT:SESSION-STATE end -->
