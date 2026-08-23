@@ -63,3 +63,72 @@ The most confident sentences are the ones nobody thinks to verify. This reposito
 **Deliberately empty as of 2026-08-20. No attack has been scored and there is no number here worth quoting.**
 
 That is not modesty and it is not an oversight. The whole argument of this project is that a number means something only if the thing it measures was fixed before the measuring started. This section fills in after the sealed family is opened, and every figure will carry its label when it does.
+
+---
+
+<!-- APPENDED 2026-08-23. Nothing above this line was altered. The sections below are
+     additive and each carries its own dateline, because the Devpost story canvas shows
+     only a single "last updated" stamp and that stamp can never prove authoring order.
+     Git can. Every claim below links to the commit that proves it. -->
+
+## What runs what (added 2026-08-23)
+
+Five models, each doing one job, every one read from the source constant rather than from
+memory. Four are Gemini on Vertex AI; the fifth is Gemma.
+
+| Component | Model | Where the constant lives |
+|---|---|---|
+| Red strategist | `gemini-3.6-flash` | `crucible/red/red.py` |
+| Target refund agent | `gemini-3.5-flash-lite` | `target/refund_agent/agent.py` |
+| Coroner | `gemini-3.5-flash-lite` | `crucible/coroner/coroner.py` |
+| Armorer | `gemini-3.7-flash` | `crucible/armorer/armorer.py` |
+| Capability cartographer | `google/gemma-4-26b-a4b-it-maas` | `crucible/cartographer/vertex.py` |
+
+The tripwire, the warden, the promotion gate and the budget governor call no model at all.
+That is enforced rather than intended: the tripwire has no `aiplatform.user` role and an AST
+import lint fails the build if the package ever imports a client library.
+
+## How to check the ordering yourself (added 2026-08-23)
+
+The argument of this project is that a number means something only if the thing it measures
+was fixed before the measuring started. That is a claim about **when**, so it should be
+checkable by a stranger rather than asserted by me.
+
+Every artifact below is hashed, and each freeze is a public commit with a timestamp GitHub
+recorded, not one I typed:
+
+- **The sealed attack family, committed 2026-08-20**:
+  [`6b1a54a`](https://github.com/emtcmca/crucible/commit/6b1a54a). Its fingerprint was
+  published before any fix was written and before every other lock below. That ordering is
+  the whole experiment.
+- **The gate rule, 2026-08-21**:
+  [`d1f16fc`](https://github.com/emtcmca/crucible/commit/d1f16fc)
+- **The target agent and its capability manifest, 2026-08-22**:
+  [`3621bba`](https://github.com/emtcmca/crucible/commit/3621bba)
+- **The corpus and its derived-field schema, 2026-08-22**:
+  [`128efcf`](https://github.com/emtcmca/crucible/commit/128efcf)
+- **The objective set, the definition of breach, 2026-08-22**:
+  [`517ccef`](https://github.com/emtcmca/crucible/commit/517ccef)
+
+**And this story itself, committed 2026-08-20 with its Results section empty**.
+[`75deb4b`](https://github.com/emtcmca/crucible/commit/75deb4b). Open that commit and the
+section reads *"deliberately empty as of 2026-08-20."* The Devpost page shows one edit stamp;
+the repository shows the order.
+
+## Two locks were broken on purpose, and that is in the record too (added 2026-08-23)
+
+Freezing early means occasionally freezing something wrong. Twice a frozen artifact turned out
+to have a defect, and both times the lock was broken deliberately, re-taken, and the reason
+written down rather than quietly patched.
+
+The corpus lock moved because two dialects of the same field names had been authored in
+parallel. The objective set lock moved because two of its nine clauses named arguments no tool
+in the target actually emits, so those clauses had never once fired and four attacks were
+scoring clean that should have scored as breaches.
+
+**Neither prior record was deleted.** Both are archived with a block naming what superseded
+them and exactly what they invalidate. The freeze script refuses to re-run over a record naming
+a different hash, and there is no override flag; breaking a lock costs a written ruling every
+time. That refusal is the guard doing its job, and a superseded lock is evidence rather than
+litter , because deleting it would leave nothing to show a lock had been taken, held, and broken on
+purpose, which is the only reason the replacement can be trusted.
