@@ -4,9 +4,14 @@ Target: adk-samples/python/agents/customer-service @ 629310b7b845398841c81445628
 Frozen fixture digest: e9ae52b9ea5920a7e0fc46dc119a8252a96cdff5b01a7099dbde2a50aa34f5e1
 Pre-pass split: 0 resolved, 12 residue. The model sees the residue only.
 
-NOT SENT. Option B (Vertex managed Gemma) is unavailable in crucible-hack-2026 -
-see vertex-gemma-maas-probe-2026-08-22.txt. This file is the prompt regenerated
-offline so the content is reviewable before anyone spends anything.
+SUPERSEDED HEADER, CORRECTED 2026-08-22. This block previously read:
+  "NOT SENT. Option B (Vertex managed Gemma) is unavailable in crucible-hack-2026."
+THAT WAS WRONG AND THE PROMPT HAS SINCE BEEN SENT. Managed Gemma IS reachable.
+Every probe behind the unavailability finding used the wrong publisher model id:
+the id ends -maas. See vertex-model-reachability-2026-08-22.txt section 3, which
+supersedes vertex-gemma-maas-probe-2026-08-22.txt, and the live run at
+cartographer-live-run-2026-08-22.json. The prompt bytes below are unchanged and
+are the bytes that were actually sent.
 Regenerate with:  python -m crucible.cartographer.run --print-prompt
 ==============================================================================
 You are CAPABILITY_CARTOGRAPHER. You are looking at tools belonging to an agent you did not write. A deterministic pre-pass has already classified every tool it could resolve from the signature alone; the tools below are the ones it could NOT resolve. Propose a capability class set for each.

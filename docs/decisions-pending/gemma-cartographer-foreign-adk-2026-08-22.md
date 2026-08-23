@@ -159,6 +159,16 @@ project. It has been now.
 
 Full evidence: `docs/proof/vertex-gemma-maas-probe-2026-08-22.txt`.
 
+> **SUPERSEDED 2026-08-22. The finding below is WRONG and is kept rather than
+> deleted.** Managed Gemma is reachable from this project. Every probe recorded
+> here used the wrong publisher model id — the id ends `-maas` — so the four
+> `404 NOT_FOUND` results below say nothing about availability. The control was
+> also taken on a model this project is forbidden to run. Corrected evidence:
+> `docs/proof/vertex-model-reachability-2026-08-22.txt` §3. The Cartographer has
+> since run live against it: `docs/proof/cartographer-live-run-2026-08-22.json`.
+> **The tell that was walked past: with the correct id, `us-central1` returns a
+> 400 naming the fix, where a wrong id returns a 404 naming nothing.**
+
 - **Control first.** `google/gemini-2.5-flash`, same URL, same OAuth token, same
   payload shape → **HTTP 200**. So the endpoint shape, the auth and the project
   path are all correct, and every 404 below is about the model rather than the
