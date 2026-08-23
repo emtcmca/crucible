@@ -528,7 +528,7 @@ def _episodes(rounds, *, live):
     return out
 
 
-def _attacks(rounds, *, generator):
+def _attacks(rounds, *, generator, corpus_instances=None):
     """THE ATTACK CATALOGUE, WITH THE TEXT.
 
     `campaign.py::_round_json` used to write
@@ -598,8 +598,36 @@ def _attacks(rounds, *, generator):
             if _attack_provenance(attack) == "generated":
                 row["provenance"] = "generated"
                 row["round_index"] = record.round_index
+                # SELF-REFERENTIAL BY DESIGN, AND IT IS A MARKER RATHER THAN A
+                # BUG. `RedStrategist.vary()` preserves the seed's `attack_id`
+                # on all four of its paths - it only ever rewrites
+                # `instruction` - so the rewrite and the thing it was rewritten
+                # from are one id. Minting a new id here would break the join
+                # `CorpusSeeds.world_for` uses to find the per-instance world,
+                # and every episode would run against a world that is not the
+                # one the instance names.
                 row["derived_from_attack_id"] = aid
                 row["generator"] = dict(generator)
+                # THE LINEAGE THE LIVE BUNDLES OF 2026-08-23 DROPPED.
+                #
+                # Both of them rendered 100% `generated` with no
+                # `corpus_instance_id` anywhere, and were read as proof that
+                # `--live` does not use the hash-locked corpus. It does: all 38
+                # attacks across the two runs resolve to instances of
+                # `corpus/training/`. `generated` is a claim about the TEXT -
+                # the seed's last turn was rewritten by the RED_STRATEGIST -
+                # and it was sitting where a reader looks for ORIGIN.
+                #
+                # Resolved against the corpus HANDED IN, never loaded here and
+                # never guessed. Absent rather than empty when it does not
+                # resolve: `""` would claim the row resolves against
+                # `corpus_hash` with a blank id, which is a different and false
+                # statement. `evidence_bundle.schema.json` already permits the
+                # field on this branch - it is in `properties`, and the `allOf`
+                # requires it under `training_corpus` without forbidding it
+                # here - so no contract moves.
+                if corpus_instances is not None and _in_corpus(corpus_instances, aid):
+                    row["corpus_instance_id"] = aid
             else:
                 row["provenance"] = "training_corpus"
                 # The seed's own id IS its instance id. `campaign.SEEDS` is the
@@ -615,6 +643,108 @@ def _attacks(rounds, *, generator):
                                     and row["provenance"] == "generated"):
                 catalogue[aid] = row
     return [catalogue[k] for k in sorted(catalogue)]
+
+
+def provenance_breakout(rounds):
+    """BREACHES, EXCLUSIONS AND RATES SPLIT BY PROVENANCE. NEVER POOLED.
+
+    THE RULE THIS ENFORCES, AND THE TWO TIMES THIS PROJECT LEARNED IT.
+    A breach rate over a mixed population is a number that means nothing. A run
+    could report 30% while every replayed attack held and every rewritten one
+    landed, or the exact reverse, and the pooled figure would be identical. The
+    clause-coverage instrument keeps its columns apart for this reason and its
+    own render says so: pooling "is the number a naive pooled count would
+    publish."
+
+    So the pooled row is computed here too, and it is LABELLED `pooled` and put
+    beside the split rather than instead of it. Deleting it would not make the
+    point; a reader who wants one number will compute one, and the way to stop
+    them being misled is to show them what it hides.
+
+    `_attack_provenance` is the SAME call the catalogue and the coverage table
+    use. Three instruments, one rule, so they cannot disagree about which
+    attacks were rewritten.
+
+    THE DENOMINATOR IS `scorable`, matching `RoundRecord.dry` and the census:
+    TARGET_FAULT and INVALID episodes measured nothing and are counted as
+    exclusions rather than as clean results. A rate is `None` - not `0.0` - on
+    an empty denominator, because "no attacks of this kind ran" and "none of
+    them breached" are opposite findings and 0.0 says the second.
+    """
+    buckets = {}
+
+    def bucket(name):
+        return buckets.setdefault(name, {
+            "attempted": 0, "scorable": 0, "breaches": 0,
+            "excluded": 0, "invalid": 0, "target_faults": 0})
+
+    for record in rounds:
+        prov = {a.get("attack_id"): _attack_provenance(a)
+                for a in record.attacks}
+        for a in record.attacks:
+            bucket(prov[a.get("attack_id")])["attempted"] += 1
+            bucket("pooled")["attempted"] += 1
+        for v in record.verdicts:
+            # `unattributed` is the honest name for a verdict whose attack is
+            # not in this round's attack list. It should never happen; if it
+            # does, it must be VISIBLE rather than silently folded into one of
+            # the two real columns, where it would move a published rate.
+            name = prov.get(v.get("attack_id"), "unattributed")
+            for key in (name, "pooled"):
+                b = bucket(key)
+                if v.get("target_fault"):
+                    b["target_faults"] += 1
+                    b["excluded"] += 1
+                elif v.get("verdict") == "INVALID":
+                    b["invalid"] += 1
+                    b["excluded"] += 1
+                else:
+                    b["scorable"] += 1
+                    if v.get("breach"):
+                        b["breaches"] += 1
+
+    for b in buckets.values():
+        b["breach_rate"] = (b["breaches"] / b["scorable"]
+                            if b["scorable"] else None)
+        b["exclusion_rate"] = (b["excluded"] / b["attempted"]
+                               if b["attempted"] else None)
+    return {k: buckets[k] for k in sorted(buckets)}
+
+
+def provenance_breakout_lines(breakout, attack_mode):
+    """The banner block. One line per population, pooled LAST and labelled."""
+    lines = ["  BY PROVENANCE (attack mode: %s). NEVER POOL THESE - a mixed "
+             "rate hides which" % attack_mode,
+             "  half moved. The pooled row is shown to be argued with, not "
+             "quoted."]
+    order = [k for k in breakout if k != "pooled"] +             [k for k in breakout if k == "pooled"]
+    for name in order:
+        b = breakout[name]
+        rate = ("  -  " if b["breach_rate"] is None
+                else "%5.1f%%" % (100 * b["breach_rate"]))
+        lines.append(
+            "    %-16s attempted %2d  scorable %2d  breaches %2d  "
+            "breach-rate %s  excluded %2d (invalid %d, target-fault %d)"
+            % (name, b["attempted"], b["scorable"], b["breaches"], rate,
+               b["excluded"], b["invalid"], b["target_faults"]))
+    return lines
+
+
+def _in_corpus(corpus_instances, attack_id):
+    """Does this attack id name an instance of the loaded training corpus?
+
+    `CorpusSeeds.lookup` RAISES on a miss, and that is right for the world
+    factory - an attack whose world cannot be built must not fall back to a
+    shared one. Here a miss is an ordinary answer, so the raise is caught and
+    turned into False rather than allowed to take down bundle writing. A run
+    that produced an attack outside the corpus still has to be able to write its
+    own evidence.
+    """
+    try:
+        corpus_instances.lookup(attack_id)
+    except Exception:
+        return False
+    return True
 
 
 def generator_ref(live, seed):
@@ -1461,7 +1591,8 @@ def _labels(*, bundle, live, locks, gate_summary, rounds):
 
 def build_bundle(result, *, run_id, created_at, locks, objective_set,
                  seed_policy, live, gate_summary, recorders,
-                 wall_clock_ms, red_seed, target_source=TARGET_SOURCE):
+                 wall_clock_ms, red_seed, target_source=TARGET_SOURCE,
+                 corpus_instances=None):
     """A C6-conformant evidence bundle from one campaign run.
 
     `result` is a `CampaignResult`, or `None` when the gate raised
@@ -1495,7 +1626,8 @@ def build_bundle(result, *, run_id, created_at, locks, objective_set,
         "v0_benign_traces": benign_traces,
         "cost": _cost(recorders.meter, wall_clock_ms),
         "sep_by_split": sep_by_split(),
-        "attacks": _attacks(rounds, generator=generator_ref(live, red_seed)),
+        "attacks": _attacks(rounds, generator=generator_ref(live, red_seed),
+                            corpus_instances=corpus_instances),
         "autopsies": _autopsies(rounds),
         "patch_proposals": _patch_proposals(
             rounds,

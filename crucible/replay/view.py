@@ -453,13 +453,36 @@ def _attack_section(bundle):
                          % entry.get("corpus_instance_id"))
         else:
             gen = entry.get("generator") or {}
-            lines.append("    generated in round %s by %s via %s%s"
+            lines.append("    generated in round %s by %s via %s"
                          % (entry.get("round_index"), gen.get("model_id"),
-                            gen.get("provider"),
-                            (", from seed %s" % entry["derived_from_attack_id"])
-                            if entry.get("derived_from_attack_id") else ""))
-            lines.append("    THIS TEXT EXISTS NOWHERE ELSE. It was produced in "
-                         "memory during the run.")
+                            gen.get("provider")))
+            # THE LINEAGE, AND THE SENTENCE THAT STOPS IT READING AS A BUG.
+            #
+            # This block printed ", from seed <id>" against the SAME id as the
+            # attack itself, because `RedStrategist.vary()` preserves the seed's
+            # `attack_id` and only rewrites the text. Rendered without that
+            # explanation the row looks self-referential and the run looks like
+            # it had no corpus behind it - which is exactly how two live
+            # bundles on 2026-08-23 were read.
+            if entry.get("corpus_instance_id"):
+                lines.append(
+                    "    A REWRITE OF CORPUS INSTANCE %s - which resolves "
+                    "against the corpus frozen at corpus_hash. The rewrite "
+                    "keeps the instance's id, its family and its per-instance "
+                    "world; only the final turn is new."
+                    % entry["corpus_instance_id"])
+                lines.append("    ONLY THE TEXT EXISTS NOWHERE ELSE. The "
+                             "objective and the action sequence are the frozen "
+                             "instance's - the RED_STRATEGIST rephrases, it "
+                             "does not author.")
+            else:
+                if entry.get("derived_from_attack_id"):
+                    lines.append("    from seed %s"
+                                 % entry["derived_from_attack_id"])
+                lines.append("    NO CORPUS INSTANCE IS NAMED, so nothing "
+                             "here resolves against corpus_hash.")
+                lines.append("    THIS TEXT EXISTS NOWHERE ELSE. It was "
+                             "produced in memory during the run.")
         text = entry.get("instruction")
         if text:
             lines.append("")

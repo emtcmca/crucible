@@ -173,7 +173,11 @@ def test_live_refuses_before_anything_is_built(monkeypatch):
                             AssertionError("reached build_validator")))
 
     with pytest.raises(agent.ProviderMismatch):
-        campaign.run(["--live", "--holdout-expected", "2"])
+        # `--attack-mode` joined `--holdout-expected` as a preflight refusal
+        # on 2026-08-23; supplied here so this test still reaches the PROVIDER
+        # check it is about.
+        campaign.run(["--live", "--holdout-expected", "2",
+                      "--attack-mode", "corpus"])
     assert tripped == [], "the refusal came too late to be a precondition"
 
 
