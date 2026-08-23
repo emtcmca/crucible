@@ -316,7 +316,30 @@ code never computed. **A prettier renderer is a larger surface for exactly that 
 figure it shows must be derived from the bundle at render time, never authored into a template.
 `tests/test_readme_claims.py` is the pattern — derive the expectation from the producer.
 
-**Not started. No owner. Blocked behind the live run by Eric's own sequencing.**
+**SCOPED 2026-08-23 at Eric's instruction — `docs/design/T2-8-runtime-visuals-scope.md`.**
+Eric's vision is a split screen: a scrolling terminal matched second-for-second with a
+flowchart showing which agents are active, what they are doing, what they are communicating and
+to whom.
+
+**The scope doc settles one architectural decision and everything follows from it: ONE EVENT
+STREAM, TWO RENDERERS.** The terminal and the flowchart are two views of the same emitted
+events, never two descriptions of the same run. Second-for-second sync then stops being a
+production problem and becomes a property, and — the reason it is the only version this project
+may ship — **the flowchart can only draw what the stream carries**, so an overclaim becomes
+structurally hard rather than a matter of discipline. The overclaim sweep found ten such claims
+in the existing text render; a richer renderer is a larger surface for the same defect.
+
+The stream is **also evidence**: an append-only timestamped record of what happened when is the
+audit trail Eric ruled mandatory on 2026-08-23, not just a demo asset. Three modes over one
+file — live, replay at recorded pace (labelled, per item 7), and post-hoc from the C6 bundle.
+
+**Risk and its mitigation, because emitting the stream means touching the loop right before the
+run every number depends on:** the emitter is an **injected sink with a no-op default**, the
+pattern `holdout_touch` already uses. With no sink passed the run path is byte-for-byte
+unchanged, which makes it provably inert on the measurement path.
+
+**Not started. No owner. Blocked behind the live run by Eric's own sequencing.** The scope
+exists so the design is settled before there is time pressure, not so the work starts early.
 
 ---
 
