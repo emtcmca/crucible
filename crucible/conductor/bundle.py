@@ -586,13 +586,15 @@ def _attacks(rounds, *, generator):
     for record in rounds:
         for attack in record.attacks:
             aid = attack.get("attack_id")
-            variation = attack.get("variation")
+            # ONE PROVENANCE RULE, SHARED WITH `_clause_coverage`. The coverage
+            # table splits its columns on this same call, so the catalogue and
+            # the table cannot disagree about which attacks were generated.
             row = {
                 "attack_id": aid,
                 "family_id": attack.get("family_id"),
                 "instruction": attack.get("instruction"),
             }
-            if variation == "model":
+            if _attack_provenance(attack) == "generated":
                 row["provenance"] = "generated"
                 row["round_index"] = record.round_index
                 row["derived_from_attack_id"] = aid
@@ -1021,48 +1023,160 @@ def _clause_coverage(objective_set, rounds):
     `invariant_id` - the first clause to fire, in authored order - while
     `Objective_Set.matches` returns ALL of them. Counting from the verdicts
     alone would undercount every clause that fired behind another one. So this
-    calls the real `matches()` again over the recorded events, which is pure and
-    deterministic and is the same function the TRIPWIRE ruled with. It is
-    therefore always a superset of what the verdicts cite, which is what
+    re-runs the real firing decision over the recorded events, which is pure and
+    deterministic and is the same call the TRIPWIRE ruled with. It is therefore
+    always a superset of what the verdicts cite, which is what
     `_check_clause_coverage`'s cross-check requires.
+
+    THIS FIELD USED TO BE ONE INTEGER PER CLAUSE, AND THAT WAS THE DEFECT.
+    ---------------------------------------------------------------------
+    `episodes_fired: 0` is TWO COMPLETELY DIFFERENT FINDINGS wearing one number:
+
+      UNREACHED    no executed event in the whole run ever carried the clause's
+                   capability class. The run has NOTHING TO SAY about it. The
+                   repair is an attack that reaches the tool.
+      NEVER_TRUE   events reached it, every condition path resolved, and the
+                   comparison still never held. THIS IS HEALTHY - it is what a
+                   clean run looks like. No repair.
+
+    and two more that are neither:
+
+      PATH_NEVER_PRESENT     events reached the gate and a condition's argument
+                             path was ABSENT on every one of them. THE `memo`
+                             SHAPE: on 2026-08-22 two clauses were found naming
+                             argument paths no tool emits, so they evaluated
+                             false quietly on every episode. Four episodes
+                             scored CLEAN that should have scored BREACH, and
+                             the collapsed integer showed the identical row
+                             before and after the repair (ruling 48).
+      CONTEXT_FIELD_MISSING  a context operator naming an `episode.*` field the
+                             episode does not carry.
+
+    So the row now carries fired / EVALUATED / REACHED / in scope and the state
+    those four imply, and `_check_clause_coverage` recomputes the state from the
+    counters - which is why a producer cannot stamp a flattering one.
+
+    THE COUNTERS COME FROM `crucible.coverage.matrix.probe_episode`, NOT FROM A
+    SECOND COUNTER WRITTEN HERE. The firing decision inside it is the same
+    `_FORMS[...]` call `Objective_Set.matches` makes over the same executed
+    events, so `episodes_fired` is what this function returned before. A second
+    implementation would be a second definition of breach, drifting from the
+    oracle exactly when it mattered.
+
+    PER SOURCE MEANS PER ATTACK PROVENANCE, WHICH IS THE AXIS A BUNDLE HAS.
+    ----------------------------------------------------------------------
+    `training_corpus` attacks are reproducible from the corpus at `corpus_hash`;
+    `generated` ones exist nowhere but this bundle and no freeze covers them.
+    "This clause only ever fired on text the red strategist invented" is a
+    different sentence about a run than "it fired on the frozen corpus", and
+    only the split can say which happened. The provenance rule is
+    `_attack_provenance`, shared with `_attacks`, so the catalogue and the
+    coverage table cannot disagree about what a source is.
+
+    Coverage ACROSS THE HARNESS - the training corpus, the offline script, the
+    benign floor, the calibration fixtures and a declared-absence row for the
+    IAM-sealed holdout - is a different measurement and belongs to
+    `python -m crucible.coverage`, which folds THIS bundle in as one more
+    column. The bundle says what this run reached; the instrument says what the
+    harness can reach. Building the whole matrix in here would make bundle
+    production depend on reading the corpus, and a run of record that cannot be
+    written because a fixture directory moved is worse than one that is silent
+    about the fixtures.
 
     An episode the evaluator refused to score is SKIPPED rather than counted as
     a non-firing one: an unscoreable episode says nothing about coverage, and
     folding it in as a zero would make an instrument failure look like a clause
     the corpus never reached.
     """
-    from ..tripwire.model import Episode
-    from ..tripwire.objective_set import matches
+    from ..coverage.matrix import ClauseCounters, probe_episode
+    from ..coverage.sources import SourceEpisode
 
-    fired_counts, first_round = {}, {}
-    for clause in objective_set.clauses:
-        fired_counts[clause["id"]] = 0
+    # {clause_id: {source: ClauseCounters}}
+    cells = {clause["id"]: {} for clause in objective_set.clauses}
+    first_round = {}
+    per_source = {}
 
     for record in rounds:
+        provenance = {a.get("attack_id"): _attack_provenance(a)
+                      for a in record.attacks}
         for verdict in record.verdicts:
             if verdict.get("verdict") == "INVALID":
                 continue
             raw = verdict.get("_episode") or {}
-            try:
-                episode = Episode.from_dict(raw)
-                fired, _evidence = matches(objective_set, episode.events,
-                                           episode.channel,
-                                           episode.episode_context)
-            except Exception:                            # pragma: no cover
-                continue
-            for clause_id in fired:
-                fired_counts[clause_id] = fired_counts.get(clause_id, 0) + 1
-                first_round.setdefault(clause_id, record.round_index)
+            # UNATTRIBUTED IS A NAMED SOURCE, NOT A DROP. An episode whose
+            # attack is not in this round's catalogue still ran and still
+            # exercised clauses; binning it would make the source columns fail
+            # to sum to the pooled row, and the pooled row is what gets quoted.
+            source = provenance.get(verdict.get("attack_id")) or "unattributed"
+            per_source[source] = per_source.get(source, 0) + 1
+            episode = SourceEpisode(
+                source=source,
+                item_id=raw.get("episode_id"),
+                channel=raw.get("channel"),
+                episode_context=raw.get("episode_frozen_context") or {},
+                events=raw.get("events") or [])
+            for clause in objective_set.clauses:
+                counters = cells[clause["id"]].setdefault(source, ClauseCounters())
+                before = counters.episodes_fired
+                try:
+                    probe_episode(clause, episode, counters)
+                except Exception:                        # pragma: no cover
+                    continue
+                if counters.episodes_fired > before:
+                    first_round.setdefault(clause["id"], record.round_index)
 
     clauses = []
     for clause in objective_set.clauses:
-        row = {"invariant_id": clause["id"],
-               "form": clause["form"],
-               "episodes_fired": fired_counts.get(clause["id"], 0)}
+        by_source = cells[clause["id"]]
+        pooled = ClauseCounters()
+        for name in sorted(by_source):
+            pooled.merge(by_source[name])
+        row = dict(pooled.as_dict(),
+                   invariant_id=clause["id"],
+                   form=clause["form"],
+                   state=pooled.state(),
+                   by_source={
+                       name: dict(_counter_summary(by_source[name]),
+                                  state=by_source[name].state())
+                       for name in sorted(by_source)})
         if clause["id"] in first_round:
             row["first_fired_round"] = first_round[clause["id"]]
         clauses.append(row)
-    return {"objective_set_hash": objective_set.hash, "clauses": clauses}
+    return {"objective_set_hash": objective_set.hash,
+            "sources": sorted(per_source),
+            "episodes_per_source": {k: per_source[k] for k in sorted(per_source)},
+            "clauses": clauses}
+
+
+# The per-source cell drops `conditions`. The condition census is the finest
+# grain in the table - it is the field in which `memo` was visible, as
+# `{"present": 0, "absent": 15}` - and it is kept once, on the pooled row, where
+# a reader looks. Repeating it per source would multiply the table's largest
+# nested object by the number of provenances to answer a question nobody asks
+# per provenance.
+_CELL_FIELDS = ("episodes_in_scope", "episodes_cap_reached",
+                "episodes_paths_resolvable", "episodes_fired",
+                "episodes_exempted", "episodes_context_missing",
+                "events_cap_reached")
+
+
+def _counter_summary(counters):
+    return {name: getattr(counters, name) for name in _CELL_FIELDS}
+
+
+def _attack_provenance(attack):
+    """`generated` or `training_corpus`, decided in ONE place.
+
+    `RedStrategist.vary` returns a `variation` of "none" / "model" / "fallback" /
+    "governor_refused". Only "model" produced text that exists nowhere else; the
+    other three are the seed's own bytes reached by a different road.
+
+    Extracted because `_attacks` and `_clause_coverage` both need it, and a
+    second copy of this one-line rule would let the attack catalogue and the
+    coverage table disagree about which attacks were generated - a disagreement
+    that would read as a coverage finding rather than as a bug.
+    """
+    return "generated" if attack.get("variation") == "model" else "training_corpus"
 
 
 # ===========================================================================

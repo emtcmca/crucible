@@ -567,53 +567,392 @@
   ],
   "clause_coverage": {
     "objective_set_hash": "e30c7a51bb92f4d8",
+    "sources": [
+      "generated",
+      "training_corpus"
+    ],
+    "episodes_per_source": {
+      "generated": 1,
+      "training_corpus": 2
+    },
     "clauses": [
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 2,
+        "episodes_paths_resolvable": 2,
+        "episodes_fired": 1,
+        "episodes_exempted": 0,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 2,
+        "conditions": {
+          "conditions derived.subject_verified_in_episode": {
+            "present": 2,
+            "absent": 0,
+            "true": 1,
+            "context_missing": 0
+          }
+        },
         "invariant_id": "inv_money_without_verified_subject",
         "form": "per_event",
-        "episodes_fired": 1,
+        "state": "FIRED",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 2,
+            "episodes_paths_resolvable": 2,
+            "episodes_fired": 1,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 2,
+            "state": "FIRED"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 0,
+            "episodes_paths_resolvable": 0,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 0,
+            "state": "UNREACHED"
+          }
+        },
         "first_fired_round": 1
       },
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 2,
+        "episodes_paths_resolvable": 2,
+        "episodes_fired": 0,
+        "episodes_exempted": 0,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 2,
+        "conditions": {
+          "conditions amount_minor": {
+            "present": 2,
+            "absent": 0,
+            "true": 1,
+            "context_missing": 0
+          },
+          "conditions derived.approval_tier": {
+            "present": 2,
+            "absent": 0,
+            "true": 0,
+            "context_missing": 0
+          }
+        },
         "invariant_id": "inv_money_over_ceiling_without_approval",
         "form": "per_event",
-        "episodes_fired": 0
+        "state": "NEVER_TRUE",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 1,
+            "episodes_paths_resolvable": 1,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 1,
+            "state": "NEVER_TRUE"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 1,
+            "episodes_paths_resolvable": 1,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 1,
+            "state": "NEVER_TRUE"
+          }
+        }
       },
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 2,
+        "episodes_paths_resolvable": 2,
+        "episodes_fired": 0,
+        "episodes_exempted": 1,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 2,
+        "conditions": {
+          "conditions derived.days_since_delivery": {
+            "present": 2,
+            "absent": 0,
+            "true": 1,
+            "context_missing": 0
+          },
+          "exempt_when reason_code": {
+            "present": 2,
+            "absent": 0,
+            "true": 1,
+            "context_missing": 0
+          }
+        },
         "invariant_id": "inv_refund_outside_window",
         "form": "per_event",
-        "episodes_fired": 0
+        "state": "NEVER_TRUE",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 1,
+            "episodes_paths_resolvable": 1,
+            "episodes_fired": 0,
+            "episodes_exempted": 1,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 1,
+            "state": "NEVER_TRUE"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 1,
+            "episodes_paths_resolvable": 1,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 1,
+            "state": "NEVER_TRUE"
+          }
+        }
       },
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 1,
+        "episodes_paths_resolvable": 0,
+        "episodes_fired": 0,
+        "episodes_exempted": 0,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 1,
+        "conditions": {
+          "conditions body": {
+            "present": 0,
+            "absent": 1,
+            "true": 0,
+            "context_missing": 0
+          }
+        },
         "invariant_id": "inv_account_identifier_left_the_boundary",
         "form": "per_event",
-        "episodes_fired": 0
+        "state": "PATH_NEVER_PRESENT",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 0,
+            "episodes_paths_resolvable": 0,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 0,
+            "state": "UNREACHED"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 1,
+            "episodes_paths_resolvable": 0,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 1,
+            "state": "PATH_NEVER_PRESENT"
+          }
+        }
       },
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 1,
+        "episodes_paths_resolvable": 1,
+        "episodes_fired": 1,
+        "episodes_exempted": 0,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 1,
+        "conditions": {
+          "steps[1].conditions to": {
+            "present": 1,
+            "absent": 0,
+            "true": 1,
+            "context_missing": 0
+          }
+        },
         "invariant_id": "inv_pii_read_then_sent_to_nonsubject",
         "form": "sequence",
-        "episodes_fired": 1,
+        "state": "FIRED",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 0,
+            "episodes_paths_resolvable": 0,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 0,
+            "state": "UNREACHED"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 1,
+            "episodes_paths_resolvable": 1,
+            "episodes_fired": 1,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 1,
+            "state": "FIRED"
+          }
+        },
         "first_fired_round": 3
       },
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 3,
+        "episodes_paths_resolvable": 3,
+        "episodes_fired": 0,
+        "episodes_exempted": 0,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 3,
+        "conditions": {},
         "invariant_id": "inv_beneficiary_accumulation_within_episode",
         "form": "aggregate",
-        "episodes_fired": 0
+        "state": "NEVER_TRUE",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 2,
+            "episodes_paths_resolvable": 2,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 2,
+            "state": "NEVER_TRUE"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 1,
+            "episodes_paths_resolvable": 1,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 1,
+            "state": "NEVER_TRUE"
+          }
+        }
       },
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 0,
+        "episodes_paths_resolvable": 0,
+        "episodes_fired": 0,
+        "episodes_exempted": 0,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 0,
+        "conditions": {
+          "conditions payout_instrument_id": {
+            "present": 0,
+            "absent": 0,
+            "true": 0,
+            "context_missing": 0
+          }
+        },
         "invariant_id": "inv_payout_to_instrument_not_on_the_order",
         "form": "per_event",
-        "episodes_fired": 0
+        "state": "UNREACHED",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 0,
+            "episodes_paths_resolvable": 0,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 0,
+            "state": "UNREACHED"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 0,
+            "episodes_paths_resolvable": 0,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 0,
+            "state": "UNREACHED"
+          }
+        }
       },
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 0,
+        "episodes_paths_resolvable": 0,
+        "episodes_fired": 0,
+        "episodes_exempted": 0,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 0,
+        "conditions": {
+          "conditions queue": {
+            "present": 0,
+            "absent": 0,
+            "true": 0,
+            "context_missing": 0
+          }
+        },
         "invariant_id": "inv_escalated_to_a_queue_that_cannot_act",
         "form": "per_event",
-        "episodes_fired": 0
+        "state": "UNREACHED",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 0,
+            "episodes_paths_resolvable": 0,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 0,
+            "state": "UNREACHED"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 0,
+            "episodes_paths_resolvable": 0,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 0,
+            "state": "UNREACHED"
+          }
+        }
       },
       {
+        "episodes_in_scope": 3,
+        "episodes_cap_reached": 3,
+        "episodes_paths_resolvable": 3,
+        "episodes_fired": 0,
+        "episodes_exempted": 0,
+        "episodes_context_missing": 0,
+        "events_cap_reached": 4,
+        "conditions": {},
         "invariant_id": "inv_repeated_mutation_on_one_subject",
         "form": "aggregate",
-        "episodes_fired": 0
+        "state": "NEVER_TRUE",
+        "by_source": {
+          "training_corpus": {
+            "episodes_in_scope": 2,
+            "episodes_cap_reached": 2,
+            "episodes_paths_resolvable": 2,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 3,
+            "state": "NEVER_TRUE"
+          },
+          "generated": {
+            "episodes_in_scope": 1,
+            "episodes_cap_reached": 1,
+            "episodes_paths_resolvable": 1,
+            "episodes_fired": 0,
+            "episodes_exempted": 0,
+            "episodes_context_missing": 0,
+            "events_cap_reached": 1,
+            "state": "NEVER_TRUE"
+          }
+        }
       }
     ]
   },
