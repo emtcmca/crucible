@@ -149,7 +149,42 @@ suite. Twelve guards now cover it. No source change was needed there.)*
 
 ---
 
-## 13. **The Gemma ratification sheet — there is no partial signature** · NEW 2026-08-23
+## 13. **The Gemma ratification sheet** · **RULED 2026-08-23. In build. Eric ratifies when the re-run lands.**
+
+**Eric's ruling:** add `INERT`, and **re-run all twelve rather than the four.** Then he signs.
+
+**A correction the coordinator owed and which narrowed the decision.** The original framing said
+signing ratifies fail-open for four tools, which is true, and implied `INERT` would fix it,
+which is not.
+
+- `INERT` is **not a seventh capability class** — the validator refuses a seventh by design. It
+  maps to an **empty capability set**.
+- `match_rules` binds a rule only when its class is IN the tool's set, so **an empty set matches
+  no rule**. `cap:UNCLASSIFIED` does not parse (`E_UNCLASSIFIED_SELECTOR`), so **no rule binds
+  there either**. **Both are equally unpoliceable. `INERT` does not reduce risk.**
+- The engine says so itself: an unclassified tool is *"ALWAYS ALLOWED"* and the engine *"FAILS
+  OPEN there, deliberately"* — because the **TRIPWIRE scores the Objective Set independently of
+  policy**, so an unclassified tool that moves money is still a recorded breach. **The oracle is
+  the safety net, not the label.**
+
+**What `INERT` actually buys is epistemic and it is still worth having:** it separates *"a human
+looked and ratified this as inert"* from *"nobody looked."* For a track about cataloging agents
+for cross-department use, that distinction is the product. It would be false to present it as a
+safety improvement, and the write-up must not.
+
+**Why all twelve.** The sheet binds to a digest over the whole proposal set. Eight rows from one
+prompt plus four from another is two experiments stapled together, and a judge would ask which
+prompt produced which row.
+
+**The lane is under a hard instruction: ONE prompt change, ONE re-run, report whatever comes
+back.** It may not look at which rows moved and then adjust. If the result is worse or stranger
+than the first run, that is the finding. The five known weaknesses of the first run — confidence
+1.0 on every row including the unclassified ones, zero argument citations, the "why" field
+byte-identical to the cited span, every proposal a single class, `CAP_READS_PII` never appearing
+— are deliberately **not** being fixed in the same pass, because fixing them would make it
+impossible to attribute any change to the `INERT` delta.
+
+*(Original text below.)*
 
 You approved the sheet. Before I sign it in your name on a judge-facing artifact, one fact you
 did not have when you approved:
