@@ -11,7 +11,71 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 18` · last changed 2026-08-23
+`SPINE_VERSION: 19` · last changed 2026-08-23
+
+> **SPINE_VERSION 19 — ruling 50, 2026-08-23. A LIVE RUN USED ZERO CORPUS INSTANCES. Measured on
+> the first two live runs, not inferred. Eric's ruling: live runs now draw corpus instances AND
+> generate.**
+>
+> **WHAT WAS MEASURED.** Both live runs, every round, every attack: `provenance: generated`. **No
+> episode in either bundle carries a `corpus_instance_id`.** The same command run offline draws
+> six attacks, all `training_corpus`. So `--live` replaced the hash-locked suite with RED-authored
+> attacks entirely, and **live is the only mode that produces a quotable number.**
+>
+> **THIS WAS NOT A LIE ANYONE TOLD; IT IS A CLAIM NOBODY CHECKED.** Ruling 47 wired the corpus in
+> and the offline path genuinely reads it. Nothing asserted that the live path did, and nothing
+> tested it, so *"the campaign attacks from the hash-locked corpus"* passed into the project's
+> shared understanding as true of both. **It was true of one.**
+>
+> **THE DEFECT IT PRODUCED, and this is the part that cost a run.** `campaign.py` wires
+> `world_factory=CORPUS.world_for`, giving each corpus instance its own account and order world.
+> **A generated attack has no corpus instance, so there is no world to present**: the episode is
+> not driven and is excluded with reason `harness_error`. Run 2 lost 5 of 36 episodes, round 3
+> lost 3 of 6 and was correctly marked INCOMPLETE, the pooled exclusion rate then breached the 5%
+> ceiling, and **the offline reader REJECTED the entire bundle.** A live run that cannot be read
+> is not evidence, and the reader failing closed is the instrument working.
+>
+> **ERIC'S RULING, SHARPENED THE SAME HOUR: a THREE-WAY MODE SELECTOR, not a fixed hybrid.**
+> `corpus` (hash-locked instances only), `generated` (RED-authored only), `hybrid` (both, broken
+> out by provenance).
+>
+> **The reasoning is not convenience. Only one of these modes is reproducible.** `corpus` is the
+> **measurement**: a fixed, hash-locked attack set is the only configuration in which two runs are
+> comparable, and any figure quoted across runs comes from there. `generated` is the
+> **discovery**: it finds what the corpus does not contain, and **it is not reproducible by
+> construction** — today proved it, with two identical invocations giving 2 breaches and 2 patches,
+> then 0 breaches across 30 scorable episodes and convergence. `hybrid` is what a demo narrates.
+>
+> **The bound, stated because it is easy to oversell: `corpus` mode fixes the ATTACK SET, not the
+> TARGET'S RESPONSES.** The target is a live sampled model, so corpus mode is reproducible in its
+> inputs and still variable in its outcomes. That is not determinism and may not be described as
+> such.
+>
+> **THE MODE IS A REQUIRED FIELD in the run manifest and the C6 bundle, and a run that does not
+> declare its mode is UNREADABLE** — the offline reader refuses it, exactly as it refuses a bundle
+> breaching the exclusion ceiling. `--live` refuses to start without an explicit mode, the same
+> way it already refuses without `--holdout-expected`. **A toggle whose setting is not recorded is
+> a place for a run to lie about itself**, and this project's entire subject is numbers whose
+> labels are true.
+>
+> **THE CONSTRAINT THAT TRAVELS WITH IT, and it is not optional.** Corpus-sourced and generated
+> attacks are **two populations**, and their results **may not be pooled into one rate.** A breach
+> rate over a mixed population is a number that means nothing: a run could report the same figure
+> whether every corpus attack held and every generated one landed, or the exact reverse. **This
+> project learned that lesson twice in one day** — the clause-coverage instrument keeps its
+> sources apart precisely because pooling reported 9 of 9 while hiding a dark clause. Breaches,
+> exclusions and rates are reported **broken out by provenance**; a pooled figure may appear only
+> if labelled as pooled and never as the only figure.
+>
+> **WHAT IT INVALIDATES: nothing published, because nothing has been published.** The two live
+> runs stand as evidence about the harness rather than about the target. **Run 1 is a valid
+> bundle and reports no promotion. Run 2's own reader rejects it.** Neither carries a breach rate
+> anyone may quote, and the reason is now on the record rather than in a transcript.
+>
+> **ALSO OPEN, found in the same pass:** no episode carries a `corpus_instance_id` **in either
+> mode**, so the run of record cannot say which instance an episode came from. Per-family and
+> per-instance analysis after the fact is impossible until that is populated.
+
 
 > **SPINE_VERSION 18 — ruling 49, 2026-08-23. THE FROZEN ORACLE WAS SCORING CORRECT CONDUCT AS
 > A BREACH. B3+D adopted. `objective_set_hash` and `derived_schema_hash` both move, and C3
