@@ -26,6 +26,7 @@ rejected-round path uses.
 """
 
 from .red import (
+    ATTACK_MODES,
     RED_MODEL,
     RED_THINKING_LEVEL,
     AttackSeed,
@@ -34,4 +35,4 @@ from .red import (
 )
 
 __all__ = ["RedStrategist", "AttackSeed", "RoundFeedback", "RED_MODEL",
-           "RED_THINKING_LEVEL"]
+           "RED_THINKING_LEVEL", "ATTACK_MODES"]
