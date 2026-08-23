@@ -13,69 +13,66 @@ states in writing what prior results the change invalidates.
 
 `SPINE_VERSION: 19` · last changed 2026-08-23
 
-> **SPINE_VERSION 19 — ruling 50, 2026-08-23. A LIVE RUN USED ZERO CORPUS INSTANCES. Measured on
-> the first two live runs, not inferred. Eric's ruling: live runs now draw corpus instances AND
-> generate.**
+> **SPINE_VERSION 19 — ruling 50, 2026-08-23. CORRECTED THE SAME DAY, BEFORE ANY NUMBER WAS
+> PUBLISHED. THE CORPUS CLAIM WAS TRUE ALL ALONG. The coordinator diagnosed a RENDER as a fact
+> and wrote it into the spine.**
 >
-> **WHAT WAS MEASURED.** Both live runs, every round, every attack: `provenance: generated`. **No
-> episode in either bundle carries a `corpus_instance_id`.** The same command run offline draws
-> six attacks, all `training_corpus`. So `--live` replaced the hash-locked suite with RED-authored
-> attacks entirely, and **live is the only mode that produces a quotable number.**
+> **WHAT THIS RULING FIRST SAID, and it is quoted rather than deleted:** *"A LIVE RUN USED ZERO
+> CORPUS INSTANCES... Both live runs, every round, every attack: `provenance: generated`. No
+> episode in either bundle carries a `corpus_instance_id`... `--live` replaced the hash-locked
+> suite with RED-authored attacks entirely."* **Every load-bearing sentence in that paragraph was
+> wrong.**
 >
-> **THIS WAS NOT A LIE ANYONE TOLD; IT IS A CLAIM NOBODY CHECKED.** Ruling 47 wired the corpus in
-> and the offline path genuinely reads it. Nothing asserted that the live path did, and nothing
-> tested it, so *"the campaign attacks from the hash-locked corpus"* passed into the project's
-> shared understanding as true of both. **It was true of one.**
+> **WHAT IS TRUE, verified at source by the coordinator rather than taken from the lane that
+> reported it: 11 of 11 and 27 of 27 live attack ids resolve to seeds of `corpus/training/`.**
+> All 38 attacks across both live bundles are corpus instances, and a per-family breakdown
+> (`F1x6 F2x6 F3x6 F5x6 F6x6 F7x6`) is computable from the shipped bundles today.
 >
-> **THE DEFECT IT PRODUCED, and this is the part that cost a run.** `campaign.py` wires
-> `world_factory=CORPUS.world_for`, giving each corpus instance its own account and order world.
-> **A generated attack has no corpus instance, so there is no world to present**: the episode is
-> not driven and is excluded with reason `harness_error`. Run 2 lost 5 of 36 episodes, round 3
-> lost 3 of 6 and was correctly marked INCOMPLETE, the pooled exclusion rate then breached the 5%
-> ceiling, and **the offline reader REJECTED the entire bundle.** A live run that cannot be read
-> is not evidence, and the reader failing closed is the instrument working.
+> **THE READING ERROR, which is the finding worth keeping.** `provenance` is a claim about the
+> **TEXT, not the origin**: `_attack_provenance` is one line, `"generated" if attack.get
+> ("variation") == "model"`. `RedStrategist.vary()` preserves the seed's `attack_id` and
+> `family_id` on **all four** of its paths and only ever rewrites `instruction`, under a prompt
+> instructing it to pursue the same objective by the same sequence of actions. **A rephrased
+> corpus attack is still a corpus attack.**
 >
-> **ERIC'S RULING, SHARPENED THE SAME HOUR: a THREE-WAY MODE SELECTOR, not a fixed hybrid.**
-> `corpus` (hash-locked instances only), `generated` (RED-authored only), `hybrid` (both, broken
-> out by provenance).
+> **THE REAL DEFECT WAS A RENDER.** `_attacks` attached `corpus_instance_id` only on the
+> `training_corpus` branch, so live bundles named none of the fifty instances they had actually
+> tested and `replay/view.py` rendered a corpus-backed run as corpus-free. **The coordinator read
+> that render, concluded the corpus was unused, and wrote a spine ruling on it.** The render was
+> the thing that could not be trusted, and this repository's own house defect is a check or a
+> claim that does not compute what it asserts. Fixed with no contract change; the C6 schema
+> already permits the field on a `generated` row.
 >
-> **The reasoning is not convenience. Only one of these modes is reproducible.** `corpus` is the
-> **measurement**: a fixed, hash-locked attack set is the only configuration in which two runs are
-> comparable, and any figure quoted across runs comes from there. `generated` is the
-> **discovery**: it finds what the corpus does not contain, and **it is not reproducible by
-> construction** — today proved it, with two identical invocations giving 2 breaches and 2 patches,
-> then 0 breaches across 30 scorable episodes and convergence. `hybrid` is what a demo narrates.
+> **THE `harness_error` EXCLUSIONS WERE UNRELATED TO ANY OF THIS.** Both rows are the SAME
+> instance in two rounds — `F2-02`, one of the two CASE 3 unpresentable instances that
+> `CorpusSeeds.report()` has named since 2026-08-22. The world-resolution failure the first
+> version of this ruling described **does not exist**: `CorpusSeeds.world_for` joins on the
+> preserved seed id, so every generated attack already has a world. The red test written to
+> demonstrate the failure **went green on its first run**, and that was the disproof.
 >
-> **The bound, stated because it is easy to oversell: `corpus` mode fixes the ATTACK SET, not the
-> TARGET'S RESPONSES.** The target is a live sampled model, so corpus mode is reproducible in its
-> inputs and still variable in its outcomes. That is not determinism and may not be described as
-> such.
+> **THE SELF-REFERENTIAL `derived_from_attack_id` IS A MARKER, NOT A BUG**, proven three ways,
+> and it is **load-bearing** — minting a fresh id there is what would create the failure that was
+> imagined.
 >
-> **THE MODE IS A REQUIRED FIELD in the run manifest and the C6 bundle, and a run that does not
-> declare its mode is UNREADABLE** — the offline reader refuses it, exactly as it refuses a bundle
-> breaching the exclusion ceiling. `--live` refuses to start without an explicit mode, the same
-> way it already refuses without `--holdout-expected`. **A toggle whose setting is not recorded is
-> a place for a run to lie about itself**, and this project's entire subject is numbers whose
-> labels are true.
+> **ERIC'S THREE-WAY MODE SELECTOR STANDS, with its framing corrected.** `--attack-mode
+> {corpus|generated|hybrid}`, required under `--live`, refused offline for the model-driven modes
+> because offline has no model and the label would be false. **But `generated` is NOT
+> "discovery", which is what this ruling first called it. Nothing in this repository authors an
+> attack.** It rephrases corpus seeds, so it varies whether a capability path survives a rewrite
+> — a real and different question, and not the same as exploring an objective the corpus does not
+> hold. **Real discovery would need a new RED capability: author an instance, mint an id, build
+> or refuse a world.** That is a design decision, not a flag.
 >
-> **THE CONSTRAINT THAT TRAVELS WITH IT, and it is not optional.** Corpus-sourced and generated
-> attacks are **two populations**, and their results **may not be pooled into one rate.** A breach
-> rate over a mixed population is a number that means nothing: a run could report the same figure
-> whether every corpus attack held and every generated one landed, or the exact reverse. **This
-> project learned that lesson twice in one day** — the clause-coverage instrument keeps its
-> sources apart precisely because pooling reported 9 of 9 while hiding a dark clause. Breaches,
-> exclusions and rates are reported **broken out by provenance**; a pooled figure may appear only
-> if labelled as pooled and never as the only figure.
+> **WHAT THE VARIANCE ACTUALLY WAS.** Two identical live invocations gave 2 breaches with 2
+> patches, then 0 breaches across 30 scorable episodes and convergence. **That is not the attack
+> set moving — the attack set was the same corpus both times. It is the TARGET and the RED
+> rewriter both being live sampled models.** `corpus` mode fixes the seed text; it does not fix
+> the target's responses, and no mode in this harness makes a live run reproducible.
 >
-> **WHAT IT INVALIDATES: nothing published, because nothing has been published.** The two live
-> runs stand as evidence about the harness rather than about the target. **Run 1 is a valid
-> bundle and reports no promotion. Run 2's own reader rejects it.** Neither carries a breach rate
-> anyone may quote, and the reason is now on the record rather than in a transcript.
->
-> **ALSO OPEN, found in the same pass:** no episode carries a `corpus_instance_id` **in either
-> mode**, so the run of record cannot say which instance an episode came from. Per-family and
-> per-instance analysis after the fact is impossible until that is populated.
-
+> **WHAT IT INVALIDATES: nothing published, because nothing was published.** The correction
+> landed the same day, in the same file, before any figure left the repository. **What it cost is
+> recorded instead: a spine ruling written on a misread render, and the seventh hash move of the
+> day nearly taken to fix a defect that did not exist.**
 
 > **SPINE_VERSION 18 — ruling 49, 2026-08-23. THE FROZEN ORACLE WAS SCORING CORRECT CONDUCT AS
 > A BREACH. B3+D adopted. `objective_set_hash` and `derived_schema_hash` both move, and C3
