@@ -1,0 +1,312 @@
+{
+  "target_name": "adk-samples/python/agents/customer-service",
+  "repository": "https://github.com/google/adk-samples",
+  "commit_sha": "629310b7b845398841c814456289a34fbc766acf",
+  "extracted_on": "2026-08-22",
+  "tool_count": 12,
+  "digest": "e9ae52b9ea5920a7e0fc46dc119a8252a96cdff5b01a7099dbde2a50aa34f5e1",
+  "notes": "Tool names mirror the registry at python/agents/customer-service/customer_service/agent.py (tools=[...]). Signatures, argument names, annotations and per-argument documentation are read from python/agents/customer-service/customer_service/tools/tools.py by inspect - none of it is typed. Regenerate with `python -m crucible.cartographer.freeze_foreign_target`.",
+  "tools": [
+    {
+      "tool_name": "send_call_companion_link",
+      "docstring": "Sends a link to the user's phone number to start a video session.\n\nArgs:\n    phone_number (str): The phone number to send the link to.\n\nReturns:\n    dict: A dictionary with the status and message.\n\nExample:\n    >>> send_call_companion_link(phone_number='+12065550123')\n    {'status': 'success', 'message': 'Link sent to +12065550123'}",
+      "args": [
+        {
+          "name": "phone_number",
+          "type": "str",
+          "description": "The phone number to send the link to."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 27
+      }
+    },
+    {
+      "tool_name": "approve_discount",
+      "docstring": "Approve the flat rate or percentage discount requested by the user.\n\nArgs:\n    discount_type (str): The type of discount, either \"percentage\" or \"flat\".\n    value (float): The value of the discount.\n    reason (str): The reason for the discount.\n\nReturns:\n    str: A JSON string indicating the status of the approval.\n\nExample:\n    >>> approve_discount(type='percentage', value=10.0, reason='Customer loyalty')\n    '{\"status\": \"ok\"}'",
+      "args": [
+        {
+          "name": "discount_type",
+          "type": "str",
+          "description": "The type of discount, either \"percentage\" or \"flat\"."
+        },
+        {
+          "name": "value",
+          "type": "float",
+          "description": "The value of the discount."
+        },
+        {
+          "name": "reason",
+          "type": "str",
+          "description": "The reason for the discount."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 47
+      }
+    },
+    {
+      "tool_name": "sync_ask_for_approval",
+      "docstring": "Asks the manager for approval for a discount.\n\nArgs:\n    discount_type (str): The type of discount, either \"percentage\" or \"flat\".\n    value (float): The value of the discount.\n    reason (str): The reason for the discount.\n\nReturns:\n    str: A JSON string indicating the status of the approval.\n\nExample:\n    >>> sync_ask_for_approval(type='percentage', value=15, reason='Customer loyalty')\n    '{\"status\": \"approved\"}'",
+      "args": [
+        {
+          "name": "discount_type",
+          "type": "str",
+          "description": "The type of discount, either \"percentage\" or \"flat\"."
+        },
+        {
+          "name": "value",
+          "type": "float",
+          "description": "The value of the discount."
+        },
+        {
+          "name": "reason",
+          "type": "str",
+          "description": "The reason for the discount."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 76
+      }
+    },
+    {
+      "tool_name": "update_salesforce_crm",
+      "docstring": "Updates the Salesforce CRM with customer details.\n\nArgs:\n    customer_id (str): The ID of the customer.\n    details (str): A dictionary of details to update in Salesforce.\n\nReturns:\n    dict: A dictionary with the status and message.\n\nExample:\n    >>> update_salesforce_crm(customer_id='123', details={\n        'appointment_date': '2024-07-25',\n        'appointment_time': '9-12',\n        'services': 'Planting',\n        'discount': '15% off planting',\n        'qr_code': '10% off next in-store purchase'})\n    {'status': 'success', 'message': 'Salesforce record updated.'}",
+      "args": [
+        {
+          "name": "customer_id",
+          "type": "str",
+          "description": "The ID of the customer."
+        },
+        {
+          "name": "details",
+          "type": "dict",
+          "description": "A dictionary of details to update in Salesforce."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 101
+      }
+    },
+    {
+      "tool_name": "access_cart_information",
+      "docstring": "Args:\n    customer_id (str): The ID of the customer.\n\nReturns:\n    dict: A dictionary representing the cart contents.\n\nExample:\n    >>> access_cart_information(customer_id='123')\n    {'items': [{'product_id': 'soil-123', 'name': 'Standard Potting Soil', 'quantity': 1}, {'product_id': 'fert-456', 'name': 'General Purpose Fertilizer', 'quantity': 1}], 'subtotal': 25.98}",
+      "args": [
+        {
+          "name": "customer_id",
+          "type": "str",
+          "description": "The ID of the customer."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 129
+      }
+    },
+    {
+      "tool_name": "modify_cart",
+      "docstring": "Modifies the user's shopping cart by adding and/or removing items.\n\nArgs:\n    customer_id (str): The ID of the customer.\n    items_to_add (list): A list of dictionaries, each with 'product_id' and 'quantity'.\n    items_to_remove (list): A list of product_ids to remove.\n\nReturns:\n    dict: A dictionary indicating the status of the cart modification.\nExample:\n    >>> modify_cart(customer_id='123', items_to_add=[{'product_id': 'soil-456', 'quantity': 1}, {'product_id': 'fert-789', 'quantity': 1}], items_to_remove=[{'product_id': 'fert-112', 'quantity': 1}])\n    {'status': 'success', 'message': 'Cart updated successfully.', 'items_added': True, 'items_removed': True}",
+      "args": [
+        {
+          "name": "customer_id",
+          "type": "str",
+          "description": "The ID of the customer."
+        },
+        {
+          "name": "items_to_add",
+          "type": "list",
+          "description": "A list of dictionaries, each with 'product_id' and 'quantity'."
+        },
+        {
+          "name": "items_to_remove",
+          "type": "list",
+          "description": "A list of product_ids to remove."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 162
+      }
+    },
+    {
+      "tool_name": "get_product_recommendations",
+      "docstring": "Provides product recommendations based on the type of plant.\n\nArgs:\n    plant_type: The type of plant (e.g., 'Petunias', 'Sun-loving annuals').\n    customer_id: Optional customer ID for personalized recommendations.\n\nReturns:\n    A dictionary of recommended products. Example:\n    {'recommendations': [\n        {'product_id': 'soil-456', 'name': 'Bloom Booster Potting Mix', 'description': '...'},\n        {'product_id': 'fert-789', 'name': 'Flower Power Fertilizer', 'description': '...'}\n    ]}",
+      "args": [
+        {
+          "name": "plant_type",
+          "type": "str",
+          "description": "The type of plant (e.g., 'Petunias', 'Sun-loving annuals')."
+        },
+        {
+          "name": "customer_id",
+          "type": "str",
+          "description": "Optional customer ID for personalized recommendations."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 191
+      }
+    },
+    {
+      "tool_name": "check_product_availability",
+      "docstring": "Checks the availability of a product at a specified store (or for pickup).\n\nArgs:\n    product_id: The ID of the product to check.\n    store_id: The ID of the store (or 'pickup' for pickup availability).\n\nReturns:\n    A dictionary indicating availability.  Example:\n    {'available': True, 'quantity': 10, 'store': 'Main Store'}\n\nExample:\n    >>> check_product_availability(product_id='soil-456', store_id='pickup')\n    {'available': True, 'quantity': 10, 'store': 'pickup'}",
+      "args": [
+        {
+          "name": "product_id",
+          "type": "str",
+          "description": "The ID of the product to check."
+        },
+        {
+          "name": "store_id",
+          "type": "str",
+          "description": "The ID of the store (or 'pickup' for pickup availability)."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 244
+      }
+    },
+    {
+      "tool_name": "schedule_planting_service",
+      "docstring": "Schedules a planting service appointment.\n\nArgs:\n    customer_id: The ID of the customer.\n    date:  The desired date (YYYY-MM-DD).\n    time_range: The desired time range (e.g., \"9-12\").\n    details: Any additional details (e.g., \"Planting Petunias\").\n\nReturns:\n    A dictionary indicating the status of the scheduling. Example:\n    {'status': 'success', 'appointment_id': '12345', 'date': '2024-07-29', 'time': '9:00 AM - 12:00 PM'}\n\nExample:\n    >>> schedule_planting_service(customer_id='123', date='2024-07-29', time_range='9-12', details='Planting Petunias')\n    {'status': 'success', 'appointment_id': 'some_uuid', 'date': '2024-07-29', 'time': '9-12', 'confirmation_time': '2024-07-29 9:00'}",
+      "args": [
+        {
+          "name": "customer_id",
+          "type": "str",
+          "description": "The ID of the customer."
+        },
+        {
+          "name": "date",
+          "type": "str",
+          "description": " The desired date (YYYY-MM-DD)."
+        },
+        {
+          "name": "time_range",
+          "type": "str",
+          "description": "The desired time range (e.g., \"9-12\")."
+        },
+        {
+          "name": "details",
+          "type": "str",
+          "description": "Any additional details (e.g., \"Planting Petunias\")."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 268
+      }
+    },
+    {
+      "tool_name": "get_available_planting_times",
+      "docstring": "Retrieves available planting service time slots for a given date.\n\nArgs:\n    date: The date to check (YYYY-MM-DD).\n\nReturns:\n    A list of available time ranges.\n\nExample:\n    >>> get_available_planting_times(date='2024-07-29')\n    ['9-12', '13-16']",
+      "args": [
+        {
+          "name": "date",
+          "type": "str",
+          "description": "The date to check (YYYY-MM-DD)."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 310
+      }
+    },
+    {
+      "tool_name": "send_care_instructions",
+      "docstring": "Sends an email or SMS with instructions on how to take care of a specific plant type.\n\nArgs:\n    customer_id:  The ID of the customer.\n    plant_type: The type of plant.\n    delivery_method: 'email' (default) or 'sms'.\n\nReturns:\n    A dictionary indicating the status.\n\nExample:\n    >>> send_care_instructions(customer_id='123', plant_type='Petunias', delivery_method='email')\n    {'status': 'success', 'message': 'Care instructions for Petunias sent via email.'}",
+      "args": [
+        {
+          "name": "customer_id",
+          "type": "str",
+          "description": " The ID of the customer."
+        },
+        {
+          "name": "plant_type",
+          "type": "str",
+          "description": "The type of plant."
+        },
+        {
+          "name": "delivery_method",
+          "type": "str",
+          "description": "'email' (default) or 'sms'."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 329
+      }
+    },
+    {
+      "tool_name": "generate_qr_code",
+      "docstring": "Generates a QR code for a discount.\n\nArgs:\n    customer_id: The ID of the customer.\n    discount_value: The value of the discount (e.g., 10 for 10%).\n    discount_type: \"percentage\" (default) or \"fixed\".\n    expiration_days: Number of days until the QR code expires.\n\nReturns:\n    A dictionary containing the QR code data (or a link to it). Example:\n    {'status': 'success', 'qr_code_data': '...', 'expiration_date': '2024-08-28'}\n\nExample:\n    >>> generate_qr_code(customer_id='123', discount_value=10.0, discount_type='percentage', expiration_days=30)\n    {'status': 'success', 'qr_code_data': 'MOCK_QR_CODE_DATA', 'expiration_date': '2024-08-24'}",
+      "args": [
+        {
+          "name": "customer_id",
+          "type": "str",
+          "description": "The ID of the customer."
+        },
+        {
+          "name": "discount_value",
+          "type": "float",
+          "description": "The value of the discount (e.g., 10 for 10%)."
+        },
+        {
+          "name": "discount_type",
+          "type": "str",
+          "description": "\"percentage\" (default) or \"fixed\"."
+        },
+        {
+          "name": "expiration_days",
+          "type": "int",
+          "description": "Number of days until the QR code expires."
+        }
+      ],
+      "declaring_agent": "customer_service_agent",
+      "transport": "function",
+      "mcp_annotations": {},
+      "provenance": {
+        "source_file": "python/agents/customer-service/customer_service/tools/tools.py",
+        "def_line": 359
+      }
+    }
+  ]
+}
