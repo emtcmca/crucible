@@ -614,3 +614,160 @@ def test_the_cartographer_module_contains_no_path_that_ratifies():
     for forbidden in ('"ratified": True', "'ratified': True",
                       '"human_confirmed": True', "ratified=True"):
         assert forbidden not in source, "gemma.py can ratify: %r" % forbidden
+
+
+# --------------------------------------------------------------------------
+# The wire. Offline, no credential, no spend - but the three literals below
+# are the ones that cost this project an evening, so they are pinned.
+#
+# `docs/proof/vertex-model-reachability-2026-08-22.txt` section 3: four probes
+# concluded managed Gemma was unavailable in this project, and all four asked
+# for a model id that does not exist. The publisher id ends `-maas`. A 404 says
+# nothing about availability until the identifier is known good, and the failure
+# was accepted three times because it agreed with what a memo predicted.
+#
+# These tests do not prove the endpoint answers - only a live call does that,
+# and one is recorded in `docs/proof/cartographer-live-run-2026-08-22.json`.
+# They prove the client is still asking for the thing that answered.
+# --------------------------------------------------------------------------
+
+def test_the_model_id_carries_the_maas_suffix():
+    """`gemma-4-26b-a4b-it` 404s. `gemma-4-26b-a4b-it-maas` returns 200.
+
+    Two ids one suffix apart, and the difference is the whole availability
+    question. Pinned so a tidy-up that "simplifies" the id fails here rather
+    than in a 404 somebody reads as "Gemma is not available".
+    """
+    from crucible.cartographer import vertex
+    assert vertex.DEFAULT_MODEL_ID == "google/gemma-4-26b-a4b-it-maas"
+    assert vertex.DEFAULT_MODEL_ID.endswith("-maas")
+
+
+def test_the_default_location_is_global_because_the_region_refuses():
+    """`us-central1` returns 400 FAILED_PRECONDITION for this model - "only
+    available via global endpoint". Verified 2026-08-22."""
+    from crucible.cartographer import vertex
+    assert vertex.DEFAULT_LOCATION == "global"
+
+
+def test_the_global_host_carries_no_region_prefix():
+    """Every real region is `<location>-aiplatform.googleapis.com`. `global` is
+    not a region and `global-aiplatform.googleapis.com` does not resolve, so
+    getting this wrong reads as a network failure rather than a bad URL."""
+    from crucible.cartographer import vertex
+    assert vertex._host("global") == "https://aiplatform.googleapis.com"
+    assert vertex._host("us-central1") == "https://us-central1-aiplatform.googleapis.com"
+
+
+def test_both_verified_endpoint_urls_are_reproduced_exactly():
+    """The two URLs that returned 200 on 2026-08-22, spelled out.
+
+    Assembled from parts in `vertex.py`, so a change to any part breaks this
+    against the literal a human watched answer.
+    """
+    from crucible.cartographer import vertex
+    assert vertex.endpoint_url("crucible-hack-2026") == (
+        "https://aiplatform.googleapis.com/v1/projects/crucible-hack-2026"
+        "/locations/global/endpoints/openapi/chat/completions")
+    assert vertex.generate_content_url("crucible-hack-2026") == (
+        "https://aiplatform.googleapis.com/v1/projects/crucible-hack-2026"
+        "/locations/global/publishers/google/models"
+        "/gemma-4-26b-a4b-it-maas:generateContent")
+
+
+def test_the_completer_records_what_a_call_spent(monkeypatch):
+    """Token accounting hangs off the callable, not the return value.
+
+    Widening `complete(prompt) -> str` to carry usage would push a model concern
+    into `Cartographer`, which is deliberately ignorant of models. A cost report
+    that says "no tokens" when a call was made is the failure this guards -
+    `usage` is read straight off the response.
+    """
+    import io
+    import json as _json
+    from crucible.cartographer import vertex
+
+    body = {"choices": [{"finish_reason": "stop",
+                         "message": {"role": "assistant", "content": "ok"}}],
+            "usage": {"prompt_tokens": 3461, "completion_tokens": 1430,
+                      "total_tokens": 4891}}
+
+    class _Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(vertex.urllib.request, "urlopen",
+                        lambda req, timeout=None: _Resp(_json.dumps(body).encode()))
+    complete = vertex.make_completer(project="p", token="fake-token")
+    assert complete("prompt") == "ok"
+    assert complete.last_usage["total_tokens"] == 4891
+    assert len(complete.calls) == 1
+    assert complete.calls[0]["finish_reason"] == "stop"
+    assert complete.calls[0]["model"] == "google/gemma-4-26b-a4b-it-maas"
+
+
+def test_a_response_that_spent_tokens_is_recorded_even_when_it_is_malformed(monkeypatch):
+    """A malformed response still cost money. A cost report that omits it
+    under-reports the spend, so usage is recorded BEFORE the content is read."""
+    import io
+    import json as _json
+    from crucible.cartographer import vertex
+
+    body = {"nonsense": True, "usage": {"prompt_tokens": 12, "completion_tokens": 0,
+                                        "total_tokens": 12}}
+
+    class _Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(vertex.urllib.request, "urlopen",
+                        lambda req, timeout=None: _Resp(_json.dumps(body).encode()))
+    complete = vertex.make_completer(project="p", token="fake-token")
+    with pytest.raises(vertex.VertexUnavailable):
+        complete("prompt")
+    assert complete.calls[0]["usage"]["total_tokens"] == 12
+
+
+def test_a_validator_rejection_is_reported_rather_than_thrown_away(specs, tmp_path,
+                                                                  monkeypatch, capsys):
+    """The interesting failure mode must leave evidence.
+
+    If the model returns something the citation gate refuses, the run has to
+    write the prompt, the raw response and the rejection code out - a traceback
+    discards all three, which would make the one result worth reading the one we
+    keep no record of.
+    """
+    from crucible.cartographer import run as run_mod
+
+    def _fake_completer(**kwargs):
+        def complete(prompt):
+            complete.last_raw = '{"proposals": []}'
+            complete.calls.append({"model": "stub", "url": "stub",
+                                   "finish_reason": "stop",
+                                   "usage": {"prompt_tokens": 1,
+                                             "completion_tokens": 1,
+                                             "total_tokens": 2}})
+            return complete.last_raw
+        complete.last_raw = None
+        complete.calls = []
+        return complete
+
+    import crucible.cartographer.vertex as vertex_mod
+    monkeypatch.setattr(vertex_mod, "make_completer", _fake_completer)
+    out = tmp_path / "rejected.json"
+    code = run_mod.main(["--live", "--project", "p", "--out", str(out)])
+
+    assert code == 1, "a refused answer must not exit 0"
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert written["rejection"]["code"] == "E_INCOMPLETE_COVERAGE"
+    assert written["proposals"] == []
+    assert written["raw_response"] == '{"proposals": []}'
+    assert written["prompt"], "the prompt must survive a rejection"
+    assert written["usage"][0]["usage"]["total_tokens"] == 2
+    assert "REJECTED E_INCOMPLETE_COVERAGE" in capsys.readouterr().out

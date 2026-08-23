@@ -31,4 +31,11 @@ foreign target the pre-pass resolves **0 of 12** tools, against 6 of 8 on our
 own. The five rules key on our agent's argument vocabulary and none of it
 appears in somebody else's agent. Making them portable is open work; adding
 rules until that number improves would be tuning to a fixture.
+
+RAN LIVE 2026-08-22 against `google/gemma-4-26b-a4b-it-maas` at
+`location=global`. Twelve proposals, twelve accepted by the citation validator,
+none ratified. The endpoint, prompt, raw response, token usage and every
+proposal are in `docs/proof/cartographer-live-run-2026-08-22.json`; the review
+sheet, and the five unflattering things the run showed, are in
+`docs/proof/cartographer-adk-ratification.md`, which is **UNSIGNED**.
 """

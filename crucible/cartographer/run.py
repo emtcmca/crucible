@@ -20,17 +20,23 @@ WHAT `--live` DOES NOT DO. It does not ratify, it does not write a manifest, and
 the JSON it emits carries `"ratified": false` on the set and on every proposal
 inside it. `ratify.py` is the only route onward and it needs a named human.
 
-As of 2026-08-22 `--live` cannot succeed in `crucible-hack-2026`: the managed
-Gemma model is not reachable from this project. See
-`docs/proof/vertex-gemma-maas-probe-2026-08-22.txt` for the probe, the control
-that proves the endpoint itself is good, and what enabling it would require.
+`--live` RAN, 2026-08-22. Managed Gemma IS reachable from `crucible-hack-2026`.
+Four earlier probes said otherwise and all four asked for a model id that does
+not exist - the publisher id ends `-maas`. See
+`docs/proof/vertex-model-reachability-2026-08-22.txt` for the correction and
+`docs/proof/cartographer-live-run-2026-08-22.json` for the run this produced -
+endpoint, prompt, raw response, token usage and all twelve proposals, unratified.
+
+COST IS PRINTED, NOT ASSUMED. `--live` reads the `usage` block off every
+response and prints prompt/completion/total tokens at the end. A run that
+reports no tokens did not reach the model.
 """
 
 import argparse
 import json
 
 from .extract import load_frozen_target
-from .gemma import Cartographer, build_prompt, split_residue
+from .gemma import Cartographer, ProposalRejected, build_prompt, split_residue
 
 
 def _report_split(frozen, resolved, residue, stream=print):
@@ -85,7 +91,25 @@ def main(argv=None):
     complete = make_completer(project=args.project,
                               location=args.location or DEFAULT_LOCATION,
                               model_id=model_id)
-    proposal_set = Cartographer(complete, model_id=model_id).propose(frozen["tools"])
+
+    # A rejection is a RESULT, not a crash. The prompt and the raw response are
+    # what a reviewer needs in order to see WHY the gate fired, and a traceback
+    # discards both - which would make the one interesting failure mode the one
+    # we keep no evidence of.
+    rejection = None
+    try:
+        proposal_set = Cartographer(complete, model_id=model_id).propose(frozen["tools"])
+    except ProposalRejected as exc:
+        rejection = {"code": exc.code, "tool_name": exc.tool_name, "message": str(exc)}
+        proposal_set = {
+            "residue_tool_names": tuple(s["tool_name"] for s in residue),
+            "resolved_tool_names": tuple(s["tool_name"] for s, _ in resolved),
+            "prompt": build_prompt(residue),
+            "raw_response": getattr(complete, "last_raw", None),
+            "proposals": (),
+            "model_id": model_id,
+            "ratified": False,
+        }
 
     payload = json.loads(json.dumps(proposal_set, default=list))
     payload["target"] = {
@@ -94,14 +118,44 @@ def main(argv=None):
         "commit_sha": frozen["commit_sha"],
         "fixture_digest": frozen["digest"],
     }
+    payload["rejection"] = rejection
+    payload["usage"] = list(getattr(complete, "calls", ()))
     out = args.out or "cartographer-proposals.json"
     with open(out, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(payload, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
+
+    _report_usage(payload["usage"])
+    if rejection:
+        print("\nREJECTED %s on %s" % (rejection["code"], rejection["tool_name"]))
+        print(rejection["message"])
+        print("wrote %s - 0 proposals. The gate refused the model's answer, "
+              "which is the gate working." % out)
+        return 1
     print("\nwrote %s - %d proposals, ratified: %s"
           % (out, len(payload["proposals"]), payload["ratified"]))
     print("Nothing here is in a manifest. ratify.py needs a named human first.")
     return 0
+
+
+def _report_usage(calls, stream=print):
+    """Print what the run actually spent, read off the API responses.
+
+    Tokens are reported, dollars are not. The per-token price of a preview MaaS
+    model is not something this program can read from the response, and a cost
+    figure derived from a rate somebody remembered is the kind of number this
+    project keeps having to retract.
+    """
+    if not calls:
+        stream("\nusage: no model call completed")
+        return
+    prompt_t = sum((c.get("usage") or {}).get("prompt_tokens") or 0 for c in calls)
+    completion_t = sum((c.get("usage") or {}).get("completion_tokens") or 0 for c in calls)
+    total_t = sum((c.get("usage") or {}).get("total_tokens") or 0 for c in calls)
+    stream("\nusage: %d call(s)  prompt=%d  completion=%d  total=%d"
+           % (len(calls), prompt_t, completion_t, total_t))
+    for c in calls:
+        stream("  finish_reason=%s  %s" % (c.get("finish_reason"), c.get("model")))
 
 
 if __name__ == "__main__":  # pragma: no cover

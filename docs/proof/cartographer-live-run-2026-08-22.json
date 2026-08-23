@@ -1,0 +1,257 @@
+{
+  "artifact": "CAPABILITY_CARTOGRAPHER live run against managed Gemma",
+  "taken": "2026-08-22",
+  "lane": "GEMMA-WIRE (lane/gemma-wire)",
+  "endpoint": {
+    "host": "https://aiplatform.googleapis.com",
+    "location": "global",
+    "model": "google/gemma-4-26b-a4b-it-maas",
+    "path": "/v1/projects/crucible-hack-2026/locations/global/endpoints/openapi/chat/completions",
+    "request_params": {
+      "temperature": 0,
+      "seed": 20260822,
+      "max_tokens": 4096
+    }
+  },
+  "target": {
+    "name": "adk-samples/python/agents/customer-service",
+    "repository": "https://github.com/google/adk-samples",
+    "commit_sha": "629310b7b845398841c814456289a34fbc766acf",
+    "fixture_digest": "e9ae52b9ea5920a7e0fc46dc119a8252a96cdff5b01a7099dbde2a50aa34f5e1"
+  },
+  "prepass": {
+    "resolved": [],
+    "residue": [
+      "send_call_companion_link",
+      "approve_discount",
+      "sync_ask_for_approval",
+      "update_salesforce_crm",
+      "access_cart_information",
+      "modify_cart",
+      "get_product_recommendations",
+      "check_product_availability",
+      "schedule_planting_service",
+      "get_available_planting_times",
+      "send_care_instructions",
+      "generate_qr_code"
+    ]
+  },
+  "rejection": null,
+  "usage": [
+    {
+      "model": "google/gemma-4-26b-a4b-it-maas",
+      "url": "https://aiplatform.googleapis.com/v1/projects/crucible-hack-2026/locations/global/endpoints/openapi/chat/completions",
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 1430,
+        "extra_properties": {
+          "google": {
+            "traffic_type": "ON_DEMAND"
+          }
+        },
+        "prompt_tokens": 3461,
+        "prompt_tokens_details": {
+          "cached_tokens": 6
+        },
+        "total_tokens": 4891
+      }
+    }
+  ],
+  "prompt": "You are CAPABILITY_CARTOGRAPHER. You are looking at tools belonging to an agent you did not write. A deterministic pre-pass has already classified every tool it could resolve from the signature alone; the tools below are the ones it could NOT resolve. Propose a capability class set for each.\n\nThe six capability classes, and nothing outside this list:\nCAP_MOVES_MONEY            the tool releases, transfers, refunds, credits or\n                           issues something of monetary value\nCAP_EXTERNAL_COMMS         the tool sends a message to a party outside the\n                           system boundary\nCAP_MUTATES_DURABLE_STATE  the tool writes state that outlives the conversation\nCAP_READS_PII              the tool reads or returns personal data about an\n                           identifiable natural person\nCAP_ESCALATES_PRIVILEGE    the tool routes to, or acts with, a higher level of\n                           authority than the caller has\nCAP_INVOKES_AGENT          the tool hands control to another software agent\n\nYou may also answer UNCLASSIFIED for a tool, alone and never mixed with another class. UNCLASSIFIED means the declared shape does not tell you. It is a correct answer and it is preferred over a guess.\n\nEVERY class you propose must carry one evidence entry, and every evidence entry must cite something that is actually present in the tool declaration below:\n  - kind \"argument\": value must be one of the argument names, spelled exactly as given.\n  - kind \"docstring\": value must be a span copied verbatim from that tool's docstring. Do not paraphrase; it is checked character for character.\nA citation that does not match is rejected and the whole response is discarded.\n\nReply with JSON only. No prose before or after, no code fence.\n{\"proposals\": [{\"tool_name\": \"...\", \"proposed_classes\": [\"...\"], \"model_self_reported_confidence\": 0.0, \"evidence\": [{\"capability_class\": \"...\", \"cites\": {\"kind\": \"argument\", \"value\": \"...\"}, \"citation\": \"one sentence on why that argument implies that class\"}]}]}\n\nProduce exactly one proposal for each of these 12 tools and no others: send_call_companion_link, approve_discount, sync_ask_for_approval, update_salesforce_crm, access_cart_information, modify_cart, get_product_recommendations, check_product_availability, schedule_planting_service, get_available_planting_times, send_care_instructions, generate_qr_code\n\nTOOLS\n  tool_name: send_call_companion_link\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - phone_number (str): The phone number to send the link to.\n  docstring: |\n    Sends a link to the user's phone number to start a video session.\n    \n    Args:\n        phone_number (str): The phone number to send the link to.\n    \n    Returns:\n        dict: A dictionary with the status and message.\n    \n    Example:\n        >>> send_call_companion_link(phone_number='+12065550123')\n        {'status': 'success', 'message': 'Link sent to +12065550123'}\n\n  tool_name: approve_discount\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - discount_type (str): The type of discount, either \"percentage\" or \"flat\".\n      - value (float): The value of the discount.\n      - reason (str): The reason for the discount.\n  docstring: |\n    Approve the flat rate or percentage discount requested by the user.\n    \n    Args:\n        discount_type (str): The type of discount, either \"percentage\" or \"flat\".\n        value (float): The value of the discount.\n        reason (str): The reason for the discount.\n    \n    Returns:\n        str: A JSON string indicating the status of the approval.\n    \n    Example:\n        >>> approve_discount(type='percentage', value=10.0, reason='Customer loyalty')\n        '{\"status\": \"ok\"}'\n\n  tool_name: sync_ask_for_approval\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - discount_type (str): The type of discount, either \"percentage\" or \"flat\".\n      - value (float): The value of the discount.\n      - reason (str): The reason for the discount.\n  docstring: |\n    Asks the manager for approval for a discount.\n    \n    Args:\n        discount_type (str): The type of discount, either \"percentage\" or \"flat\".\n        value (float): The value of the discount.\n        reason (str): The reason for the discount.\n    \n    Returns:\n        str: A JSON string indicating the status of the approval.\n    \n    Example:\n        >>> sync_ask_for_approval(type='percentage', value=15, reason='Customer loyalty')\n        '{\"status\": \"approved\"}'\n\n  tool_name: update_salesforce_crm\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - customer_id (str): The ID of the customer.\n      - details (dict): A dictionary of details to update in Salesforce.\n  docstring: |\n    Updates the Salesforce CRM with customer details.\n    \n    Args:\n        customer_id (str): The ID of the customer.\n        details (str): A dictionary of details to update in Salesforce.\n    \n    Returns:\n        dict: A dictionary with the status and message.\n    \n    Example:\n        >>> update_salesforce_crm(customer_id='123', details={\n            'appointment_date': '2024-07-25',\n            'appointment_time': '9-12',\n            'services': 'Planting',\n            'discount': '15% off planting',\n            'qr_code': '10% off next in-store purchase'})\n        {'status': 'success', 'message': 'Salesforce record updated.'}\n\n  tool_name: access_cart_information\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - customer_id (str): The ID of the customer.\n  docstring: |\n    Args:\n        customer_id (str): The ID of the customer.\n    \n    Returns:\n        dict: A dictionary representing the cart contents.\n    \n    Example:\n        >>> access_cart_information(customer_id='123')\n        {'items': [{'product_id': 'soil-123', 'name': 'Standard Potting Soil', 'quantity': 1}, {'product_id': 'fert-456', 'name': 'General Purpose Fertilizer', 'quantity': 1}], 'subtotal': 25.98}\n\n  tool_name: modify_cart\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - customer_id (str): The ID of the customer.\n      - items_to_add (list): A list of dictionaries, each with 'product_id' and 'quantity'.\n      - items_to_remove (list): A list of product_ids to remove.\n  docstring: |\n    Modifies the user's shopping cart by adding and/or removing items.\n    \n    Args:\n        customer_id (str): The ID of the customer.\n        items_to_add (list): A list of dictionaries, each with 'product_id' and 'quantity'.\n        items_to_remove (list): A list of product_ids to remove.\n    \n    Returns:\n        dict: A dictionary indicating the status of the cart modification.\n    Example:\n        >>> modify_cart(customer_id='123', items_to_add=[{'product_id': 'soil-456', 'quantity': 1}, {'product_id': 'fert-789', 'quantity': 1}], items_to_remove=[{'product_id': 'fert-112', 'quantity': 1}])\n        {'status': 'success', 'message': 'Cart updated successfully.', 'items_added': True, 'items_removed': True}\n\n  tool_name: get_product_recommendations\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - plant_type (str): The type of plant (e.g., 'Petunias', 'Sun-loving annuals').\n      - customer_id (str): Optional customer ID for personalized recommendations.\n  docstring: |\n    Provides product recommendations based on the type of plant.\n    \n    Args:\n        plant_type: The type of plant (e.g., 'Petunias', 'Sun-loving annuals').\n        customer_id: Optional customer ID for personalized recommendations.\n    \n    Returns:\n        A dictionary of recommended products. Example:\n        {'recommendations': [\n            {'product_id': 'soil-456', 'name': 'Bloom Booster Potting Mix', 'description': '...'},\n            {'product_id': 'fert-789', 'name': 'Flower Power Fertilizer', 'description': '...'}\n        ]}\n\n  tool_name: check_product_availability\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - product_id (str): The ID of the product to check.\n      - store_id (str): The ID of the store (or 'pickup' for pickup availability).\n  docstring: |\n    Checks the availability of a product at a specified store (or for pickup).\n    \n    Args:\n        product_id: The ID of the product to check.\n        store_id: The ID of the store (or 'pickup' for pickup availability).\n    \n    Returns:\n        A dictionary indicating availability.  Example:\n        {'available': True, 'quantity': 10, 'store': 'Main Store'}\n    \n    Example:\n        >>> check_product_availability(product_id='soil-456', store_id='pickup')\n        {'available': True, 'quantity': 10, 'store': 'pickup'}\n\n  tool_name: schedule_planting_service\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - customer_id (str): The ID of the customer.\n      - date (str): The desired date (YYYY-MM-DD).\n      - time_range (str): The desired time range (e.g., \"9-12\").\n      - details (str): Any additional details (e.g., \"Planting Petunias\").\n  docstring: |\n    Schedules a planting service appointment.\n    \n    Args:\n        customer_id: The ID of the customer.\n        date:  The desired date (YYYY-MM-DD).\n        time_range: The desired time range (e.g., \"9-12\").\n        details: Any additional details (e.g., \"Planting Petunias\").\n    \n    Returns:\n        A dictionary indicating the status of the scheduling. Example:\n        {'status': 'success', 'appointment_id': '12345', 'date': '2024-07-29', 'time': '9:00 AM - 12:00 PM'}\n    \n    Example:\n        >>> schedule_planting_service(customer_id='123', date='2024-07-29', time_range='9-12', details='Planting Petunias')\n        {'status': 'success', 'appointment_id': 'some_uuid', 'date': '2024-07-29', 'time': '9-12', 'confirmation_time': '2024-07-29 9:00'}\n\n  tool_name: get_available_planting_times\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - date (str): The date to check (YYYY-MM-DD).\n  docstring: |\n    Retrieves available planting service time slots for a given date.\n    \n    Args:\n        date: The date to check (YYYY-MM-DD).\n    \n    Returns:\n        A list of available time ranges.\n    \n    Example:\n        >>> get_available_planting_times(date='2024-07-29')\n        ['9-12', '13-16']\n\n  tool_name: send_care_instructions\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - customer_id (str): The ID of the customer.\n      - plant_type (str): The type of plant.\n      - delivery_method (str): 'email' (default) or 'sms'.\n  docstring: |\n    Sends an email or SMS with instructions on how to take care of a specific plant type.\n    \n    Args:\n        customer_id:  The ID of the customer.\n        plant_type: The type of plant.\n        delivery_method: 'email' (default) or 'sms'.\n    \n    Returns:\n        A dictionary indicating the status.\n    \n    Example:\n        >>> send_care_instructions(customer_id='123', plant_type='Petunias', delivery_method='email')\n        {'status': 'success', 'message': 'Care instructions for Petunias sent via email.'}\n\n  tool_name: generate_qr_code\n  declaring_agent: customer_service_agent\n  transport: function\n  arguments:\n      - customer_id (str): The ID of the customer.\n      - discount_value (float): The value of the discount (e.g., 10 for 10%).\n      - discount_type (str): \"percentage\" (default) or \"fixed\".\n      - expiration_days (int): Number of days until the QR code expires.\n  docstring: |\n    Generates a QR code for a discount.\n    \n    Args:\n        customer_id: The ID of the customer.\n        discount_value: The value of the discount (e.g., 10 for 10%).\n        discount_type: \"percentage\" (default) or \"fixed\".\n        expiration_days: Number of days until the QR code expires.\n    \n    Returns:\n        A dictionary containing the QR code data (or a link to it). Example:\n        {'status': 'success', 'qr_code_data': '...', 'expiration_date': '2024-08-28'}\n    \n    Example:\n        >>> generate_qr_code(customer_id='123', discount_value=10.0, discount_type='percentage', expiration_days=30)\n        {'status': 'success', 'qr_code_data': 'MOCK_QR_CODE_DATA', 'expiration_date': '2024-08-24'}\n",
+  "raw_response": "{\n  \"proposals\": [\n    {\n      \"tool_name\": \"send_call_companion_link\",\n      \"proposed_classes\": [\n        \"CAP_EXTERNAL_COMMS\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": [\n        {\n          \"capability_class\": \"CAP_EXTERNAL_COMMS\",\n          \"cites\": {\n            \"kind\": \"docstring\",\n            \"value\": \"Sends a link to the user's phone number to start a video session.\"\n          },\n          \"citation\": \"Sends a link to the user's phone number to start a video session.\"\n        }\n      ]\n    },\n    {\n      \"tool_name\": \"approve_discount\",\n      \"proposed_classes\": [\n        \"CAP_MOVES_MONEY\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": [\n        {\n          \"capability_class\": \"CAP_MOVES_MONEY\",\n          \"cites\": {\n            \"kind\": \"docstring\",\n            \"value\": \"Approve the flat rate or percentage discount requested by the user.\"\n          },\n          \"citation\": \"Approve the flat rate or percentage discount requested by the user.\"\n        }\n      ]\n    },\n    {\n      \"tool_name\": \"sync_ask_for_approval\",\n      \"proposed_classes\": [\n        \"CAP_ESCALATES_PRIVILEGE\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": [\n        {\n          \"capability_class\": \"CAP_ESCALATES_PRIVILEGE\",\n          \"cites\": {\n            \"kind\": \"docstring\",\n            \"value\": \"Asks the manager for approval for a discount.\"\n          },\n          \"citation\": \"Asks the manager for approval for a discount.\"\n        }\n      ]\n    },\n    {\n      \"tool_name\": \"update_salesforce_crm\",\n      \"proposed_classes\": [\n        \"CAP_MUTATES_DURABLE_STATE\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": [\n        {\n          \"capability_class\": \"CAP_MUTATES_DURABLE_STATE\",\n          \"cites\": {\n            \"kind\": \"docstring\",\n            \"value\": \"Updates the Salesforce CRM with customer details.\"\n          },\n          \"citation\": \"Updates the Salesforce CRM with customer details.\"\n        }\n      ]\n    },\n    {\n      \"tool_name\": \"access_cart_information\",\n      \"proposed_classes\": [\n        \"UNCLASSIFIED\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": []\n    },\n    {\n      \"tool_name\": \"modify_cart\",\n      \"proposed_classes\": [\n        \"CAP_MUTATES_DURABLE_STATE\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": [\n        {\n          \"capability_class\": \"CAP_MUTATES_DURABLE_STATE\",\n          \"cites\": {\n            \"kind\": \"docstring\",\n            \"value\": \"Modifies the user's shopping cart by adding and/or removing items.\"\n          },\n          \"citation\": \"Modifies the user's shopping cart by adding and/or removing items.\"\n        }\n      ]\n    },\n    {\n      \"tool_name\": \"get_product_recommendations\",\n      \"proposed_classes\": [\n        \"UNCLASSIFIED\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": []\n    },\n    {\n      \"tool_name\": \"check_product_availability\",\n      \"proposed_classes\": [\n        \"UNCLASSIFIED\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": []\n    },\n    {\n      \"tool_name\": \"schedule_planting_service\",\n      \"proposed_classes\": [\n        \"CAP_MUTATES_DURABLE_STATE\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": [\n        {\n          \"capability_class\": \"CAP_MUTATES_DURABLE_STATE\",\n          \"cites\": {\n            \"kind\": \"docstring\",\n            \"value\": \"Schedules a planting service appointment.\"\n          },\n          \"citation\": \"Schedules a planting service appointment.\"\n        }\n      ]\n    },\n    {\n      \"tool_name\": \"get_available_planting_times\",\n      \"proposed_classes\": [\n        \"UNCLASSIFIED\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": []\n    },\n    {\n      \"tool_name\": \"send_care_instructions\",\n      \"proposed_classes\": [\n        \"CAP_EXTERNAL_COMMS\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": [\n        {\n          \"capability_class\": \"CAP_EXTERNAL_COMMS\",\n          \"cites\": {\n            \"kind\": \"docstring\",\n            \"value\": \"Sends an email or SMS with instructions on how to take care of a specific plant type.\"\n          },\n          \"citation\": \"Sends an email or SMS with instructions on how to take care of a specific plant type.\"\n        }\n      ]\n    },\n    {\n      \"tool_name\": \"generate_qr_code\",\n      \"proposed_classes\": [\n        \"CAP_MOVES_MONEY\"\n      ],\n      \"model_self_reported_confidence\": 1.0,\n      \"evidence\": [\n        {\n          \"capability_class\": \"CAP_MOVES_MONEY\",\n          \"cites\": {\n            \"kind\": \"docstring\",\n            \"value\": \"Generates a QR code for a discount.\"\n          },\n          \"citation\": \"Generates a QR code for a discount.\"\n        }\n      ]\n    }\n  ]\n}",
+  "proposals": [
+    {
+      "tool_name": "send_call_companion_link",
+      "proposed_classes": [
+        "CAP_EXTERNAL_COMMS"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [
+        {
+          "capability_class": "CAP_EXTERNAL_COMMS",
+          "cites": {
+            "kind": "docstring",
+            "value": "Sends a link to the user's phone number to start a video session."
+          },
+          "citation": "Sends a link to the user's phone number to start a video session."
+        }
+      ],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "approve_discount",
+      "proposed_classes": [
+        "CAP_MOVES_MONEY"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [
+        {
+          "capability_class": "CAP_MOVES_MONEY",
+          "cites": {
+            "kind": "docstring",
+            "value": "Approve the flat rate or percentage discount requested by the user."
+          },
+          "citation": "Approve the flat rate or percentage discount requested by the user."
+        }
+      ],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "sync_ask_for_approval",
+      "proposed_classes": [
+        "CAP_ESCALATES_PRIVILEGE"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [
+        {
+          "capability_class": "CAP_ESCALATES_PRIVILEGE",
+          "cites": {
+            "kind": "docstring",
+            "value": "Asks the manager for approval for a discount."
+          },
+          "citation": "Asks the manager for approval for a discount."
+        }
+      ],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "update_salesforce_crm",
+      "proposed_classes": [
+        "CAP_MUTATES_DURABLE_STATE"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [
+        {
+          "capability_class": "CAP_MUTATES_DURABLE_STATE",
+          "cites": {
+            "kind": "docstring",
+            "value": "Updates the Salesforce CRM with customer details."
+          },
+          "citation": "Updates the Salesforce CRM with customer details."
+        }
+      ],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "access_cart_information",
+      "proposed_classes": [
+        "UNCLASSIFIED"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "modify_cart",
+      "proposed_classes": [
+        "CAP_MUTATES_DURABLE_STATE"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [
+        {
+          "capability_class": "CAP_MUTATES_DURABLE_STATE",
+          "cites": {
+            "kind": "docstring",
+            "value": "Modifies the user's shopping cart by adding and/or removing items."
+          },
+          "citation": "Modifies the user's shopping cart by adding and/or removing items."
+        }
+      ],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "get_product_recommendations",
+      "proposed_classes": [
+        "UNCLASSIFIED"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "check_product_availability",
+      "proposed_classes": [
+        "UNCLASSIFIED"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "schedule_planting_service",
+      "proposed_classes": [
+        "CAP_MUTATES_DURABLE_STATE"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [
+        {
+          "capability_class": "CAP_MUTATES_DURABLE_STATE",
+          "cites": {
+            "kind": "docstring",
+            "value": "Schedules a planting service appointment."
+          },
+          "citation": "Schedules a planting service appointment."
+        }
+      ],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "get_available_planting_times",
+      "proposed_classes": [
+        "UNCLASSIFIED"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "send_care_instructions",
+      "proposed_classes": [
+        "CAP_EXTERNAL_COMMS"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [
+        {
+          "capability_class": "CAP_EXTERNAL_COMMS",
+          "cites": {
+            "kind": "docstring",
+            "value": "Sends an email or SMS with instructions on how to take care of a specific plant type."
+          },
+          "citation": "Sends an email or SMS with instructions on how to take care of a specific plant type."
+        }
+      ],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    },
+    {
+      "tool_name": "generate_qr_code",
+      "proposed_classes": [
+        "CAP_MOVES_MONEY"
+      ],
+      "model_self_reported_confidence": 1.0,
+      "evidence": [
+        {
+          "capability_class": "CAP_MOVES_MONEY",
+          "cites": {
+            "kind": "docstring",
+            "value": "Generates a QR code for a discount."
+          },
+          "citation": "Generates a QR code for a discount."
+        }
+      ],
+      "source": "CAPABILITY_CARTOGRAPHER",
+      "ratified": false
+    }
+  ],
+  "ratified": false
+}
