@@ -42,6 +42,7 @@ import io
 import json
 import pathlib
 import re
+import os
 import subprocess
 import sys
 
@@ -49,7 +50,37 @@ if hasattr(sys.stdout, "buffer"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-SEALED = pathlib.Path("C:/dev/crucible-wt-SEAL/corpus/sealed")
+def _sealed_dir():
+    """WHERE THE SEALED SET IS - RESOLVED, NOT TYPED.
+
+    This was `pathlib.Path("C:/dev/crucible-wt-SEAL/corpus/sealed")`, a
+    hardcoded absolute path into a DIFFERENT WORKTREE, until 2026-08-22.
+
+    On this machine that path exists, so the check ran and looked right. On a
+    clone, a CI box, or a judge's machine it does not - and `pathlib.glob` over
+    a missing directory RETURNS EMPTY RATHER THAN RAISING. Every signal set
+    came back empty, nothing was compared against anything, and the script
+    printed "no leaks across N tracked files" and exited 0.
+
+    A CHECK THAT CANNOT FAIL, STANDING BEHIND A SECURITY CLAIM ABOUT A PUBLIC
+    REPOSITORY. `offline_lint.py:202-206` guards this exact class by name.
+    """
+    # AN EXPLICIT OVERRIDE IS AUTHORITATIVE. If CRUCIBLE_SEALED_DIR is set and
+    # does not resolve, this returns None rather than quietly falling through
+    # to a different directory - an override that silently picks somewhere else
+    # is the same defect this function was written to fix, one level up.
+    override = os.environ.get("CRUCIBLE_SEALED_DIR")
+    if override is not None:
+        path = pathlib.Path(override)
+        return path if path.is_dir() and any(path.glob("*.json")) else None
+    for candidate in (REPO / "corpus" / "sealed",
+                      pathlib.Path("C:/dev/crucible-wt-SEAL/corpus/sealed")):
+        if candidate.is_dir() and any(candidate.glob("*.json")):
+            return candidate
+    return None
+
+
+SEALED = _sealed_dir()
 
 # Words that appear in a slug AND in ordinary prose. Never flagged alone.
 COMMON = {"file", "move", "number", "time", "card", "bank", "set", "up", "it",
@@ -94,7 +125,7 @@ def source_tokens():
 def signals():
     """Everything that could only have come from the sealed set."""
     slugs, tails, pairs, instruments, hashes = set(), set(), set(), set(), set()
-    for f in sorted(SEALED.glob("*.json")):
+    for f in (sorted(SEALED.glob("*.json")) if SEALED else []):
         stem = f.stem
         slugs.add(stem)
         parts = stem.split("-")
@@ -253,9 +284,35 @@ def main():
     if a.selftest:
         return selftest()
 
-    print("SEAL LEAK CHECK - every tracked file in the repo\n")
+    # REFUSE RATHER THAN REPORT CLEAN. Both halves are checked: a directory
+    # existing is not the same as it holding anything, and either emptiness
+    # produces the identical silent pass.
+    if SEALED is None:
+        print("REFUSING TO RUN: no sealed set found.")
+        print("  Looked at $CRUCIBLE_SEALED_DIR, %s, and the SEAL worktree."
+              % (REPO / "corpus" / "sealed").as_posix())
+        print("  With no sealed set there are NO SIGNALS, so every file would")
+        print("  compare clean against nothing and this script would print")
+        print("  'no leaks' having proved exactly nothing. That is worse than")
+        print("  not running: it is a green light nobody earned.")
+        return 2
+
+    sig = signals()
+    if not any(sig):
+        print("REFUSING TO RUN: the sealed set at %s yielded NO SIGNALS."
+              % SEALED.as_posix())
+        print("  A directory that exists and contributes nothing fails exactly")
+        print("  like one that is absent, and looks exactly like a clean run.")
+        return 2
+
+    print("SEAL LEAK CHECK - every tracked file in the repo")
+    print("  sealed set: %s -- %d instance(s), %d signal(s)"
+          % (SEALED.as_posix(), len(list(SEALED.glob("*.json"))),
+             sum(len(x) for x in sig)))
+    print("")
     total = 0
     skipped = 0
+    unreadable = []
     for p in tracked_files():
         rel = p.relative_to(REPO).as_posix()
         if rel in EXEMPT:
@@ -266,7 +323,12 @@ def main():
             continue
         try:
             hits = scan(p.read_text(encoding="utf-8", errors="replace"))
-        except Exception:
+        except Exception as exc:
+            # NAMED, NOT SWALLOWED. A bare `continue` left the file in the
+            # denominator of "no leaks across N tracked files" while never
+            # having been read - an unscanned file counted as a clean one.
+            unreadable.append((p.relative_to(REPO).as_posix(),
+                               type(exc).__name__))
             continue
         if hits:
             total += len(hits)
@@ -276,7 +338,16 @@ def main():
     if total:
         print("\n%d LEAK(S). The repo is PUBLIC; a leaked pretext is permanent." % total)
         return 1
-    print("  no leaks across %d tracked files" % len(tracked_files()))
+    scanned = len(tracked_files()) - skipped - len(unreadable)
+    print("  no leaks across %d file(s) ACTUALLY SCANNED "
+          "(%d exempt, %d unreadable)" % (scanned, skipped, len(unreadable)))
+    for rel, kind in unreadable:
+        print("  UNREAD %s -- %s" % (rel, kind))
+    if unreadable:
+        print("")
+        print("%d FILE(S) WERE NOT READ. They are not evidence of anything."
+              % len(unreadable))
+        return 1
     print("\nSingle common words are deliberately NOT flagged. A check that fires")
     print("on the word 'time' has stopped measuring whether the seal held.")
     return 0
