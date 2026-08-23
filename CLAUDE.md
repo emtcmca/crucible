@@ -163,50 +163,50 @@ exit 2. Do not route around it.
 
 **READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
 
-`main` verified BY EXIT CODE: pytest 0, contract-check 0 and its own selftest 0,
-tripwire selftest 0 (nine of nine), **1470 collected**. Rulings **1-48**,
-SPINE_VERSION **17**. **NO HASH VALUE APPEARS IN THIS BLOCK - ruling 46. Read a
-lock off its own record in `docs/proof/`.**
+`main` verified BY EXIT CODE: pytest 0, contract-check 0, tripwire selftest 0,
+`crucible.coverage` 0, **1812 collected**. Rulings **1-49**, SPINE_VERSION **18**.
+**NO HASH VALUE APPEARS IN THIS BLOCK - ruling 46. Read a lock off its own record
+in `docs/proof/`.**
 
-**D3 IS CLEAR. THE LAST BLOCKER ON THE LIVE RUN IS GONE.** The objective set was
-re-frozen after two of its nine clauses were found naming arguments no tool
-emits; four corpus episodes flip CLEAN to BREACH, zero of 26 benign move, and
-`ObjectiveSet.__init__` now REFUSES AT LOAD any path the manifest does not
-declare. **THE CARTOGRAPHER RAN LIVE ON MANAGED GEMMA** - 12 proposals, 0
-rejected, sheet UNSIGNED. **Nothing has been PROMOTED**, so there is still no
-transfer number and `GcsBlobIO` has never executed.
+**THE LIVE RUN IS UNBLOCKED. Every NEEDS-ERIC item that gated it is closed.**
+Ruling 48 repointed two Objective Set clauses that named arguments no tool emits.
+Ruling 49 fixed an oracle that scored CORRECT CONDUCT as a breach: five verdicts
+moved, four of them false positives removed, one real attack lost and priced.
+`objective_set_hash`, `derived_schema_hash` and C3 all moved; both prior freeze
+records are ARCHIVED, not deleted. **Nothing has been PROMOTED**, so there is
+still no transfer number and `GcsBlobIO` has never executed.
 
 **Open threads**
-- **THE LIVE RUN IS UNBLOCKED.** Checklist: `docs/ops/dry-run-preflight.md`.
-- **CLAUSE COVERAGE: 8 of 9 exercised, 1 DARK** (`inv_account_identifier_left_the_boundary`,
-  reached 15x, never true). **The "2 of 9" figure carried earlier was WRONG** - it measured the
-  retired default script, not the live path. Pooling all sources reports 9/9 and HIDES the dark
-  clause. Instrument: `python -m crucible.coverage`, exit 2 on a dark clause, on
-  `lane/clause-coverage`, NOT merged - its gate is correctly red.
-- **FOUR ORDINARY BENIGN FIXTURES SCORE BREACH** (ORD-08/11/13/14, `escalate_to_human` to
-  `RETURNS_T2`). No published number is wrong today, but a live target doing the ORD-08 shape is
-  scored a breach for correct conduct. Lane investigating; **decide before the live run.**
-- **The ARMORER has never promoted.** The `require_approval` steer landed but is
-  unproven live. Degenerate opposite to watch: blanket class-level approval
-  scores 26/26 forever and the benign floor cannot flag it.
-- **`crucible/policy/engine.py` validates NOTHING on load.** V10 guards the
-  authoring path only, so a hand-written JSON policy is one no gate has vetted.
-- **Gemma sheet: no partial signature exists** (`E_UNREVIEWED_TOOL`). Four of the
-  twelve rows are `UNCLASSIFIED`, which is ALLOWED downstream - signing ratifies
-  fail-open for four tools. INERT gap is Eric's ruling.
-- Owed: Devpost update 5 (slotted draft on disk), story canvas appends with
-  GitHub-linked timestamps, submission write-up, per-agent model disclosure.
+- **THE LIVE RUN.** Checklist `docs/ops/dry-run-preflight.md`. Eric picks
+  `--usd-cap`; `--holdout-expected 0`. **Then promote on SEPARATE DAYS before
+  08-31** - a policy accumulating day 1 to day 5 is the honest answer to the
+  track's asynchronous-operations language, and it is FALSE until something is
+  promoted.
+- **50 pre-registered Cartographer runs AFTER the live run**
+  (`docs/design/cartographer-stability-preregistration.md`, committed before any
+  call). 25 same-seed, 25 different-seed. **Decision rule is fixed; do not edit
+  the pre-reg.** Then the Gemma sheet is signed ONCE. Row 12 is wrong
+  (`generate_qr_code` INERT while declaring a float discount) and row 5 cannot
+  load as proposed.
+- **T2-8 runtime visuals**, scoped in `docs/design/`, blocked behind the run by
+  Eric's sequencing. ONE EVENT STREAM, TWO RENDERERS; emitter is an injected
+  no-op-default sink.
+- Owed: Devpost update 5 (drafted, states no hash on purpose), story canvas
+  appends (written, GitHub-linked), submission write-up, the demo video.
 
 **Watch out for**
-- **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT.** Ask every check what change
-  it would FAIL to notice - then ask it of the checks.
-- **HAND-AUTHORED ARTIFACTS AGREE WITH EACH OTHER AND NEVER MEET THE TARGET.**
-  Three did: the clauses, the calibration fixtures, `policy_v_final.json`.
+- **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT.** Today: a strawman that had
+  become verdict-identical to another on 18 of 18 traces while the self-test
+  still called it caught. 21 pairwise guards now, falsified before trusting.
+- **ARTIFACTS WRITTEN IN A PRIVATE LANGUAGE AGREE WITH EACH OTHER AND NEVER MEET
+  THE TARGET.** Four so far: the clauses, the calibration fixtures,
+  `policy_v_final.json`, and the golden traces' TOOL names and handles.
+- **A GREP THAT FINDS NOTHING IS NOT A PROOF.** `separates_pair` was called
+  unenforced by two documents; the check tests a VALUE, not a name.
+- **`scripts/hash-contracts.py --help` WRITES THE MANIFEST.**
 - **`pathlib.glob` on a MISSING directory returns empty rather than raising.**
-- **A wrong identifier produces a plausible failure that AGREES WITH
-  EXPECTATIONS.** Three Gemma probes used the wrong model id and nobody
-  interrogated the 404 because it matched the prediction.
-- **`grep -c` returns exit 1 on a zero count.** Use pytest's exit code. Backticks
-  in `git commit -m` get command-substituted; use `-F`.
+- **`grep -c` returns exit 1 on a zero count.** Use a real tool's exit code.
+- Backticks in `git commit -m` get command-substituted; use `-F`.
 - **ONE pytest at a time**; `git add <dir>` is as bad as `-A`.
+- **Merging from inside a lane worktree prints "Already up to date".**
 <!-- VAULT:SESSION-STATE end -->

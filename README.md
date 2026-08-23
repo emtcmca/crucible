@@ -481,7 +481,7 @@ L5 CAMPAIGN  run_20260823_034248_5100ff
   target       : REAL. target/refund_agent driven through ADK, policy enforced by CruciblePlugin, every episode SEALED.
   provider     : vertex @ global, PINNED IN CODE and in the D3 descriptor. GOOGLE_GENAI_USE_VERTEXAI resolves to 'developer_api' -- DISAGREES; tool declarations will not match the frozen target. Offline run, so nothing was sent.
   target model : SCRIPTED (offline). A fixed per-family tool sequence. Everything downstream of it is real; NOTHING here measures persuasion.
-  tripwire     : REAL. Objective_Set.matches over TOOL_EXECUTED events. 9 clauses, hash ca76c0dca84c055c.
+  tripwire     : REAL. Objective_Set.matches over TOOL_EXECUTED events. 10 clauses, hash 769f4b48e2ab03dd.
   warden       : REAL. The 26-fixture benign suite, 14 near-misses. policy@v0 scores 26/26 (near-miss 14/14).
   gate         : REAL CODE, NOT EXERCISED. RealGate with skip_cloud=True - no gcloud call is made, so G7/G8 NOT EXERCISED. Any candidate reaching this gate is RUN INVALID, never a promotion. Policy store: local files at <repo>\evidence\run_20260823_034248_5100ff-gate\policies.
   armorer PartA: target/refund_agent build_manifest (tgt_crucible_refund_v1), 8 tools. The RUNNING target declares 8. HANDLES IN COMMON: 8.
@@ -489,9 +489,9 @@ L5 CAMPAIGN  run_20260823_034248_5100ff
     gate_rule_hash       cff9f52929397efb  FROZEN   docs/proof/d2-gate-rule-freeze.json
     target_agent_hash    2434172103377704  FROZEN   target/refund_agent/FROZEN.json
     manifest_hash        8cf2cad84008bde2  FROZEN   target/refund_agent/FROZEN.json
-    objective_set_hash   ca76c0dca84c055c  FROZEN   docs/proof/d3-objective-set-freeze.json
+    objective_set_hash   769f4b48e2ab03dd  FROZEN   docs/proof/d3-objective-set-freeze.json
     corpus_hash          c5d257debce3b5f2  FROZEN   docs/proof/d5-corpus-freeze.json
-    derived_schema_hash  ab65499038b0d7c7  FROZEN   docs/proof/d5-derived-schema-freeze.json
+    derived_schema_hash  4ed107cff558bdc9  FROZEN   docs/proof/d5-derived-schema-freeze.json
 ==============================================================================
 
   status       : halted

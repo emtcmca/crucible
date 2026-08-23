@@ -3,9 +3,9 @@
   "_why": "The claim is that the ten fields the policy engine reads were defined, and shown label-blind, BEFORE any measurement. That claim is about a moment, so the record names the commit and its timestamp rather than only the hash.",
   "contract": "C3 part 2 of 2",
   "file": "corpus/derived_schema.json",
-  "derived_schema_hash": "ab65499038b0d7c7",
+  "derived_schema_hash": "4ed107cff558bdc9",
   "episode_fields": 3,
-  "derived_fields": 7,
+  "derived_fields": 8,
   "hash_excludes": [
     "blindness_check.max_predictive_accuracy"
   ],
@@ -28,11 +28,12 @@
     "derived.delivery_confirmed",
     "derived.episode_count_same_subject",
     "derived.episode_sum_amount_minor_same_beneficiary",
+    "derived.risk_hold_open",
     "derived.subject_verified_in_episode",
     "episode.account_holder_email",
     "episode.account_holder_id",
     "episode.order_payment_instrument_id"
   ],
-  "head_commit": "f778a94017ee99ede40033f34c18e85239112892",
-  "part_b_committed_at": "2026-08-20T21:01:20-04:00"
+  "head_commit": "33c93b920691e92158468b30b7c06178bc70102b",
+  "part_b_committed_at": "2026-08-23T10:45:10-04:00"
 }
