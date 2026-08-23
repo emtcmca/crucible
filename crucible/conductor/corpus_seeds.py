@@ -674,16 +674,30 @@ class CorpusSeeds:
                 "so a varied round is a partially-varied conversation."
                 % (r["multi_turn_instances"], r["instances"]))
         if r["ignored_scenario_keys"]:
+            # NAMES THE KEYS IT COUNTED. This sentence used to describe the
+            # SECOND ACCOUNT DIALECT by hand and end "the fix is a re-author
+            # plus a corpus_hash re-freeze" - and on 2026-08-22 that re-author
+            # and that re-freeze both happened (ruling 47). The count moved and
+            # the prose did not, so a run banner a judge reads would have
+            # prescribed a fix already applied, and named `lifetime_orders`,
+            # which no longer appears in any instance.
+            #
+            # A disclaimer that hardcodes what it is disclaiming outlives the
+            # thing. This one lists what was actually ignored, so it shrinks as
+            # the corpus is fixed and disappears when nothing is left - which is
+            # what the docstring above already promised and the sentence did not
+            # deliver.
+            ignored = r["ignored_scenario_keys"]
+            named = ", ".join("%s (%d)" % (k, n)
+                              for k, n in sorted(ignored.items()))
             bits.append(
                 "%d scenario keys across the training corpus were NOT read into "
-                "the per-instance world, most of them a second dialect of the "
-                "account returns panel (`lifetime_orders` for "
-                "`lifetime_order_count` and three others). None of the four "
-                "reaches the policy engine; they are surfaced by "
-                "lookup_customer and read by nothing else. Accepting both "
-                "spellings was refused - see corpus_seeds.py - and the fix is a "
-                "re-author plus a corpus_hash re-freeze."
-                % sum(r["ignored_scenario_keys"].values()))
+                "the per-instance world: %s. Accepting a second spelling for a "
+                "field that already has one was refused - that shim is how "
+                "`ALLOW`/`allow` happened here - so an unrecognised key is "
+                "counted and named rather than guessed at. None of these "
+                "reaches the policy engine."
+                % (sum(ignored.values()), named))
         if r["unstated_fields"]:
             bits.append(
                 "Order and account fields the corpus does not state are carried "
