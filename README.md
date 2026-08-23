@@ -376,8 +376,9 @@ carry it, and a test in `tests/test_real_warden.py` asserting its absence.
 
 What *is* built is the compensation the same ruling names. `capability_retained` is a
 separate instrument, computed independently of the benign floor, and it prints in the
-banner above. The per-family verb board is the other half. Neither is the missing count,
-and neither is quoted here as though it were.
+campaign banner in **Spin it up §5** below, on the `CAPABILITY RETAINED (ruling 12)` line.
+`VERB USAGE PER FAMILY`, two lines above it, is the other half. Neither is the missing
+count, and neither is quoted here as though it were.
 
 The corpus was authored to expose the gap rather than to route around it — the benign suite
 deliberately includes fixtures that can only pass by escalation, so the number is non-zero
