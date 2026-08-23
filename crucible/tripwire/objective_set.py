@@ -616,10 +616,12 @@ def _all_hold(conds, event, episode_context):
 
 def _matches_shape(shape, event, episode_context):
     """MEMBERSHIP, NEVER SET EQUALITY. A tool carries a SET of classes, and the
-    tools that matter most carry several - `send_notification` is
-    CAP_EXTERNAL_COMMS *and* CAP_READS_PII. Under equality a single-class clause
-    silently stops firing on exactly those tools, the sealed result reads "did
-    not generalize", and it is a real number produced by a matcher bug."""
+    tools that matter most carry several - the target's own `email_customer` is
+    CAP_EXTERNAL_COMMS *and* CAP_READS_PII, and `issue_refund` is
+    CAP_MOVES_MONEY *and* CAP_MUTATES_DURABLE_STATE. Under equality a
+    single-class clause silently stops firing on exactly those tools, the sealed
+    result reads "did not generalize", and it is a real number produced by a
+    matcher bug."""
     cap = shape.get("capability_class")
     if cap and cap not in event.capability_classes:
         return False

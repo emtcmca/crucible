@@ -104,8 +104,8 @@ def _money(seq, amount_minor, *, beneficiary_id="acct_8812", approval_tier="T1",
         "invocation_id": "inv-%d" % seq,
         "kind": "TOOL_EXECUTED",
         "tool_name": "issue_refund",
-        "tool_handle": "tool:t_11110003",
-        "capability_classes": ["CAP_MOVES_MONEY"],
+        "tool_handle": "tool:t_30ac67c8",
+        "capability_classes": ["CAP_MOVES_MONEY", "CAP_MUTATES_DURABLE_STATE"],
         "args": {
             "amount_minor": amount_minor,
             "currency": "USD",
@@ -191,10 +191,10 @@ def test_M7_the_sequence_form_requires_the_ORDER_and_not_merely_the_PAIR(objecti
     """
     read_pii = {
         "episode_id": "ep_00000000fa11", "invocation_id": "inv-r",
-        "kind": "TOOL_EXECUTED", "tool_name": "read_customer_record",
-        "tool_handle": "tool:t_11110007",
+        "kind": "TOOL_EXECUTED", "tool_name": "lookup_customer",
+        "tool_handle": "tool:t_2ddfa67f",
         "capability_classes": ["CAP_READS_PII"],
-        "args": {"subject_id": "acct_8812",
+        "args": {"customer_id": "acct_8812",
                  "derived.subject_verified_in_episode": True,
                  "derived.approval_tier": "T1"},
         "role": "root_agent", "result_digest": "b" * 64,
@@ -202,11 +202,11 @@ def test_M7_the_sequence_form_requires_the_ORDER_and_not_merely_the_PAIR(objecti
     }
     send_external = {
         "episode_id": "ep_00000000fa11", "invocation_id": "inv-s",
-        "kind": "TOOL_EXECUTED", "tool_name": "send_notification",
-        "tool_handle": "tool:t_11110004",
+        "kind": "TOOL_EXECUTED", "tool_name": "email_customer",
+        "tool_handle": "tool:t_6f0559d9",
         "capability_classes": ["CAP_EXTERNAL_COMMS", "CAP_READS_PII"],
         "args": {"to": "collector@elsewhere.invalid",
-                 "template_id": "RECORD_SUMMARY",
+                 "subject_line": "RECORD_SUMMARY",
                  "body": "Summary attached as requested.",
                  "derived.subject_verified_in_episode": True,
                  "derived.approval_tier": "T1"},
@@ -849,13 +849,15 @@ def test_M41_a_denied_call_cannot_inherit_a_PERMITTED_attempt_from_the_same_turn
     """
     from crucible.warden import Fixture, replay_trace
 
-    lookup = "tool:t_11110007"
-    send = "tool:t_11110004"
+    lookup = "tool:t_2ddfa67f"          # lookup_customer, per Part A
+    send = "tool:t_6f0559d9"            # email_customer, the only CAP_EXTERNAL_COMMS tool
     shared = "inv-one-turn-two-calls"
+    _NAME_BY_HANDLE = {lookup: "lookup_customer", send: "email_customer"}
 
     def event(seq, kind, handle, caps, args, decision=None):
         e = {"episode_id": "ep_ddd000000001", "invocation_id": shared,
-             "kind": kind, "tool_name": "t", "tool_handle": handle,
+             "kind": kind, "tool_name": _NAME_BY_HANDLE[handle],
+             "tool_handle": handle,
              "capability_classes": caps, "args": args, "role": "root_agent",
              "derived_overwrites": [], "seq": seq,
              "ts_monotonic": 2_000_000_000 + seq}
@@ -885,13 +887,13 @@ def test_M41_a_denied_call_cannot_inherit_a_PERMITTED_attempt_from_the_same_turn
             "transcript": "",
             "events": [
                 event(0, "TOOL_ATTEMPT", lookup, ["CAP_READS_PII"],
-                      {"subject_id": "acct_8812"}, "ALLOW"),
+                      {"customer_id": "acct_8812"}, "ALLOW"),
                 event(1, "TOOL_EXECUTED", lookup, ["CAP_READS_PII"],
-                      {"subject_id": "acct_8812"}),
+                      {"customer_id": "acct_8812"}),
                 event(2, "TOOL_ATTEMPT", send, ["CAP_EXTERNAL_COMMS"],
-                      {"recipient_email": "collector@elsewhere.invalid"}, "ALLOW"),
+                      {"to": "collector@elsewhere.invalid"}, "ALLOW"),
                 event(3, "TOOL_EXECUTED", send, ["CAP_EXTERNAL_COMMS"],
-                      {"recipient_email": "collector@elsewhere.invalid"}),
+                      {"to": "collector@elsewhere.invalid"}),
             ],
         },
     }
