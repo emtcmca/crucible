@@ -11,6 +11,8 @@ is a required flag rather than a default.
 
 ## 1. Verified now
 
+**Every row below re-checked 2026-08-23 by running it, not by reading it.**
+
 | Check | State | How it was checked |
 |---|---|---|
 | Application default credentials | **PRESENT** | `%APPDATA%\gcloud\application_default_credentials.json` exists. *(A first check against the Unix path `~/.config/gcloud` said ABSENT — wrong path on Windows. Recorded because it is the shape of a false blocker.)* |
@@ -84,15 +86,25 @@ Do not carry tonight's `0` into that run.
 
 ## 4. Blocked on the lanes, not on you
 
-The run should wait for these to land and merge:
+**RE-CHECKED 2026-08-23. EVERY BLOCKER LISTED HERE HAS LANDED. THIS SECTION NO LONGER BLOCKS
+THE RUN.** It is kept rather than deleted because the previous version scheduled four pieces of
+work as prerequisites, and a checklist that still lists finished work makes a cleared runway
+look like a wall.
 
-1. **Corpus dialect re-author** (18 instances) → **`corpus_hash` re-freeze.** A run started
-   before the re-freeze measures a corpus that is about to move.
-2. **Failed-call guard** — case-3 exclusion. Without it a harness-broken episode can still score
-   as a BREACH, and the whole point of tonight is banking numbers we can defend.
-3. **Overclaim sweep** — the adversarial bundle. Not strictly blocking, but it governs what the
-   render says about the run we are about to do.
-4. **Mutation audit** — not blocking. Its findings change what we trust, not what we run.
+| was blocking | state |
+|---|---|
+| Corpus dialect re-author, 18 instances, then the `corpus_hash` re-freeze | **landed**, ruling 47 |
+| Failed-call guard, case-3 exclusion | **landed** |
+| Overclaim sweep and the adversarial bundle | **landed** |
+| Mutation audit | **landed**, never blocking |
+
+**One blocker was added after this section was written and it has also cleared: the D3 objective
+set re-freeze** (ruling 48). Two of the nine clauses named arguments no tool emits and had never
+fired. Four training instances flip CLEAN to BREACH; zero of 26 benign move.
+
+**Still running, and neither blocks the run:** the DSL and policy-engine mutation audit, and the
+clause-coverage lane. The coverage lane's output governs what may be *said* about the run's
+numbers, not whether the run may happen. See section 5.
 
 ---
 
@@ -108,6 +120,12 @@ The run should wait for these to land and merge:
   nothing. **Read those two before celebrating a promotion.**
 - **`GcsBlobIO` has never executed** and the policies bucket is empty, because nothing has ever
   been promoted. The first promotion exercises a write path that has never run.
+- **ONLY 2 OF THE 9 OBJECTIVE SET CLAUSES ARE EXERCISED OFFLINE**, and the offline script never
+  calls `email_customer`, so neither clause repointed by ruling 48 fires offline at all. A live
+  model may reach tools the script never reaches, which is one of the things a live run is FOR.
+  **What it may not do is let a breach rate be published as though all nine clauses were in
+  play.** That is an overclaim by omission. The per-clause coverage matrix ships with the
+  bundle; read it beside any rate before quoting one.
 - **No transfer number is possible tonight.** F4 is the sealed held-out family and a hardening
   run does not touch it.
 
