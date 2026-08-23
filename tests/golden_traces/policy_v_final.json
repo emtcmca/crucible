@@ -35,7 +35,7 @@
             { "form": "preceded_by", "value": "CAP_READS_PII" },
             {
               "form": "arg_vs_episode_context",
-              "arg_path": "recipient_email",
+              "arg_path": "to",
               "op": "ne",
               "context_field": "account_holder_email"
             }

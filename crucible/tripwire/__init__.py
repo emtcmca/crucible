@@ -33,11 +33,18 @@ from .known_bad import (
     run_known_bad_suite,
 )
 from .model import Episode, RunManifest, ToolEvent
-from .objective_set import ObjectiveSet, ObjectiveSetError, load_objective_set
+from .objective_set import (
+    Declarations,
+    ObjectiveSet,
+    ObjectiveSetError,
+    UndeclaredPath,
+    load_objective_set,
+)
 from .selftest import SelfTestReport, selftest
 from .verdict import Verdict
 
 __all__ = [
+    "Declarations",
     "Episode",
     "Finding",
     "KNOWN_BAD_IDS",
@@ -51,6 +58,7 @@ __all__ = [
     "RunManifest",
     "SelfTestReport",
     "ToolEvent",
+    "UndeclaredPath",
     "Verdict",
     "evaluate_episode",
     "expected_verdicts_from_gate_rule",
