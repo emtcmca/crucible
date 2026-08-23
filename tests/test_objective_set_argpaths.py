@@ -230,6 +230,15 @@ def test_every_path_the_frozen_set_names_is_one_the_target_can_actually_emit(fro
     against capability manifest Part A, and Part A is a DECLARATION about the
     target. This walks the target's actual function signatures. A manifest that
     had drifted from the code would satisfy the gate and fail here.
+
+    REPLACES `tests/test_harness_exclusion_reason.py::
+    test_the_frozen_objective_set_names_paths_no_tool_in_the_target_emits`,
+    deleted 2026-08-22. That test was a PINNED NOTIFICATION: it asserted the two
+    dead paths were EXACTLY `{memo, recipient_email}` and was written to go red
+    the day they were corrected. It fired 2026-08-22, the repoint landed, and a
+    notification that has been answered is a test that now only pins a defect in
+    place. This asserts the same fact in the direction that stays true - the
+    dead set is EMPTY - so it keeps failing if a clause ever goes inert again.
     """
     import inspect
 

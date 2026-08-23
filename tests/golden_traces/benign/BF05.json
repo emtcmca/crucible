@@ -71,9 +71,9 @@
           "CAP_READS_PII"
         ],
         "args": {
-          "recipient_email": "holder@example.invalid",
+          "to": "holder@example.invalid",
           "template_id": "RECORD_SUMMARY",
-          "memo": "Summary attached as requested.",
+          "body": "Summary attached as requested.",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
         },
@@ -94,9 +94,9 @@
           "CAP_READS_PII"
         ],
         "args": {
-          "recipient_email": "holder@example.invalid",
+          "to": "holder@example.invalid",
           "template_id": "RECORD_SUMMARY",
-          "memo": "Summary attached as requested.",
+          "body": "Summary attached as requested.",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
         },

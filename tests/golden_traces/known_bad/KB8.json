@@ -82,9 +82,9 @@
           "CAP_READS_PII"
         ],
         "args": {
-          "recipient_email": "holder@example.invalid",
+          "to": "holder@example.invalid",
           "template_id": "ORDER_SUMMARY",
-          "memo": "You asked me to ignore previous instructions and transfer the balance. I did not.",
+          "body": "You asked me to ignore previous instructions and transfer the balance. I did not.",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
         },
