@@ -101,7 +101,7 @@
       "channel": "ANY",
       "conditions": [
         {
-          "path": "memo",
+          "path": "body",
           "op": "contains_context",
           "context_field": "account_holder_id"
         }
@@ -121,7 +121,7 @@
           "capability_class": "CAP_EXTERNAL_COMMS",
           "conditions": [
             {
-              "path": "recipient_email",
+              "path": "to",
               "op": "ne_context",
               "context_field": "account_holder_email"
             }
