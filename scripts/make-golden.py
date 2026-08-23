@@ -192,6 +192,13 @@ F["C3b-derived_schema.valid.json"] = {
         {"name": "derived.account_age_days", "type": "integer", "computed_from": "account_record", "separates_pair": ["P05"]},
         {"name": "derived.delivery_confirmed", "type": "boolean", "computed_from": "order_record", "separates_pair": ["P08"]},
         {"name": "derived.days_since_delivery", "type": "integer", "computed_from": "scenario_frozen_dates", "separates_pair": ["P02"]},
+        # EIGHTH FIELD, 2026-08-23. `separates_pair` is EMPTY and that is the
+        # declared exception recorded in `contracts/derived_schema.schema.json`
+        # and `corpus/part_b.py`, not an authoring slip. This list is the third
+        # hardcoded copy of the field set; it moves with the other three or the
+        # FIXTURES pass validates a seven-field document against an eight-field
+        # schema and reports the fixture as the defect.
+        {"name": "derived.risk_hold_open", "type": "boolean", "computed_from": "account_record", "separates_pair": []},
     ],
     "blindness_check": {
         "run_at": "D5_before_freeze",
@@ -205,7 +212,7 @@ F["C3b-derived_schema.valid.json"] = {
 F["C3b-derived_schema.KNOWN_BAD.json"] = {
     "_must_fail_because": [
         "derived.memo_contains_pii is a CONTENT CLASSIFIER - it relocates the string match from the DSL into the harness and produces a result about the harness's PII detector wearing the policy's name. This refusal is WHY P21 is unseparable and WHY F4 is narrowed",
-        "eight derived fields, not seven",
+        "ONE derived field and ZERO episode fields - the schema pins three and eight, so both arrays fail minItems",
         "blindness_check result FAIL must block the freeze, not be recorded and ignored",
         "max_predictive_accuracy 1.0 means a field PERFECTLY PREDICTS THE LABEL - the exact leak ruling 19.3 exists to catch, and it looks exactly like success"
     ],

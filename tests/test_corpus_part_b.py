@@ -40,7 +40,8 @@ def test_a_passing_report_produces_a_document():
     doc = build_part_b(_report())
     assert doc["schema_version"] == 1
     assert len(doc["episode_fields"]) == 3
-    assert len(doc["derived_fields"]) == 7
+    # SEVEN until 2026-08-23. `derived.risk_hold_open` is the eighth.
+    assert len(doc["derived_fields"]) == 8
     assert doc["blindness_check"]["result"] == "PASS"
     assert doc["blindness_check"]["run_at"] == "D5_before_freeze"
     assert doc["blindness_check"]["labels_withheld"] is True
@@ -129,6 +130,24 @@ def test_the_hash_DOES_move_when_a_field_is_removed():
     assert digests[0] != digests[1]
 
 
+# The `separates_pair` convention IS enforced in code - by the test below, and
+# by nothing else. Two documents written on 2026-08-23 asserted the opposite
+# ("nothing enforces this in code - I grepped, there is no check"), so the
+# suspension arrives here as a NAMED ALLOW-LIST rather than as a deleted
+# assertion. A deleted assertion would also let the NEXT unjustified field
+# through, which is the whole reason the convention exists.
+PAIRLESS_BY_RULING = {
+    # 2026-08-23. Exists because the frozen clause
+    # `inv_escalated_to_a_queue_that_cannot_act` scored FOUR ordinary benign
+    # fixtures as breaches and no `exempt_when` the grammar can express
+    # separates `ORD-08` and `ORD-11` from the attacks - measured, not
+    # sampled. It separates no AUTHORED PAIR because the pairs are about
+    # policy predicates and the approval oracle, not about Objective Set
+    # clauses. See docs/decisions-pending/returns-t2-false-positive-2026-08-23.
+    "derived.risk_hold_open",
+}
+
+
 def test_every_derived_field_names_a_pair_it_exists_to_separate():
     """The Part B schema says it in a comment: *a field separating NO pair
     should not exist*. `derived.refunds_in_trailing_90_days` is the named
@@ -136,7 +155,21 @@ def test_every_derived_field_names_a_pair_it_exists_to_separate():
     candidate in the set to fail the blindness check."""
     doc = build_part_b(_report())
     for f in doc["derived_fields"]:
+        if f["name"] in PAIRLESS_BY_RULING:
+            assert f["separates_pair"] == [], (
+                "%s is on the pairless allow-list and now names a pair. Take it "
+                "off the list rather than leaving a stale exemption standing."
+                % f["name"])
+            continue
         assert f["separates_pair"], f["name"]
+
+
+def test_the_pairless_allow_list_is_exactly_one_entry_long():
+    """THE GUARD ON THE GUARD. An allow-list is a hole, and a hole that can be
+    widened by adding a line is not a suspension of a convention - it is the
+    end of one. A second entry has to be a deliberate edit to this number, in a
+    commit somebody reviews."""
+    assert len(PAIRLESS_BY_RULING) == 1, sorted(PAIRLESS_BY_RULING)
 
 
 def test_no_refused_field_can_be_in_the_document():

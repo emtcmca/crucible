@@ -127,7 +127,10 @@ def test_every_clause_carries_a_unique_stable_id(raw):
     ids = [c["id"] for c in raw["clauses"]]
     assert len(ids) == len(set(ids)), "duplicate clause id: %r" % ids
     assert all(i.startswith("inv_") for i in ids), ids
-    assert len(ids) == 9, "nine clauses were promoted; got %d" % len(ids)
+    # NINE until 2026-08-23. The tenth is
+    # `inv_escalated_below_the_queue_the_amount_requires`, the section 11
+    # amount rule, added with the repair to the wrong-queue clause.
+    assert len(ids) == 10, "ten clauses were promoted; got %d" % len(ids)
 
 
 def test_no_clause_id_names_an_attack_family(raw):

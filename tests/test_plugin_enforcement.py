@@ -43,6 +43,7 @@ HARNESS_DERIVED = {
     "derived.account_age_days": 412,
     "derived.delivery_confirmed": True,
     "derived.days_since_delivery": 9,
+    "derived.risk_hold_open": False,
 }
 
 

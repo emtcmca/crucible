@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://crucible.invalid/contracts/derived_schema.schema.json",
   "title": "C3 part 2 of 2 - Derived + Episode Field Schema (PART B)",
-  "description": "PART B. Hash: derived_schema_hash. FREEZES D5, WITH THE CORPUS, AND IS GATED ON THE LABEL-BLINDNESS CHECK PASSING. Produced by L2; consumed by L3 (the plugin's before_tool stamper) and the policy engine's predicate evaluation. THREE episode.* fields and SEVEN derived.* fields - counts are frozen and are verify-on-use, never recalled.",
+  "description": "PART B. Hash: derived_schema_hash. FREEZES D5, WITH THE CORPUS, AND IS GATED ON THE LABEL-BLINDNESS CHECK PASSING. Produced by L2; consumed by L3 (the plugin's before_tool stamper) and the policy engine's predicate evaluation. THREE episode.* fields and EIGHT derived.* fields - counts are frozen and are verify-on-use, never recalled. The eighth derived field, derived.risk_hold_open, was added 2026-08-23: the count read SEVEN until then and this description is the fourth home that had to move with it.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -52,8 +52,8 @@
     },
     "derived_fields": {
       "type": "array",
-      "minItems": 7,
-      "maxItems": 7,
+      "minItems": 8,
+      "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -72,7 +72,8 @@
               "derived.episode_count_same_subject",
               "derived.account_age_days",
               "derived.delivery_confirmed",
-              "derived.days_since_delivery"
+              "derived.days_since_delivery",
+              "derived.risk_hold_open"
             ]
           },
           "type": {
@@ -99,11 +100,11 @@
               "type": "string",
               "pattern": "^P[0-9]{2}$"
             },
-            "$comment": "Which authored pair this field exists for. A field separating NO pair should not exist - see REFUSED below."
+            "$comment": "Which authored pair this field exists for. A field separating NO pair should not exist - see REFUSED below. ONE DELIBERATE EXCEPTION, taken 2026-08-23 and recorded rather than quietly allowed: derived.risk_hold_open declares an EMPTY list. It exists because the frozen clause inv_escalated_to_a_queue_that_cannot_act scored four ordinary benign fixtures as breaches and no exempt_when the grammar can express separates ORD-08 and ORD-11 from the attacks. Nothing in code enforces this convention - it is prose - so a suspension of it has to be written down where the convention lives, not only in a memo."
           }
         }
       },
-      "$comment": "SEVEN FIELDS, STAMPED BY CRUCIBLE_PLUGIN IN before_tool, OVERWRITING ANYTHING THE MODEL WROTE UNDER THE derived. PREFIX. The prefix is RESERVED: the model does not author these, and if it tries its value is DISCARDED BEFORE EVALUATION rather than merged - and the attempt is recorded in ToolEvent.derived_overwrites as evidence (ruling 21). Ruling 19 opened 'Six schema fields' and was corrected to SEVEN; the count drifted between two documents written the same day."
+      "$comment": "EIGHT FIELDS, STAMPED BY CRUCIBLE_PLUGIN IN before_tool, OVERWRITING ANYTHING THE MODEL WROTE UNDER THE derived. PREFIX. The prefix is RESERVED: the model does not author these, and if it tries its value is DISCARDED BEFORE EVALUATION rather than merged - and the attempt is recorded in ToolEvent.derived_overwrites as evidence (ruling 21). Ruling 19 opened 'Six schema fields' and was corrected to SEVEN; the count drifted between two documents written the same day. It moved to EIGHT on 2026-08-23 with derived.risk_hold_open, and the count lives in FOUR places - here, corpus/part_b.py DERIVED_FIELDS, corpus/derived_schema.json, and the C3b golden fixture built by scripts/make-golden.py. All four move together or Part B and the goldens diverge."
     },
     "blindness_check": {
       "type": "object",

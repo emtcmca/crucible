@@ -219,8 +219,10 @@ CONSUMED_ORDER_KEYS = (
     "order_status", "refunded_minor",
 )
 
-# The six fields that reach the policy engine, and the reference computer that
-# owns each. Read out of `corpus.blindness` so there is one definition.
+# The EIGHT fields that reach the policy engine off the scenario record, and
+# the reference computer that owns each. Read out of `corpus.blindness` so
+# there is one definition. (This comment said SIX against a tuple of seven
+# until 2026-08-23; it is now eight and counted at the tuple.)
 POLICY_VISIBLE_FIELDS = (
     "episode.account_holder_email",
     "episode.account_holder_id",
@@ -229,6 +231,7 @@ POLICY_VISIBLE_FIELDS = (
     "derived.account_age_days",
     "derived.delivery_confirmed",
     "derived.days_since_delivery",
+    "derived.risk_hold_open",
 )
 
 # ---------------------------------------------------------------------------
@@ -481,7 +484,7 @@ def build_sor(doc):
 
 
 def blind_fields(doc):
-    """The six policy-visible fields, computed by `corpus/blindness.py`.
+    """The eight policy-visible fields, computed by `corpus/blindness.py`.
 
     Not recomputed here. `BlindInstance` raises if a computer reaches for the
     label, so these are exactly the values the D5 blindness check ruled on.
@@ -619,7 +622,20 @@ def verify_world(doc, sor):
         "derived.account_age_days": scenario["account_age_days"],
         "derived.delivery_confirmed": scenario["delivery_confirmed"],
         "derived.days_since_delivery": scenario["days_since_delivery"],
+        "derived.risk_hold_open": scenario["risk_hold_open"],
     }
+    # KEYED ON `got`, NOT ON `expect`. A field present in `expect` and absent
+    # from `got` must be a KeyError here rather than a silent skip: the whole
+    # value of this function is that it compares EVERY policy-visible field, and
+    # a comparison that quietly stops covering one is a check that cannot fail.
+    missing = sorted(set(expect) - set(got))
+    if missing:
+        raise CorpusSeedError(
+            "E_WORLD_ROUNDTRIP_INCOMPLETE",
+            "%s: %s are computed from the instance and NOT derived from the "
+            "constructed world, so the round-trip never compares them. A field "
+            "this check silently skips is a field that cannot be caught "
+            "drifting." % (where, ", ".join(missing)))
     drift = sorted(k for k in expect if expect[k] != got[k])
     if drift:
         raise CorpusSeedError(

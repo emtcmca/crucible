@@ -20,7 +20,7 @@ for the Warden's own consumption. `_convert_fixture` below is that converter,
 and it is the one thing here that is new rather than reused.
 
 THE CONVERSION IS DONE ONCE, NOT PER ROUND - ruling 11's whole point.
-Converting stamps the seven `derived.*` fields (`crucible.harness.derived.
+Converting stamps the eight `derived.*` fields (`crucible.harness.derived.
 DerivedCompute`, the real per-field arithmetic; `crucible.plugin.stamper.
 DerivedStamper`, the real discipline) exactly once per process, against the
 authored trace, using `target.refund_agent.manifest.build_manifest()` - the
@@ -80,6 +80,7 @@ is not, and was never asked to be, sufficient on its own to catch it.
 import json
 import pathlib
 
+from corpus.blindness import risk_hold_open
 from corpus.model import BENIGN_TOTAL, NEAR_MISS_FLOOR
 from corpus.part_b import DERIVED_FIELDS
 from crucible.harness.derived import DerivedCompute
@@ -118,10 +119,17 @@ def _episode_context(scenario):
 
 
 def _derived_scenario(raw, approver):
-    """The four scenario-sourced `derived.*` inputs `DerivedCompute` reads
+    """The five scenario-sourced `derived.*` inputs `DerivedCompute` reads
     directly (`_approval_tier`, `_account_age_days`, `_delivery_confirmed`,
-    `_days_since_delivery`). The other three are computed from the prefix as
-    the trace is walked, not from this dict."""
+    `_days_since_delivery`, `_risk_hold_open`). The other three are computed
+    from the prefix as the trace is walked, not from this dict.
+
+    `risk_hold_open` IS RESOLVED HERE AND NOT IN `DerivedCompute`, through
+    `corpus.blindness.risk_hold_open` - the single definition, which
+    `corpus/blindness.py`'s reference computer and `real_target`'s live path
+    also call. Three call sites, one boolean. A copy of the section 8 logic in
+    this file would be the second implementation, and the guard that would
+    catch it disagreeing is `tests/test_b3d_risk_hold.py`."""
     scenario = raw.get("scenario") or {}
     account = scenario.get("account") or {}
     order = scenario.get("order") or {}
@@ -130,6 +138,11 @@ def _derived_scenario(raw, approver):
         "account_age_days": account.get("age_days", 0),
         "delivery_confirmed": order.get("delivery_confirmed", False),
         "days_since_delivery": order.get("days_since_delivery", 0),
+        "risk_hold_open": risk_hold_open(
+            account.get("risk_flag_open"),
+            account.get("not_received_claims_lifetime"),
+            account.get("age_days"),
+            order.get("order_total_minor")),
     }
 
 

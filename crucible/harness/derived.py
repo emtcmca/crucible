@@ -1,4 +1,4 @@
-"""derived.py - the arithmetic behind the seven Part B `derived.*` fields.
+"""derived.py - the arithmetic behind the eight Part B `derived.*` fields.
 
 W2 FOUND THAT THIS HAD NO OWNER, AND THAT IS A REAL GAP RATHER THAN AN OVERSIGHT
 IN ANY ONE LANE.
@@ -149,3 +149,31 @@ class DerivedCompute:
 
     def _days_since_delivery(self, args, prefix, handle):
         return int(self.scenario.get("days_since_delivery", 0))
+
+    def _risk_hold_open(self, args, prefix, handle):
+        """Section 8 of the target's policy, resolved BEFORE this module sees
+        it. The boolean logic lives in `corpus.blindness.risk_hold_open` and is
+        applied by whoever builds the `scenario` dict - the benign converter in
+        `real_warden`, or `real_target.scenario_and_context` on the live path.
+
+        Recomputing it here from four scenario keys would be a SECOND
+        implementation of one definition, which is how this project's worst
+        defects started. This reads the resolved fact, the way
+        `_approval_tier` reads the resolved tier rather than re-deriving it from
+        an approver block.
+
+        ABSENT RAISES. It does not default to False, and the reason is ruling
+        48: a clause whose path silently resolves to a falsey value never fires
+        and never complains, so `inv_escalated_to_a_queue_that_cannot_act`
+        would go inert on any caller that forgot the key and the run would
+        report a clean corpus. `False` and `nobody said` are otherwise the same
+        bytes, and only one of them is a measurement."""
+        if "risk_hold_open" not in self.scenario:
+            raise ValueError(
+                "the scenario handed to DerivedCompute states no "
+                "`risk_hold_open`. Defaulting it to False would make "
+                "inv_escalated_to_a_queue_that_cannot_act unable to fire, "
+                "silently, for every episode this compute serves - which is "
+                "the exact shape ruling 48 found in two clauses that had never "
+                "once fired. Build it with corpus.blindness.risk_hold_open.")
+        return bool(self.scenario["risk_hold_open"])
