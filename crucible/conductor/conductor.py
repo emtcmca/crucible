@@ -121,7 +121,8 @@ class RoundRecord:
     # record that escapes `_round` without an outcome being decided must not read
     # as a clean one.
     outcome: str = "INCOMPLETE"
-    autopsy: Optional[dict] = None
+    autopsy: Optional[dict] = None       # the one the ARMORER was given
+    autopsies: List[dict] = field(default_factory=list)   # one per breach
     patch_ok: bool = False
     patch_repaired: bool = False
     verbs_used: List[str] = field(default_factory=list)
@@ -364,23 +365,52 @@ class Conductor:
         if not breaches:
             return record                              # nothing to patch
 
-        # ONE autopsy and ONE patch per round. The ARMORER is the highest-
-        # judgment, lowest-volume role in the build (~24 calls per run), and
-        # firing it once per breach would multiply the one cost that buys
-        # reliability while adding nothing: six autopsies of the same round
-        # produce six patches against one policy, and only the first has a
-        # parent that still exists.
-        first = breaches[0]
-        autopsy = self.coroner.autopsy(
-            episode=first["_episode"], verdict=first,
-            run_id=self.run_id, round_index=index,
-            attack_id=first.get("attack_id") or "atk_000000000000",
-            attack_family_id=first.get("family_id"),
-            manifest_hash=self.hashes["manifest_hash"],
-            derived_schema_hash=self.hashes["derived_schema_hash"])
-        record.autopsy = autopsy.record
+        # ONE PATCH PER ROUND, ONE AUTOPSY PER BREACH. Those are two decisions
+        # and they were one for as long as this loop has existed.
+        #
+        # The paragraph that used to sit here argued both from a single premise:
+        # "the ARMORER is the highest-judgment, lowest-volume role (~24 calls
+        # per run), and firing it once per breach would multiply the one cost
+        # that buys reliability while adding nothing: six autopsies of the same
+        # round produce six patches against one policy, and only the first has a
+        # parent that still exists."
+        #
+        # EVERY WORD OF THAT IS TRUE OF THE ARMORER AND NONE OF IT IS TRUE OF
+        # THE CORONER. Patching is stateful - a patch mutates a policy, and six
+        # patches against one parent genuinely do conflict. An autopsy mutates
+        # nothing. It is a finding about one episode, and six findings about six
+        # different episodes cannot collide with each other. The CORONER was
+        # coupled to the ARMORER's constraint by proximity, not by argument.
+        #
+        # CONVENTIONS 3.1 HAS SAID "1 per breach" FOR THE CORONER SINCE THE
+        # ROSTER WAS LOCKED, on `gemini-3.5-flash-lite` at `minimal` - the
+        # cheapest model in the build, doing structured extraction. The spine
+        # outranks this file (CONVENTIONS 1), so this was never a design choice
+        # to revisit; it was a conformance defect, and C6's reader agrees with
+        # the spine rather than with the code.
+        #
+        # WHAT IT COST. A round finding four breaches recorded four breaches and
+        # examined one. The other three appeared in the evidence bundle as
+        # numbers with no finding attached, which is exactly the question a
+        # reader of a run report asks first. `E_AUTOPSY_MISSING_FOR_BREACH` made
+        # the whole bundle unrenderable rather than let it ship that way.
+        record.autopsies = [
+            self.coroner.autopsy(
+                episode=breach["_episode"], verdict=breach,
+                run_id=self.run_id, round_index=index,
+                attack_id=breach.get("attack_id") or "atk_000000000000",
+                attack_family_id=breach.get("family_id"),
+                manifest_hash=self.hashes["manifest_hash"],
+                derived_schema_hash=self.hashes["derived_schema_hash"]).record
+            for breach in breaches]
 
-        patch = self.armorer.propose(autopsy.record, policy, index,
+        # The ARMORER still gets exactly one, and it is the first breach's - the
+        # same record it received before this change. Which breach drives the
+        # patch is unchanged; what changed is that the other breaches are now
+        # examined rather than merely counted.
+        record.autopsy = record.autopsies[0]
+
+        patch = self.armorer.propose(record.autopsy, policy, index,
                                      rejection_feedback=rejection_feedback)
         record.patch_ok = patch.ok
         record.patch_repaired = patch.repaired

@@ -631,7 +631,12 @@ def _autopsies(rounds):
     to put in the run of record, where a reader needs the parts the ARMORER may
     not have. C6 `$ref`s the full C5 record, so the full record is what goes in.
     """
-    return [dict(r.autopsy) for r in rounds if r.autopsy]
+    # ONE PER BREACH (CONVENTIONS 3.1). `r.autopsy` is still the single record
+    # the ARMORER was handed; `r.autopsies` is every finding the CORONER made,
+    # and the evidence bundle wants all of them. Reading the singular here is
+    # what made a four-breach round ship one finding.
+    return [dict(a) for r in rounds for a in (r.autopsies or
+                                             ([r.autopsy] if r.autopsy else []))]
 
 
 _PLACEHOLDER_RULE = re.compile(r"^\s*rule\s+(r_new\d+)\s*:", re.MULTILINE)

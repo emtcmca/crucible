@@ -591,19 +591,51 @@ def test_the_bundle_passes_every_check_the_offline_READER_makes_but_one(
 
 
 @adk_only
-def test_the_KNOWN_GAP_is_still_exactly_one_round_short_and_not_something_else(
-        offline_run):
-    """A pinned exemption that stops describing the thing it exempts is how a
-    real defect hides behind an old note. This asserts the gap is what the note
-    says it is: MORE BREACH EPISODES THAN AUTOPSIES, one autopsy per round, and
-    nothing else."""
+def test_every_breach_episode_now_has_an_autopsy_naming_it(offline_run):
+    """THE KNOWN GAP, CLOSED. This test was written the other way up.
+
+    The C6 producer lane found that `Conductor._round` fired ONE autopsy per
+    round while C6's reader requires one per breach episode, so a round with two
+    breaches shipped one finding and `E_AUTOPSY_MISSING_FOR_BREACH` made the
+    whole bundle unrenderable. It pinned the gap here so it could not grow
+    silently, and correctly refused to invent the missing autopsy - the CORONER
+    had never been called for that episode, and writing the record would have
+    been fabricating a finding.
+
+    It was not a design decision to revisit. **CONVENTIONS 3.1 has specified the
+    CORONER at "1 per breach" since the model roster was locked**, on the
+    cheapest model in the build doing structured extraction. The conductor's own
+    comment argued the coupling from the ARMORER's cost and statefulness - every
+    word of which is true of the ARMORER and none of which is true of the
+    CORONER, because an autopsy mutates nothing and six findings about six
+    different episodes cannot collide. The spine outranks the conductor
+    (CONVENTIONS 1), so the code was the defect and C6's reader agreed with the
+    spine all along.
+
+    The ARMORER still receives exactly one record per round, and it is still the
+    first breach's. What changed is that the other breaches are examined rather
+    than merely counted.
+    """
     bundle = offline_run["bundle"]
     breaches = [e for e in bundle["episodes"]
                 if e["verdict"]["verdict"] == "BREACH"]
-    rounds_with_a_breach = {e["round_index"] for e in breaches}
-    assert len(bundle["autopsies"]) == len(rounds_with_a_breach)
-    assert len(breaches) > len(bundle["autopsies"])
-    # Every autopsy that IS present names an attack an episode ran.
+    assert breaches, "no breach in the offline run - this test proves nothing"
+
+    autopsied = [a["attack_id"] for a in bundle["autopsies"]]
+    for episode in breaches:
+        assert episode["attack_id"] in autopsied, (
+            "breach episode %s on attack %s has no autopsy naming it. Every "
+            "breach gets a finding, or the bundle reports a number with nothing "
+            "attached to it - which is the first question a reader of a run "
+            "report asks." % (episode["episode_id"], episode["attack_id"]))
+
+    assert len(bundle["autopsies"]) == len(breaches), (
+        "autopsy count %d does not match breach count %d. The relation is 1:1 "
+        "in BOTH directions: an autopsy of something that did not breach is as "
+        "wrong as a breach with no autopsy."
+        % (len(bundle["autopsies"]), len(breaches)))
+
+    # Every autopsy names an attack an episode actually ran.
     named = {e["attack_id"] for e in bundle["episodes"]}
     for record in bundle["autopsies"]:
         assert record["attack_id"] in named
