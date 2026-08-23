@@ -32,10 +32,24 @@ own. The five rules key on our agent's argument vocabulary and none of it
 appears in somebody else's agent. Making them portable is open work; adding
 rules until that number improves would be tuning to a fixture.
 
-RAN LIVE 2026-08-22 against `google/gemma-4-26b-a4b-it-maas` at
-`location=global`. Twelve proposals, twelve accepted by the citation validator,
-none ratified. The endpoint, prompt, raw response, token usage and every
-proposal are in `docs/proof/cartographer-live-run-2026-08-22.json`; the review
-sheet, and the five unflattering things the run showed, are in
-`docs/proof/cartographer-adk-ratification.md`, which is **UNSIGNED**.
+RAN LIVE TWICE against `google/gemma-4-26b-a4b-it-maas` at `location=global`,
+2026-08-22 and 2026-08-23. Twelve proposals each time, twelve accepted by the
+citation validator each time, **none ratified**. Both runs are kept
+(`docs/proof/cartographer-live-run-2026-08-2{2,3}.json`); the current review
+sheet is `docs/proof/cartographer-adk-ratification.md` and it is **UNSIGNED**.
+
+THE SECOND RUN DIFFERS FROM THE FIRST BY ONE PROMPT CHANGE AND NOTHING ELSE, so
+the four rows that moved are attributable to it. `INERT` was added as a positive
+assertion of the EMPTY capability set, because the first run's own review sheet
+found the model saying `UNCLASSIFIED` where a human said "this has no capability
+worth policing" - two different statements with one word between them. `INERT` is
+**not a seventh class**: `ratify._resolve_classes()` maps it to `()`, and it buys
+nothing enforceable, since an empty set binds no rule exactly as `UNCLASSIFIED`
+binds none. What it buys is the difference between "a human looked and ruled" and
+"nobody looked".
+
+**The most useful thing either run produced is a regression.** `generate_qr_code`
+cited the identical docstring span both times and came back `CAP_MOVES_MONEY`
+then `INERT`. The evidence contract grounds a citation; it does not constrain the
+inference from the citation to the class. That is why the human gate exists.
 """

@@ -37,6 +37,7 @@ the reviewer did the real work.
 """
 
 from ..canon.hashing import hash_full
+from .gemma import INERT
 from .prepass import CAPABILITY_CLASSES, UNCLASSIFIED
 
 VALID_CLASSES = frozenset(CAPABILITY_CLASSES)
@@ -136,9 +137,19 @@ def build_ratification(*, ratified_by, ratified_on, proposals, decisions, notes=
                     "E_AMEND_WITHOUT_CLASSES",
                     "%r is amended but no replacement class set was given" % name)
             for c in classes:
-                if c != UNCLASSIFIED and c not in VALID_CLASSES:
+                # INERT is accepted here for the same reason it was added to the
+                # prompt: before it existed, a reviewer looking at a read-only
+                # lookup had the same missing word the model did, and had to
+                # write UNCLASSIFIED over an answer he was certain of.
+                if c not in (UNCLASSIFIED, INERT) and c not in VALID_CLASSES:
                     raise RatificationError(
                         "E_UNKNOWN_CLASS", "%r amended to %r, not one of the six" % (name, c))
+                if c == INERT and len(classes) > 1:
+                    raise RatificationError(
+                        "E_INERT_MIXED",
+                        "%r amended to INERT alongside %s. INERT is the EMPTY "
+                        "capability set and cannot be one member of a larger one"
+                        % (name, ", ".join(repr(x) for x in classes if x != INERT)))
         clean[name] = {
             "decision": verdict,
             "classes": classes,
@@ -152,6 +163,38 @@ def build_ratification(*, ratified_by, ratified_on, proposals, decisions, notes=
         "decisions": clean,
         "notes": notes or "",
     }
+
+
+def _resolve_classes(classes):
+    """Turn a ratified proposal vocabulary into a manifest capability set.
+
+    THE ONLY PLACE THE TWO VOCABULARIES MEET, and it does exactly one thing:
+    `("INERT",)` becomes `()`.
+
+    That mapping is the whole of Eric's 2026-08-23 ruling. `INERT` is not a
+    seventh capability class - `manifest/load.py` still refuses the literal
+    string, and the DSL validator still refuses a seventh class in a selector.
+    It is a proposal-vocabulary token that RESOLVES to the empty capability set,
+    which `manifest/load.py`'s own docstring already sanctions: *"Empty is 'we
+    know it has no capabilities', which is a claim."*
+
+    WHAT THIS DOES NOT BUY, stated here because the resolution is where somebody
+    would go looking for a safety property and not find one. `cap_selector`
+    matches by MEMBERSHIP, so an empty set binds no rule - the same practical
+    exposure as `UNCLASSIFIED`, whose selector does not even parse
+    (`E_UNCLASSIFIED_SELECTOR`). `INERT` does not make a tool safer. It records
+    that a human looked and ruled, where `UNCLASSIFIED` records that nobody
+    could. For a fleet-cataloging problem that distinction is the product; as an
+    enforcement claim it would be false.
+
+    `UNCLASSIFIED` is deliberately NOT resolved here. It passes through and
+    `manifest/load.py` refuses it by name, which is fail-closed and loud. Mapping
+    it to anything would be inventing a decision the reviewer did not make.
+    """
+    classes = tuple(classes)
+    if classes == (INERT,):
+        return ()
+    return classes
 
 
 def to_manifest_entries(proposal_set, ratification):
@@ -194,10 +237,10 @@ def to_manifest_entries(proposal_set, ratification):
         if verdict == "reject":
             continue
         if verdict == "amend":
-            classes = tuple(d.get("classes") or ())
+            classes = _resolve_classes(d.get("classes") or ())
             classified_by = "human"
         elif verdict == "accept":
-            classes = tuple(p["proposed_classes"])
+            classes = _resolve_classes(p["proposed_classes"])
             classified_by = "cartographer"
         else:
             raise RatificationError(

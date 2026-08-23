@@ -20,12 +20,18 @@ WHAT `--live` DOES NOT DO. It does not ratify, it does not write a manifest, and
 the JSON it emits carries `"ratified": false` on the set and on every proposal
 inside it. `ratify.py` is the only route onward and it needs a named human.
 
-`--live` RAN, 2026-08-22. Managed Gemma IS reachable from `crucible-hack-2026`.
-Four earlier probes said otherwise and all four asked for a model id that does
-not exist - the publisher id ends `-maas`. See
-`docs/proof/vertex-model-reachability-2026-08-22.txt` for the correction and
-`docs/proof/cartographer-live-run-2026-08-22.json` for the run this produced -
-endpoint, prompt, raw response, token usage and all twelve proposals, unratified.
+`--live` RAN TWICE, 2026-08-22 and 2026-08-23, the second time with `INERT` in
+the prompt vocabulary and every other input held identical - same model id, same
+`location=global`, same `seed`, same frozen fixture. Both artifacts are kept
+(`docs/proof/cartographer-live-run-2026-08-2{2,3}.json`) and the diff between
+them is the experiment: four of twelve rows moved, three the way the change
+intended and one the other way - `generate_qr_code` fell out of `CAP_MOVES_MONEY`
+into `INERT` while citing the same docstring span both times. The current review
+sheet is `docs/proof/cartographer-adk-ratification.md`, still **UNSIGNED**.
+
+Managed Gemma IS reachable from `crucible-hack-2026`. Four earlier probes said
+otherwise and all four asked for a model id that does not exist - the publisher
+id ends `-maas`. See `docs/proof/vertex-model-reachability-2026-08-22.txt`.
 
 COST IS PRINTED, NOT ASSUMED. `--live` reads the `usage` block off every
 response and prints prompt/completion/total tokens at the end. A run that

@@ -253,5 +253,15 @@
       "ratified": false
     }
   ],
-  "ratified": false
+  "ratified": false,
+  "_superseded": {
+    "on": "2026-08-23",
+    "by": "docs/proof/cartographer-live-run-2026-08-23.json",
+    "ruling": "Eric's ruling 2026-08-23: INERT added to the Cartographer prompt as a positive assertion of the EMPTY capability set, so the vocabulary can distinguish 'this tool has no capability worth policing' from 'I cannot determine'. That gap was named by this run's own review sheet, 'Five things the run showed' section 5, and left unfixed there on purpose.",
+    "prompt_delta_only": "The re-run changed the PROMPT and nothing else. Same model id google/gemma-4-26b-a4b-it-maas, same location=global, same host with no region prefix, same seed 20260822, same temperature 0, same frozen fixture digest e9ae52b9ea5920a7e0fc46dc119a8252a96cdff5b01a7099dbde2a50aa34f5e1. No proposal was inspected and then used to adjust the prompt.",
+    "what_it_invalidates": "NOTHING WAS EVER RATIFIED AGAINST THIS SET, so no manifest entry, no policy rule and no measured number depends on it. Its review sheet was and remains UNSIGNED.",
+    "what_changed": "Four of twelve rows moved. Three UNCLASSIFIED rows became INERT (get_product_recommendations, check_product_availability, get_available_planting_times). One CITED row REGRESSED: generate_qr_code moved from CAP_MOVES_MONEY to INERT while citing the identical docstring span in both runs. One UNCLASSIFIED row did not move (access_cart_information).",
+    "why_this_file_still_exists": "The before/after across a single prompt delta is the most informative thing either run produced, and it only exists while both halves do. generate_qr_code in particular cannot be read without this file: the same verbatim citation supports CAP_MOVES_MONEY here and INERT in the successor, which is evidence about what a citation does and does not constrain. Deleting the earlier reading would leave the later one looking like a single clean measurement.",
+    "digest_unaffected": "proposal_set_digest() covers tool names, proposed classes and evidence only. This key is outside the proposals array and does not move abef20e46f37609f46bfbef0c68c7ba1497ca5f5e9aaafecb5b9ca8703ff3888."
+  }
 }
