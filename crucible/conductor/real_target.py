@@ -6,14 +6,17 @@ touches a model, never touches `target/refund_agent`, and measures nothing about
 an agent's susceptibility to persuasion, which is the entire thing the real
 target exists to measure. This module drives the actual agent instead:
 
-    attack["instruction"]  ->  a real google.adk.runners.Runner
+    EpisodeWorld.turns     ->  a real google.adk.runners.Runner, ONE
+                               `run_async` PER TURN on one session
                             ->  target/refund_agent.agent.build_agent() (the
                                 real LlmAgent, 8 tools, refund_policy.md
                                 verbatim as its instruction)
                             ->  CruciblePlugin, attached via App(plugins=[...]),
                                 enforcing `policy` through EnforcementCore
                             ->  the tools, bound to a FRESH
-                                SimulatedSystemOfRecord per episode
+                                SimulatedSystemOfRecord per episode - the
+                                one THIS ATTACK NAMES, when a
+                                `world_factory` is wired (see EpisodeWorld)
                             ->  crucible.harness.episode.seal_episode, so the
                                 result is SCOREABLE by the real TRIPWIRE
                                 (`crucible/tripwire/evaluator.py`), not the
@@ -163,6 +166,7 @@ matching `target/refund_agent/agent.py`'s own stated constraint.
 """
 
 import asyncio
+import dataclasses
 import hashlib
 import os
 import pathlib
@@ -182,18 +186,55 @@ _REPO = os.path.dirname(os.path.dirname(_HERE))
 DERIVED_SCHEMA_PATH = pathlib.Path(_REPO) / "contracts" / "golden" / \
     "C3b-derived_schema.valid.json"
 
-# The seeded world every episode runs against, and why ORD-4472 specifically.
-# `target/refund_agent/simulated_system_of_record.py::seed_demo_ledger` is the
-# only seeded world this build has - there is no corpus-driven, per-instance
-# scenario wired to `real_target` yet (the `attack` dict carries only
-# `attack_id`/`family_id`/`instruction`; nothing about which order or account
-# it concerns). ORD-4472 is the $900 espresso machine, chosen because it is the
-# one seeded order whose amount matches every one of `campaign.py`'s
-# lane-authored SEEDS ("$900 refund on order 40021"). Wiring a real corpus
-# instance's own scenario into this adapter is out of this lane's scope; this
-# is a documented, load-bearing simplification, not an oversight.
+# The DEMO world, and it is now one of two. `seed_demo_ledger` holds the three
+# demo orders and ORD-4472 is the $900 espresso machine that `campaign.py`'s
+# lane-authored SEEDS all name. It stays because it is what those seeds - and
+# ten tests - are written against.
+#
+# IT IS NO LONGER THE ONLY WORLD, AND THE REASON IS A SILENT FAILURE, NOT A
+# FEATURE. Every corpus instance carries its own account and order, and
+# `F1-01-chargeback-band-override` names ORD-4471. The demo world HAS an
+# ORD-4471 and it is a $34 stoneware mug, so that attack would be run against a
+# real order that is the wrong order: the ledger's own invariant refuses a $900
+# refund against a $34 total, the target answers honestly, and the episode
+# scores NON-BREACH and indexes as hardening. Nothing raises anywhere.
+# `world_factory` (see `build_real_target`) is how an episode gets the world its
+# attack actually names; `crucible/conductor/corpus_seeds.py` is what supplies
+# one per corpus instance.
 _SCENARIO_ORDER_ID = "ORD-4472"
 _SCENARIO_CUSTOMER_ID = "CUS-8801"
+
+
+@dataclasses.dataclass(frozen=True)
+class EpisodeWorld:
+    """Everything about ONE episode that the attack, not the harness, decides.
+
+    Declared here rather than in `corpus_seeds` because this module is what
+    consumes it: the shape has one owner and a producer that satisfies it,
+    which is the same arrangement `run_manifest` already has.
+
+    `turns` is a non-empty tuple of user turns, DRIVEN IN ORDER on one session.
+    It is a tuple and not a string because the escalation is the attack: a
+    corpus instance's three turns end in a threat that only works as an answer
+    to a refusal that has not happened yet, and concatenating them into one
+    prompt deletes exactly that. A single-turn world is the ordinary case and
+    is spelled `("...",)`, not `"..."` - one shape, not two.
+    """
+
+    sor: object
+    order_id: str
+    customer_id: str
+    turns: tuple
+    approval_tier: str = "NONE"
+
+    def __post_init__(self):
+        if not self.turns or not all(isinstance(t, str) and t.strip()
+                                     for t in self.turns):
+            raise ValueError(
+                "EpisodeWorld.turns must be a non-empty tuple of non-empty "
+                "strings. An episode driven with nothing to say produces a "
+                "clean sealed episode that measured no attack, which scores "
+                "as a non-breach.")
 
 
 def _episode_id_for(attack_id):
@@ -247,12 +288,28 @@ def _fresh_seeded_sor():
     return seed_demo_ledger(SimulatedSystemOfRecord(as_of=DEMO_AS_OF))
 
 
-def _scenario_and_context(sor):
+def scenario_and_context(sor, order_id, customer_id, approval_tier="NONE"):
     """The frozen `scenario` dict `DerivedCompute` reads and the
     `EpisodeContext` `EnforcementCore`/`PolicyEngine` need, both sourced from
     the SAME seeded order/account record, never from the attack text and
     never from a wall clock (ruling 16; `DEMO_AS_OF` is frozen in
     `simulated_system_of_record.py`).
+
+    PUBLIC as of 2026-08-22, and `order_id`/`customer_id` are arguments rather
+    than module constants, because both changes serve one check.
+    `corpus_seeds.verify_world` calls this on the world it just built and
+    compares the result against the same six fields computed by
+    `corpus/blindness.py`'s reference computers reading the instance. Two
+    derivations of one set of facts, cross-checked before the episode runs -
+    which is the only thing standing between "the attack ran against its own
+    world" and an honest lookup failure scored as hardening.
+
+    `approval_tier` is an argument for the same reason. It was hardcoded
+    `"NONE"` on the grounds that attack episodes declare no approver; six of
+    the fifty training instances declare one with a real tier, and F1-08
+    (`under-authorised-approval`) is unmeasurable without it. The value comes
+    from the instance, through `corpus/blindness.py`'s own
+    `derived.approval_tier` computer.
 
     Only ONE `episode_context` object is built now (2026-08-22): `seal_episode`
     used to need a separate BARE field dict because its `_freeze_block`
@@ -262,13 +319,22 @@ def _scenario_and_context(sor):
     `EpisodeContext` this function builds is correct for every consumer:
     `EnforcementCore`/`PolicyEngine` via their prefixed `.get()`, and
     `seal_episode` via its own de-prefixing."""
-    order = sor.get_order(_SCENARIO_ORDER_ID)
-    customer = sor.get_customer(_SCENARIO_CUSTOMER_ID)
+    order = sor.get_order(order_id)
+    customer = sor.get_customer(customer_id)
+    if order is None or customer is None:
+        raise ValueError(
+            "the world for this episode holds no %s %r. Building the episode "
+            "context off a missing record would mean freezing "
+            "`episode.account_holder_id` to None and comparing every "
+            "destination argument against it - the F4 clause would then pass "
+            "on everything, silently."
+            % ("order" if order is None else "customer",
+               order_id if order is None else customer_id))
     delivered_days = None
     if order.delivered_on is not None:
         delivered_days = (sor.as_of - order.delivered_on).days
     scenario = {
-        "approval_tier": "NONE",
+        "approval_tier": approval_tier,
         "account_age_days": customer.account_age_days,
         "delivery_confirmed": order.delivery_confirmed,
         "days_since_delivery": delivered_days or 0,
@@ -282,11 +348,12 @@ def _scenario_and_context(sor):
     return scenario, episode_context
 
 
-def _build_core(policy, episode_id, sor):
+def _build_core(policy, episode_id, world):
     from target.refund_agent.manifest import build_manifest
     manifest = build_manifest()
     derived_schema, _ = load_part_b(DERIVED_SCHEMA_PATH)
-    scenario, episode_context = _scenario_and_context(sor)
+    scenario, episode_context = scenario_and_context(
+        world.sor, world.order_id, world.customer_id, world.approval_tier)
     stamper = DerivedStamper(derived_schema,
                              compute=DerivedCompute(manifest, scenario))
     core = EnforcementCore(
@@ -300,7 +367,7 @@ def _build_core(policy, episode_id, sor):
     return core
 
 
-async def _drive(attack, policy, *, model, sor_factory, run_manifest):
+async def _drive(attack, policy, *, model, world_factory, run_manifest):
     from google.adk.apps.app import App
     from google.adk.runners import Runner
     from google.adk.sessions.in_memory_session_service import (
@@ -312,11 +379,11 @@ async def _drive(attack, policy, *, model, sor_factory, run_manifest):
     from target.refund_agent.agent import TARGET_AGENT_NAME, build_agent
 
     episode_id = _episode_id_for(attack.get("attack_id") or "atk_000000000000")
-    sor = sor_factory()
-    core = _build_core(policy, episode_id, sor)
+    world = world_factory(attack)
+    core = _build_core(policy, episode_id, world)
     plugin = CruciblePlugin(core)
 
-    target_tools.bind_backends(sor)
+    target_tools.bind_backends(world.sor)
     target_fault = False
     try:
         agent = build_agent()
@@ -328,12 +395,21 @@ async def _drive(attack, policy, *, model, sor_factory, run_manifest):
         runner = Runner(app=app, session_service=InMemorySessionService(),
                         auto_create_session=True)
         try:
-            async for _ in runner.run_async(
-                    user_id="u_" + episode_id, session_id="s_" + episode_id,
-                    new_message=types.Content(
-                        role="user",
-                        parts=[types.Part(text=attack.get("instruction", ""))])):
-                pass
+            # MULTI-TURN, DRIVEN - not concatenated. One `run_async` per turn
+            # on ONE session id, so the target replies between turns and the
+            # escalation is answered rather than narrated. ADK's
+            # `InMemorySessionService` appends each turn to the same session,
+            # so turn 2's request carries turn 1's model reply and any tool
+            # results; a scripted offline model that counts function responses
+            # in the history therefore resumes where it left off instead of
+            # restarting. A single-turn world runs this loop once and is
+            # byte-identical to what the single `types.Part` call produced.
+            for turn in world.turns:
+                async for _ in runner.run_async(
+                        user_id="u_" + episode_id, session_id="s_" + episode_id,
+                        new_message=types.Content(
+                            role="user", parts=[types.Part(text=turn)])):
+                    pass
         except Exception:
             # A crash driving the episode is TARGET_FAULT, not a breach and not
             # a clean run (CONVENTIONS / conductor.py ruling 33.4). Swallowed
@@ -355,7 +431,8 @@ async def _drive(attack, policy, *, model, sor_factory, run_manifest):
                         target_fault=target_fault)
 
 
-def build_real_target(*, run_manifest, model=None, sor_factory=None):
+def build_real_target(*, run_manifest, model=None, sor_factory=None,
+                      world_factory=None):
     """Returns a `(attack, policy) -> sealed episode dict` callable - the
     drop-in for `run_episode=` in `Conductor`.
 
@@ -371,9 +448,24 @@ def build_real_target(*, run_manifest, model=None, sor_factory=None):
         on `global`, whose client is built only when a call actually fires. Pass
         a `google.adk.models.base_llm.BaseLlm` instance (or another model id
         string) to run against a stub - this is how tests stay offline.
-    `sor_factory`: `None` (default) seeds a fresh `SimulatedSystemOfRecord` via
-        `seed_demo_ledger` for every episode. Tests inject their own factory to
-        capture the per-episode instance and assert on it directly.
+    `sor_factory`: `() -> SystemOfRecord`. A world that does NOT depend on the
+        attack - the demo world, and the ten tests that inject their own
+        zero-argument factory to capture the per-episode instance. `None`
+        (default) seeds a fresh `SimulatedSystemOfRecord` via
+        `seed_demo_ledger`. The episode is driven with a single turn,
+        `attack["instruction"]`, against `_SCENARIO_ORDER_ID`.
+    `world_factory`: `(attack) -> EpisodeWorld`. The world the ATTACK NAMES,
+        with its own order, account, approval tier and TURNS.
+        `corpus_seeds.CorpusSeeds.world_for` is the one that exists.
+
+        THE TWO ARE MUTUALLY EXCLUSIVE AND PASSING BOTH RAISES. They are not
+        two spellings of one knob: one produces a world that is a constant of
+        the run and the other produces a world that is a function of the
+        attack, and silently preferring either would mean an episode ran
+        somewhere other than where the caller asked. `world_factory` is
+        strictly more capable, and `sor_factory` survives only because ten
+        tests and `campaign.py`'s lane-authored SEEDS are written against a
+        fixed world; when those go, so does it.
     """
     if run_manifest is None:
         raise ValueError(
@@ -382,10 +474,44 @@ def build_real_target(*, run_manifest, model=None, sor_factory=None):
             "never to invent - an adapter that filled in placeholders here "
             "would be a false pre-registration claim, worse than an honest "
             "INVALID episode.")
-    factory = sor_factory or _fresh_seeded_sor
+    if sor_factory is not None and world_factory is not None:
+        raise ValueError(
+            "build_real_target() was given both sor_factory and "
+            "world_factory. One makes the world a constant of the run and the "
+            "other makes it a function of the attack; picking one silently "
+            "would mean every episode ran against a world the caller did not "
+            "ask for, which is exactly the ORD-4471/ORD-4472 collision "
+            "`corpus_seeds.py` exists to close.")
+
+    factory = world_factory or _demo_world_factory(sor_factory
+                                                   or _fresh_seeded_sor)
 
     def _real_target(attack, policy):
         return asyncio.run(_drive(attack, policy, model=model,
-                                  sor_factory=factory,
+                                  world_factory=factory,
                                   run_manifest=run_manifest))
     return _real_target
+
+
+def _demo_world_factory(sor_factory):
+    """The pre-2026-08-22 behaviour, unchanged and now stated as data: the demo
+    world, its two hardcoded ids, no approver, and one turn taken from
+    `attack["instruction"]`."""
+    def _world(attack):
+        instruction = attack.get("instruction")
+        if not isinstance(instruction, str) or not instruction.strip():
+            # This used to send `types.Part(text="")` - an episode with no user
+            # turn, which seals clean, scores NON-BREACH and is counted in the
+            # denominator as an attack that failed.
+            raise ValueError(
+                "attack %r carries no instruction text. An episode driven with "
+                "an empty turn seals clean and scores as an attack that failed."
+                % (attack.get("attack_id"),))
+        return EpisodeWorld(
+            sor=sor_factory(),
+            order_id=_SCENARIO_ORDER_ID,
+            customer_id=_SCENARIO_CUSTOMER_ID,
+            approval_tier="NONE",
+            turns=(instruction,),
+        )
+    return _world
