@@ -237,3 +237,125 @@ def test_the_selftest_exercises_both_drift_kinds():
     assert "does not canonicalize" in out.stdout
     assert "hash field" in out.stdout
     assert "FAIL" not in out.stdout
+
+
+# ---------------------------------------------------------------------------
+# 3. The justification for a duplicate lint module
+# ---------------------------------------------------------------------------
+#
+# `crucible/replay/offline_lint.py` ends with a note explaining why it is a
+# second file rather than a parameter on `crucible/tripwire/import_lint.py`.
+# That note is load-bearing - it is the only thing standing between this module
+# and "delete it, call the other one" - and half of it was false.
+
+def test_import_lint_takes_roots_exactly_as_offline_lint_does(tmp_path):
+    """"bakes ... its roots in at module level, so it cannot be pointed at a
+    different question without editing it" - `run_import_lint(roots=None)` is
+    the same signature and the same `DEFAULT_ROOTS if roots is None else roots`
+    line. Proven by aiming it somewhere else and getting an answer."""
+    from crucible.replay.offline_lint import run_offline_lint
+    from crucible.tripwire.import_lint import run_import_lint
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "m.py").write_text("import openai\nimport socket\n",
+                                    encoding="utf-8")
+
+    # import_lint's Finding names the field `module`; offline_lint's names
+    # it `what`. Two lanes, two vocabularies, and that is itself part of
+    # why they are two files.
+    aimed = run_import_lint(roots=(str(elsewhere),))
+    assert [f.module for f in aimed] == ["openai"], (
+        "import_lint answered a question about a root it does not default to")
+    aimed_off = run_offline_lint(roots=(str(elsewhere),))
+    assert [f.what for f in aimed_off] == ["socket"]
+
+    # The zero that matters: an EMPTY directory, so a non-zero above is not
+    # the only thing this call can produce.
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert run_import_lint(roots=(str(empty),)) == []
+
+
+DEAD_ROOTS_CLAIM = "bakes its deny set and its roots in at module level"
+
+
+def test_the_offline_lint_note_does_not_claim_import_lint_bakes_its_roots():
+    """A CORRECTION NOTE QUOTES THE SENTENCE IT KILLS, so a bare substring
+    check flags the correction as the defect - the same exemption problem
+    `canon-check --selftest` ships a fixture for. The rule is therefore not
+    "the string is absent" but "the string is never left standing": if it
+    appears at all, the refutation must appear with it."""
+    from crucible.replay import offline_lint
+    flat = " ".join(offline_lint.__doc__.split())
+    if DEAD_ROOTS_CLAIM in flat:
+        assert "THE ROOTS HALF WAS FALSE" in flat, (
+            "the dead claim is present and nothing next to it says it is dead")
+        head, _, tail = flat.partition(DEAD_ROOTS_CLAIM)
+        assert 'used to read "' in head[-120:], (
+            "and it must be introduced as a quotation of a dead claim, not "
+            "asserted: %r" % head[-120:])
+        assert "THE ROOTS HALF WAS FALSE" in tail, (
+            "the refutation must FOLLOW the quote, not precede it")
+
+
+def test_that_guard_can_still_fail():
+    """The check above is conditional, and a conditional check is the shape
+    that silently stops checking. Fed a note that quotes the dead claim and
+    never refutes it, it must fail."""
+    flat = 'the module %s and that is why.' % DEAD_ROOTS_CLAIM
+    assert DEAD_ROOTS_CLAIM in flat
+    assert "THE ROOTS HALF WAS FALSE" not in flat, (
+        "this is the input the guard exists to reject")
+
+
+def test_the_offline_lint_note_still_justifies_the_duplication():
+    """Deleting the justification would be worse than a wrong one. The
+    duplication IS justified; the sentence just named the wrong reason."""
+    from crucible.replay import offline_lint
+    flat = " ".join(offline_lint.__doc__.split())
+    assert "RELATIONSHIP TO" in flat
+    assert "belongs to another lane" in flat
+    assert "environment" in flat, (
+        "the real structural difference is the environment rule - name it")
+
+
+def test_import_lints_walker_structurally_cannot_make_the_environment_rule():
+    """The reason that IS true, asserted as behaviour rather than as prose.
+
+    `import_lint.scan_source` walks Import, ImportFrom and Call. It has no
+    `ast.Attribute` branch and no denied-`os`-attribute set, so `os.environ`
+    is invisible to it - and the environment rule is the one `offline_lint`'s
+    own docstring calls "the sharpest rule here". Parameterizing the deny set
+    would not have given it that rule.
+
+    Both directions, so neither zero is a blind instrument: `import_lint` DOES
+    report `openai` on the same call shape, and `offline_lint` DOES report the
+    environment read.
+    """
+    from crucible.replay.offline_lint import scan_offline_source
+    from crucible.tripwire.import_lint import scan_source
+
+    env_read = "import os\nx = os.environ['K']\n"
+    assert scan_source(env_read, "m.py") == [], (
+        "if this ever reports something, the justification has changed")
+    assert scan_source("import openai\n", "m.py"), (
+        "and the empty list above is a measured zero, not a dead scanner")
+    assert [f.what for f in scan_offline_source(env_read, "m.py")] == \
+        ["os.environ"]
+
+
+def test_both_modules_bake_their_deny_set_so_that_is_not_the_difference():
+    """The half of the sentence that was TRUE was also not a differentiator.
+    Both deny sets are module-level frozensets that no function parameter
+    reaches, so it could never have been the reason there are two files."""
+    import inspect
+
+    from crucible.replay import offline_lint
+    from crucible.tripwire import import_lint
+
+    for mod, fn in ((import_lint, "scan_source"),
+                    (offline_lint, "scan_offline_source")):
+        sig = inspect.signature(getattr(mod, fn))
+        assert list(sig.parameters) == ["source", "path"], (
+            "%s.%s takes no deny-set parameter" % (mod.__name__, fn))
