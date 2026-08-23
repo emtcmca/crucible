@@ -838,11 +838,22 @@ _DARK_MEANING = {
     "NEVER_TRUE": ("%(reached)s episode(s) and %(events)s executed event(s) "
                    "reached it, every condition resolved, and the comparison "
                    "never held. THIS IS THE HEALTHY ZERO."),
+    # CORRECTED 2026-08-23. This text said a PATH_NEVER_PRESENT "is the shape
+    # of ruling 48 and it is a DEFECT, not a finding." That is no longer
+    # reachable and asserting it is an overclaim. Ruling 48 added a
+    # manifest cross-check that REFUSES AT LOAD any clause naming a path no
+    # tool declares, so the defect shape cannot reach a bundle at all. What
+    # survives is the benign case: a DECLARED optional argument that no call
+    # in this run happened to carry. The renderer cannot tell a reader which
+    # it is looking at, so it must not tell them.
     "PATH_NEVER_PRESENT": ("%(reached)s episode(s) reached it and a condition's "
-                           "argument path was ABSENT ON EVERY GATED EVENT. THE "
-                           "CLAUSE COULD NOT HAVE FIRED whatever the target "
-                           "did - a check that cannot fail. This is the shape "
-                           "of ruling 48 and it is a DEFECT, not a finding."),
+                           "argument path was ABSENT ON EVERY GATED EVENT, so "
+                           "the clause could not have fired whatever the target "
+                           "did. The path IS declared by some tool - ruling 48's "
+                           "load gate refuses a clause naming an undeclared one - "
+                           "so this is an optional argument no call in this run "
+                           "carried. A run fact, not a defect. It becomes a "
+                           "corpus gap only if no run ever carries it."),
     "CONTEXT_FIELD_MISSING": ("a context operator named an episode.* field the "
                               "episode does not carry. The evaluator rules "
                               "such episodes INVALID; a scoreable episode "

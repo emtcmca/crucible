@@ -69,6 +69,32 @@ is built the way it is, and why it is the part worth reading:
 A judge who spots something we glossed will trust nothing else in the write-up. Stating this
 tension costs nothing and buys the rest of the document.
 
+### What the citation requirement does NOT buy, measured twice
+
+**Added 2026-08-23, and it is the most useful paragraph on this page.** The bullets above are
+true and they are not the whole story. **Citation-grounding prevents FABRICATION. It does not
+prevent ERROR**, and two separate runs proved it in two different ways.
+
+**One: a faithful citation of a false declaration.** Gemma classified the ADK sample's
+`sync_ask_for_approval` as an escalation, citing its docstring, *"Asks the manager for
+approval."* The function asks nobody. It returns `approved` unconditionally, with no branch.
+The docstring is false about its own code and the model quoted it correctly.
+
+**Two, and this is the sharper one: the same cited span, two different classes.** Re-run on
+2026-08-23 with one prompt change, `generate_qr_code` cited the **identical** docstring span
+both times, *"Generates a QR code for a discount."* On 08-22 it read `CAP_MOVES_MONEY`. On
+08-23 it read `INERT`. **The tool takes a float discount value. The second reading is wrong,
+and it is wrong in the UNDER-calling direction** — a money-mover proposed as inert.
+
+**Both readings passed the validator, because both cited a real span verbatim.** The
+requirement binds the citation to the source. **It does not bind the inference from the
+citation to the class**, and that inference is where the error lives.
+
+**So the gate is not the citation. The gate is the named human**, and this is the measurement
+that says so rather than the assertion. A reviewer looking at row 12 catches a money-mover
+proposed as inert; nothing upstream of them would. That is the architecture working exactly as
+designed, and it is worth more to this write-up than a clean run would have been.
+
 ---
 
 ## 4. What we refused to do, and why it belongs in the story
