@@ -167,7 +167,9 @@ _REPO = os.path.dirname(os.path.dirname(_HERE))
 # AND THE HEADLINE WAS NOT COMPUTABLE. The retired `fam_direct_ask` family ids
 # mapped to nothing in the F1-F7 taxonomy, so no per-family rate, no SEP-BY
 # split and no F4 transfer number could come out of a campaign run AT ALL -
-# whether or not the ARMORER ever promoted.
+# whether or not anything was ever promoted. (The ARMORER does not promote.
+# It proposes; the gate promotes. That distinction is load-bearing - see the
+# two `constrain_arg ever ...` lines in the banner below.)
 #
 # `family_id` stays in `fam_*` shape because `evidence_bundle.schema.json` and
 # `breach_record.schema.json` both pin `^fam_[a-z0-9_]+$` and are hash-locked.
@@ -1066,9 +1068,17 @@ def run(argv=None):
               % (record.round_index, len(record.breaches),
                  len(record.scorable), record.invalid, record.target_faults,
                  record.verbs_used or "-", record.gate_decision or "-"))
-    print("\n  VERB USAGE PER FAMILY: %s" % json.dumps(
-        result.verb_usage_by_family, sort_keys=True))
-    print("  constrain_arg ever promoted: %s"
+    # VERB USAGE PER FAMILY IS WHAT THE ARMORER PROPOSED. It folds every round,
+    # including the ones the gate rejected, so it is labelled as proposals here.
+    print("\n  VERBS PROPOSED PER FAMILY (armorer patches, promoted or not): %s"
+          % json.dumps(result.verb_usage_by_family, sort_keys=True))
+    # TWO LINES, NOT ONE. This printed "constrain_arg ever promoted" against a
+    # value folded from those same patches, so a rule the gate REJECTED read as
+    # promoted. Ruling 15's pre-registered sentence is about the promoted
+    # policy; only the second line below can answer it.
+    print("  constrain_arg ever PROPOSED by the armorer: %s"
+          % summary["constrain_arg_ever_proposed"])
+    print("  constrain_arg ever PROMOTED by the gate   : %s"
           % summary["constrain_arg_ever_promoted"])
     print("\n  CAPABILITY RETAINED (ruling 12): %d free, %d HELD, %d denied"
           % (retained["free"], retained["held"], retained["denied"]))

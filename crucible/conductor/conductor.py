@@ -224,10 +224,24 @@ class CampaignResult:
             "target_faults": sum(r.target_faults for r in self.rounds),
             "hashes": dict(self.hashes),
             "verb_usage_by_family": self.verb_usage_by_family,
+            # TWO FIELDS, BECAUSE THE ARMORER PROPOSES AND THE GATE PROMOTES.
+            # Until 2026-08-23 there was one, named `_ever_promoted`, and it was
+            # folded out of `verb_usage_by_family` - which is folded from
+            # `record.verbs_used`, THE ARMORER'S PATCH, for every round including
+            # the ones the gate threw out. A `constrain_arg` rule that was
+            # proposed and then REJECTED read as promoted. The pre-registered
+            # sentence in `_fold_verbs` is about THE PROMOTED POLICY, so the
+            # field that carried its name could not answer it.
+            "constrain_arg_ever_proposed": any(
+                fam.get("constrain_arg")
+                for fam in self.verb_usage_by_family.values()),
+            # Fed from the GATE'S DECISION. `record.verbs_used` is the verbs in
+            # the patch the gate was ruling on, so a round with
+            # `gate_decision == "PROMOTE"` is exactly a patch that entered the
+            # policy - no proxy, no inference.
             "constrain_arg_ever_promoted": any(
-                "constrain_arg" in v
-                for fam in self.verb_usage_by_family.values() for v in [fam]
-                if fam.get("constrain_arg")),
+                "constrain_arg" in r.verbs_used
+                for r in self.rounds if r.gate_decision == "PROMOTE"),
             "governor": self.governor,
             "reps": "k=1, single-sample, no stability estimate",
         }
@@ -482,6 +496,15 @@ def _fold_verbs(acc, record):
     `constrain_arg` NEVER APPEARS IN THE PROMOTED POLICY THAT IS SAID IN THE SAME
     BREATH AS THE F4 NUMBER. That sentence is pre-registered here, before the
     number exists, which is the only time pre-registering it is worth anything.
+
+    WHAT THIS FOLD IS, AND WHAT IT IS NOT. Every round is folded, promoted or
+    rejected, so `acc` is what the ARMORER PROPOSED per family. That is the
+    reported observation and it is the right one to report. It is NOT the
+    promoted policy, and it cannot answer the sentence above. The field that
+    answers it is `summary()["constrain_arg_ever_promoted"]`, which is fed from
+    `gate_decision == "PROMOTE"` and not from here; the fold feeds
+    `constrain_arg_ever_proposed`. Reading one for the other is the exact
+    defect this comment exists to stop recurring.
     """
     if not record.autopsy:
         return

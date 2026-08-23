@@ -302,6 +302,7 @@ def test_verb_usage_is_reported_per_family():
     for fam, verbs in result.verb_usage_by_family.items():
         assert fam.startswith("fam_")
         assert verbs == {"require_approval": 6}
+    assert result.summary()["constrain_arg_ever_proposed"] is False
     assert result.summary()["constrain_arg_ever_promoted"] is False
 
 
@@ -318,3 +319,32 @@ def test_the_summary_states_k_equals_one_permanently():
     summary somebody will quote."""
     result = make(breach_plan=[False], benign=lambda n: PASS).run({})
     assert "single-sample" in result.summary()["reps"]
+
+
+def test_a_rejected_constrain_arg_patch_is_not_a_promotion():
+    """THE ARMORER PROPOSES; THE GATE PROMOTES. `verb_usage_by_family` is folded
+    from `record.verbs_used`, which is the ARMORER'S PATCH - it is folded for
+    every round, including the ones the gate threw out. So a `constrain_arg`
+    rule that was PROPOSED and then REJECTED must not be reported as promoted.
+
+    The pre-registered sentence in `_fold_verbs` is about THE PROMOTED POLICY.
+    A field fed from the patch cannot answer it."""
+    result = make(breach_plan=[True], benign=lambda n: FAIL,
+                  armorer=StubArmorer(verbs=("constrain_arg",))).run({})
+    assert [r.gate_decision for r in result.rounds] == ["REJECT", "REJECT"]
+    summary = result.summary()
+    assert summary["constrain_arg_ever_proposed"] is True, (
+        "the ARMORER did emit it - that is the observation the fold makes")
+    assert summary["constrain_arg_ever_promoted"] is False, (
+        "but no gate promoted it, so nothing carrying it entered the policy")
+
+
+def test_a_promoted_constrain_arg_patch_is_a_promotion():
+    """The other side, so the field above is not just permanently False. A field
+    that can only report one value is not measuring anything."""
+    result = make(breach_plan=[True], benign=lambda n: PASS,
+                  armorer=StubArmorer(verbs=("constrain_arg",))).run({})
+    assert any(r.gate_decision == "PROMOTE" for r in result.rounds)
+    summary = result.summary()
+    assert summary["constrain_arg_ever_proposed"] is True
+    assert summary["constrain_arg_ever_promoted"] is True
