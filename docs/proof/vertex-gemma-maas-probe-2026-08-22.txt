@@ -1,0 +1,69 @@
+Vertex Model Garden managed-Gemma probe - Option B availability
+Lane: GEMMA-CARTOGRAPHER (L5) - branch lane/gemma-cartographer
+Date: 2026-08-22   Operator: read-only. No gcloud command here mutates anything.
+Project: crucible-hack-2026 (752793770087)   Account: eric@erictetzlaff.com
+
+QUESTION: is gemma-scope.md section 5 Option B - 'Vertex Model Garden managed
+Gemma, per-call, no infra' - actually available in this project? It is recommended
+there over Option A (Cloud Run + L4) on cost and on the standing min-instances=0
+risk. That recommendation was never checked against the project.
+
+== 0. aiplatform API already enabled - no enable needed ==
+$ gcloud services list --enabled --project=crucible-hack-2026 | grep aiplatform
+aiplatform.googleapis.com
+
+== 1. CONTROL FIRST. A 404 proves nothing until the endpoint is known good. ==
+google/gemini-2.5-flash, same URL, same token, same payload shape:
+$ curl -X POST .../locations/us-central1/endpoints/openapi/chat/completions \
+       -d {"model":"google/gemini-2.5-flash","messages":[...],"max_tokens":8}
+http=200
+{"choices":[{"finish_reason":"length","index":0,"logprobs":null}],"created":1787449534,"id":"vlCKap6GEOKE7rcP3cuS2QU","model":"google/gemini-2.5-flash","object":"chat.completion","system_fingerprint":"","usage":{"completion_tokens_details":{"reasoning_tokens":5},"extra_properties":{"google":{"traffic_type":"ON_DEMAND"}},"prompt_tokens":5,"total_tokens":10}}
+
+
+  => 200. URL shape, OAuth token, project path and payload are all correct.
+     So every 404 below is about the MODEL, not about this client.
+
+== 2. THE PROBES. Both published Gemma ids, both plausible regions. ==
+--- location=global  model=google/gemma-4-26b-a4b-it ---
+http=404
+[{  "error": {    "code": 404,    "message": "Publisher model `projects/752793770087/locations/global/publishers/google/models/gemma-4-26b-a4b-it` was not found or your project does not have access to it. Ensure you are using a valid model name and that the model is available in the specified region. For more information, see: h
+
+
+--- location=global  model=google/gemma-3-27b-it ---
+http=404
+[{  "error": {    "code": 404,    "message": "Publisher model `projects/752793770087/locations/global/publishers/google/models/gemma-3-27b-it` was not found or your project does not have access to it. Ensure you are using a valid model name and that the model is available in the specified region. For more information, see: https
+
+
+--- location=us-central1  model=google/gemma-4-26b-a4b-it ---
+http=404
+[{  "error": {    "code": 404,    "message": "Publisher model `projects/752793770087/locations/us-central1/publishers/google/models/gemma-4-26b-a4b-it` was not found or your project does not have access to it. Ensure you are using a valid model name and that the model is available in the specified region. For more information, s
+
+
+--- location=us-central1  model=google/gemma-3-27b-it ---
+http=404
+[{  "error": {    "code": 404,    "message": "Publisher model `projects/752793770087/locations/us-central1/publishers/google/models/gemma-3-27b-it` was not found or your project does not have access to it. Ensure you are using a valid model name and that the model is available in the specified region. For more information, see: 
+
+
+== 3. FINDING ==
+4 of 4 probes: HTTP 404 NOT_FOUND, 'was not found or your project does not have
+access to it'. The control returned 200 on the same endpoint seconds earlier.
+
+OPTION B IS NOT AVAILABLE IN THIS PROJECT AS IT STANDS.
+
+Two further facts, verified against Google's own documentation the same day:
+  - Gemma 3 on Vertex is a SELF-DEPLOY model. Model Garden hands you a GPU-backed
+    endpoint you stand up and pay for. That is Option A wearing Option B's name.
+  - The only Gemma published as fully managed serverless MaaS is
+    gemma-4-26b-a4b-it, announced 'available over the coming days'. Whether that
+    listing is live at all, anywhere, is not something this probe can settle -
+    it can only report that this project cannot reach it.
+
+== 4. WHAT IS NEEDED, AND WHY THIS LANE DID NOT DO IT ==
+Making Gemma reachable means enabling the model for the project in Model Garden
+and accepting Google's Gemma terms of use. That is a PROJECT CHANGE and a licence
+acceptance. Eric supervises every mutating cloud action, so this lane stopped here
+and reported instead of clicking through. Nothing was enabled, accepted, deployed,
+or purchased.
+
+Cost of this probe: four 404s and one 200 of 10 total tokens on gemini-2.5-flash.
+Rounded to the cent, USD 0.00. No Gemma call was made, so no Gemma spend exists.
