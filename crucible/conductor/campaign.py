@@ -120,6 +120,7 @@ from .bundle import (
     Recorders,
     RoundClock,
     build_bundle,
+    g7_g8_not_exercised_because,
     write_bundle,
 )
 from .conductor import Conductor
@@ -949,9 +950,15 @@ def run(argv=None):
     # rejections and HALT. That is a precondition, and a precondition checked
     # after six rounds of model spend is a precondition checked too late.
     baseline = real_warden(policy)
-    print("  warden       : REAL. The 26-fixture benign suite, 14 near-misses. "
+    # THE DENOMINATORS ARE READ OFF THE SUITE, NEVER TYPED. This line carried
+    # "The 26-fixture benign suite, 14 near-misses" beside the two computed
+    # values that say the same thing. Ruling 43 moved that pair once already
+    # (24->26, 12->14) and four documents did not follow, so a literal sitting
+    # next to its own computed value is a drift site with a witness.
+    print("  warden       : REAL. The %d-fixture benign suite, %d near-misses. "
           "policy@v0 scores %d/%d (near-miss %d/%d)."
-          % (baseline["passed"], baseline["total"],
+          % (baseline["total"], baseline["near_miss_total"],
+             baseline["passed"], baseline["total"],
              baseline["near_miss_passed"], baseline["near_miss_total"]))
     if baseline["passed"] != baseline["total"]:
         print("  >>> THE SEED POLICY IS ALREADY BELOW THE BENIGN FLOOR. G3 is "
@@ -1102,16 +1109,17 @@ def _disclaimer(live, locks, handle_overlap, baseline, gate):
     """
     bits = []
     if not gate["g7_g8_exercised"]:
-        why = ("the gate was built with skip_cloud=True (no --live), so it made "
-               "no gcloud call"
-               if gate["cloud_assertions"] == "SKIPPED_OFFLINE" else
-               "no candidate ever reached the gate, so it evaluated nothing")
+        # ONE PRODUCER. This selection used to be duplicated here and in
+        # `bundle._execution_provenance`, and both copies decided it the same
+        # wrong way - see `g7_g8_not_exercised_because` for the case they got
+        # backwards.
         bits.append(
-            "G7/G8 WERE NOT EXERCISED in this run: %s. The gate itself is the "
+            "G7/G8 WERE NOT EXERCISED in this run: %s The gate itself is the "
             "real one - crucible.conductor.real_gate.RealGate, not the "
             "`lambda c, r: True` stand-in it replaced - but nothing here "
             "measures seal integrity or non-self-approval, and no G7 or G8 "
-            "claim may be made from this bundle." % why)
+            "claim may be made from this bundle."
+            % g7_g8_not_exercised_because(gate))
     else:
         bits.append(
             "G7/G8 were evaluated against live GCP at %d candidate(s); every "

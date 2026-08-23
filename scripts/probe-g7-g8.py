@@ -51,6 +51,33 @@ from crucible.conductor import real_gate as rg     # noqa: E402
 from infra import holdout_touch as ht              # noqa: E402
 
 
+def _gate_hook_line():
+    """What `campaign.build_gate` actually returns, asked at generation time.
+
+    A dated proof artifact carries its sentences forward forever. The one this
+    replaced said the campaign's gate hook "was `lambda c, r: True`" and would
+    have kept saying it into every file written after the hook was replaced -
+    a false claim, dated, sitting in `docs/proof/`, which is precisely the
+    directory whose whole value is that its contents are checkable.
+
+    Failures are REPORTED, never swallowed into a flattering default: if the
+    campaign cannot be imported here, the artifact says so rather than
+    printing a sentence about a gate nobody looked at.
+    """
+    try:
+        from crucible.conductor import campaign as C
+        if getattr(C, "build_real_gate", None) is not rg.build_real_gate:
+            return ("NOT the gate probed here - campaign does not build "
+                    "crucible.conductor.real_gate. NO G7/G8 RESULT BELOW "
+                    "DESCRIBES WHAT THE CAMPAIGN RUNS.")
+        return ("campaign builds real_gate.build_real_gate -> RealGate, the "
+                "same class probed below. It replaced a "
+                "`promote=lambda c, r: True` stand-in on 2026-08-22.")
+    except Exception as exc:                      # pragma: no cover - reported
+        return "UNREADABLE (%s: %s). State it, do not guess it." % (
+            type(exc).__name__, exc)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--holdout-since", default=ht.ATTESTATION_FLOOR_UTC,
@@ -95,10 +122,15 @@ def main():
         "date     : %sZ" % datetime.datetime.utcnow().isoformat(timespec="seconds"),
         "gcloud   : %s" % _gcloud_version(),
         "",
-        "Until this ran, the campaign's gate hook was `lambda c, r: True` - a",
-        "constant function that returns PROMOTE for every candidate having",
-        "inspected nothing. G7 and G8 are the two gates whose failure mode is",
-        "RUN INVALID, and neither had ever been evaluated against anything.",
+        # WHAT THE GATE HOOK IS, READ AT RUN TIME. This block used to state
+        # flatly that "until this ran, the campaign's gate hook was
+        # `lambda c, r: True`" - true on 2026-08-21, false from 2026-08-22 when
+        # RealGate landed, and STAMPED INTO EVERY DATED ARTIFACT THIS SCRIPT
+        # WOULD EVER WRITE INTO docs/proof/. A proof file is the last place a
+        # sentence should be unable to learn it has stopped being true.
+        "gate hook: %s" % _gate_hook_line(),
+        "G7 and G8 are the two gates whose failure mode is RUN INVALID, which",
+        "is why they are probed separately from any campaign run.",
         "",
         rg.render(findings),
         "",

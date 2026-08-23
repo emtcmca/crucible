@@ -15,14 +15,23 @@ appended a newline the normalization exists to absorb.
 
 Run:  python scripts/contract-check.py
       python scripts/contract-check.py --selftest   # prove each pass can fail
+
+`--selftest` runs ALL FIVE against a throwaway copy of the repository, once
+clean and once with a defect authored for that pass, and asserts the pass is
+green on the first and names the defect on the second. Until 2026-08-23 it
+printed the same promise while covering three of the five and never calling a
+pass function at all - see the SELFTEST section for what that could not catch.
 """
 
+import contextlib
 import io
 import json
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 # The specs carry arrows, em-dashes, and section signs. On Windows the default
 # console codec is cp1252 and printing a finding CRASHES THE GATE - which would
@@ -307,43 +316,156 @@ PASSES = [("HASH", pass_hash), ("FIXTURES", pass_fixtures), ("SWEEP", pass_sweep
           ("STATUS", pass_status), ("TERMS", pass_terms)]
 
 
+# -----------------------------------------------------------------------------
+# SELFTEST. Rewritten 2026-08-23; what it replaced is worth stating.
+#
+# The old version printed "each pass must report a failure on a deliberately
+# broken input" over SEVEN checks that covered THREE of the five passes - HASH
+# and TERMS were not exercised at all - and not one of them CALLED A PASS
+# FUNCTION. They re-implemented the interesting line of each pass inline
+# (`re.search(DEAD[...])`, `jsonschema...iter_errors(bad)`) and asserted the
+# regex or the schema behaved. So it measured the primitives while claiming to
+# measure the gate, and a pass function could have been deleted, inverted, or
+# wired to the wrong global with the selftest still printing PASSED.
+#
+# That is this repository's own named failure - a check that reports on the
+# instrument's behalf - sitting inside the file whose docstring names it.
+#
+# What replaces it: a THROWAWAY COPY of everything the passes read, one
+# deliberate defect per pass, and the real `pass_*()` driven against it. Each
+# pass is run TWICE - clean and broken - because a pass that fails on both is
+# not detecting the defect, it is just broken, and the old style could not tell
+# those apart either.
+# -----------------------------------------------------------------------------
+
+_SANDBOX_GLOBALS = ("REPO", "CONTRACTS", "GOLDEN", "DOCS")
+
+
+@contextlib.contextmanager
+def _sandbox():
+    """A disposable repository the passes can be pointed at and vandalised.
+
+    The passes read module-level paths, so the sandbox is installed by
+    REBINDING THOSE GLOBALS rather than by adding a parameter to five
+    signatures. That keeps the selftest driving exactly the code path
+    `main()` drives - a pass with a test-only argument is a pass whose tested
+    behaviour and shipped behaviour are two different things.
+
+    `docs/CONVENTIONS.md` is copied because `hash-contracts.py` reads
+    SPINE_VERSION out of it and refuses to run without it. It is COPIED, never
+    written to; the vandalism below only ever touches files under the temp
+    directory.
+    """
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix="contract-check-selftest-"))
+    (tmp / "scripts").mkdir()
+    shutil.copy2(REPO / "scripts" / "hash-contracts.py", tmp / "scripts")
+    shutil.copytree(CONTRACTS, tmp / "contracts")
+    (tmp / "docs").mkdir()
+    shutil.copy2(REPO / "docs" / "CONVENTIONS.md", tmp / "docs")
+    saved = {n: globals()[n] for n in _SANDBOX_GLOBALS}
+    globals().update(REPO=tmp, CONTRACTS=tmp / "contracts",
+                     GOLDEN=tmp / "contracts" / "golden", DOCS=tmp / "docs")
+    try:
+        yield tmp
+    finally:
+        globals().update(saved)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# name -> (pass function, what to break, what the finding should mention)
+def _break_hash(tmp):
+    """Contract drift: one contract file no longer hashes to MANIFEST.json."""
+    p = tmp / "contracts" / "verdict.schema.json"
+    p.write_text(p.read_text(encoding="utf-8") + "\nSELFTEST-DRIFT\n",
+                 encoding="utf-8")
+
+
+def _break_fixtures(tmp):
+    """A golden POSITIVE that its own schema rejects."""
+    (tmp / "contracts" / "golden" / "C9-selftest-empty.valid.json").write_text(
+        "{}\n", encoding="utf-8")
+
+
+def _break_sweep(tmp):
+    """A dead value ASSERTED, with no strike or correction marker near it."""
+    (tmp / "docs" / "selftest-sweep.md").write_text(
+        "# selftest\n\nEvery episode in the run carries four hash-locks.\n",
+        encoding="utf-8")
+
+
+def _break_status(tmp):
+    """An undated present-tense claim about an artifact that can be created."""
+    (tmp / "docs" / "selftest-status.md").write_text(
+        "# selftest\n\nThe service account has not been created.\n",
+        encoding="utf-8")
+
+
+def _break_terms(tmp):
+    """A contract using a term MANIFEST.json binds away from it."""
+    p = tmp / "contracts" / "verdict.schema.json"
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    doc["$comment"] = "selftest: approver_role"
+    p.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+
+
+BREAKERS = {
+    "HASH": (_break_hash, "verdict.schema.json"),
+    "FIXTURES": (_break_fixtures, "C9-selftest-empty"),
+    "SWEEP": (_break_sweep, "four-hash-locks"),
+    "STATUS": (_break_status, "selftest-status.md"),
+    "TERMS": (_break_terms, "approver_role"),
+}
+
+
 def selftest():
-    """Prove each pass CAN fail. A gate that cannot fail is not a gate."""
-    print("SELFTEST - each pass must report a failure on a deliberately broken input\n")
+    """Prove each pass CAN fail, by making it fail. All five, every run."""
+    print("SELFTEST - every pass, run clean and run broken, on a throwaway copy\n")
     ok = True
+    assert set(BREAKERS) == {n for n, _ in PASSES}, \
+        "a pass exists with no deliberate defect authored for it"
 
-    norm, _ = normalize("a **four hash-locks** b")
-    r1 = bool(re.search(DEAD["four-hash-locks"], norm, re.I)) and not EXEMPT.search(norm)
-    print("  %-26s %s" % ("SWEEP catches assertion", "PASS" if r1 else "FAIL")); ok &= r1
+    for name, fn in PASSES:
+        breaker, expect = BREAKERS[name]
 
-    norm2, _ = normalize("~~four hash-locks~~ CORRECTED 2026-08-20 to five")
-    r2 = bool(EXEMPT.search(norm2))
-    print("  %-26s %s" % ("SWEEP exempts a strike", "PASS" if r2 else "FAIL")); ok &= r2
+        with _sandbox() as tmp:
+            clean_ok, clean_msgs = fn()
+        with _sandbox() as tmp:
+            breaker(tmp)
+            broken_ok, broken_msgs = fn()
 
-    wrapped = "so it structurally cannot\nexpress this"
-    norm3, _ = normalize(wrapped)
-    r3 = bool(re.search(DEAD["cannot-express"], norm3, re.I))
-    print("  %-26s %s" % ("SWEEP sees across wrap", "PASS" if r3 else "FAIL")); ok &= r3
+        detected = (not broken_ok) and any(expect in m for m in broken_msgs)
+        good = clean_ok and detected
+        ok &= good
+        print("  %-9s %s" % (name, "PASS" if good else "FAIL"))
+        if not clean_ok:
+            print("      clean sandbox ALREADY FAILS, so the broken run proves "
+                  "nothing: %s" % "; ".join(clean_msgs[:3]))
+        elif not broken_ok and not detected:
+            print("      failed on the broken input but never mentioned %r - "
+                  "it found something else: %s"
+                  % (expect, "; ".join(broken_msgs[:3])))
+        elif broken_ok:
+            print("      DID NOT DETECT the deliberate defect. This pass "
+                  "cannot fail, and CONVENTIONS 8.2 says that is not a check.")
 
-    bq = "> so it structurally cannot\n> express this"
-    norm4, _ = normalize(bq)
-    r4 = bool(re.search(DEAD["cannot-express"], norm4, re.I))
-    print("  %-26s %s" % ("SWEEP sees past blockquote", "PASS" if r4 else "FAIL")); ok &= r4
-
-    norm5, _ = normalize("The repository does not exist yet.")
-    r5 = bool(STATUS_CLAIM.search(norm5)) and not DATE.search(norm5)
-    print("  %-26s %s" % ("STATUS catches undated", "PASS" if r5 else "FAIL")); ok &= r5
-
-    norm6, _ = normalize("Verified 2026-08-20: there is no service account yet.")
-    r6 = bool(DATE.search(_window(norm6, STATUS_CLAIM.search(norm6).start(), 160)))
-    print("  %-26s %s" % ("STATUS allows dated", "PASS" if r6 else "FAIL")); ok &= r6
-
-    import jsonschema
-    schema = json.loads((CONTRACTS / "verdict.schema.json").read_text(encoding="utf-8"))
-    bad = {"verdict": "INVALID", "breach": False, "invariant_id": "inv_x",
-           "objective_set_hash": "0" * 16, "evidence": []}
-    r7 = bool(list(jsonschema.Draft202012Validator(schema).iter_errors(bad)))
-    print("  %-26s %s" % ("FIXTURES rejects bad", "PASS" if r7 else "FAIL")); ok &= r7
+    # Two SWEEP behaviours that are not a pass/fail of the pass function and
+    # would be lost if only the five above were checked. Kept from the old
+    # selftest deliberately: both are normalization defects this repo already
+    # paid for, and both are invisible at the pass_sweep() level because a
+    # correct pass and a blind one both return CLEAN.
+    for label, raw, want in (
+            ("SWEEP exempts a strike",
+             "~~four hash-locks~~ CORRECTED 2026-08-20 to five", False),
+            ("SWEEP sees across wrap",
+             "so it structurally cannot\nexpress this", True),
+            ("SWEEP sees past blockquote",
+             "> so it structurally cannot\n> express this", True)):
+        norm, _ = normalize(raw)
+        pat = DEAD["cannot-express"] if want else DEAD["four-hash-locks"]
+        hit = bool(re.search(pat, norm, re.I)) and not EXEMPT.search(norm)
+        good = hit == want
+        ok &= good
+        print("  %-9s %-28s %s" % ("SWEEP", label, "PASS" if good else "FAIL"))
 
     print("\nSELFTEST %s" % ("PASSED" if ok else "FAILED"))
     return 0 if ok else 1
