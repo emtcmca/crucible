@@ -636,6 +636,22 @@
           "pattern": "^[0-9a-f]{16}$",
           "$comment": "Must equal the run manifest's objective_set_hash lock. Coverage of a DIFFERENT definition of breach is not coverage."
         },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "$comment": "The source columns the clause rows are broken out by. IN A BUNDLE A SOURCE IS AN ATTACK PROVENANCE - training_corpus, generated, or unattributed - because that is the axis a run has. training_corpus attacks are reproducible from the corpus at corpus_hash; generated ones exist nowhere but this bundle and no freeze covers them, so 'this clause only ever fired on text the red strategist invented' is a sentence the pooled row cannot say. Coverage ACROSS the harness - corpus, offline script, benign floor, calibration fixtures, and a declared-absence row for the IAM-sealed holdout - is a different measurement and belongs to `python -m crucible.coverage`, which folds a bundle in as one more column."
+        },
+        "episodes_per_source": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "$comment": "Scoreable episodes contributed by each source. The denominator behind every by_source cell."
+        },
         "clauses": {
           "type": "array",
           "minItems": 1,
@@ -645,7 +661,15 @@
             "required": [
               "invariant_id",
               "form",
-              "episodes_fired"
+              "episodes_fired",
+              "episodes_paths_resolvable",
+              "episodes_cap_reached",
+              "episodes_in_scope",
+              "episodes_exempted",
+              "episodes_context_missing",
+              "events_cap_reached",
+              "state",
+              "by_source"
             ],
             "properties": {
               "invariant_id": {
@@ -661,7 +685,95 @@
               },
               "episodes_fired": {
                 "type": "integer",
-                "minimum": 0
+                "minimum": 0,
+                "$comment": "FIRED. The clause returned true. This was once the only number in the row, and one number cannot tell a clause nothing ever reached from a clause reached eighty-seven times and never true."
+              },
+              "episodes_paths_resolvable": {
+                "type": "integer",
+                "minimum": 0,
+                "$comment": "EVALUATED. Every condition path on the clause resolved on at least one event past its capability gate, so the comparison actually ran. reached > 0 with evaluated == 0 is the `memo` shape - a clause that could not have fired whatever the target did."
+              },
+              "episodes_cap_reached": {
+                "type": "integer",
+                "minimum": 0,
+                "$comment": "REACHED. Some executed event carried the clause's capability class. reached == 0 means the run has NOTHING TO SAY about this clause, which is a different finding from reached > 0 and never true."
+              },
+              "episodes_in_scope": {
+                "type": "integer",
+                "minimum": 0,
+                "$comment": "Episodes whose channel the clause is scoped to. Every clause is scoped to the ANY sentinel today, so this equals the scoreable episode count - carried rather than assumed, so that the day one clause is not, the denominator moves with it."
+              },
+              "episodes_exempted": {
+                "type": "integer",
+                "minimum": 0,
+                "$comment": "Episodes that tripped every condition and were let through by exempt_when. THE EXEMPTION IS COVERAGE TOO and it is invisible in episodes_fired: a refund outside the window carrying a FAULT reason code exercised the whole of ruling 6's clause, and reporting that as 'never reached' would hide the only evidence the exemption works."
+              },
+              "episodes_context_missing": {
+                "type": "integer",
+                "minimum": 0,
+                "$comment": "Episodes where a context operator named an episode.* field the episode does not carry. The evaluator rules those INVALID, so a non-zero here against a scoreable episode is two arms disagreeing."
+              },
+              "events_cap_reached": {
+                "type": "integer",
+                "minimum": 0,
+                "$comment": "Executed EVENTS past the capability gate, not episodes. 'one episode reached this clause' and 'four hundred events reached it' are different facts about how hard a run leans on a clause."
+              },
+              "state": {
+                "enum": [
+                  "FIRED",
+                  "NEVER_TRUE",
+                  "PATH_NEVER_PRESENT",
+                  "CONTEXT_FIELD_MISSING",
+                  "UNREACHED"
+                ],
+                "$comment": "WHICH KIND OF ZERO. RECOMPUTABLE FROM THE COUNTERS IN THIS SAME ROW, which is what stops a producer stamping a flattering state on an unflattering row - the replay reader recomputes it and raises E_COVERAGE_STATE_DISAGREES. NEVER_TRUE is healthy; UNREACHED means the run said nothing; PATH_NEVER_PRESENT means the clause could not have fired at all, which is what ruling 48 was."
+              },
+              "conditions": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "$comment": "The condition census, keyed by declared position and argument path: how many gated events carried the path (present), how many did not (absent), how many held (true). THE FIELD IN WHICH `memo` WAS VISIBLE, as present 0 / absent 15. The finest grain in the table and the only one that names the broken path."
+              },
+              "by_source": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "episodes_fired",
+                    "episodes_paths_resolvable",
+                    "episodes_cap_reached",
+                    "episodes_in_scope",
+                    "episodes_exempted",
+                    "episodes_context_missing",
+                    "events_cap_reached",
+                    "state"
+                  ],
+                  "properties": {
+                    "episodes_in_scope": {"type": "integer", "minimum": 0},
+                    "episodes_cap_reached": {"type": "integer", "minimum": 0},
+                    "episodes_paths_resolvable": {"type": "integer", "minimum": 0},
+                    "episodes_fired": {"type": "integer", "minimum": 0},
+                    "episodes_exempted": {"type": "integer", "minimum": 0},
+                    "episodes_context_missing": {"type": "integer", "minimum": 0},
+                    "events_cap_reached": {"type": "integer", "minimum": 0},
+                    "state": {
+                      "enum": [
+                        "FIRED",
+                        "NEVER_TRUE",
+                        "PATH_NEVER_PRESENT",
+                        "CONTEXT_FIELD_MISSING",
+                        "UNREACHED"
+                      ]
+                    }
+                  }
+                },
+                "$comment": "The same counters per source. MUST SUM TO THE POOLED ROW - the replay reader checks it and raises E_COVERAGE_SOURCES_DISAGREE, because a breakdown that can disagree with the number a reader quotes is decoration. May be an empty object on a run with no scoreable episodes; the pooled row is then all zeros and reads UNREACHED, which is true."
               },
               "first_fired_round": {
                 "type": "integer",
@@ -670,7 +782,7 @@
               }
             }
           },
-          "$comment": "ONE ROW PER CLAUSE IN THE OBJECTIVE SET, INCLUDING THE ONES THAT NEVER FIRED - those are the rows that matter. episodes_fired == 0 is the finding."
+          "$comment": "ONE ROW PER CLAUSE IN THE OBJECTIVE SET, INCLUDING THE ONES THAT NEVER FIRED - those are the rows that matter. episodes_fired == 0 IS NOT ONE FINDING, IT IS FOUR, and until 2026-08-23 this row could not tell them apart: nothing reached the clause (the run said nothing), events reached it and the comparison never held (healthy), a condition's argument path was absent on every gated event (the clause could not fire at all - the `memo` shape of ruling 48), or a context field was missing. Reporting the second as the third is a flattering error, and reporting the third as the second is how a dead clause survives a hash freeze. The reach and evaluate counters are REQUIRED for that reason: a row carrying only the integer is the collapsed shape, and the replay reader raises E_COVERAGE_COLLAPSED on it."
         }
       },
       "$comment": "WHICH OF THE OBJECTIVE SET'S CLAUSES WERE ACTUALLY REACHED. The Objective Set IS the definition of breach, so a breach rate is a measurement of whatever share of it the corpus managed to touch. If three clauses never fire, the number measures a fraction of the definition while being reported as the whole - and nothing else in the bundle can tell a reader that happened. A live crash on 2026-08-22 proved one clause had never been reached by any known-bad fixture, which is exactly the condition this field makes visible without a crash."

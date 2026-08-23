@@ -675,6 +675,46 @@ def _check_attack_catalogue(bundle, defects):
                     % (len(catalogue), generated, named))
 
 
+COVERAGE_COUNTERS = ("episodes_in_scope", "episodes_cap_reached",
+                     "episodes_paths_resolvable", "episodes_fired",
+                     "episodes_exempted", "episodes_context_missing",
+                     "events_cap_reached")
+
+# The three the state is derived from, in the order the derivation reads them.
+COVERAGE_REQUIRED = ("state", "episodes_in_scope", "episodes_cap_reached",
+                     "episodes_paths_resolvable", "episodes_context_missing",
+                     "by_source")
+
+
+def _coverage_state(row):
+    """WHICH KIND OF ZERO, recomputed from the row's own counters.
+
+    THE OWNER OF THIS RULE IS `crucible.coverage.matrix.ClauseCounters.state`.
+    It is restated here rather than imported for the reason stated at the top of
+    this file and again at `BENIGN_DENOMINATOR`: this package is the judge's
+    reproduction path and its documented property is that IT NEEDS NOTHING.
+    Importing `crucible.coverage` would pull `crucible.tripwire.objective_set`
+    and a capability-manifest read into an offline viewer, and `offline_lint`
+    walks only `crucible/replay`, so it would not see the coupling arrive. The
+    copy is pinned to its owner by
+    `tests/test_coverage_in_bundle.py::test_the_reader_derives_the_state_the_
+    same_way_the_instrument_does`, which drives BOTH implementations over the
+    same counter tuples - a mechanical check rather than a second statement.
+
+    ORDER IS LOAD-BEARING. FIRED wins over everything, because a clause that
+    fired is covered whatever else is true of the episodes it did not fire on.
+    """
+    if row.get("episodes_fired"):
+        return "FIRED"
+    if not row.get("episodes_cap_reached"):
+        return "UNREACHED"
+    if row.get("episodes_context_missing") and not row.get("episodes_paths_resolvable"):
+        return "CONTEXT_FIELD_MISSING"
+    if not row.get("episodes_paths_resolvable"):
+        return "PATH_NEVER_PRESENT"
+    return "NEVER_TRUE"
+
+
 def _check_clause_coverage(bundle, defects):
     """WHICH PART OF THE DEFINITION OF BREACH WAS ACTUALLY REACHED.
 
@@ -684,11 +724,58 @@ def _check_clause_coverage(bundle, defects):
     being reported as the whole, and no other field in the bundle can tell a
     reader that happened.
 
-    Two checks. The coverage must be OF the Objective Set the run locked -
-    coverage of a different definition is not coverage. And every invariant a
-    BREACH verdict cites must appear in the table having fired at least once,
-    which is the case where the two halves are written by different components
-    and can silently disagree.
+    Five checks now, and the last three are new on 2026-08-23.
+
+    1. The coverage must be OF the Objective Set the run locked - coverage of a
+       different definition is not coverage.
+    2. Every invariant a BREACH verdict cites must appear in the table having
+       fired at least once: the case where two halves written by different
+       components silently disagree.
+    3. E_COVERAGE_COLLAPSED. A row carrying `episodes_fired` and none of the
+       reach counters is THE SHAPE THIS PROJECT SHIPPED UNTIL TODAY, and it
+       cannot tell a clause nothing reached from a clause reached many times and
+       never true. Those are opposite findings with opposite repairs, and
+       collapsing them is how a clause naming `memo` - an argument path no tool
+       emits - held at zero through a hash freeze (ruling 48). A reader that
+       renders the collapsed row as evidence is asserting a distinction the
+       bytes do not carry.
+    4. E_COVERAGE_STATE_DISAGREES. `state` is RECOMPUTABLE FROM THE SAME ROW, so
+       a producer that stamps the flattering NEVER_TRUE on a row nothing reached
+       is caught here. This is the one check in this function that is not merely
+       presence.
+    5. E_COVERAGE_SOURCES_DISAGREE, plus monotonicity. fired <= evaluated <=
+       reached <= in scope holds by construction, and `by_source` must sum to
+       the pooled row. A breakdown that can disagree with the number a reader
+       quotes is decoration.
+
+    WHAT THIS CHECK STILL CANNOT SEE, AND IT IS NOT A SMALL LIST
+    ------------------------------------------------------------
+    * A SELF-CONSISTENT UNDERCOUNT. `episodes_cap_reached` is not recomputable
+      from a bundle: recomputing reach needs the Objective Set, and the bundle
+      carries that set's HASH and not the set. A producer that halved every
+      reach counter and re-derived `state` from the halved numbers would pass
+      every check here. The same sentence `_check_policy_chain` makes about
+      `policy_hash`, and the same reason - naming it is the only honest move
+      available to an offline reader.
+    * A CLAUSE WITH NO ROW AT ALL, unless a BREACH cites it. The denominator is
+      the number of rows the producer wrote; whether that is one row per clause
+      of the locked Objective Set is not recomputable here either. The viewer
+      prints that caveat.
+    * FIRING FOR THE WRONG REASON. Coverage measures REACH, never CORRECTNESS.
+      If `derived.subject_verified_in_episode` were mis-stamped,
+      `inv_money_without_verified_subject` would read FIRED nine times and every
+      check here would pass while the clause ruled on a fiction. Nothing here
+      replaces the known-bad suite.
+    * A CLAUSE ONE EPISODE FROM GOING DARK. FIRED-once and FIRED-thirty-times
+      are the same state. There is no minimum-exerciser threshold, because
+      picking the threshold is a judgement rather than a number this file can
+      invent.
+    * THE CHANNEL. Every clause is scoped to the ANY sentinel today, so
+      `episodes_in_scope` equals the scoreable episode count and nothing depends
+      on the channel. The producer counts scope against the episode's OWN
+      channel while `episodes[].channel` publishes the UNSTAMPED constant, so
+      the day a clause is channel-scoped, those two arms diverge and this check
+      is not positioned to notice.
     """
     coverage = bundle.get("clause_coverage")
     if not isinstance(coverage, dict):
@@ -734,6 +821,9 @@ def _check_clause_coverage(bundle, defects):
                 "differently." % (inv, fired.get(inv), ep.get("episode_id"))))
             bad += 1
 
+    rows_present = [c for c in clauses if isinstance(c, dict)]
+    bad += _check_coverage_rows(rows_present, defects)
+
     # COUNTED OFF THE ROWS, AND SAID TO BE ROWS. `fired` is a dict keyed by
     # invariant_id, so two rows for one clause collapse into one entry and the
     # denominator silently under-reports the table. And the denominator is the
@@ -741,16 +831,87 @@ def _check_clause_coverage(bundle, defects):
     # the set, so whether every clause has a row here is not recomputable from a
     # bundle. The viewer prints that caveat; this row at least does not call the
     # table's own length the Objective Set's clause count.
-    rows_present = [c for c in clauses if isinstance(c, dict)]
     never = sorted({c.get("invariant_id") for c in rows_present
                     if not c.get("episodes_fired")})
     lit = sum(1 for c in rows_present if c.get("episodes_fired"))
     note = ("%d of %d clause row(s) in this bundle's coverage table fired"
             % (lit, len(rows_present)))
     if never:
-        note += "; NEVER FIRED: %s" % ", ".join(never)
+        # THE STATE TRAVELS WITH THE NAME, ALWAYS. "NEVER FIRED: x, y" invites
+        # the reader to supply the reason, and the reason they supply is the
+        # flattering one - "the corpus was clean". UNREACHED does not mean that;
+        # it means the run had nothing to say. PATH_NEVER_PRESENT does not mean
+        # it either; it means the clause could not have fired.
+        by_id = {c.get("invariant_id"): c for c in rows_present}
+        note += "; NEVER FIRED: %s" % ", ".join(
+            "%s (%s)" % (n, by_id.get(n, {}).get("state") or "state absent")
+            for n in never)
     return Row("CLAUSE_COVERAGE", CROSS_CHECKED, "FAIL" if bad else "OK",
                "%d defect(s)" % bad if bad else note)
+
+
+def _check_coverage_rows(rows, defects):
+    """The shape of each clause row: collapsed, monotone, state, sources.
+
+    Split out of `_check_clause_coverage` because that function was already
+    doing two jobs and this adds three more; a hundred-line function whose
+    defects are all called E_COVERAGE_* is a function nobody re-reads.
+    """
+    bad = 0
+    for row in rows:
+        where = "clause_coverage.clauses[%s]" % row.get("invariant_id")
+        missing = [f for f in COVERAGE_REQUIRED if f not in row]
+        if missing:
+            defects.append(Defect(
+                "E_COVERAGE_COLLAPSED", where,
+                "carries episodes_fired and not %s. One integer CANNOT TELL A "
+                "CLAUSE NOTHING EVER REACHED FROM A CLAUSE REACHED MANY TIMES "
+                "AND NEVER TRUE - opposite findings with opposite repairs - and "
+                "collapsing them is how a clause naming an argument path no "
+                "tool emits held at zero through a hash freeze (ruling 48)."
+                % ", ".join(missing)))
+            bad += 1
+            continue
+
+        scope = row.get("episodes_in_scope") or 0
+        reached = row.get("episodes_cap_reached") or 0
+        evaluated = row.get("episodes_paths_resolvable") or 0
+        struck = row.get("episodes_fired") or 0
+        if not (struck <= evaluated <= reached <= scope):
+            defects.append(Defect(
+                "E_COVERAGE_NOT_MONOTONE", where,
+                "fired %d, evaluated %d, reached %d, in scope %d. Each is a "
+                "subset of the next BY CONSTRUCTION, so a violation means the "
+                "four numbers did not come from one measurement."
+                % (struck, evaluated, reached, scope)))
+            bad += 1
+
+        declared, derived = row.get("state"), _coverage_state(row)
+        if declared != derived:
+            defects.append(Defect(
+                "E_COVERAGE_STATE_DISAGREES", where,
+                "declares %r; its own counters say %r. The state is derivable "
+                "from the row, so this is a producer describing a run the "
+                "numbers beside it do not describe." % (declared, derived)))
+            bad += 1
+
+        by_source = row.get("by_source")
+        if not isinstance(by_source, dict):
+            continue
+        for field in COVERAGE_COUNTERS:
+            if field not in row:
+                continue
+            total = sum((cell or {}).get(field) or 0
+                        for cell in by_source.values())
+            if total != (row.get(field) or 0):
+                defects.append(Defect(
+                    "E_COVERAGE_SOURCES_DISAGREE", "%s.by_source" % where,
+                    "the source columns sum to %d for %s while the pooled row "
+                    "says %d. The pooled row is the number a reader quotes; a "
+                    "breakdown that can disagree with it is decoration."
+                    % (total, field, row.get(field))))
+                bad += 1
+    return bad
 
 
 # --------------------------------------------------------------------------

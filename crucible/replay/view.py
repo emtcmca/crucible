@@ -818,6 +818,41 @@ def _distinctness_section(bundle):
     return "\n".join(lines)
 
 
+def _num(value):
+    """A missing counter prints as `?`, never as `0`.
+
+    Zero is a measurement. Absent is a bundle that did not carry one, and the
+    two must not share a glyph on a page a judge reads - that substitution is
+    the whole defect this section was rebuilt to end, one layer down.
+    """
+    return "?" if value is None else value
+
+
+# What each dark state MEANS, in the reader's terms. The state token alone is
+# jargon, and a reader who cannot decode it supplies their own reading; the one
+# they supply is "the corpus was clean", which is true of exactly one of these.
+_DARK_MEANING = {
+    "UNREACHED": ("no executed event in this run ever carried the clause's "
+                  "capability class, so THE RUN HAS NOTHING TO SAY about it. "
+                  "This is not evidence the target is safe on this clause."),
+    "NEVER_TRUE": ("%(reached)s episode(s) and %(events)s executed event(s) "
+                   "reached it, every condition resolved, and the comparison "
+                   "never held. THIS IS THE HEALTHY ZERO."),
+    "PATH_NEVER_PRESENT": ("%(reached)s episode(s) reached it and a condition's "
+                           "argument path was ABSENT ON EVERY GATED EVENT. THE "
+                           "CLAUSE COULD NOT HAVE FIRED whatever the target "
+                           "did - a check that cannot fail. This is the shape "
+                           "of ruling 48 and it is a DEFECT, not a finding."),
+    "CONTEXT_FIELD_MISSING": ("a context operator named an episode.* field the "
+                              "episode does not carry. The evaluator rules "
+                              "such episodes INVALID; a scoreable episode "
+                              "reaching this state is two arms disagreeing."),
+    None: ("the row does not say which kind of zero this is. That is the "
+           "COLLAPSED SHAPE - it cannot tell a clause nothing reached from a "
+           "clause reached many times and never true."),
+}
+
+
 def _coverage_section(bundle):
     """WHICH PART OF THE DEFINITION OF BREACH WAS EVER REACHED.
 
@@ -831,23 +866,72 @@ def _coverage_section(bundle):
     clauses = coverage.get("clauses") or []
     lines = ["OBJECTIVE SET CLAUSE COVERAGE - which clauses were ever reached"]
     lines.append("  objective_set_hash %s" % coverage.get("objective_set_hash"))
+    sources = coverage.get("sources") or []
+    per_source = coverage.get("episodes_per_source") or {}
+    if sources:
+        lines.append("  sources            %s" % ", ".join(
+            "%s %s" % (s, per_source.get(s, "?")) for s in sources))
     lines.append("")
-    lines.append("  %-46s %-11s %-8s %s"
-                 % ("invariant", "form", "fired", "first round"))
+    # FIRED / EVALUATED / REACHED, IN THAT ORDER AND ALWAYS TOGETHER. `fired 0`
+    # beside `reached 87` is a different sentence from `fired 0` beside
+    # `reached 0`, and printing only the first leaves the reader to invent the
+    # second. They invent the flattering one.
+    # `form` IS NOT A COLUMN HERE and its absence is a choice, not an oversight.
+    # The page is 96 columns; the longest invariant id is 43 and the longest
+    # state is 21, and a form column pushes the header to 98. The form is in the
+    # bundle for anyone who needs it, and this table exists for the three-way
+    # split - which is the half a reader cannot get anywhere else.
+    lines.append("  %-43s %-6s %-6s %-6s %-21s %s"
+                 % ("invariant", "fired", "eval", "reach", "state", "rd"))
     for clause in clauses:
-        lines.append("  %-46s %-11s %-8s %s"
-                     % (clause.get("invariant_id"), clause.get("form"),
+        state = clause.get("state")
+        lines.append("  %-43s %-6s %-6s %-6s %-21s %s"
+                     % (clause.get("invariant_id"),
                         clause.get("episodes_fired"),
+                        _num(clause.get("episodes_paths_resolvable")),
+                        _num(clause.get("episodes_cap_reached")),
+                        # 20 chars, INSIDE the 21-wide column. The width test
+                        # renders the goldens, which all carry a state, so an
+                        # over-long literal here would never be measured.
+                        state if state else "COLLAPSED - NO STATE",
                         clause.get("first_fired_round") or "-"))
     fired = [c for c in clauses if c.get("episodes_fired")]
     lines.append("")
     lines.append("  %d of %d clause(s) fired" % (len(fired), len(clauses)))
-    never = [c.get("invariant_id") for c in clauses if not c.get("episodes_fired")]
+    never = [c for c in clauses if not c.get("episodes_fired")]
     if never:
         lines.extend(_wrapped(
             "  ", "%d clause(s) NEVER FIRED. Any breach figure from this run is "
                  "a measurement of the %d that did, and must be read that way."
                  % (len(never), len(fired))))
+        lines.append("")
+        # ONE LINE PER DARK CLAUSE, NAMING THE STATE AND WHAT IT MEANS. A
+        # reader scanning this page for a breach rate has to cross these lines
+        # to reach it. The state alone is a token; the sentence beside it is
+        # what stops the reader supplying their own, which is always the
+        # flattering one.
+        for clause in never:
+            lines.extend(_wrapped(
+                "    ", "%s - %s: %s" % (
+                    clause.get("invariant_id"),
+                    clause.get("state") or "STATE ABSENT",
+                    _DARK_MEANING.get(clause.get("state"),
+                                      _DARK_MEANING[None]) % {
+                        "reached": _num(clause.get("episodes_cap_reached")),
+                        "events": _num(clause.get("events_cap_reached")),
+                    }),
+                cont="      "))
+        exempted = [c for c in clauses if c.get("episodes_exempted")]
+        if exempted:
+            lines.append("")
+            lines.extend(_wrapped(
+                "  ", "THE EXEMPTION IS COVERAGE TOO and it is invisible in the "
+                     "fired column: %s tripped every condition and was let "
+                     "through by exempt_when on %s episode(s). That episode "
+                     "exercised the whole clause, exemption included."
+                     % (", ".join(c.get("invariant_id") for c in exempted),
+                        ", ".join(str(c.get("episodes_exempted"))
+                                  for c in exempted))))
     # WHOSE CENSUS THIS IS, SAID OUT LOUD. The denominator above is the number
     # of ROWS THE PRODUCER WROTE, and the heading calls the table the Objective
     # Set's. Those are the same number only if the producer wrote a row per
