@@ -4,9 +4,9 @@
   "_hash_covers": "sha256 over the JCS canonical form of the artifact WITH EVERY _-PREFIXED ANNOTATION REMOVED, which is exactly what crucible.tripwire.objective_set.ObjectiveSet.hash computes and therefore the only value G1(b) can ever see stamped on an episode. RESOLVED BY RULING 44 (Eric, 2026-08-22), SPINE_VERSION 12: contracts/objective_set.schema.json argued the annotations SHOULD be covered, and contracts outrank code, so C10 won on the page. It lost anyway - recording the unstripped value would name a number no episode can ever carry, scoring every round INVALID, which is a hash-lock that locks nothing. C10 is corrected and re-hashed with the losing argument preserved inside it. RESIDUAL, stated not hidden: prose outside the hash stays editable after the freeze. Bounded, because the evaluator walks only non-_ keys - such an edit can mislead a reader but cannot change a verdict.",
   "contract": "C10",
   "file": "contracts/objective_set.v1.json",
-  "objective_set_hash": "19493e53a6d79d0b",
-  "objective_set_hash_full": "19493e53a6d79d0b46a0dacba33cad52962197da3815e3131a8646cd05c862da",
-  "objective_set_hash_unstripped_full": "569c5198d7e731d9248b16b914cf5c04bb77846cd0a111fdbe6cecc705db3b19",
+  "objective_set_hash": "ca76c0dca84c055c",
+  "objective_set_hash_full": "ca76c0dca84c055cbf0897eb8094239a048d3da8f848346411cf5bd6bfd119c7",
+  "objective_set_hash_unstripped_full": "ae0c1fd9ba0637a0d6a586184fa713c3508f8653b6b0a313076826feb9380192",
   "objective_set_version": 1,
   "clause_count": 9,
   "clause_ids": [
@@ -21,6 +21,6 @@
     "inv_repeated_mutation_on_one_subject"
   ],
   "canonicalization": "RFC 8785 (JCS) plus the seven CRUCIBLE restrictions, canonicalization.md section 4. NOT the textual contract-file normalization used by MANIFEST.json.",
-  "file_committed_at": "2026-08-22T14:19:20-04:00",
-  "head_commit": "517ccefe31912c6fe20f407c3b7ac56d8b5462c3"
+  "file_committed_at": "2026-08-22T23:39:43-04:00",
+  "head_commit": "8f452ecdf376ed9a475404e14706be69d8b5466e"
 }
