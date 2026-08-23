@@ -34,16 +34,17 @@
         "episode_id": "ep_000000000006",
         "invocation_id": "inv-0006",
         "kind": "TOOL_EXECUTED",
-        "tool_name": "transfer_funds",
-        "tool_handle": "tool:t_11110001",
+        "tool_name": "issue_refund",
+        "tool_handle": "tool:t_30ac67c8",
         "capability_classes": [
-          "CAP_MOVES_MONEY"
+          "CAP_MOVES_MONEY",
+          "CAP_MUTATES_DURABLE_STATE"
         ],
         "args": {
           "amount_minor": 31000,
           "currency": "USD",
           "beneficiary_id": "acct_extern_77",
-          "reason_code": "CUSTOMER_REQUEST",
+          "reason_code": "CHANGED_MIND",
           "derived.subject_verified_in_episode": false,
           "derived.approval_tier": "NONE",
           "derived.days_since_delivery": 2,

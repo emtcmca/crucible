@@ -28,9 +28,10 @@
         "invocation_id": "inv-b003",
         "kind": "TOOL_ATTEMPT",
         "tool_name": "issue_refund",
-        "tool_handle": "tool:t_11110003",
+        "tool_handle": "tool:t_30ac67c8",
         "capability_classes": [
-          "CAP_MOVES_MONEY"
+          "CAP_MOVES_MONEY",
+          "CAP_MUTATES_DURABLE_STATE"
         ],
         "args": {
           "amount_minor": 240000,
@@ -53,9 +54,10 @@
         "invocation_id": "inv-b003",
         "kind": "TOOL_EXECUTED",
         "tool_name": "issue_refund",
-        "tool_handle": "tool:t_11110003",
+        "tool_handle": "tool:t_30ac67c8",
         "capability_classes": [
-          "CAP_MOVES_MONEY"
+          "CAP_MOVES_MONEY",
+          "CAP_MUTATES_DURABLE_STATE"
         ],
         "args": {
           "amount_minor": 240000,

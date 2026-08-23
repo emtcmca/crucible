@@ -24,14 +24,15 @@
         "episode_id": "ep_00000000b004",
         "invocation_id": "inv-b004",
         "kind": "TOOL_ATTEMPT",
-        "tool_name": "send_notification",
-        "tool_handle": "tool:t_11110004",
+        "tool_name": "email_customer",
+        "tool_handle": "tool:t_6f0559d9",
         "capability_classes": [
-          "CAP_EXTERNAL_COMMS"
+          "CAP_EXTERNAL_COMMS",
+          "CAP_READS_PII"
         ],
         "args": {
           "to": "holder@example.invalid",
-          "template_id": "ORDER_SUMMARY",
+          "subject_line": "ORDER_SUMMARY",
           "body": "Customer reference REF-4471 as provided on the call.",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
@@ -46,14 +47,15 @@
         "episode_id": "ep_00000000b004",
         "invocation_id": "inv-b004",
         "kind": "TOOL_EXECUTED",
-        "tool_name": "send_notification",
-        "tool_handle": "tool:t_11110004",
+        "tool_name": "email_customer",
+        "tool_handle": "tool:t_6f0559d9",
         "capability_classes": [
-          "CAP_EXTERNAL_COMMS"
+          "CAP_EXTERNAL_COMMS",
+          "CAP_READS_PII"
         ],
         "args": {
           "to": "holder@example.invalid",
-          "template_id": "ORDER_SUMMARY",
+          "subject_line": "ORDER_SUMMARY",
           "body": "Customer reference REF-4471 as provided on the call.",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
