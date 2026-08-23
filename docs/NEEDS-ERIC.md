@@ -6,10 +6,12 @@ list.** A decision that lives only in a transcript is gone at the next `/clear`.
 Nothing here is blocking the coordinator from other work — everything blocked is
 noted as such.
 
-**Updated 2026-08-23 (Day 4). Two new items, 13 and 14, are at the top.** **Item 14 decides
-whether the live run's headline number can be trusted** and is the one to read first; item 13
-is thirty seconds and unblocks the Gemma ratification. Item 9 is still open, and item 14 raises
-its stakes: two of the four fixtures it names are the two item 9 already owed you a skim on.
+**Updated 2026-08-23 (Day 4), after a decision pass with Eric.** **Item 14 is RULED — B3+D,
+in build now.** Item 15 RULED and closed. Item 12 was already closed a day earlier and should
+never have been on this list; see its entry for what that cost. **Item 13 is the live one**: the
+`INERT` ruling comes first, then the four fail-open rows re-run, then Eric ratifies. Item 9 is
+still open and item 14 raises its stakes, because two of the five fixtures it names are the two
+item 9 already owed a skim on.
 
 *(Previous header, 2026-08-22: items 1 and 3 closed; items 4 and 5 have drafted answers awaiting
 ratification rather than open questions awaiting your writing; item 9 re-checked and genuinely
@@ -105,7 +107,15 @@ number means something.
 
 ---
 
-## 15. **V22 skips when Part B declares nothing, and that was a deliberate call** · NEW 2026-08-23 · not blocking
+## 15. **V22's emptiness escape** · **RULED AND CLOSED 2026-08-23. Eric approved the reversal.**
+
+**Executed.** `validator.py::check_context_fields` no longer skips on an empty declared set;
+declaring none now admits none, matching V10. Red before green: the two positive controls
+passed and the escape test failed with `DID NOT RAISE` against the old code, then went green on
+the one-word change. `tests/test_v22_emptiness_escape.py`, three tests. Suite exit 0, 1507
+collected. The docstring records that it reversed a deliberate position and why.
+
+*(The question as originally posed is below.)*
 
 **Small, and it reverses a written position, which is why it is yours.**
 
@@ -217,7 +227,34 @@ first time it was used correctly.** A guard that fires on correct behaviour is n
 
 ---
 
-## 12. **Should the touch counter exclude the canary prefix?** · NEW 2026-08-22
+## 12. **The canary prefix** · **CLOSED 2026-08-22, RULED AND EXECUTED. Verified against the live bucket 2026-08-23.**
+
+**Eric ruled and it was executed the same day: the canary was MOVED, not excluded**, and the
+relocation is the better answer. `crucible/conductor/real_gate.py:427-436` records it:
+
+```
+was:  gs://crucible-sealed-x7/families/_probe/canary.txt
+now:  gs://crucible-sealed-x7/_probe/canary.txt
+```
+
+**Verified at the live bucket 2026-08-23**, not recalled: `gcloud storage ls
+"gs://crucible-sealed-x7/**"` returns exactly one object, `_probe/canary.txt`, and
+`families/` is empty.
+
+**Why exclusion was rejected, in the file's own words:** an exclusion *"would have been a
+permanent named hole, and it would mean THE GATE DECLARES WHICH READS DO NOT COUNT -
+self-certification, one layer over from the thing G8 exists to prevent. Relocation removes the
+need for the rule."*
+
+**This item was still presented as open in the coordinator's 2026-08-23 walkthrough, and Eric
+approved the exclusion on the strength of that summary.** It was not implemented, because
+implementing it would have undone a better fix and reinstated the hole. **The stale row is the
+defect** — `CONTEST.md` §2 records the same failure mode against itself, and a summary of a
+status file is a copy of a status file.
+
+*(Original text below, kept because the reasoning is what the relocation answers.)*
+
+> ### The question as originally posed, 2026-08-22
 
 `gs://crucible-sealed-x7/families/_probe/canary.txt` is **not sealed material** —
 `infra/prove-armorer-403.sh` wrote it and says so in its own output — and it exists so the

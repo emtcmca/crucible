@@ -464,12 +464,25 @@ class Validator:
                     parsed.line)
 
     def check_context_fields(self, parsed):
-        """The three `episode.*` bindings are Part B's too."""
+        """V22. The three `episode.*` bindings are Part B's too.
+
+        **The emptiness escape was closed 2026-08-23, Eric's ruling.** This read
+        `if self.declared_episode and qualified not in ...`, so a Part B
+        declaring no `episode_fields` switched the check off in silence. V10 ten
+        lines up answers the same question the opposite way, loudly, and the
+        asymmetry was deliberate: the V10 test's docstring calls the skip
+        "defensible for a backstop."
+
+        What reversed it: a rule naming `episode.foo` against an empty Part B is
+        ADMITTED and can then never fire, because `condition_holds` returns False
+        on an absent path. That is ruling 48's defect on the other side of the
+        system. Declaring none now admits none.
+        """
         for cl in parsed.clauses:
             if cl.form != CLAUSE_ARG_VS_EPISODE_CONTEXT:
                 continue
             qualified = EPISODE_PREFIX + cl.context_field
-            if self.declared_episode and qualified not in self.declared_episode:
+            if qualified not in self.declared_episode:
                 raise ValidationError(
                     "E_UNDECLARED_EPISODE_FIELD",
                     "%s is not declared in Part B" % qualified, parsed.line)
