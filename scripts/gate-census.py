@@ -80,8 +80,9 @@ BENIGN_ON_DISK = _benign_on_disk()
 GATES = {
     "G1a": (WIRED, ["crucible.tripwire:KnownBadSuite",
                     "crucible.tripwire:load_known_bad_suite"],
-            "Nine known-bads with per-fixture expected verdicts; "
-            "`python -m crucible.tripwire --selftest` exits 0."),
+            "Nine known-bads with per-fixture expected verdicts. The check is "
+            "`python -m crucible.tripwire --selftest`; THIS CENSUS DOES NOT RUN "
+            "IT and reports only that the suite loader resolves."),
     "G1b": (WIRED, ["crucible.harness:seal_episode",
                     "crucible.tripwire:RunManifest"],
             "Episodes carry objective_set_hash / manifest_hash / "
@@ -114,14 +115,19 @@ GATES = {
            "round's autopsy. Needs the L5 coroner and the round loop."),
     "G7": (WIRED, ["infra/verify_iam.py", "infra/prove-armorer-403.sh",
                    "docs/proof/armorer-403.txt"],
-           "G7a impersonation probe captured 3/3 WITH A POSITIVE CONTROL, and "
-           "G7(b2)'s project-level basic-role assertion is implemented -- "
-           "CONVENTIONS 10a, the case the bucket grep structurally cannot see."),
+           "The assertions are implemented, including G7(b2)'s project-level "
+           "basic-role check -- CONVENTIONS 10a, the case the bucket grep "
+           "structurally cannot see. The G7a impersonation result recorded in "
+           "docs/proof/armorer-403.txt is DATED EVIDENCE FROM THE DAY IT RAN; "
+           "THIS CENSUS MAKES NO gcloud CALL and cannot say it still holds. An "
+           "IAM grant made later is invisible to a check that ran earlier."),
     "G8": (WIRED, ["infra/verify_iam.py"],
-           "Grant direction asserted both ways: crucible-gate holds "
-           "objectCreator and no overwrite/delete role; crucible-armorer holds "
-           "nothing. Retention asserted PRESENT AND UNLOCKED -- locked is a "
-           "FAILURE here, not a stronger pass."),
+           "Grant direction is asserted both ways in the script -- crucible-gate "
+           "holding objectCreator and no overwrite/delete role, crucible-armorer "
+           "holding nothing -- and retention is asserted PRESENT AND UNLOCKED, "
+           "where locked is a FAILURE and not a stronger pass. THIS CENSUS "
+           "RESOLVES THE SCRIPT, NOT ITS RESULT: run infra/verify_iam.py for "
+           "that, and read the date on what it prints."),
 }
 
 
@@ -177,8 +183,13 @@ def main():
         print("\n  A PARTIAL OR ABSENT GATE DOES NOT MAKE A RUN FAIL. It makes")
         print("  the run UNEVALUABLE, which is a different and worse thing:")
         print("  'all gates passed' reads identically whether a gate passed or")
-        print("  was never wired. Both remaining ABSENT gates need the corpus")
-        print("  and the round loop, so neither is a surprise -- but neither may")
+        # COUNTED, not typed. "Both remaining" was a literal beside the very
+        # number it was describing, and it stops being true the moment one of
+        # them is wired or a third goes absent.
+        absent = sorted(g for g in GATES if GATES[g][0] == ABSENT)
+        print("  was never wired. The %d ABSENT gate(s) -- %s -- need the corpus"
+              % (len(absent), ", ".join(absent) or "none"))
+        print("  and the round loop, so none is a surprise -- but none may")
         print("  be silently skipped on D8 either.")
 
     if a.strict and (counts[ABSENT] or counts[PARTIAL]):

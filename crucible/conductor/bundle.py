@@ -64,6 +64,7 @@ import pathlib
 import re
 import time
 
+from corpus.model import BENIGN_TOTAL, NEAR_MISS_FLOOR
 from ..armorer.render import render_rule
 from ..canon.hashing import hash_full, policy_hash as compute_policy_hash
 from ..dsl import compile_rule, parse_policy
@@ -758,6 +759,13 @@ def _patch_proposals(rounds, proposals, run_id):
                 % len(patch.attempts or ())),
         }
         if record.benign_total is not None:
+            # OVERCLAIM, CONFIRMED AND NOT FIXED HERE. "replayed clean"
+            # overstates: ruling 2 counts a call the policy STOPPED with
+            # APPROVAL_REQUIRED and the APPROVAL_ORACLE then approved as a pass,
+            # so some of this numerator may be work a human did. The honest
+            # string is "PASSED" plus the ruling-37 caveat - but this exact
+            # sentence is pinned by `tests/test_c6_producer.py:481` with `==`,
+            # which is outside the lane that found it. Change both together.
             proposal["warden_result"] = (
                 "%s/%s benign fixtures replayed clean"
                 % (record.benign_passed, record.benign_total))
@@ -1115,6 +1123,43 @@ def _cost(meter, wall_clock_ms):
     }
 
 
+def g7_g8_not_exercised_because(gate_summary):
+    """WHY G7/G8 evaluated nothing, decided from what the gate DID.
+
+    ONE PRODUCER, TWO CONSUMERS. `_execution_provenance` writes this into the
+    bundle's `g7_g8_detail`; `campaign._disclaimer` writes it into the RUN
+    INVALID banner. Both used to select the sentence themselves, and both
+    selected it the same wrong way: on `cloud_assertions` alone.
+
+    THE BUG THAT MADE THIS A FUNCTION. `g7_g8_exercised` is false in THREE
+    situations, not two - `gate_summary` derives it from the gate's own findings
+    as "there are seal findings, skip_cloud is off, and at least one of them is
+    not UNEVALUABLE". So a `--live` run whose G7/G8 probes ALL came back
+    UNEVALUABLE (no gcloud on PATH, expired credentials, a project that answers
+    nothing) has `cloud_assertions == "LIVE"` and `calls >= 1`, and both callers
+    printed "no candidate ever reached the gate, so it evaluated nothing" into
+    a bundle that recorded the candidate that did. The count was sitting in the
+    same dict, unread, and the sibling branch two lines up already read it.
+
+    A wrong reason on a RUN INVALID banner is not cosmetic: it sends the reader
+    to the loop, which is fine, instead of to the credentials, which are not.
+    """
+    if gate_summary.get("cloud_assertions") == "SKIPPED_OFFLINE":
+        return ("the gate was built with skip_cloud=True (no --live), so it "
+                "made no gcloud call. G7/G8 evaluated nothing and NO G7 OR G8 "
+                "CLAIM MAY BE MADE FROM THIS BUNDLE.")
+    calls = int(gate_summary.get("calls") or 0)
+    if calls == 0:
+        return ("no candidate ever reached the gate in this run, so it "
+                "evaluated nothing. A --live flag does not exercise a gate "
+                "the loop never called.")
+    return ("the gate was called at %d candidate(s) and EVERY G7/G8 assertion "
+            "came back UNEVALUABLE - it was reached and could not decide. That "
+            "is not a pass and not a failure; it is an unevaluable gate, which "
+            "is the one outcome that must never be read as a clean one. The "
+            "per-assertion statuses are in summary.gate.reports." % calls)
+
+
 def _execution_provenance(*, live, meter, gate_summary, rounds):
     """WHICH COMPONENTS WERE REAL AND WHICH WERE STAND-INS.
 
@@ -1160,14 +1205,8 @@ def _execution_provenance(*, live, meter, gate_summary, rounds):
         detail = ("G7 (a/b/b2/c) and G8 were evaluated against live GCP at %d "
                   "candidate(s). Read from the gate's own findings, not from "
                   "the --live flag." % gate_summary.get("calls", 0))
-    elif gate_summary.get("cloud_assertions") == "SKIPPED_OFFLINE":
-        detail = ("the gate was built with skip_cloud=True (no --live), so it "
-                  "made no gcloud call. G7/G8 evaluated nothing and NO G7 OR G8 "
-                  "CLAIM MAY BE MADE FROM THIS BUNDLE.")
     else:
-        detail = ("no candidate ever reached the gate in this run, so it "
-                  "evaluated nothing. A --live flag does not exercise a gate "
-                  "the loop never called.")
+        detail = g7_g8_not_exercised_because(gate_summary)
 
     return {
         "mode": "live" if live else "offline_stand_in",
@@ -1184,10 +1223,15 @@ def _execution_provenance(*, live, meter, gate_summary, rounds):
                         "detail": model_note},
             "armorer": {"implementation": "real" if live else "stand_in",
                         "detail": model_note},
+            # DENOMINATORS FROM THEIR OWNER, not typed. `corpus.model` is where
+            # ruling 43 moved them; a literal here is a copy that cannot learn.
             "warden": {"implementation": "real",
-                       "detail": "the 26-fixture benign suite with its 14 "
+                       "detail": "the %d-fixture benign suite with its %d "
                                  "near-misses, replayed through L3's real "
-                                 "policy engine."},
+                                 "policy engine. Known-bad calibration and "
+                                 "archived-attack replay are NOT run by this "
+                                 "campaign - see real_warden's docstring."
+                                 % (BENIGN_TOTAL, NEAR_MISS_FLOOR)},
             "gate": {"implementation": "real",
                      "detail": "%s (%s). %s"
                                % (gate_summary.get("implementation"),
