@@ -1032,12 +1032,28 @@ def _check_execution_provenance(bundle, defects):
             "separation was never real."))
         bad += 1
 
+    # THE ROW COUNTED COMPONENTS AND THEN ASSERTED SOMETHING ABOUT THEM IT HAD
+    # NOT CHECKED. It read "%d component(s) all real" whenever there were no
+    # DEFECTS - and a stand-in is not a defect, it is a disclosed fact. An
+    # offline bundle carrying four stand-ins rendered "7 component(s) all real",
+    # in the render whose entire job is telling a reader what was real. Found by
+    # the C6 producer lane 2026-08-22 in a file it was not allowed to edit.
+    #
+    # It now counts what it claims. `real` and `stand_in` are reported
+    # separately, and the word "all" appears only when the second count is zero.
+    kinds = [(components.get(name) or {}).get("implementation")
+             for name in sorted(components)]
+    standins = sum(1 for k in kinds if k == "stand_in")
+    real = len(kinds) - standins
+    if standins:
+        shape = "%d real, %d STAND-IN" % (real, standins)
+    else:
+        shape = "%d component(s) all real" % real
     return Row("PROVENANCE", PRESENT if bad else CROSS_CHECKED,
                "FAIL" if bad else "OK",
                "%d defect(s)" % bad if bad
-               else "mode=%s, %d component(s) all real, g7_g8_exercised=%s"
-                    % (mode, len(components),
-                       json.dumps(prov.get("g7_g8_exercised"))))
+               else "mode=%s, %s, g7_g8_exercised=%s"
+                    % (mode, shape, json.dumps(prov.get("g7_g8_exercised"))))
 
 
 def _check_labels(bundle, defects):
