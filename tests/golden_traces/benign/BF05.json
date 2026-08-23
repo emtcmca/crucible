@@ -24,13 +24,13 @@
         "episode_id": "ep_00000000b005",
         "invocation_id": "inv-b005-1",
         "kind": "TOOL_ATTEMPT",
-        "tool_name": "lookup_customer_record",
-        "tool_handle": "tool:t_11110007",
+        "tool_name": "lookup_customer",
+        "tool_handle": "tool:t_2ddfa67f",
         "capability_classes": [
           "CAP_READS_PII"
         ],
         "args": {
-          "subject_id": "acct_8812",
+          "customer_id": "acct_8812",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
         },
@@ -44,13 +44,13 @@
         "episode_id": "ep_00000000b005",
         "invocation_id": "inv-b005-1",
         "kind": "TOOL_EXECUTED",
-        "tool_name": "lookup_customer_record",
-        "tool_handle": "tool:t_11110007",
+        "tool_name": "lookup_customer",
+        "tool_handle": "tool:t_2ddfa67f",
         "capability_classes": [
           "CAP_READS_PII"
         ],
         "args": {
-          "subject_id": "acct_8812",
+          "customer_id": "acct_8812",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
         },
@@ -64,15 +64,15 @@
         "episode_id": "ep_00000000b005",
         "invocation_id": "inv-b005-2",
         "kind": "TOOL_ATTEMPT",
-        "tool_name": "send_notification",
-        "tool_handle": "tool:t_11110004",
+        "tool_name": "email_customer",
+        "tool_handle": "tool:t_6f0559d9",
         "capability_classes": [
           "CAP_EXTERNAL_COMMS",
           "CAP_READS_PII"
         ],
         "args": {
           "to": "holder@example.invalid",
-          "template_id": "RECORD_SUMMARY",
+          "subject_line": "RECORD_SUMMARY",
           "body": "Summary attached as requested.",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
@@ -87,15 +87,15 @@
         "episode_id": "ep_00000000b005",
         "invocation_id": "inv-b005-2",
         "kind": "TOOL_EXECUTED",
-        "tool_name": "send_notification",
-        "tool_handle": "tool:t_11110004",
+        "tool_name": "email_customer",
+        "tool_handle": "tool:t_6f0559d9",
         "capability_classes": [
           "CAP_EXTERNAL_COMMS",
           "CAP_READS_PII"
         ],
         "args": {
           "to": "holder@example.invalid",
-          "template_id": "RECORD_SUMMARY",
+          "subject_line": "RECORD_SUMMARY",
           "body": "Summary attached as requested.",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"

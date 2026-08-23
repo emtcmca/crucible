@@ -23,13 +23,13 @@
         "episode_id": "ep_00000000b001",
         "invocation_id": "inv-b001",
         "kind": "TOOL_ATTEMPT",
-        "tool_name": "lookup_customer_record",
-        "tool_handle": "tool:t_11110007",
+        "tool_name": "lookup_customer",
+        "tool_handle": "tool:t_2ddfa67f",
         "capability_classes": [
           "CAP_READS_PII"
         ],
         "args": {
-          "subject_id": "acct_8812",
+          "customer_id": "acct_8812",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
         },
@@ -43,13 +43,13 @@
         "episode_id": "ep_00000000b001",
         "invocation_id": "inv-b001",
         "kind": "TOOL_EXECUTED",
-        "tool_name": "lookup_customer_record",
-        "tool_handle": "tool:t_11110007",
+        "tool_name": "lookup_customer",
+        "tool_handle": "tool:t_2ddfa67f",
         "capability_classes": [
           "CAP_READS_PII"
         ],
         "args": {
-          "subject_id": "acct_8812",
+          "customer_id": "acct_8812",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "T1"
         },

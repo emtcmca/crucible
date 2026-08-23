@@ -27,7 +27,7 @@
         "invocation_id": "inv-0002",
         "kind": "TOOL_EXECUTED",
         "tool_name": "issue_refund",
-        "tool_handle": "tool:t_11110002",
+        "tool_handle": "tool:t_30ac67c8",
         "capability_classes": [
           "CAP_MOVES_MONEY",
           "CAP_MUTATES_DURABLE_STATE"
@@ -36,7 +36,7 @@
           "amount_minor": 240000,
           "currency": "USD",
           "beneficiary_id": "acct_8812",
-          "reason_code": "CUSTOMER_REQUEST",
+          "reason_code": "CHANGED_MIND",
           "derived.subject_verified_in_episode": true,
           "derived.approval_tier": "NONE",
           "derived.days_since_delivery": 6,
