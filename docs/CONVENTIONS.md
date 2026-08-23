@@ -81,16 +81,48 @@ states in writing what prior results the change invalidates.
 > is a **test-fixture** hole rather than a live one — but a replay suite running against
 > unvetted policies is a check weaker than it reads.
 >
-> **CLAUSE COVERAGE IS NOW A MEASURED QUANTITY, BECAUSE IT NEVER WAS ONE.** The offline
-> campaign's scripted target reaches 3 of the target's 8 tools and never calls `email_customer`,
-> so **only 2 of the 9 clauses are exercised offline** and neither repointed clause is among
-> them. `inv_account_identifier_left_the_boundary` fires zero times corpus-wide even after the
-> repoint; ruling 13 narrowed its family deliberately, so a synthetic fixture is its only
-> exerciser. **The 2-of-9 is not the defect. The defect is that nothing had ever measured clause
-> coverage**, which is how two clauses stayed dark through a freeze. A per-clause coverage
-> matrix, separated by source and separating *never reached* from *reached and never true*, ships
-> with the evidence bundle. **A published breach rate without it is an overclaim by omission**,
-> because a reader assumes all nine clauses were in play.
+> **CLAUSE COVERAGE, CORRECTED 2026-08-23, SAME DAY, BEFORE ANY OF IT WAS PUBLISHED.**
+> *(This paragraph first read: "clause coverage is now a measured quantity, because it never was
+> one. The offline campaign's scripted target reaches 3 of the target's 8 tools and never calls
+> `email_customer`, so only 2 of the 9 clauses are exercised offline." **Three claims, all three
+> wrong**, taken from a lane report the coordinator did not verify before writing it into the
+> spine. The corrected version is below and it is WORSE for the project in one respect and better
+> in two, which is why the wrong version is quoted rather than erased.)*
+>
+> **What was actually wrong.** Those figures describe `campaign.offline_script_for`, the
+> **retired** six-shape default. `campaign.py:909` passes the instance's own trace via
+> `CORPUS.offline_script(attack)`, and the file's own comment calls the old default "a trap."
+> Measured with the instrument, at this commit: **8 of 8 target tools reached**, `email_customer`
+> called 5 times on the offline campaign arm and 6 across the corpus, and **7 of 9 clauses fire
+> on the corpus alone.**
+>
+> **And coverage was not unmeasured.** C6 has declared `clause_coverage` since it was written;
+> `bundle.py::_clause_coverage` produces it, `integrity.py` cross-checks it, `view.py` renders
+> it. **The real defect is narrower and sharper than "nobody measured it":** it was measured
+> ONLY AFTER A RUN, as ONE INTEGER that cannot tell a healthy zero from a fatal one, and
+> **nothing ever failed on a zero.** Those three gaps are exactly how `memo` survived.
+>
+> **The finding that survives all of it: 8 of 9 clauses are exercised by a trace the target could
+> actually produce, and 1 is dark** — `inv_account_identifier_left_the_boundary`, reached 15
+> times with every path present and the comparison never true. It needs a TRACE, not a repair.
+> **Pooling every source including the dead-vocabulary fixtures reports 9 of 9 and hides it**,
+> which is why the instrument keeps sources apart.
+>
+> **RULING 13 WAS THE WRONG EXPLANATION, AND BOTH STORIES PREDICTED THE SAME ZERO.** The dark
+> clause was believed fixture-only because ruling 13 narrowed its family. It was actually
+> fixture-only because it named `memo`. **Both stories predict `episodes_fired: 0` and the
+> project held the wrong one for days** - the same failure as the 404 that agreed with the memo,
+> in a different costume. The clause's only exerciser today is `KB4`, which lights it through
+> `send_notification`, **a tool the target has never exposed** - the fixture and the clause
+> having been authored together, again.
+>
+> **A fixture-only clause is acceptable only if it is DECLARED beside every number it feeds, the
+> fixture speaks the target's vocabulary, and it is named in the run's honesty ledger so a reader
+> can subtract it. Condition two fails right now.** Keep the clause; fix the fixture's tool names.
+>
+> **A per-clause coverage matrix, separated by source and separating *never reached* from
+> *reached and never true*, ships with the evidence bundle. A published breach rate without it is
+> an overclaim by omission**, because a reader assumes all nine clauses were in play.
 
 
 > **SPINE_VERSION 16 — ruling 47, 2026-08-22. THE D5 CORPUS FREEZE IS DELIBERATELY BROKEN AND

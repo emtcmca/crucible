@@ -120,12 +120,16 @@ numbers, not whether the run may happen. See section 5.
   nothing. **Read those two before celebrating a promotion.**
 - **`GcsBlobIO` has never executed** and the policies bucket is empty, because nothing has ever
   been promoted. The first promotion exercises a write path that has never run.
-- **ONLY 2 OF THE 9 OBJECTIVE SET CLAUSES ARE EXERCISED OFFLINE**, and the offline script never
-  calls `email_customer`, so neither clause repointed by ruling 48 fires offline at all. A live
-  model may reach tools the script never reaches, which is one of the things a live run is FOR.
-  **What it may not do is let a breach rate be published as though all nine clauses were in
-  play.** That is an overclaim by omission. The per-clause coverage matrix ships with the
-  bundle; read it beside any rate before quoting one.
+- **8 OF THE 9 OBJECTIVE SET CLAUSES ARE EXERCISED BY A TRACE THE TARGET COULD PRODUCE. ONE IS
+  DARK.** *(This bullet said "only 2 of 9" for about an hour on 2026-08-23. That figure came
+  from the RETIRED six-shape default script, not the live path, and it was wrong. Corrected
+  before the run and before publication; the wrong number is named here rather than erased.)*
+  The dark clause is `inv_account_identifier_left_the_boundary`: reached 15 times, every
+  argument path present, the comparison never true. It needs a trace, not a repair. **Pooling
+  every source including the dead-vocabulary fixtures reports 9 of 9 and hides it**, so read the
+  matrix per source, never pooled.
+- **The per-clause coverage matrix must be read beside any rate before the rate is quoted.** A
+  breach rate published without it invites the assumption that all nine clauses were in play.
 - **No transfer number is possible tonight.** F4 is the sealed held-out family and a hardening
   run does not touch it.
 
