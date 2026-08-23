@@ -54,8 +54,8 @@
           "freezes": "D3_with_target"
         },
         "derived_schema.schema.json": {
-          "sha256": "e1131a3794a4a14334ef601be5c559a06f1e3534a4888bac5575a3ba110deb3e",
-          "bytes": 9799,
+          "sha256": "caf21c24a55fe715f444c4b0d593752a37d5f3ea69e7b3fbae52d56c39e08887",
+          "bytes": 10789,
           "freezes": "D5_with_corpus_gated_on_blindness_check"
         }
       },
