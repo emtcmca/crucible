@@ -1,0 +1,112 @@
+VERTEX MODEL REACHABILITY - crucible-hack-2026
+Taken 2026-08-22 by the coordinator, re-running a control at Eric's instruction.
+Every line below is a real HTTP status from a real request. $0.00 spent
+(max_tokens 8, four of the calls returned an error before any generation).
+
+WHY THIS FILE EXISTS
+--------------------
+`vertex-gemma-maas-probe-2026-08-22.txt` (lane L5) concluded that managed Gemma
+is unavailable. THE CONCLUSION IS CORRECT AND ITS CONTROL WAS NOT.
+
+That probe used `google/gemini-2.5-flash` in `us-central1` as its control,
+reasoning: "=> 200. URL shape, OAuth token, project path and payload are all
+correct. So every 404 below is about the MODEL, not about this client."
+
+Two things are wrong with that.
+
+1. `gemini-2.5-*` is DEAD VOCABULARY in this project (`agent.py:49`) and sits
+   BELOW the contest's mandatory Gemini 3.5 floor (`CONTEST.md` section 2). A
+   proof artifact that prints it invites someone to quote it.
+
+2. More seriously: **the control was taken in a region, and the probes were
+   taken in two.** It established `us-central1` was good and then drew a
+   conclusion about `global` as well. It never showed `global` worked at all,
+   so for half its probes "the 404 is about the model" was unsupported.
+
+Re-running the control found out why that matters.
+
+
+== 1. THE 3.x LINE IS NOT SERVED FROM us-central1 ==
+
+    location=us-central1, native :generateContent
+      gemini-3.5-flash-lite   404
+      gemini-3.7-flash        404
+      gemini-2.5-flash        200
+
+    location=us-central1, OpenAPI /chat/completions
+      gemini-3.5-flash-lite   404
+      gemini-2.5-flash        200
+
+**Every model this project runs 404s in us-central1, and the only one that
+answers there is the one we are forbidden to use.** A control chosen in that
+region can only ever have been a sub-3.5 model - the lane's choice was closer
+to forced than it looked.
+
+The target nonetheless ran live on `gemini-3.5-flash-lite` and spent $0.0321,
+which is what made this worth chasing rather than accepting.
+
+
+== 2. IT IS SERVED FROM global, WHICH IS WHAT THE CODE ALREADY USES ==
+
+    location=global, native :generateContent
+      gemini-3.5-flash-lite   200
+      gemini-3.6-flash        200
+      gemini-3.7-flash        200
+      gemini-2.5-flash        200
+
+`target/refund_agent/agent.py`'s pinned provider sets `location="global"`, so
+the live path was never affected. The probe's region was the defect, not the
+build's.
+
+
+== 3. GEMMA, RE-PROBED WITH A CONTROL PROVEN GOOD AT THE SAME LOCATION ==
+
+Control: `gemini-3.5-flash-lite` at `location=global` -> 200, immediately above.
+
+    location=global, native :generateContent
+      gemma-4-26b-a4b-it      404   Publisher model ... was not found or your
+      gemma-3-27b-it          404   project does not have access to it
+      gemma-3-12b-it          404
+      gemma-2-27b-it          404
+
+**Four ids, two Gemma generations, a control known good at that exact location.
+Managed Gemma is not reachable from this project.** That is now demonstrated
+rather than inferred, and L5's conclusion stands.
+
+Next step is unchanged and is a human's: enable Gemma in Model Garden for
+`crucible-hack-2026` and accept Google's Gemma licence terms. Until then no
+Cartographer model call is possible and none has been made.
+
+
+== 4. THE PLATFORM AUDIT ERIC ASKED FOR, IN THE SAME PASS ==
+
+Mandate: `CONTEST.md` section 2 lists "Gemini 3.5 or newer" under MANDATORY
+technology. A sub-3.5 model on a live path is a Stage One pass/fail failure,
+not a preference.
+
+Live model constants, read from source:
+
+    crucible/armorer/armorer.py:47   ARMORER_MODEL = gemini-3.7-flash
+    crucible/red/red.py:39           RED_MODEL     = gemini-3.6-flash
+    crucible/coroner/coroner.py:43   CORONER_MODEL = gemini-3.5-flash-lite
+    target/refund_agent/agent.py:53  TARGET_MODEL  = gemini-3.5-flash-lite
+
+All four at or above 3.5, and all four confirmed 200 at `location=global`
+above. **Nothing below 3.5 executes anywhere in the platform.**
+
+Two sub-3.5 strings exist in the tree and neither is a live path:
+
+  * `target/refund_agent/agent.py:49-52` - a comment DECLARING `gemini-2.5-*`
+    and `gemini-3.1-*` dead vocabulary, and explaining that 3.1-pro is below
+    the floor despite the higher-looking number because the Flash and Pro lines
+    are non-parallel. Correct, load-bearing, stays.
+
+  * `docs/proof/third-party-target-recon-2026-08-22.md:393` - OPEN ITEM. The
+    ADK customer-service sample ships `gemini-2.5-flash` in its own
+    `config.py:30`, and that line offers, as an option, to "accept the shipped
+    `gemini-2.5-flash` and keep `modified_by_crucible=false`." The Cartographer
+    only READS that sample's source, so nothing sub-3.5 executes today - but
+    the option would put a below-floor model in play the moment the sample is
+    driven as a target. **Closed by Eric's ruling 2026-08-22: 3.5 and newer,
+    everywhere.** If that sample is ever driven, its model is pinned up first
+    and `modified_by_crucible` goes true.
