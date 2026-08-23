@@ -363,6 +363,97 @@ def test_the_placeholder_rule_id_is_RECOMPUTED_from_the_armorers_own_text():
     assert expected.startswith("r_") and len(expected) == 14
 
 
+class _Patch:
+    """A `PatchResult` shaped like the one an ARMORER returns. Used because no
+    OFFLINE run produces one - the ARMORER is handed a refusal stub - so the
+    assembly of `patch_proposals` would otherwise be the one half of "what was
+    addressed" with no test at all."""
+
+    ok = True
+
+    def __init__(self, text, *, attempts=1):
+        from crucible.dsl import compile_rule, parse_policy
+        self.patch_text = text
+        stored = [compile_rule(r) for r in parse_policy(text).rules]
+        self.hashed_payload = {"policy_schema_version": 1,
+                               "target_manifest_hash": "0" * 16,
+                               "rules": stored}
+        self.new_rule_ids = [r["rule_id"] for r in stored]
+        self.verbs_used = [r["verb"] for r in stored]
+        self.attempts = list(range(attempts))
+        self.repaired = attempts > 1
+
+
+def _round_with_patch(decision, *, index=1, feedback=None):
+    record = _round_with_attacks([], index=index)
+    record.autopsy = {"autopsy_id": "aut_run_r%02d_a01" % index}
+    record.gate_decision = decision
+    record.benign_passed, record.benign_total = (26, 26) if decision == \
+        "PROMOTE" else (18, 26)
+    record.rejection_feedback = feedback
+    return record
+
+
+def test_a_REJECTED_proposal_is_recorded_with_its_rule_text_and_its_reason():
+    """A rejected proposal exists in NO OTHER ARTIFACT. `Conductor._round` puts
+    `record._candidate` back to the parent policy on REJECT, so without the
+    `ProposalLog` the rule the ARMORER wrote and the gate turned down is gone -
+    and it is the half a reader most needs when the question is "why did this
+    run not converge"."""
+    patch = _Patch("rule r_new1: cap:CAP_MOVES_MONEY => deny")
+    record = _round_with_patch("REJECT", feedback={
+        "benign_failures": 8, "classes": ["CAP_MOVES_MONEY"]})
+
+    proposal, = B._patch_proposals([record], {1: patch}, "run_x")  # noqa: SLF001
+    assert proposal["accepted"] is False
+    assert proposal["round_index"] == 1
+    assert proposal["autopsy_id"] == "aut_run_r01_a01"
+    assert proposal["verbs"] == ["deny"]
+    assert proposal["repaired"] is False
+    assert "8 benign fixture(s) lost" in proposal["rejected_reason"]
+    assert "CAP_MOVES_MONEY" in proposal["rejected_reason"]
+    assert proposal["warden_result"] == "18/26 benign fixtures replayed clean"
+
+    rule, = proposal["rules"]
+    assert rule["rule_id_as_proposed"] == "r_new1"
+    assert rule["rule_id_assigned"] == patch.new_rule_ids[0]
+    assert rule["rule_id_assigned"] != "r_new1"
+    assert "=> deny" in rule["dsl_text"]
+
+
+def test_an_ACCEPTED_proposal_records_the_repair_and_validates_as_C6():
+    """The proposal block is `additionalProperties: false` in C6, so this also
+    proves no stray key rides along. Validated by dropping it into an otherwise
+    empty bundle and asking the real validator about that one path."""
+    patch = _Patch("rule r_new1: cap:CAP_MOVES_MONEY when amount_minor >= 50000 "
+                   "=> require_approval(HIGH_VALUE)", attempts=2)
+    record = _round_with_patch("PROMOTE", index=3)
+
+    proposal, = B._patch_proposals([record], {3: patch}, "run_x")  # noqa: SLF001
+    assert proposal["accepted"] is True
+    assert proposal["repaired"] is True          # two attempts, one repair
+    assert proposal["verbs"] == ["require_approval"]
+    assert "rejected_reason" not in proposal
+    assert proposal["proposal_id"].startswith("pp_")
+
+    errors = B.validate_bundle({"patch_proposals": [proposal]})
+    assert not [e for e in errors if "patch_proposals" in e], errors
+
+
+def test_a_round_whose_ARMORER_produced_nothing_yields_no_proposal():
+    """`ok=False` is the offline case and the ARMORER_EXHAUSTED case. A row
+    claiming a proposal where the model never returned a parseable one would be
+    the bundle inventing an event."""
+
+    class _Failed:
+        ok = False
+
+    assert B._patch_proposals([_round_with_patch("REJECT")],  # noqa: SLF001
+                              {1: _Failed()}, "run_x") == []
+    assert B._patch_proposals([_round_with_patch("REJECT")],  # noqa: SLF001
+                              {}, "run_x") == []
+
+
 def test_a_patch_with_no_placeholder_yields_no_mapping_rather_than_a_guess():
     """The OPTIONAL field is omitted rather than filled by pairing on position.
     Guessing a pairing by ordinal is wrong SILENTLY, which is the failure mode
