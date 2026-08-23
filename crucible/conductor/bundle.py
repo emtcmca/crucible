@@ -537,8 +537,10 @@ def _attacks(rounds, *, generator):
 
     THERE IS NO LEAK RISK AND IT IS WORTH SAYING WHY, BECAUSE "RECORD THE ATTACK
     TEXT" LOOKS LIKE THE EXACT SHAPE OF A SEAL BREAK. The strings this catalogue
-    carries come from `campaign.SEEDS` - six lane-authored literals in
-    `campaign.py` - and from the RED_STRATEGIST's rewrite of them. The campaign
+    carries come from `campaign.SEEDS` - the fifty instances of `corpus/training/`
+    since 2026-08-22 - and from the RED_STRATEGIST's rewrite of them.
+    `CorpusSeeds.load()` names the TRAINING layout and nothing else, and refuses
+    rather than skips an instance declaring the sealed family, so the campaign
     NEVER READS `corpus/sealed/`: no import, no path, no loader, and the real
     boundary is IAM rather than the `.gitignore` entry. A varied attack is a
     surface-form rewrite of a seed that was already committed in plain sight.
@@ -561,10 +563,24 @@ def _attacks(rounds, *, generator):
     road. Only "model" produced text that exists nowhere else.
 
     THE SEEDS ARE STILL CARRIED WITH THEIR FULL TEXT even though `provenance` is
-    `training_corpus`, because `corpus_instance_id` resolves them against
-    `corpus_hash` and THEY ARE NOT IN THAT CORPUS - they are `campaign.SEEDS`.
-    So the id names the seed and the bytes travel beside it, which is the only
-    combination that leaves a reader able to reproduce the round.
+    `training_corpus` and an id would now genuinely suffice. The id names the
+    instance and the bytes travel beside it, so a reader can reproduce the round
+    without holding the corpus, and can check the two against each other if they
+    do.
+
+    THIS PARAGRAPH USED TO READ "THEY ARE NOT IN THAT CORPUS - they are
+    `campaign.SEEDS`", AND IT WAS TRUE WHEN IT WAS WRITTEN. `SEEDS` was six
+    hand-authored literals, so `crucible/replay/view.py`'s
+
+        corpus instance <id> - resolves against the corpus frozen at corpus_hash
+
+    was a FALSE CLAIM printed on the surface a judge reads, and this docstring
+    said so two hundred lines away from the renderer that made it. The corpus
+    swap made the sentence true; it is now guarded by
+    `tests/test_c6_producer.py::
+     test_the_TRAINING_CORPUS_line_the_replay_prints_is_a_true_claim`, which
+    resolves every rendered `corpus_instance_id` against `corpus/training/`
+    rather than trusting either comment.
     """
     catalogue = {}
     for record in rounds:

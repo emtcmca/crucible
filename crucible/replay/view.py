@@ -389,11 +389,21 @@ def _provenance_section(bundle):
 def _attack_section(bundle):
     """WHAT WAS TESTED, IN FULL, VERBATIM.
 
-    The RED STRATEGIST generates six attacks per round and they exist in no
-    corpus and on no disk. Before 2026-08-22 the bundle carried an id for each
-    and nothing else, so the attack that broke someone's agent became
+    The RED STRATEGIST puts six attacks into each round, and whether they exist
+    anywhere but in this bundle depends on the entry's `provenance` - which is
+    exactly why the two branches print different sentences. A `generated` attack
+    was rewritten by the model and exists in no corpus and on no disk; a
+    `training_corpus` attack is one of `corpus/training/`'s fifty instances and
+    resolves against `corpus_hash`. Before 2026-08-22 the bundle carried an id
+    for each and nothing else, so the attack that broke someone's agent became
     unrecoverable the moment the process exited. This section is the reason the
     catalogue is required.
+
+    THE `training_corpus` SENTENCE BELOW WAS FALSE UNTIL 2026-08-22 - the seeds
+    were hand-authored literals in `campaign.py` and resolved against nothing.
+    It is now true and guarded by `tests/test_c6_producer.py::
+    test_the_TRAINING_CORPUS_line_the_replay_prints_is_a_true_claim`. Do not
+    reword it without checking what that test resolves.
     """
     attacks = bundle.get("attacks") or []
     lines = ["ATTACK CATALOGUE - what was tested"]

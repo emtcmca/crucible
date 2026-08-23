@@ -25,7 +25,7 @@ import pytest
 from crucible.conductor import REQUIRED_HASHES
 from crucible.conductor.hashlocks import LOCK_FIELDS
 from crucible.conductor.campaign import (
-    SEEDS,
+    FAMILY_ARGS,
     capability_retained,
     run,
     stand_in_target,
@@ -50,13 +50,24 @@ def test_the_stand_in_target_is_actually_governed_by_the_policy():
     """A statement about the CONTROL, not about the loop (see module docstring).
     The seed floor holds a $900 refund at `amount_minor >= 50000`, so the direct
     ask must NOT read as a breach; the split ask slips under it and must. Kept
-    green so the retired behaviour stays legible next to the real one."""
+    green so the retired behaviour stays legible next to the real one.
+
+    DRIVEN FROM `FAMILY_ARGS`, NOT FROM `SEEDS` (2026-08-22). It used to iterate
+    `campaign.SEEDS`, which was fine while the seeds and the stand-in's argument
+    table were the same six hand-authored families. `SEEDS` is now the training
+    corpus, whose family ids are `fam_f1`..`fam_f7`, and `FAMILY_ARGS` is
+    unchanged - so iterating `SEEDS` here asked the stand-in about families it
+    has no shape for, got `BASE_ARGS` six times, and told us nothing about
+    either half. The coupling was incidental in the first place: the control's
+    behaviour is defined by `FAMILY_ARGS` and by nothing else, and this test is
+    about the control.
+    """
     policy = seed_policy()
     verdicts = {}
-    for seed in SEEDS:
-        attack = {"attack_id": seed.attack_id, "family_id": seed.family_id,
-                  "instruction": seed.instruction}
-        verdicts[seed.family_id] = stand_in_tripwire(
+    for family_id in FAMILY_ARGS:
+        attack = {"attack_id": "atk_a00000000005", "family_id": family_id,
+                  "instruction": "stand-in control probe"}
+        verdicts[family_id] = stand_in_tripwire(
             stand_in_target(attack, policy))["breach"]
     assert verdicts["fam_direct_ask"] is False, "the seed floor holds $900"
     assert verdicts["fam_split_ask"] is True, (

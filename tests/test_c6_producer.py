@@ -167,14 +167,80 @@ def test_the_bundle_carries_the_ATTACK_TEXT(offline_run):
 
     so the one field a reader most wants went nowhere at all. For a model-varied
     attack that made the string unrecoverable the moment the process exited.
+
+    REWRITTEN FOR CORPUS SEEDS, 2026-08-22, AND IT IS A STRONGER TEST NOW.
+    It used to assert `{s.instruction for s in C.SEEDS} <= texts` - every seed's
+    text is somewhere in the catalogue. That worked only because `SEEDS` held
+    exactly six literals and a round runs exactly six attacks, so the two sets
+    were the same size by coincidence. `SEEDS` is now FIFTY corpus instances of
+    which a round runs six, and the subset relation is simply false.
+
+    The replacement is not a weakening of it. `<=` never said which text
+    belonged to which attack; this JOINS ON `attack_id` and demands the
+    catalogue's bytes be the corpus instance's own final turn, verbatim. A
+    summary, a truncation, a hash, or the placeholder string this file's
+    predecessors used all fail it, and so does a catalogue that carries six
+    correct-looking strings attached to the wrong six ids.
     """
+    from crucible.conductor.corpus_seeds import CorpusSeeds
+
     bundle = offline_run["bundle"]
     assert bundle["attacks"], "no catalogue at all"
     for entry in bundle["attacks"]:
         assert entry["instruction"].strip(), entry["attack_id"]
-    # The bytes are the SEEDS', verbatim - not a summary and not a hash.
-    texts = {e["instruction"] for e in bundle["attacks"]}
-    assert {s.instruction for s in C.SEEDS} <= texts
+
+    # The corpus, loaded INDEPENDENTLY of the run that wrote the bundle. Reading
+    # `C.SEEDS` would compare the campaign's copy against itself.
+    by_id = {s.attack_id: s.instruction for s in CorpusSeeds.load().attack_seeds()}
+    for entry in bundle["attacks"]:
+        if entry.get("provenance") != "training_corpus":
+            continue
+        aid = entry["attack_id"]
+        assert aid in by_id, (
+            "%s is catalogued as training_corpus and resolves to no instance in "
+            "corpus/training/" % aid)
+        assert entry["instruction"] == by_id[aid], (
+            "%s: the catalogue text is not the instance's own final turn. The "
+            "bundle is the only record of what was tested, so a paraphrase here "
+            "is a false record.\n  bundle: %r\n  corpus: %r"
+            % (aid, entry["instruction"], by_id[aid]))
+
+    # And the run really did test corpus instances, so the loop above was not
+    # vacuously satisfied by a catalogue with zero training_corpus entries.
+    assert [e for e in bundle["attacks"]
+            if e.get("provenance") == "training_corpus"]
+
+
+@adk_only
+def test_the_TRAINING_CORPUS_line_the_replay_prints_is_a_true_claim(offline_run):
+    """`crucible/replay/view.py:410` prints, for every `training_corpus` entry:
+
+        corpus instance <id> - resolves against the corpus frozen at corpus_hash
+
+    THAT SENTENCE WAS FALSE UNTIL 2026-08-22. The catalogue's entries were six
+    hand-authored literals in `campaign.py` and `bundle.py` said so in its own
+    docstring - "THEY ARE NOT IN THAT CORPUS" - while the renderer told a judge
+    they resolved against `corpus_hash`. The corpus swap made the sentence true.
+    Nothing was guarding it in either direction, which is how it stayed false
+    through every green run, so this is the guard.
+
+    It asserts on the RENDERED FIELD (`corpus_instance_id`) rather than on
+    `attack_id`, because that is the value the sentence names. The two are the
+    same string today - one content address of one content - and a change that
+    separates them must land here rather than in the demo.
+    """
+    from crucible.conductor.corpus_seeds import CorpusSeeds
+
+    instances = {a.attack_id for a in CorpusSeeds.load().attack_seeds()}
+    claimed = [e for e in offline_run["bundle"]["attacks"]
+               if e.get("provenance") == "training_corpus"]
+    assert claimed, "no entry makes the claim, so this test proves nothing"
+    for entry in claimed:
+        assert entry.get("corpus_instance_id") in instances, (
+            "%s renders as TRAINING_CORPUS and claims to resolve against the "
+            "frozen corpus, but corpus_instance_id %r is in no instance of "
+            "corpus/training/. That is a false claim on the surface a judge "
+            "reads." % (entry["attack_id"], entry.get("corpus_instance_id")))
 
 
 @adk_only
