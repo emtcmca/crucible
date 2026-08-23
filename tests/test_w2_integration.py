@@ -242,3 +242,45 @@ def test_seal_refuses_a_run_manifest_with_a_missing_hash():
     with pytest.raises(EpisodeSealError) as ei:
         seal_episode(ledger, rm)
     assert "manifest_hash" in str(ei.value)
+
+
+def test_the_smoke_script_does_not_type_its_target_manifest_hash():
+    """`scripts/w2-smoke.py` carries the sentence "Every hash here is COMPUTED,
+    never typed. A hand-typed lock is a lock on whatever the typist believed at
+    the time." Three lines above it, `TARGET_MANIFEST_HASH` was `"0" * 16` under
+    a comment reading "Filled in main() from the target's own freeze, never
+    typed" - and nothing ever filled it in. The zero was sealed into the policy
+    the script hashes.
+
+    Run in a SUBPROCESS on purpose: the script rebinds `sys.stdout` at import,
+    which does not belong inside a pytest process.
+    """
+    import json as _json
+    import subprocess
+
+    probe = (
+        "import importlib.util, pathlib, sys, json\n"
+        "repo = pathlib.Path(%r)\n"
+        "sys.path.insert(0, str(repo))\n"
+        "spec = importlib.util.spec_from_file_location("
+        "'w2smoke', repo / 'scripts' / 'w2-smoke.py')\n"
+        "m = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(m)\n"
+        "sys.stderr.write(json.dumps({'h': m.TARGET_MANIFEST_HASH,"
+        " 'doc': m.build_policy_document('')"
+        "['hashed_payload']['target_manifest_hash']}))\n"
+    ) % str(REPO)
+    out = subprocess.run([sys.executable, "-c", probe], capture_output=True,
+                         text=True, cwd=str(REPO))
+    assert out.returncode == 0, out.stderr
+    got = _json.loads(out.stderr.strip().splitlines()[-1])
+
+    frozen = _json.loads(
+        (REPO / "target" / "refund_agent" / "FROZEN.json").read_text(
+            encoding="utf-8"))
+    assert got["h"] != "0" * 16, "a typed zero is not a computed hash"
+    assert got["h"] == frozen["manifest_hash"], (
+        "the smoke script must lock to the TARGET'S OWN FREEZE, not to a "
+        "placeholder. Committed: %s" % frozen["manifest_hash"])
+    assert got["doc"] == frozen["manifest_hash"], (
+        "and the value must reach the policy document it is hashed into")

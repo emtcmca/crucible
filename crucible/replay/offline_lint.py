@@ -40,11 +40,35 @@ covers the other's blind spot, which is why there are two.
 
 RELATIONSHIP TO `crucible/tripwire/import_lint.py`
 --------------------------------------------------
-Same technique, different question, and deliberately a second file. That module
-bakes its deny set and its roots in at module level, so it cannot be pointed at
-a different question without editing it - and it belongs to another lane.
-Whether the two should become one parameterized lint is a coordinator call;
-this note exists so the duplication is a decision rather than an accident.
+Same technique, different question, and deliberately a second file.
+
+CORRECTED 2026-08-23. This note used to read "That module bakes its deny set
+and its roots in at module level, so it cannot be pointed at a different
+question without editing it." THE ROOTS HALF WAS FALSE:
+`run_import_lint(roots=None)` is the identical signature to
+`run_offline_lint(roots=None)`, down to the same `DEFAULT_ROOTS if roots is
+None else roots` line, and aiming it elsewhere works. The deny-set half was
+true and was not a reason for anything, because THIS module bakes its own the
+same way - a frozenset no parameter reaches. A justification that applies
+equally to both files justifies neither.
+
+The reasons that survive:
+
+  1. THE ENVIRONMENT RULE IS NOT EXPRESSIBLE THERE. `import_lint.scan_source`
+     walks `Import`, `ImportFrom` and `Call`. It has no `ast.Attribute` branch
+     and no denied-`os`-attribute set, so `os.environ` is invisible to it -
+     and that is rule 4 above, the sharpest rule in this file. Parameterizing
+     a deny set would not have bought it: the WALKER differs, not just the
+     constants.
+  2. Different question, so a shared deny set would be the union of two
+     unrelated ones and each lint would begin reporting the other's findings.
+  3. It belongs to another lane, and a lane editing another lane's enforcement
+     artifact changes something it cannot test the consequences of.
+
+Whether the two should become one parameterized lint is still a coordinator
+call; this note exists so the duplication is a decision rather than an
+accident. `tests/test_escalated_overclaims.py` asserts reason 1 as BEHAVIOUR,
+so the justification cannot rot back into prose nobody rechecked.
 """
 
 import ast

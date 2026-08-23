@@ -77,8 +77,37 @@ from target.refund_agent.system_of_record import (             # noqa: E402
 )
 
 GOLDEN = REPO / "tests" / "golden_traces"
-# Filled in main() from the target's own freeze, never typed.
-TARGET_MANIFEST_HASH = "0" * 16
+
+
+def target_manifest_hash() -> str:
+    """The target's Part A hash, RECOMPUTED and then checked against the record.
+
+    THIS SAID "Filled in main() from the target's own freeze, never typed" over
+    `TARGET_MANIFEST_HASH = "0" * 16`, AND NOTHING EVER FILLED IT IN. The two
+    references were the definition and one read, and the zero was sealed into
+    the policy document this script hashes - three lines from a docstring
+    reading "Every hash here is COMPUTED, never typed."
+
+    A comment is not a computation. Now it is one: `freeze.compute()` derives
+    `manifest_hash` from `build_manifest()` through `crucible.canon`, the same
+    single path the D3 freeze itself used, and the result is compared to the
+    committed `FROZEN.json`. RECOMPUTE, THEN COMPARE - reading the committed
+    value alone would pass on a target that had drifted away from it, which is
+    the failure the freeze exists to catch.
+    """
+    from target.refund_agent.freeze import FROZEN_PATH, compute
+    computed = compute()["manifest_hash"]
+    committed = json.loads(FROZEN_PATH.read_text(encoding="utf-8"))["manifest_hash"]
+    if computed != committed:
+        raise RuntimeError(
+            "the target's capability manifest recomputes to %s and FROZEN.json "
+            "records %s. The target has moved since the D3 freeze, so no number "
+            "this script produces can name what it was measured against. This "
+            "is a STOP CONDITION, not a value to overwrite." % (computed, committed))
+    return computed
+
+
+TARGET_MANIFEST_HASH = target_manifest_hash()
 
 # The frozen non-episode facts. From the corpus instance in a real run;
 # hand-set here. NEVER a wall clock -- a target that reads the system clock
@@ -265,6 +294,11 @@ def main():
             failures.append("%s: got %r, wanted %r" % (label, got, want))
 
     print("W2 SMOKE - the first end-to-end run across four lanes\n")
+    # PRINTED, so the lock is asserted from the artifact rather than from the
+    # fact that the script started. It is recomputed at import and refuses to
+    # run on a mismatch, so seeing it here is seeing the check that passed.
+    print("  target_manifest_hash (recomputed, == FROZEN.json): %s\n"
+          % TARGET_MANIFEST_HASH)
 
     for policy_label, policy_text in (("policy@v0 (EMPTY)", ""),
                                       ("policy@v1 (hand-written patch)", PATCH)):

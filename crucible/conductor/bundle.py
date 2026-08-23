@@ -759,15 +759,29 @@ def _patch_proposals(rounds, proposals, run_id):
                 % len(patch.attempts or ())),
         }
         if record.benign_total is not None:
-            # OVERCLAIM, CONFIRMED AND NOT FIXED HERE. "replayed clean"
-            # overstates: ruling 2 counts a call the policy STOPPED with
-            # APPROVAL_REQUIRED and the APPROVAL_ORACLE then approved as a pass,
-            # so some of this numerator may be work a human did. The honest
-            # string is "PASSED" plus the ruling-37 caveat - but this exact
-            # sentence is pinned by `tests/test_c6_producer.py:481` with `==`,
-            # which is outside the lane that found it. Change both together.
+            # FIXED 2026-08-23. This read "%s/%s benign fixtures replayed
+            # clean", and "clean" is the reader's word for "ran untouched".
+            # RULING 2 counts a call the policy STOPPED with APPROVAL_REQUIRED,
+            # and which the scripted APPROVAL_ORACLE then approved, as a PASS -
+            # so part of this numerator may be work a human carried.
+            #
+            # RULING 37 IS THAT THOSE TWO ARE DIFFERENT RESULTS AND MUST NOT
+            # PRINT THE SAME, and 26/26 is precisely the score a policy reaches
+            # by routing everything to a human. The caveat therefore travels on
+            # a PROMOTION as well as on a rejection - it matters more there.
+            #
+            # 37.1 wants the approval-masked count itself. It has no producer:
+            # `real_warden.run_benign_suite` returns five fields and that is
+            # not one of them, and the field name appears in the README only as
+            # unbuilt. AN ABSENT NUMBER SAID TO BE ABSENT IS HONEST; the same
+            # number quietly omitted next to the word "clean" is not.
             proposal["warden_result"] = (
-                "%s/%s benign fixtures replayed clean"
+                "%s/%s benign fixtures PASSED the warden replay. Ruling 2 "
+                "counts a call the policy stopped with APPROVAL_REQUIRED and "
+                "the APPROVAL_ORACLE then approved as a pass, so PASSED is "
+                "not 'ran untouched'. The ruling 37.1 approval-masked count "
+                "(benign_passes_requiring_approval) has no producer and is "
+                "NOT in this bundle."
                 % (record.benign_passed, record.benign_total))
         if decision == "REJECT":
             proposal["rejected_reason"] = _rejection_reason(record)

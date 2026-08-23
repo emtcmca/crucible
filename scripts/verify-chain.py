@@ -24,10 +24,19 @@ out-of-order or skipped promotion, and post-hoc editing by anything that does no
 also recompute the chain. It does NOT defend against an adversary holding the
 Gate's credentials, because such an adversary recomputes it too.
 
-IAM immutability is the real control -- `crucible-gate` holds `objectCreator` on
-the policies bucket and nothing that can overwrite or delete. The chain is the
-detector. data-spec 2.4 says to state that distinction out loud, and a security
-judge is worth more to than a claim that overreaches.
+IAM immutability is the intended control -- `crucible-gate` is meant to hold
+`objectCreator` on the policies bucket and nothing that can overwrite or delete.
+The chain is the detector. data-spec 2.4 says to state that distinction out
+loud, and a security judge is worth more than a claim that overreaches.
+
+THAT PARAGRAPH IS DESIGN, NOT A FINDING, AND THIS SCRIPT CANNOT TURN IT INTO
+ONE. It opens a sqlite file. It makes no `gcloud` call and reads no bucket IAM
+policy, so it can say nothing about whether the grant is actually in place.
+`crucible/conductor/real_gate.py` checks it live under G8 and can come back
+UNEVALUABLE; `data-spec.md` A4 (`objectCreator` permits create but not delete
+or overwrite) still carries status **CONFIRM**. Until 2026-08-23 the success
+banner printed "IAM immutability is the real control; this is the detector" as
+though it had looked.
 """
 
 import argparse
@@ -47,26 +56,72 @@ from crucible.ledger import Ledger, LineageError, verify  # noqa: E402
 
 def rows_from_ledger(led, run_id):
     """Recompute each policy hash FROM THE BYTES and report any disagreement
-    with the stored field before the chain is even considered."""
-    out, drift = [], []
+    with the stored field before the chain is even considered.
+
+    Returns `(rows, byte_drift, field_drift)`. TWO DRIFT LISTS, NOT ONE, AND
+    THEY ARE NEVER SUMMED. Until 2026-08-23 both went into one list which was
+    then reported as "%d stored hash field(s) disagree with the stored bytes.
+    That flags the index, not the record" - and a canonicalization failure is
+    a fault in the record's OWN BYTES, with no computed hash to disagree with
+    anything. One count named the wrong artifact for half its members.
+
+      byte_drift   the stored payload does not canonicalize at all. The record
+                   is unreadable; nothing downstream of it can be recomputed.
+      field_drift  the payload canonicalizes cleanly and hashes to something
+                   OTHER than the stored `policy_hash_full`.
+    """
+    out, byte_drift, field_drift = [], [], []
     for v in led.versions(run_id):
         try:
             recomputed = hashlib.sha256(
                 canonicalize_bytes(v["payload_bytes"])).hexdigest()
         except CanonicalizationError as e:
-            drift.append("v%d: stored bytes do not canonicalize: %s"
-                         % (v["version"], e))
+            byte_drift.append("v%d: stored bytes do not canonicalize: %s"
+                              % (v["version"], e))
             recomputed = None
         if recomputed and recomputed != v["policy_hash_full"]:
-            drift.append(
+            # "Something rewrote the payload" WAS ALSO A CONCLUSION, and it was
+            # the OPPOSITE of the one the summary drew from the same list. Two
+            # values disagree; which of them moved is not in the data.
+            field_drift.append(
                 "v%d: stored policy_hash_full is %s but the stored BYTES "
-                "canonicalize to %s. Something rewrote the payload."
+                "canonicalize to %s. One of the two was rewritten and this "
+                "cannot say which."
                 % (v["version"], v["policy_hash_full"][:16], recomputed[:16]))
         out.append({"version": v["version"],
                     "policy_hash_full": recomputed or v["policy_hash_full"],
                     "parent_hash": v["parent_hash"],
                     "lineage_hash": v["lineage_hash"]})
-    return out, drift
+    return out, byte_drift, field_drift
+
+
+def drift_lines(byte_drift, field_drift):
+    """The summary paragraph, as data, so it can be asserted on.
+
+    Two faults, two paragraphs, two counts. Neither one claims to know which
+    side of a disagreement moved, because nothing here can know that."""
+    lines = []
+    if byte_drift:
+        lines.append(
+            "  BYTES_UNCANONICAL: %d stored payload(s) DO NOT CANONICALIZE."
+            % len(byte_drift))
+        lines.append(
+            "  That is a fault in the RECORD'S OWN BYTES, not in an index")
+        lines.append(
+            "  field: no hash could be computed, so nothing was compared.")
+    if field_drift:
+        lines.append(
+            "  MIRROR_DRIFT: the chain verifies but %d stored policy_hash_full"
+            % len(field_drift))
+        lines.append(
+            "  field(s) disagree with the stored bytes. WHICH SIDE MOVED IS")
+        lines.append(
+            "  NOT DECIDABLE FROM HERE - a stored hash and stored bytes that")
+        lines.append(
+            "  disagree tell you they disagree and nothing more. Printed")
+        lines.append(
+            "  rather than folded into the exit code.")
+    return lines
 
 
 def main():
@@ -83,7 +138,7 @@ def main():
 
     with Ledger(a.ledger) as led:
         run = led.get_run(a.run)
-        rows, drift = rows_from_ledger(led, a.run)
+        rows, byte_drift, field_drift = rows_from_ledger(led, a.run)
 
         print("run     : %s" % a.run)
         print("ledger  : %s" % a.ledger)
@@ -91,9 +146,11 @@ def main():
         print("versions: %d" % len(rows))
         print("")
 
-        for d in drift:
+        for d in byte_drift:
             print("  BYTES  %s" % d)
-        if drift:
+        for d in field_drift:
+            print("  FIELD  %s" % d)
+        if byte_drift or field_drift:
             print("")
 
         try:
@@ -128,18 +185,25 @@ def main():
                   % (r["version"], r["policy_hash"][:8], r["parent"][:16],
                      r["lineage"][:16], r["status"]))
         print("")
-        if drift:
-            print("  MIRROR_DRIFT: the chain verifies but %d stored hash field(s)"
-                  % len(drift))
-            print("  disagree with the stored bytes. That flags the index, not the")
-            print("  record -- but it is not nothing, and it is printed rather than")
-            print("  folded into the exit code.")
+        lines = drift_lines(byte_drift, field_drift)
+        if lines:
+            for line in lines:
+                print(line)
             return 1
         print("  CHAIN INTACT - %d versions, every hash RECOMPUTED FROM BYTES."
               % len(report))
         print("  Unsigned: this detects accidental mutation and post-hoc editing,")
-        print("  NOT an adversary holding the Gate's credentials. IAM immutability")
-        print("  is the real control; this is the detector.")
+        print("  NOT an adversary holding the Gate's credentials.")
+        # THIS SCRIPT OPENS A SQLITE FILE AND NOTHING ELSE. It printed "IAM
+        # immutability is the real control; this is the detector" on the success
+        # path - a conclusion about a boundary it never inspected. The design
+        # statement is still worth making and it is still in the module
+        # docstring; what is removed is this script asserting it as a finding.
+        print("  The control that makes the store immutable is IAM, and IAM WAS")
+        print("  NOT READ HERE - no gcloud call, no bucket policy, nothing but")
+        print("  the ledger file. crucible/conductor/real_gate.py checks it live")
+        print("  under G8 and can return UNEVALUABLE; data-spec.md A4 still")
+        print("  carries status CONFIRM. Run the gate for that answer, not this.")
     return 0
 
 
@@ -171,11 +235,17 @@ def selftest():
             promote(led, run, json.dumps(payload(i)).encode(), "crucible-gate",
                     "2026-08-20T00:00:00Z", locks["manifest_hash"],
                     lambda n, d: blobs.__setitem__(n, d), lambda n: blobs[n])
-        rows, drift = rows_from_ledger(led, run)
+        rows, byte_drift, field_drift = rows_from_ledger(led, run)
         head = led.get_run(run)["head_lineage_hash"]
 
     ok = True
     print("SELFTEST\n")
+
+    if (byte_drift, field_drift) != ([], []):
+        print("  FAIL a freshly promoted chain reported drift: %s %s"
+              % (byte_drift, field_drift)); ok = False
+    else:
+        print("  ok   a freshly promoted chain reports no drift of either kind")
 
     try:
         verify(run, rows, head_lineage_hash=head)
@@ -206,6 +276,45 @@ def selftest():
         ok = False
     except LineageError as e:
         print("  ok   a mismatched head is caught: %s" % e.code)
+
+    # THE DRIFT REPORTER, BOTH KINDS. Neither branch had ever been entered by
+    # anything before 2026-08-23 - the selftest only ever built intact chains,
+    # which is the exact failure its own docstring names one paragraph up. A
+    # real ledger cannot hold these: `promote` refuses a payload that does not
+    # canonicalize and writes the hash field itself. So they are injected.
+    class _Injected:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def versions(self, _run_id):
+            return self._rows
+
+    bad_bytes = _Injected([{"version": 1, "payload_bytes": b'{"amount": 1.5}',
+                            "policy_hash_full": "a" * 64, "parent_hash": None,
+                            "lineage_hash": "l" * 64}])
+    _r, bd, fd = rows_from_ledger(bad_bytes, run)
+    if len(bd) == 1 and fd == [] and "do not canonicalize" in bd[0]:
+        print("  ok   a payload that does not canonicalize is BYTES drift only")
+    else:
+        print("  FAIL uncanonical bytes reported as %d byte / %d field"
+              % (len(bd), len(fd))); ok = False
+
+    good = hashlib.sha256(canonicalize_bytes(b'{"amount": 1}')).hexdigest()
+    bad_field = _Injected([{"version": 1, "payload_bytes": b'{"amount": 1}',
+                            "policy_hash_full": "b" * 64, "parent_hash": None,
+                            "lineage_hash": "l" * 64}])
+    _r, bd2, fd2 = rows_from_ledger(bad_field, run)
+    if bd2 == [] and len(fd2) == 1 and good[:16] in fd2[0]:
+        print("  ok   a wrong stored hash field is FIELD drift only")
+    else:
+        print("  FAIL a wrong hash field reported as %d byte / %d field"
+              % (len(bd2), len(fd2))); ok = False
+
+    lines = " ".join(drift_lines(bd, fd2))
+    if "flags the index, not the record" in lines:
+        print("  FAIL the summary still decides which side moved"); ok = False
+    else:
+        print("  ok   the summary reports two faults and picks neither side")
 
     print("\n  %s" % ("every check observed both passing and failing"
                       if ok else "THE VERIFIER IS BROKEN"))
