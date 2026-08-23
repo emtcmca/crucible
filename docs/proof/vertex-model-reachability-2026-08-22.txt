@@ -59,44 +59,64 @@ the live path was never affected. The probe's region was the defect, not the
 build's.
 
 
-== 3. GEMMA, RE-PROBED WITH A CONTROL PROVEN GOOD AT THE SAME LOCATION ==
+== 3. GEMMA IS AVAILABLE. EVERY PROBE BEFORE 23:05 USED THE WRONG MODEL ID. ==
 
-Control: `gemini-3.5-flash-lite` at `location=global` -> 200, immediately above.
+WORKING CALL, 2026-08-22 23:05, taken twice on two endpoint shapes:
+
+    POST https://aiplatform.googleapis.com/v1/projects/crucible-hack-2026
+         /locations/global/endpoints/openapi/chat/completions
+    {"model":"google/gemma-4-26b-a4b-it-maas", ...}
+    -> http=200   finish_reason "stop"   content "ok"   2 completion tokens
+
+    POST .../locations/global/publishers/google/models
+         /gemma-4-26b-a4b-it-maas:generateContent
+    -> http=200   finishReason STOP   text "ok"   totalTokenCount 20
+
+**Managed Gemma is reachable from this project today, needs no Model Garden
+enablement, no licence acceptance and no GPU endpoint.** Model Garden lists it
+as `gemma-4-26b-a4b-it-maas`, "Gemma 4 26B A4B IT API Service", **public
+preview**, described as "a fully managed Agent Platform service".
+
+WHAT WENT WRONG, TWICE, AND THE SECOND TIME WAS MINE
+----------------------------------------------------
+Every earlier probe - L5's and the one written IN THIS FILE to correct L5's -
+used `gemma-4-26b-a4b-it`. **The publisher model id ends `-maas`.** Same class
+of error as `gemma-3-27b-it`, which is a version name and not a publisher id.
+
+`us-central1` returns, for the correct id:
+
+    400 FAILED_PRECONDITION
+    "Publisher model 'google/gemma-4-26b-a4b-it-maas' in region 'us-central1'
+     is only available via global endpoint."
+
+**A 400 that names the fix, where a wrong id returns a 404 that names nothing.**
+The two are trivially distinguishable and nobody looked, because the 404 agreed
+with what the memo predicted.
+
+THE PART WORTH KEEPING. This file previously said, of the wrong-id probe:
+*"That is now demonstrated rather than inferred, and L5's conclusion stands."*
+**It was inferred, it was wrong, and the sentence claiming otherwise appeared in
+a proof artifact** - written on the same day, in the same repository, as an
+overclaim sweep whose entire subject is sentences asserting what the code never
+checked. A correction that repeats the defect it corrects is worth more as a
+recorded fact than as a deleted one, so the wrong probes stay below.
+
+What actually settled it was a screenshot of the console showing the id in
+plain text. Two earlier Gemma screenshots had been read the same evening
+without anyone extracting the id pattern from them.
+
+SUPERSEDED PROBES, KEPT (all used the wrong id):
 
     location=global, native :generateContent
-      gemma-4-26b-a4b-it      404   Publisher model ... was not found or your
-      gemma-3-27b-it          404   project does not have access to it
-      gemma-3-12b-it          404
-      gemma-2-27b-it          404
+      gemma-4-26b-a4b-it      404   <- missing the -maas suffix
+      gemma-3-27b-it          404   <- a VERSION name, not a publisher id
+      gemma-3-12b-it          404   <- same
+      gemma-2-27b-it          404   <- same
 
-**Four ids, two Gemma generations, a control known good at that exact location.
-Managed Gemma is not reachable from this project.**
-
-CORRECTION TO THE PROBE ABOVE, from the console, 2026-08-22 23:00. The four ids
-here are the WRONG SHAPE. Model Garden gives Gemma 3's Model ID as
-`publishers/google/models/gemma3`, with `gemma-3-1b-it` as a VERSION NAME - so
-`gemma-3-27b-it` and `gemma-3-12b-it` were never publisher model ids and would
-404 whatever the project's access. The 404s are real and the conclusion is
-right, but this probe was right for a slightly different reason than it stated,
-and a lucky answer is not evidence.
-
-WHAT SETTLES IT IS THE CONSOLE, NOT THE PROBE. Eric walked Model Garden the
-same evening. The Gemma 3 card offers **Deploy model / Fine tune / Open
-Notebook / View Code** and nothing else: no Enable, no "use this model", NO
-LICENCE GATE TO ACCEPT. Its own try-it panel reads *"To test this model, you
-will need to deploy it to an Agent Platform endpoint"* and reports **"No
-endpoints found for selected region."**
-
-**Gemma 3 on Vertex is SELF-DEPLOY. There is nothing to enable.** That is
-`gemma-scope.md` section 5's Option A wearing Option B's name, and the memo
-predicted it.
-
-`gemma-4-26b-a4b-it` - the only managed-serverless Gemma, announced "over the
-coming days" - **is not live yet.** Confirmed by Eric in the console the same
-evening.
-
-So there is no human step available, and the 404s were never a permissions
-problem. No Cartographer model call is possible and none has been made.
+Gemma 3 remains self-deploy, which the console confirms independently: its card
+offers Deploy model / Fine tune / Open Notebook / View Code, its try-it panel
+requires an endpoint, and it reports "No endpoints found for selected region".
+**That was never the question. Gemma 4 MaaS is, and it answers.**
 
 
 == 4. THE PLATFORM AUDIT ERIC ASKED FOR, IN THE SAME PASS ==
