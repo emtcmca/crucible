@@ -6,18 +6,26 @@ not that lane's to edit. A sentence asserting something the code never
 computed is a defect of the same severity as a crash, and this repository is
 judged partly on architectural honesty.
 
-Two here, both in `scripts/verify-chain.py`:
+Four, in three files:
 
-  1. MIRROR_DRIFT summed a hash-field mismatch with a CANONICALIZATION
-     FAILURE and then said "That flags the index, not the record" - for a
-     failure that is in the record's own bytes. It also decided which side
-     moved, from data that cannot decide it.
-  2. The success banner printed a conclusion about IAM. The script never
-     opens a socket. `crucible/conductor/real_gate.py` is what checks that
-     boundary live, and it can return UNEVALUABLE; `data-spec.md` A4 still
-     carries status CONFIRM.
+  1. `scripts/verify-chain.py` - MIRROR_DRIFT summed a hash-field mismatch
+     with a CANONICALIZATION FAILURE and then said "That flags the index, not
+     the record", for a failure that is in the record's own bytes. It also
+     decided which side moved, from data that cannot decide it.
+  2. `scripts/verify-chain.py` - the success banner printed a conclusion about
+     IAM. The script never opens a socket. `crucible/conductor/real_gate.py`
+     is what checks that boundary live, and it can return UNEVALUABLE;
+     `data-spec.md` A4 still carries status CONFIRM.
+  3. `crucible/replay/offline_lint.py` - the note justifying a duplicate lint
+     module said the other one bakes its roots in at module level. It does
+     not; the signatures are identical. That note is the only thing standing
+     between the module and "delete it, call the other one", so the reason it
+     gives has to be one that is true.
+  4. `crucible/conductor/bundle.py` - "N/M benign fixtures replayed clean",
+     where ruling 2 counts an oracle-approved APPROVAL_REQUIRED as a pass.
 
-And one in `crucible/replay/offline_lint.py` - see the last section.
+Every one of them was reported by another lane and RE-VERIFIED here before it
+was touched. A report is a lead, not a finding.
 """
 
 import importlib.util
@@ -359,3 +367,63 @@ def test_both_modules_bake_their_deny_set_so_that_is_not_the_difference():
         sig = inspect.signature(getattr(mod, fn))
         assert list(sig.parameters) == ["source", "path"], (
             "%s.%s takes no deny-set parameter" % (mod.__name__, fn))
+
+
+# ---------------------------------------------------------------------------
+# 4. "replayed clean" for a run a human may have carried
+# ---------------------------------------------------------------------------
+
+def _one_proposal(decision="REJECT"):
+    """One `patch_proposals` entry, built the way `test_c6_producer` builds
+    them. Imported here rather than duplicated so the two cannot drift."""
+    from tests.test_c6_producer import _Patch, _round_with_patch
+
+    from crucible.conductor import bundle as B
+    patch = _Patch("rule r_new1: cap:CAP_MOVES_MONEY => deny")
+    record = _round_with_patch(decision, feedback={
+        "benign_failures": 8, "classes": ["CAP_MOVES_MONEY"]})
+    proposal, = B._patch_proposals([record], {1: patch}, "run_x")  # noqa: SLF001
+    return proposal
+
+
+def test_the_warden_line_does_not_call_an_approval_masked_pass_clean():
+    """RULING 2: `escalate` means human-in-the-loop, and the scripted APPROVAL
+    ORACLE approves any fixture declaring a valid approver. So a benign fixture
+    whose call the policy STOPPED with APPROVAL_REQUIRED, and which the oracle
+    then waved through, counts as a PASS.
+
+    "replayed clean" is the reader's phrase for "ran untouched". Ruling 37 is
+    the whole finding that those two are different results and must not print
+    the same - and this line printed the flattering one."""
+    result = _one_proposal()["warden_result"]
+    assert "replayed clean" not in result
+    assert result.startswith("18/26"), "the count itself was never in dispute"
+
+
+def test_the_warden_line_names_ruling_2_as_the_reason_a_pass_is_not_clean():
+    """Deleting the word is not the fix. A reader who sees "18/26 passed" will
+    make the same inference unless something tells them what a pass includes."""
+    result = _one_proposal()["warden_result"]
+    low = result.lower()
+    assert "approval" in low
+    assert "ruling 2" in low
+
+
+def test_the_warden_line_says_the_approval_masked_count_is_absent():
+    """Ruling 37.1 requires BPR to carry its approval-masked count
+    permanently. `benign_passes_requiring_approval` HAS NO PRODUCER - see
+    `crucible/conductor/real_warden.py`, whose return shape is five fields and
+    does not include it. An absent number said to be absent is honest; the
+    same number quietly omitted beside the word "clean" is the defect."""
+    result = _one_proposal()["warden_result"]
+    assert "benign_passes_requiring_approval" in result
+
+
+def test_a_promoted_proposal_gets_the_same_caveat():
+    """The other side. 26/26 is exactly the number ruling 37 says can be
+    reached by routing everything to a human, so the caveat matters MORE on a
+    promotion than on a rejection."""
+    result = _one_proposal("PROMOTE")["warden_result"]
+    assert result.startswith("26/26")
+    assert "replayed clean" not in result
+    assert "ruling 2" in result.lower()

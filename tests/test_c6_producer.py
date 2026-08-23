@@ -478,7 +478,20 @@ def test_a_REJECTED_proposal_is_recorded_with_its_rule_text_and_its_reason():
     assert proposal["repaired"] is False
     assert "8 benign fixture(s) lost" in proposal["rejected_reason"]
     assert "CAP_MOVES_MONEY" in proposal["rejected_reason"]
-    assert proposal["warden_result"] == "18/26 benign fixtures replayed clean"
+    # PINNED WITH `==` ON PURPOSE, and the pinned sentence changed 2026-08-23.
+    # It read "18/26 benign fixtures replayed clean" - and ruling 2 counts an
+    # oracle-approved APPROVAL_REQUIRED call as a pass, so "clean" covered
+    # episodes a human carried. The `==` is what forced the string and the
+    # producer to move together; the caveat is asserted by clause in
+    # `tests/test_escalated_overclaims.py` so a reworded caveat does not have
+    # to break this pin.
+    assert proposal["warden_result"] == (
+        "18/26 benign fixtures PASSED the warden replay. Ruling 2 counts a "
+        "call the policy stopped with APPROVAL_REQUIRED and the "
+        "APPROVAL_ORACLE then approved as a pass, so PASSED is not 'ran "
+        "untouched'. The ruling 37.1 approval-masked count "
+        "(benign_passes_requiring_approval) has no producer and is NOT in "
+        "this bundle.")
 
     rule, = proposal["rules"]
     assert rule["rule_id_as_proposed"] == "r_new1"
