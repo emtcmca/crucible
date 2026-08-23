@@ -57,6 +57,10 @@ from .integrity import (
     EXCLUSION_CEILING_PCT,
     EXCLUSION_RATE_MIN_N,
     EXCLUSION_SUBFLOOR_ALLOWANCE,
+    HASH_LOCK_COUNT,
+    HASH_LOCK_FIELDS,
+    KNOWN_BAD_BREACH_FIXTURES,
+    KNOWN_BAD_CLEAN_FIXTURE,
 )
 
 WIDTH = 96
@@ -196,8 +200,18 @@ def render(bundle, report, source="<bundle>", episode_id=None):
     add("  %-10s  %s" % ("bundle", head))
     for extra in tail:
         add("%s%s" % (" " * HEADER_COL, extra))
-    add("  digest      sha256, RECOMPUTED from the bytes on disk:")
-    add("%s%s" % (" " * HEADER_COL, report.digest or "-"))
+    # THE WORD "RECOMPUTED" IS A CLAIM ABOUT A COMPUTATION THAT MAY NOT HAVE
+    # HAPPENED. `report.digest` is None when the document did not canonicalize,
+    # and the header printed the claim followed by a dash - a provenance
+    # sentence with nothing behind it, which is the shape this whole sweep is
+    # about. The CLI never reaches it because `read_bundle` refuses first, and
+    # "unreachable through one entry point" is not the same as "cannot print".
+    if report.digest:
+        add("  digest      sha256, RECOMPUTED from the bytes on disk:")
+        add("%s%s" % (" " * HEADER_COL, report.digest))
+    else:
+        add("  digest      NOT RECOMPUTED - this document did not canonicalize,")
+        add("%sso there are no bytes to take a digest of." % (" " * HEADER_COL))
     add("  read with no credentials, no network, and no cloud project.")
     add("")
 
@@ -212,7 +226,12 @@ def render(bundle, report, source="<bundle>", episode_id=None):
            json.dumps(target.get("modified_by_crucible"))))
     add("")
 
-    add("HASH LOCKS - five, across six fields")
+    # DERIVED, NOT SPELLED OUT. This heading read "five, across six fields" and
+    # `integrity._check_hash_locks` carried the same two numbers as a second
+    # literal. Both now come from `HASH_LOCK_GROUPS`, which is the fact behind
+    # them: corpus_hash and derived_schema_hash freeze together at D5.
+    add("HASH LOCKS - %d, across %d fields"
+        % (HASH_LOCK_COUNT, len(HASH_LOCK_FIELDS)))
     locks = manifest.get("hash_locks", {})
     for field, day, note in LOCK_NOTES:
         add("  %-22s %-18s %s  %s" % (field, locks.get(field, "-"), day, note))
@@ -363,11 +382,22 @@ def _provenance_section(bundle):
     lines.append("")
     lines.append("  %-18s %-10s %s" % ("component", "impl", "detail"))
     components = prov.get("components") or {}
-    for name in ("target", "red_strategist", "tripwire", "coroner", "armorer",
-                 "warden", "gate"):
-        spec = components.get(name) or {}
-        impl = spec.get("implementation") or "-"
-        detail = spec.get("detail") or ""
+    # THE TABLE WALKS THE BUNDLE, NOT A LIST IN THIS FILE. The seven names below
+    # are a READING ORDER; anything else the bundle declares is appended rather
+    # than dropped. `integrity._check_execution_provenance` counts every key in
+    # `components`, so a hardcoded seven meant the row could count a stand-in
+    # the table underneath it never showed - the row and the table describing
+    # the same object and disagreeing, which is how the corpus-provenance defect
+    # hid for a day two hundred lines from the docstring that contradicted it.
+    ORDER = ("target", "red_strategist", "tripwire", "coroner", "armorer",
+             "warden", "gate")
+    for name in list(ORDER) + sorted(set(components) - set(ORDER)):
+        spec = components.get(name)
+        # ABSENT is not blank. A blank impl column reads as "nothing else to
+        # say about a component that ran"; the truth is that the bundle never
+        # declared it, and only one of those two is a hole in the record.
+        impl = "ABSENT" if spec is None else (spec.get("implementation") or "-")
+        detail = (spec or {}).get("detail") or ""
         col = 2 + 18 + 1 + 10 + 1
         head, tail = _wrap_note(detail or "-", WIDTH - col)
         lines.append("  %-18s %-10s %s" % (name, impl, head))
@@ -693,6 +723,17 @@ def _arc_section(bundle):
             "  ", "REGRESSED: %s. Blocked at an earlier version and breaching "
                  "again at a later one. An aggregate rate hides this, because "
                  "the two movements cancel." % ", ".join(regressed)))
+    elif len(ordered) < 2:
+        # THE SENTENCE BELOW IS A FINDING ONLY WHEN THERE ARE TWO VERSIONS TO
+        # COMPARE. Under a chain of one it is a statement about the empty set,
+        # printed in the exact place a reader looks for the transfer result -
+        # and a run that promoted nothing is the ordinary case here, not an
+        # exotic one. It is cut, and the reason is printed in its place.
+        lines.extend(_wrapped(
+            "  ", "ONE POLICY VERSION IN THIS BUNDLE, so there is no "
+                 "across-version comparison to make. Regression and transfer "
+                 "are both properties of a MOVE between versions; neither is "
+                 "absent here, neither was looked for."))
     else:
         lines.extend(_wrapped(
             "  ", "No attack blocked at an earlier version breached again at a "
@@ -771,6 +812,24 @@ def _coverage_section(bundle):
             "  ", "%d clause(s) NEVER FIRED. Any breach figure from this run is "
                  "a measurement of the %d that did, and must be read that way."
                  % (len(never), len(fired))))
+    # WHOSE CENSUS THIS IS, SAID OUT LOUD. The denominator above is the number
+    # of ROWS THE PRODUCER WROTE, and the heading calls the table the Objective
+    # Set's. Those are the same number only if the producer wrote a row per
+    # clause - which the schema asks for and nothing checks, because the bundle
+    # carries the Objective Set's HASH and not the Objective Set. A producer
+    # that listed only the clauses that fired would render as full coverage with
+    # no row saying otherwise. This is the move `_check_policy_chain` already
+    # makes about policy_hash: name what is not recomputable rather than let the
+    # printed figure imply it was.
+    lines.append("")
+    lines.extend(_wrapped(
+        "  ", "The denominator is the number of rows in THIS BUNDLE'S table. "
+             "Whether that is one row per clause of Objective Set %s is NOT "
+             "RECOMPUTABLE FROM A BUNDLE - the bundle carries the hash of that "
+             "set and not the set - so a table listing only the clauses that "
+             "fired would print as full coverage. Recomputation runs against "
+             "the Objective Set at that hash."
+             % (coverage.get("objective_set_hash") or "?")))
     lines.append("")
     return "\n".join(lines)
 
@@ -932,14 +991,32 @@ def _policy_chain_section(bundle):
                     (", round %s" % rule_entry["origin_round"])
                     if rule_entry.get("origin_round") else ""))
         lines.append("")
-    lines.append("  The parent links are cross-checked here. policy_hash and lineage_hash")
-    lines.append("  cannot be RECOMPUTED from a bundle: the chain formula needs the 64-char")
-    lines.append("  policy_hash_full and the bundle carries the 16-char form. Recomputation")
-    lines.append("  runs against the run ledger - scripts/verify-chain.py --ledger ... --run ...")
-    lines.append("  The chain is UNSIGNED. It detects accidental mutation, partial writes, and")
-    lines.append("  post-hoc editing. It does not defend against an adversary holding the")
-    lines.append("  Gate's credentials, because such an adversary recomputes it too. IAM")
-    lines.append("  immutability is the real control; the chain is the detector.")
+    # HOW MANY PARENT LINKS THERE ACTUALLY ARE. "The parent links are
+    # cross-checked here" printed unconditionally, including under a chain of
+    # one version - which has none - and under an empty chain. A run that
+    # promoted nothing is the ordinary case on this project, so the sentence a
+    # reader most often saw was the one resting on zero comparisons.
+    chain = bundle.get("policy_chain") or []
+    if len(chain) >= 2:
+        lines.extend(_wrapped(
+            "  ", "The %d parent link(s) between these %d versions are "
+                 "cross-checked here." % (len(chain) - 1, len(chain))))
+    else:
+        lines.extend(_wrapped(
+            "  ", "%d version(s), and therefore NO PARENT LINK TO CROSS-CHECK: "
+                 "nothing here says a promotion chained correctly, because no "
+                 "promotion happened." % len(chain)))
+    lines.extend(_wrapped(
+        "  ", "policy_hash and lineage_hash cannot be RECOMPUTED from a bundle: "
+             "the chain formula needs the 64-char policy_hash_full and the "
+             "bundle carries the 16-char form. Recomputation runs against the "
+             "run ledger - scripts/verify-chain.py --ledger ... --run ..."))
+    lines.extend(_wrapped(
+        "  ", "The chain is UNSIGNED. It detects accidental mutation, partial "
+             "writes, and post-hoc editing. It does not defend against an "
+             "adversary holding the Gate's credentials, because such an "
+             "adversary recomputes it too. IAM immutability is the real "
+             "control; the chain is the detector."))
     lines.append("")
     return "\n".join(lines)
 
@@ -952,9 +1029,35 @@ def _gate_section(bundle):
                                            entry.get("round_index"),
                                            entry.get("decision")))
     lines.append("")
-    lines.append("  Promotion requires all nine known-bad fixtures to return their EXPECTED")
-    lines.append("  VERDICT. Not 'nine still failing' - only five of the nine are breach")
-    lines.append("  fixtures, and a blanket breach==true assertion fails on KB8 by design.")
+    # THE SUITE SIZE IS READ OUT OF THE RUN BEING DESCRIBED. This paragraph
+    # spelled "nine" and "five" and "KB8" as English words, in a viewer whose
+    # FROZEN PARAMETERS block two screens up prints this run's own
+    # `known_bad_count`. That is the defect that put a hardcoded 5% ceiling
+    # above a row computed by the piecewise rule that had replaced it: prose
+    # restating a constant is prose that will one day disagree with it.
+    #
+    # The breach half and the CLEAN fixture's name are in no bundle, so they
+    # come from `integrity.py`'s constants, which are pinned to the hash-locked
+    # gate rule by a test. When the run froze no count, the sentence that needs
+    # one is CUT rather than fudged - the same direction
+    # `regression_upper_bound` takes when its precondition fails.
+    frozen = ((bundle.get("run_manifest") or {}).get("frozen_parameters") or {})
+    count = frozen.get("known_bad_count")
+    if isinstance(count, int):
+        lines.extend(_wrapped(
+            "  ", "Promotion requires all %d known-bad fixtures THIS RUN FROZE "
+                 "to return their EXPECTED VERDICT. Not '%d still failing' - "
+                 "only %d of the %d are breach fixtures, and a blanket "
+                 "breach==true assertion fails on %s by design."
+                 % (count, count, KNOWN_BAD_BREACH_FIXTURES, count,
+                    KNOWN_BAD_CLEAN_FIXTURE)))
+    else:
+        lines.extend(_wrapped(
+            "  ", "This run's manifest froze no known_bad_count, so the size of "
+                 "the calibration suite promotion is gated on is not stated "
+                 "here. What holds regardless: the gate asserts a PER-FIXTURE "
+                 "EXPECTED VERDICT, never a blanket breach==true, which fails "
+                 "on %s by design." % KNOWN_BAD_CLEAN_FIXTURE))
     lines.append("")
     return "\n".join(lines)
 

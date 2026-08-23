@@ -72,6 +72,44 @@ ROUND_CAP = 6
 HASH_LOCK_FIELDS = ("gate_rule_hash", "target_agent_hash", "manifest_hash",
                     "objective_set_hash", "corpus_hash", "derived_schema_hash")
 
+# THE TWO COUNTS ARE ONE STRUCTURE, AND THEY WERE TYPED AS TWO ENGLISH WORDS IN
+# TWO FILES. "five, across six fields" appeared as prose here and again in
+# `view.py`'s section heading; a seventh lock field would have left both
+# sentences saying six, beside a table with seven rows in it. The grouping is
+# the fact - corpus_hash and derived_schema_hash freeze together at D5 - so both
+# numbers are derived from it at both call sites.
+HASH_LOCK_GROUPS = {
+    "gate_rule_hash": "gate_rule",
+    "target_agent_hash": "target_agent",
+    "manifest_hash": "manifest",
+    "objective_set_hash": "objective_set",
+    "corpus_hash": "corpus+derived_schema",
+    "derived_schema_hash": "corpus+derived_schema",
+}
+HASH_LOCK_COUNT = len(set(HASH_LOCK_GROUPS.values()))
+
+# THE FIVE LABELS C6 REQUIRES, walked by `_check_labels` and counted by its row.
+# The row printed the literal 5 in prose beside a loop over these names.
+REQUIRED_LABELS = ("k", "sep_by_split", "target_tier", "benign_regression",
+                   "trust_root")
+
+# THE KNOWN-BAD SUITE'S SHAPE, IN THE `BENIGN_DENOMINATOR` PATTERN ABOVE AND FOR
+# THE SAME REASON. `view.py`'s GATE section printed "all nine known-bad fixtures"
+# and "only five of the nine" and "fails on KB8" as English words in a viewer
+# that renders a bundle carrying its own `known_bad_count`. The SIZE of the suite
+# is now read out of the run manifest being described; these two are not in a
+# bundle at all, so they are typed here and PINNED MECHANICALLY to their owner -
+# `contracts/gate_rule.v1.yaml` G1a, hash-locked at D2 - by
+# `tests/test_overclaim.py::test_the_known_bad_constants_agree_with_the_hash_locked_gate_rule`.
+#
+# Typed rather than imported because this package is the judge-reproduction path
+# and its documented property is that IT NEEDS NOTHING: importing
+# `crucible.tripwire.known_bad` would pull a YAML parser and an Objective Set
+# load into an offline viewer, and `offline_lint` walks only `crucible/replay`,
+# so it would not see the coupling arrive.
+KNOWN_BAD_BREACH_FIXTURES = 5
+KNOWN_BAD_CLEAN_FIXTURE = "KB8"
+
 # The three the episode writer REFUSES to write an episode without. Not a
 # warning - ruling 20 made two hashes into two things to forget, and G1(c)
 # asserts both on every episode.
@@ -234,7 +272,8 @@ def _check_hash_locks(bundle, defects):
             bad.append(field)
     return Row("HASH_LOCKS", PRESENT, "FAIL" if bad else "OK",
                "missing or malformed: %s" % ", ".join(bad) if bad
-               else "5 locks across 6 fields, all 16-hex")
+               else "%d locks across %d fields, all 16-hex"
+                    % (HASH_LOCK_COUNT, len(HASH_LOCK_FIELDS)))
 
 
 def _check_episode_stamps(bundle, defects):
@@ -378,9 +417,21 @@ def _check_episode_prefix(bundle, defects):
                     "a different episode than the one that ran." % (seq, last)))
                 bad += 1
             last = seq
+    # "0 recorded tool event(s), seq strictly increasing" - an ordering claim
+    # over an empty list, printed as though a check had run. It is the same
+    # shape as "%d component(s) all real", one row down, and an all-crash run
+    # produces it on every episode. The claim is made only when there was
+    # something to order; the absence is REPORTED rather than dressed as a pass.
+    if events:
+        note = "%d recorded tool event(s), seq strictly increasing" % events
+    else:
+        note = ("%d episode(s) carry a prefix and NO RECORDED TOOL EVENT between "
+                "them, so nothing here was ordered and nothing here was checked. "
+                "An empty prefix is legal - a target that faulted before its "
+                "first call has one - and the episode-scoped predicates have "
+                "nothing to replay against it." % len(bundle.get("episodes", [])))
     return Row("EPISODE_PREFIX", PRESENT, "FAIL" if bad else "OK",
-               "%d defect(s)" % bad if bad
-               else "%d recorded tool event(s), seq strictly increasing" % events)
+               "%d defect(s)" % bad if bad else note)
 
 
 def _check_benign_traces(bundle, defects):
@@ -454,6 +505,7 @@ def _check_policy_chain(bundle, defects):
     """
     chain = bundle.get("policy_chain") or []
     bad = 0
+    links = 0            # parent links ACTUALLY COMPARED, not versions present
     previous = None
     for entry in chain:
         version = entry.get("version")
@@ -466,6 +518,8 @@ def _check_policy_chain(bundle, defects):
                 bad += 1
             parent = entry.get("parent_hash") or ""
             prior = previous.get("policy_hash") or ""
+            if parent and prior:
+                links += 1
             if parent and prior and parent != prior:
                 defects.append(Defect(
                     "E_CHAIN_PARENT", "policy_chain[v%s]" % version,
@@ -510,10 +564,26 @@ def _check_policy_chain(bundle, defects):
                 "episode ran under cannot be read." % ph))
             bad += 1
 
-    note = ("%d version(s); parent links agree and every version carries its "
-            "rule text. policy_hash and lineage_hash are NOT recomputable from "
-            "a bundle - run scripts/verify-chain.py against the run ledger for "
-            "that" % len(chain))
+    # THE ROW REPORTED "parent links agree" FOR A CHAIN THAT HAS NONE. A run
+    # that promoted nothing carries exactly one policy version, so zero parent
+    # links exist, and this note asserted agreement across all of them - which
+    # is the "%d component(s) all real" defect wearing a chain's clothes, and
+    # the ordinary case rather than an exotic one: as of 2026-08-22 nothing on
+    # this project has ever been promoted. It now counts what it compared.
+    if not chain:
+        head = ("NO policy_chain entry at all, so this bundle records no policy "
+                "- not even the seed - and nothing here was compared to "
+                "anything")
+    elif links:
+        head = ("%d version(s), %d parent link(s) compared and agreeing; every "
+                "version carries its rule text" % (len(chain), links))
+    else:
+        head = ("%d version(s) and NO PARENT LINK TO COMPARE - a chain of one "
+                "promoted nothing, so this row establishes nothing about "
+                "chaining; the version carries its rule text" % len(chain))
+    note = ("%s. policy_hash and lineage_hash are NOT recomputable from a "
+            "bundle - run scripts/verify-chain.py against the run ledger for "
+            "that" % head)
     return Row("POLICY_CHAIN", CROSS_CHECKED, "FAIL" if bad else "OK",
                "%d defect(s)" % bad if bad else note)
 
@@ -664,8 +734,19 @@ def _check_clause_coverage(bundle, defects):
                 "differently." % (inv, fired.get(inv), ep.get("episode_id"))))
             bad += 1
 
-    never = sorted(i for i, n in fired.items() if not n)
-    note = "%d of %d clause(s) fired" % (len(fired) - len(never), len(fired))
+    # COUNTED OFF THE ROWS, AND SAID TO BE ROWS. `fired` is a dict keyed by
+    # invariant_id, so two rows for one clause collapse into one entry and the
+    # denominator silently under-reports the table. And the denominator is the
+    # TABLE, not the Objective Set: the bundle carries that set's hash and not
+    # the set, so whether every clause has a row here is not recomputable from a
+    # bundle. The viewer prints that caveat; this row at least does not call the
+    # table's own length the Objective Set's clause count.
+    rows_present = [c for c in clauses if isinstance(c, dict)]
+    never = sorted({c.get("invariant_id") for c in rows_present
+                    if not c.get("episodes_fired")})
+    lit = sum(1 for c in rows_present if c.get("episodes_fired"))
+    note = ("%d of %d clause row(s) in this bundle's coverage table fired"
+            % (lit, len(rows_present)))
     if never:
         note += "; NEVER FIRED: %s" % ", ".join(never)
     return Row("CLAUSE_COVERAGE", CROSS_CHECKED, "FAIL" if bad else "OK",
@@ -1041,12 +1122,27 @@ def _check_execution_provenance(bundle, defects):
     #
     # It now counts what it claims. `real` and `stand_in` are reported
     # separately, and the word "all" appears only when the second count is zero.
+    #
+    # AND THE ARITHMETIC BEHIND IT WAS THE SAME DEFECT ONE LEVEL DOWN. `real`
+    # was `len(kinds) - standins`, so ANYTHING that is not exactly the string
+    # "stand_in" counted as real - a component declaring no implementation at
+    # all, or one declaring a value the enum gains later. The schema forbids
+    # both today; this function is also called directly, and a count that is
+    # correct only because a different check ran first is a count that reports
+    # on that check's behalf. Each kind is now counted by name and the leftover
+    # is named rather than absorbed into the flattering half.
     kinds = [(components.get(name) or {}).get("implementation")
              for name in sorted(components)]
     standins = sum(1 for k in kinds if k == "stand_in")
-    real = len(kinds) - standins
-    if standins:
-        shape = "%d real, %d STAND-IN" % (real, standins)
+    real = sum(1 for k in kinds if k == "real")
+    undeclared = len(kinds) - standins - real
+    if standins or undeclared:
+        parts = ["%d real" % real]
+        if standins:
+            parts.append("%d STAND-IN" % standins)
+        if undeclared:
+            parts.append("%d UNDECLARED" % undeclared)
+        shape = ", ".join(parts)
     else:
         shape = "%d component(s) all real" % real
     return Row("PROVENANCE", PRESENT if bad else CROSS_CHECKED,
@@ -1082,8 +1178,15 @@ def _check_labels(bundle, defects):
         return Row("LABELS", CROSS_CHECKED, "FAIL", "absent")
 
     bad = 0
-    for name in ("k", "sep_by_split", "target_tier", "benign_regression",
-                 "trust_root"):
+    # WHICH LABELS WERE ACTUALLY COMPARED TO SOMETHING. Three of the five
+    # describe a value that lives in the bundle; `benign_regression` and
+    # `trust_root` describe the METHOD and the threat model and have no field to
+    # be checked against. The row claimed all five were "agreeing with the data
+    # they describe", which is a report on two comparisons that never ran - and
+    # a false statement about a check is exactly what a caveat block must not
+    # carry, since its whole subject is what may and may not be believed.
+    compared = []
+    for name in REQUIRED_LABELS:
         if not str(labels.get(name) or "").strip():
             defects.append(Defect("E_LABEL_MISSING", "labels.%s" % name,
                                   "absent or empty"))
@@ -1093,6 +1196,7 @@ def _check_labels(bundle, defects):
     reps_k = (manifest.get("frozen_parameters") or {}).get("reps_k")
     k_text = str(labels.get("k") or "")
     if reps_k is not None and k_text:
+        compared.append("k")
         if not any(form in k_text for form in
                    ("k = %d" % reps_k, "k=%d" % reps_k, "k of %d" % reps_k)):
             defects.append(Defect(
@@ -1105,6 +1209,7 @@ def _check_labels(bundle, defects):
     split = bundle.get("sep_by_split")
     split_text = str(labels.get("sep_by_split") or "")
     if isinstance(split, dict) and split_text:
+        compared.append("sep_by_split")
         numbers = {int(t) for t in _digit_runs(split_text)}
         for key in ("policy_separated", "approval_oracle_separated"):
             value = split.get(key)
@@ -1118,18 +1223,26 @@ def _check_labels(bundle, defects):
 
     model_id = ((manifest.get("target_ref") or {}).get("model_id"))
     tier_text = str(labels.get("target_tier") or "")
-    if model_id and tier_text and model_id not in tier_text:
-        defects.append(Defect(
-            "E_LABEL_DISAGREES", "labels.target_tier",
-            "the label does not name %s. A weaker target inflates the v0 "
-            "baseline and flatters the whole curve, so the tier is named every "
-            "time the numbers are reported." % model_id))
-        bad += 1
+    if model_id and tier_text:
+        compared.append("target_tier")
+        if model_id not in tier_text:
+            defects.append(Defect(
+                "E_LABEL_DISAGREES", "labels.target_tier",
+                "the label does not name %s. A weaker target inflates the v0 "
+                "baseline and flatters the whole curve, so the tier is named "
+                "every time the numbers are reported." % model_id))
+            bad += 1
 
+    carried_only = [n for n in REQUIRED_LABELS if n not in compared]
+    note = ("%d label(s) carried IN THE BUNDLE, %d cross-checked against the "
+            "value they describe (%s)"
+            % (len(REQUIRED_LABELS), len(compared), ", ".join(compared) or "none"))
+    if carried_only:
+        note += ("; %d carried only, with no field in this bundle to compare "
+                 "them against (%s)"
+                 % (len(carried_only), ", ".join(carried_only)))
     return Row("LABELS", CROSS_CHECKED, "FAIL" if bad else "OK",
-               "%d defect(s)" % bad if bad
-               else "5 labels carried IN THE BUNDLE and agreeing with the data "
-                    "they describe")
+               "%d defect(s)" % bad if bad else note)
 
 
 def _digit_runs(text):
