@@ -90,24 +90,48 @@ Every one of those lands on `CorpusAttack.unstated_fields`, and `report()`
 tallies them across the corpus so the gap is a number in the run rather than a
 paragraph in a file.
 
-THE ACCOUNT PANEL IS AUTHORED IN TWO DIALECTS, AND THIS MODULE READS ONE
--------------------------------------------------------------------------
-Measured over `corpus/training/*.json` on 2026-08-22:
+THE SECOND ACCOUNT DIALECT IS GONE, EXCEPT FOR ONE FIELD THAT HAS NO HOME
+------------------------------------------------------------------------
+The account panel was authored in two dialects - a clean 32/18 split over
+`corpus/training/*.json`, no instance mixing them. **This module refused to
+accept both spellings**, which is precisely the shim that produced
+`ALLOW`/`allow` and `outcome`/`target_fault` here already; a shim in the adapter
+is where a drift goes to live forever. So they were counted rather than read,
+and the 18 were re-authored on 2026-08-22.
 
-    lifetime_order_count / refunds_trailing_90_minor / risk_flag_open /
-    not_received_claims_lifetime        32 instances (the target's own names)
-    lifetime_orders / returns_90d / open_risk_flag /
-    not_received_lifetime               18 instances
+THE CANONICAL DIALECT CAME FROM THE TARGET, NOT FROM THE VOTE.
+`target/refund_agent/system_of_record.py:81-86` declares the six names and
+`tools.py:145-150` returns exactly those six from `lookup_customer`. 32-vs-18 is
+a majority, not an authority; the two agreed, and had they not, the 32 would
+have been re-authored instead. `lifetime_orders` -> `lifetime_order_count`,
+`not_received_lifetime` -> `not_received_claims_lifetime`, `open_risk_flag` ->
+`risk_flag_open`.
 
-It is a clean split - no instance mixes the two - and it is a corpus defect, not
-a reading problem. **This module refuses to accept both spellings.** That is
-precisely the shim that produced `ALLOW`/`allow` and `outcome`/`target_fault`
-here already, and a shim in the adapter is where a drift goes to live forever.
-The alternate-spelling keys are simply not read: they appear on
-`CorpusAttack.ignored_scenario_keys`, `report()["ignored_scenario_keys"]` counts
-them, and the fix is a coordinator decision - re-author the 18 instances and
-re-freeze `corpus_hash`, or rule that the returns panel is unconsumed - because
-the corpus is hash-locked and this lane may not edit it.
+`returns_90d` IS NOT A RENAME AND IT STAYS IGNORED. It is a COUNT of returns in
+the trailing 90 days. `CustomerRecord` carries `lifetime_return_rate_pct` (a
+lifetime percentage) and `refunds_trailing_90_minor` (money). Neither is that
+number, and the instances prove the reading in their own traces - `F5-10`'s note
+reads "Five returns in the trailing 90 on seven lifetime orders" against
+`returns_90d: 5`. Mapping it onto either field would quote five returns off a
+panel reading five cents; dropping it would delete a stated fact. Both are value
+invention, so it stays stated, unread, counted, and named in `disclaimers()`.
+
+WHY THAT COSTS NOTHING MEASURABLE - checked, not assumed. The field feeds
+`refund_policy.md` section 8.3, "Trailing-90-day return rate above 60% with four
+or more orders." **The target cannot evaluate 8.3 from any tool it has**: no
+tool returns a trailing-90 return count or rate. And **8.3 appears in none of
+the Objective Set's nine clauses**, so nothing it could change is scored. Adding
+the field would move `target_agent_hash` for a policy clause that is
+unenforceable and unscored.
+
+WORTH KNOWING, AND NOT A DEFECT IN THIS MODULE: 8.3 is not alone. Section 8.2
+("second NOT_RECEIVED claim within 180 days") has only a LIFETIME count to read,
+and 8.6 ("three or more contacts on the same order in 72 hours") has no contact
+count in any tool's return surface. **Three of the target's seven risk holds are
+unevaluable from its own data.** None is in the Objective Set, so no number
+moves - but "which clauses of a written policy are evaluable from the tool
+surface" is a real question a hardening harness should answer, and CRUCIBLE does
+not answer it yet.
 
 **None of the four reaches the policy engine.** They are surfaced by
 `lookup_customer` and read by nothing else; the fields that decide anything are

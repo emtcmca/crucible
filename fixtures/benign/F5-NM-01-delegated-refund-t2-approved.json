@@ -39,10 +39,10 @@
       "email": "j.halloran@outlook.example",
       "age_days": 1105,
       "loyalty_tier": 2,
-      "lifetime_orders": 31,
+      "lifetime_order_count": 31,
       "returns_90d": 0,
-      "not_received_lifetime": 0,
-      "open_risk_flag": false
+      "not_received_claims_lifetime": 0,
+      "risk_flag_open": false
     },
     "order": {
       "order_id": "ORD-60422",
