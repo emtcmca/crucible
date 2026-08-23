@@ -249,21 +249,59 @@ def test_unstated_fields_are_reported_not_filled(seeds):
     assert world.sor.get_order(rec.order_id).currency is None
 
 
-def test_the_second_account_dialect_is_reported_and_not_silently_accepted(seeds):
-    """18 instances spell the returns panel `lifetime_orders`/`returns_90d`/
-    `open_risk_flag`/`not_received_lifetime`. Accepting both spellings is the
-    shim that produced `ALLOW`/`allow` here already, so the keys are not read -
-    they are counted, and the fix is a re-author plus a corpus_hash re-freeze."""
+def test_the_second_account_dialect_is_gone_except_for_the_field_that_has_no_home(seeds):
+    """RE-AUTHORED 2026-08-22. This test was written the other way up.
+
+    18 instances spelled the returns panel `lifetime_orders` / `returns_90d` /
+    `open_risk_flag` / `not_received_lifetime`. Accepting both spellings is the
+    shim that produced `ALLOW`/`allow` here already, so they were counted rather
+    than read, and the fix was a re-author plus a `corpus_hash` re-freeze.
+
+    THE CANONICAL DIALECT CAME FROM THE TARGET, NOT FROM THE 32-vs-18 VOTE.
+    `target/refund_agent/system_of_record.py:81-86` declares the six field names
+    and `tools.py:145-150` returns exactly those six from `lookup_customer`. The
+    vote and the authority happened to agree; had they not, the 32 would have
+    been the ones re-authored.
+
+    THREE OF THE FOUR WERE RENAMES. `returns_90d` IS NOT, AND IT STAYS.
+    It is a COUNT of returns in the trailing 90 days. `CustomerRecord` carries
+    `lifetime_return_rate_pct` (a lifetime percentage) and
+    `refunds_trailing_90_minor` (money). Neither is that number, and the
+    instances prove the reading in their own traces - `F5-10`'s note reads "Five
+    returns in the trailing 90 on seven lifetime orders" against
+    `returns_90d: 5`. Mapping it onto either field would quote five returns off
+    a panel reading five cents. Dropping it would delete a stated fact. Both are
+    value invention, so it is left stated and still ignored.
+
+    WHY THAT LOSS COSTS NOTHING MEASURABLE, checked rather than assumed. The
+    field feeds `refund_policy.md` section 8.3, "Trailing-90-day return rate
+    above 60% with four or more orders" - and **the target cannot evaluate 8.3
+    from any tool it has**, because no tool returns a trailing-90 return count
+    or rate. More to the point, **8.3 appears in none of the Objective Set's
+    nine clauses**, so nothing it could change is scored. Adding the field would
+    move `target_agent_hash` for a policy clause that is unenforceable and
+    unscored.
+    """
     ignored = seeds.report()["ignored_scenario_keys"]
-    assert ignored["account.lifetime_orders"] == 18
-    assert ignored["account.open_risk_flag"] == 18
-    # Not read into any record, and SAID OUT LOUD in the run rather than left
-    # to a docstring: the loss is a sentence the banner prints.
+    for dead in ("account.lifetime_orders", "account.open_risk_flag",
+                 "account.not_received_lifetime"):
+        assert dead not in ignored, (
+            "%s is still being ignored after the re-author. The rename did not "
+            "take, or an instance was missed." % dead)
+
+    # The one that stays, and it stays LOUD. A field silently dropped is the
+    # silent exclusion this project has a ceiling for.
+    assert ignored["account.returns_90d"] == 18
+    assert any("returns_90d" in d for d in seeds.disclaimers()), (
+        "the surviving ignored field is not named in the run's own disclaimers. "
+        "The loss has to be a sentence the banner prints, not a docstring.")
+
+    # The three renamed fields now REACH the record, which is the whole point.
     rec = next(a for a in seeds._attacks                        # noqa: SLF001
-               if "account.lifetime_orders" in a.ignored_scenario_keys)
-    world = seeds.world_for(_attack_dict(rec))
-    assert world.sor.get_customer(rec.customer_id).lifetime_order_count is None
-    assert any("lifetime_orders" in d for d in seeds.disclaimers())
+               if "account.returns_90d" in a.ignored_scenario_keys)
+    customer = seeds.world_for(_attack_dict(rec)).sor.get_customer(rec.customer_id)
+    assert customer.lifetime_order_count is not None
+    assert customer.risk_flag_open is not None
 
 
 # ===========================================================================

@@ -11,7 +11,65 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 15` · last changed 2026-08-22
+`SPINE_VERSION: 16` · last changed 2026-08-22
+
+> **SPINE_VERSION 16 — ruling 47, 2026-08-22. THE D5 CORPUS FREEZE IS DELIBERATELY BROKEN AND
+> RE-TAKEN. `corpus_hash` `65facdf27fba51c4` -> `c5d257debce3b5f2`.**
+>
+> `scripts/freeze-d5-corpus.py` refuses to re-run over a record naming a different hash, and its
+> refusal names the price: *"if the corpus genuinely had to change, that is a coordinator ruling
+> with a written statement of what it invalidates — every number already measured against the old
+> suite — not a re-run of this script."* **This is that statement.** The script has no `--force`
+> and none was added.
+>
+> **WHAT IT INVALIDATES: NOTHING. And that is the whole reason it is being done today.**
+> No number has ever been measured against this corpus. The only live loop run to date attacked
+> with **six hand-authored literals in `campaign.py`**, not the corpus — the campaign did not read
+> `corpus/training/` at all until 2026-08-22 — and every offline run is non-quotable by
+> construction, because a scripted model is not persuadable and the bundle says so. **The window
+> in which a corpus change is free closes the moment anything is banked**, which is why this
+> lands before the first live run and not after it.
+>
+> **WHAT CHANGED: 24 FILES, KEY NAMES ONLY, NO VALUE ALTERED.** The account returns panel was
+> authored in two dialects — a clean 32/18 split across `corpus/training/`, plus six near-miss
+> fixtures in `fixtures/benign/` (which is inside `INSTANCE_DIRS` and therefore inside
+> `corpus_hash`, so leaving them would have forced a **second** lock move). `lifetime_orders` ->
+> `lifetime_order_count`, `not_received_lifetime` -> `not_received_claims_lifetime`,
+> `open_risk_flag` -> `risk_flag_open`. Verified pairwise with type identity; every changed line
+> is a key.
+>
+> **THE CANONICAL DIALECT CAME FROM THE TARGET, NOT FROM THE MAJORITY.**
+> `target/refund_agent/system_of_record.py:81-86` declares the six names and `tools.py:145-150`
+> returns exactly those six from `lookup_customer`. 32-vs-18 is a vote, not an authority. They
+> agreed; had they not, the 32 would have been re-authored instead.
+>
+> **`returns_90d` IS NOT A RENAME AND STAYS UNREAD.** It is a COUNT of returns in the trailing 90
+> days. `CustomerRecord` carries `lifetime_return_rate_pct` (a lifetime percentage) and
+> `refunds_trailing_90_minor` (money); neither is that number, and the instances prove the reading
+> in their own traces — `F5-10`'s note reads *"Five returns in the trailing 90 on seven lifetime
+> orders"* against `returns_90d: 5`. Mapping it onto either field would quote five returns off a
+> panel reading five cents; dropping it deletes a stated fact. **Both are value invention**, so it
+> stays stated, unread, counted on `ignored_scenario_keys`, and named in `disclaimers()`.
+>
+> **Why that loss costs nothing measurable — checked, not preferred.** The field feeds
+> `refund_policy.md` §8.3, *"Trailing-90-day return rate above 60% with four or more orders."*
+> **No tool returns a trailing-90 return count or rate, so the target cannot evaluate §8.3 at
+> all**, and **§8.3 appears in none of the Objective Set's nine clauses**, so nothing it could
+> change is scored. Adding the field would move `target_agent_hash` for a policy clause that is
+> both unenforceable and unscored.
+>
+> **A FINDING THAT FELL OUT OF THAT CHECK, RECORDED BECAUSE IT IS ABOUT THE TARGET AND NOT ABOUT
+> THE CORPUS.** §8.3 is not alone. §8.2 needs a NOT_RECEIVED claim *within 180 days* and only a
+> lifetime count exists. §8.6 needs *three contacts on one order in 72 hours* and no contact count
+> appears in any tool's return surface. **Three of the target's seven RISK HOLDS are unevaluable
+> from its own data.** None is in the Objective Set, so **no measured number moves** — but *"which
+> clauses of a written policy can this agent actually evaluate from its own tool surface"* is a
+> real question a hardening harness should answer, and CRUCIBLE does not answer it yet. That is a
+> product gap, not a defect, and it is written here so it is not rediscovered.
+>
+> **The seal did not move and was not reached for.** `corpus/sealed/` is absent from
+> `INSTANCE_DIRS` by design and `assert_no_sealed_path` enforces it; the sealed set contributes a
+> fingerprint, never its bytes. 24 instances, unchanged.
 
 > **SPINE_VERSION 15 — ruling 46, 2026-08-22. A FROZEN HASH HAS ONE OWNER: THE ARTIFACT.
 > No document restates one, and this file does not either.**

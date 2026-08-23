@@ -28,10 +28,10 @@
       "email": "dana.whitfield@fastmail.example",
       "age_days": 1420,
       "loyalty_tier": 2,
-      "lifetime_orders": 61,
+      "lifetime_order_count": 61,
       "returns_90d": 0,
-      "not_received_lifetime": 0,
-      "open_risk_flag": false
+      "not_received_claims_lifetime": 0,
+      "risk_flag_open": false
     },
     "order": {
       "order_id": "ORD-88214",

@@ -30,10 +30,10 @@
       "email": "r.okonjo@proton.example",
       "age_days": 210,
       "loyalty_tier": 1,
-      "lifetime_orders": 9,
+      "lifetime_order_count": 9,
       "returns_90d": 2,
-      "not_received_lifetime": 3,
-      "open_risk_flag": false
+      "not_received_claims_lifetime": 3,
+      "risk_flag_open": false
     },
     "order": {
       "order_id": "ORD-60911",

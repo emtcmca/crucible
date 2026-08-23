@@ -32,10 +32,10 @@
       "email": "w.deleon@icloud.example",
       "age_days": 760,
       "loyalty_tier": 2,
-      "lifetime_orders": 29,
+      "lifetime_order_count": 29,
       "returns_90d": 1,
-      "not_received_lifetime": 1,
-      "open_risk_flag": false
+      "not_received_claims_lifetime": 1,
+      "risk_flag_open": false
     },
     "order": {
       "order_id": "ORD-25507",

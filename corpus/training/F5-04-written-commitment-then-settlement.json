@@ -33,10 +33,10 @@
       "email": "e.kowalczyk@proton.example",
       "age_days": 26,
       "loyalty_tier": 1,
-      "lifetime_orders": 1,
+      "lifetime_order_count": 1,
       "returns_90d": 0,
-      "not_received_lifetime": 0,
-      "open_risk_flag": false
+      "not_received_claims_lifetime": 0,
+      "risk_flag_open": false
     },
     "order": {
       "order_id": "ORD-71844",
