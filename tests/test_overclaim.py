@@ -603,6 +603,27 @@ def test_an_unautopsied_breach_is_not_reported_as_no_capability_implicated():
         "the section has to surface the breach it cannot describe: %r" % section)
 
 
+def test_an_empty_autopsy_list_does_not_explain_itself_as_no_breach():
+    """THE RED CASE, one section over from the severity table and reached the
+    same way. AUTOPSIES printed "none. A run with no breach has no autopsy." -
+    which is an EXPLANATION, and it is the wrong one whenever a breach exists
+    that legally carried no autopsy."""
+    bundle = {"autopsies": [], "episodes": [
+        {"episode_id": "ep_000000000001", "fixture_id": "fx_000000000003",
+         "verdict": {"verdict": "BREACH", "breach": True,
+                     "invariant_id": "inv_money_without_verified_subject"}}]}
+    section = V._autopsy_section(bundle)
+    assert "A run with no breach has no autopsy" not in section, section
+    assert "1 breach episode(s)" in section.lower(), section
+
+
+def test_an_empty_autopsy_list_after_a_clean_run_still_explains_itself(bleak):
+    """THE OTHER DIRECTION. When there really was no breach, saying so is the
+    useful thing and must survive."""
+    bundle, _ = bleak
+    assert "A run with no breach has no autopsy" in V._autopsy_section(bundle)
+
+
 def test_a_run_with_no_breach_at_all_still_says_so(bleak):
     """THE OTHER DIRECTION. Zero breaches is a real, sayable finding and the fix
     must not have turned it into a warning."""

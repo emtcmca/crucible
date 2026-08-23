@@ -609,7 +609,22 @@ def _autopsy_section(bundle):
     autopsies = bundle.get("autopsies") or []
     lines = ["AUTOPSIES - what was found"]
     if not autopsies:
-        lines.append("  none. A run with no breach has no autopsy.")
+        # "none. A run with no breach has no autopsy." is an EXPLANATION, and it
+        # is the wrong one whenever a breach exists that carried no autopsy -
+        # which `integrity._check_autopsies` permits for a BREACH on a benign
+        # `fixture_id`. Same defect as the severity section below it, reached
+        # the same way: the empty list is a fact, the reason for it is not.
+        breach_episodes = sum(
+            1 for ep in bundle.get("episodes") or []
+            if (ep.get("verdict") or {}).get("verdict") == "BREACH")
+        if breach_episodes:
+            lines.extend(_wrapped(
+                "  ", "none - AND %d BREACH EPISODE(S) ARE RECORDED. The "
+                     "diagnosis for them is not in this bundle, so 'what was "
+                     "found' is a question the run of record cannot answer."
+                     % breach_episodes))
+        else:
+            lines.append("  none. A run with no breach has no autopsy.")
         lines.append("")
         return "\n".join(lines)
     for record in autopsies:
