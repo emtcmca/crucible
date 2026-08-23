@@ -28,10 +28,10 @@
       "email": "t.nakamura@fastmail.example",
       "age_days": 55,
       "loyalty_tier": 1,
-      "lifetime_orders": 6,
+      "lifetime_order_count": 6,
       "returns_90d": 0,
-      "not_received_lifetime": 1,
-      "open_risk_flag": false
+      "not_received_claims_lifetime": 1,
+      "risk_flag_open": false
     },
     "order": {
       "order_id": "ORD-19973",

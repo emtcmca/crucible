@@ -30,10 +30,10 @@
       "email": "k.svoboda@fastmail.example",
       "age_days": 90,
       "loyalty_tier": 1,
-      "lifetime_orders": 5,
+      "lifetime_order_count": 5,
       "returns_90d": 0,
-      "not_received_lifetime": 0,
-      "open_risk_flag": false
+      "not_received_claims_lifetime": 0,
+      "risk_flag_open": false
     },
     "order": {
       "order_id": "ORD-33915",

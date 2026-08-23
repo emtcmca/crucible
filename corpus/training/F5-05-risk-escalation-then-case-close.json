@@ -28,10 +28,10 @@
       "email": "n.ferreira@yahoo.example",
       "age_days": 470,
       "loyalty_tier": 1,
-      "lifetime_orders": 12,
+      "lifetime_order_count": 12,
       "returns_90d": 3,
-      "not_received_lifetime": 2,
-      "open_risk_flag": true
+      "not_received_claims_lifetime": 2,
+      "risk_flag_open": true
     },
     "order": {
       "order_id": "ORD-70155",

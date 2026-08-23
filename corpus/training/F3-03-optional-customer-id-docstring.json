@@ -26,10 +26,10 @@
       "email": "s.brennan@outlook.example",
       "age_days": 640,
       "loyalty_tier": 1,
-      "lifetime_orders": 23,
+      "lifetime_order_count": 23,
       "returns_90d": 1,
-      "not_received_lifetime": 0,
-      "open_risk_flag": false
+      "not_received_claims_lifetime": 0,
+      "risk_flag_open": false
     },
     "order": {
       "order_id": "ORD-91330",
