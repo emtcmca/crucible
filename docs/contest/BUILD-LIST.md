@@ -281,6 +281,45 @@ all.**
 
 ---
 
+### T2-8 · The run has to LOOK like something · **RULED BY ERIC 2026-08-23** · **[40] [30D]**
+
+**Eric's directive, verbatim, because the paraphrase loses it:** *"Preparing smooth,
+interesting, runtime visuals will be a key factor in the judges' impression of crucible... We
+need to create a presentation like atmosphere that leaves a judge or user with actionable
+information, slick visuals, and a sense of real accomplishment upon the completion of a run."*
+
+**Sequencing is part of the ruling: the agentic core first, the presentation layer second.**
+Not a licence to start now at the expense of the loop.
+
+**The problem, stated plainly.** The entire human-facing surface today is
+`crucible/replay/view.py`, a text render. It is honest, it is derived rather than restated, and
+**it is not a demo.** Judging is a four-minute video. What is on screen for those four minutes
+is a scrolling terminal.
+
+**What this is not.** Not a dashboard, not a web app, not a second product. The evidence bundle
+is already the product and it already validates against a schema. **This is a second RENDERER
+over the same C6 bundle** — the data does not move, the presentation does. That keeps it
+honest: anything the render shows, the bundle can be checked for.
+
+**Two candidate shapes, both reading the same bundle:**
+
+1. **A live run view.** The campaign currently prints a banner and then rounds. A run that
+   reveals progressively — the attack going in, the tripwire's verdict landing, the gate
+   accepting or rejecting — is the same information paced for a viewer. Cheapest by far, and it
+   is what the video actually films.
+2. **An HTML evidence report** generated from the bundle, self-contained, openable by a judge.
+   Overlaps T2-7 Part A, and there is precedent in `docs/devpost/crucible-explainer.html`.
+
+**The honesty constraint that must survive the polish**, and it is the one to watch: the render
+already carries claims corrected during the overclaim sweep because they asserted things the
+code never computed. **A prettier renderer is a larger surface for exactly that defect.** Every
+figure it shows must be derived from the bundle at render time, never authored into a template.
+`tests/test_readme_claims.py` is the pattern — derive the expectation from the producer.
+
+**Not started. No owner. Blocked behind the live run by Eric's own sequencing.**
+
+---
+
 ## Tier 3 — refused, and worth saying why
 
 Refusing these deliberately is itself a **[30A]** point, and one README paragraph

@@ -362,7 +362,25 @@ DEAD - it is the pre-correction draft - and it still sits as a synthetic literal
 
 ---
 
-## 4. Track fit — the honest problem · **ANSWER DRAFTED 2026-08-21, AWAITING YOUR CALL**
+## 4. Track fit · **RULED 2026-08-23. Eric accepted the drafted answer, with an addition that needs work to become true.**
+
+**Eric's ruling:** the drafted framing in `docs/contest/track-fit.md` is accepted. His addition:
+*"we won't have weeks of data, but we should have days, nearly a full week. I think that will
+suffice."*
+
+**COORDINATOR NOTE, because the addition is not yet a fact.** The track asks whether the AGENTS
+maintain context across weeks of asynchronous operations. Days of BUILD history is a different
+claim and does not answer it. **The claim that does answer it, honestly, is the POLICY**: it is
+durable cross-session state, it accumulates across rounds and runs, each version is hash-locked
+and dated, and it lives in a GCS bucket the authoring identity cannot write to. A policy
+promoted on day one constrains the agent on day five, asynchronously, with an audit trail.
+
+**That claim is not true yet.** Nothing has ever been promoted, the policies bucket is empty,
+and `GcsBlobIO` has never executed. **To make it true, the loop has to run and promote on
+several separate days between now and submission.** That is a schedule, not a sentence, and it
+starts with the first live run. Recorded here so the write-up does not assert it early.
+
+(Original text below.)
 
 Fortified Enterprise Fleet asks for *"a scalable network of institutional agents"*
 that *"maintain context across weeks of asynchronous operations."*
@@ -385,7 +403,13 @@ is a result, and it says so on its own first page.
 
 ---
 
-## 5. The "unlikely hero" · **PERSONA DRAFTED 2026-08-21, AWAITING YOUR CALL**
+## 5. The "unlikely hero" · **RULED 2026-08-23. CLOSED.**
+
+**Eric: the persona makes sense as written.** `docs/contest/unlikely-hero.md` is ratified — the
+operations lead who inherits an agent somebody else built and has to decide whether it is safe
+to give it the company card. Use it in the submission text and in the demo narration.
+
+(Original text below.)
 
 A named Stage Two sub-criterion for this track: *"Did they build this for an
 'Unlikely Hero' outside of standard corporate roles?"* No persona exists anywhere
@@ -426,7 +450,23 @@ publicly.
 
 ---
 
-## 7. `ADR-0010` versus "unedited, live execution"
+## 7. Replay beats in the demo · **RULED 2026-08-23.**
+
+**Eric's ruling:** no replay may look live. Replays are permitted when **tightly scoped, shot
+deliberately, and labelled on screen**, and showing replays BEFORE a live run is fine.
+
+**And a standing directive that is larger than this item**, recorded here and carried into
+`BUILD-LIST.md`: *"Preparing smooth, interesting, runtime visuals will be a key factor in the
+judges' impression. We need to pay close attention to the human-readable, human-facing
+components after the under-the-hood agentic functionality is dialled in. Create a
+presentation-like atmosphere that leaves a judge or user with actionable information, slick
+visuals, and a sense of real accomplishment upon the completion of a run."*
+
+**Sequencing is explicit in that ruling: agentic core first, presentation layer second.** The
+current human-facing surface is a text render (`crucible/replay/view.py`). It is honest and it
+is not a demo.
+
+(Original text below.)
 
 The rules say the video should show *"an unedited, live execution of the agent
 performing its task."* `ADR-0010` has some demo beats replaying stored evidence
