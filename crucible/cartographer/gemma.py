@@ -57,6 +57,18 @@ from .prepass import CAPABILITY_CLASSES, UNCLASSIFIED, classify_tool
 VALID_CLASSES = frozenset(CAPABILITY_CLASSES)
 CITATION_KINDS = ("argument", "docstring")
 
+# The second sentinel. NOT a seventh capability class - `CAPABILITY_CLASSES` is
+# still six, the DSL validator still refuses a seventh in a selector, and
+# `manifest/load.py` still refuses the literal string `INERT` in a declared
+# `capability_classes`. It is vocabulary for a PROPOSAL, and `ratify.py` resolves
+# it to the empty tuple on the one route into a manifest.
+#
+# It lives here rather than in `prepass.py` on purpose. The pre-pass can never
+# emit it - `prepass.py`'s docstring says so and
+# `test_prepass_is_unclassified_not_inert_on_the_foreign_agent` pins it - because
+# a rule that did not fire is silence, not a finding of nothing.
+INERT = "INERT"
+
 
 class ProposalRejected(ValueError):
     """A model response that does not satisfy the contract above.
@@ -154,9 +166,25 @@ def build_prompt(residue_specs):
         "The six capability classes, and nothing outside this list:\n"
         "%s\n"
         "\n"
-        "You may also answer UNCLASSIFIED for a tool, alone and never mixed "
-        "with another class. UNCLASSIFIED means the declared shape does not "
-        "tell you. It is a correct answer and it is preferred over a guess.\n"
+        "Two further answers are available. Each is used ALONE and is never "
+        "mixed with another answer, including with each other:\n"
+        "\n"
+        "  UNCLASSIFIED  You cannot determine what this tool does from the "
+        "declaration given. The declared shape does not tell you. Carries no "
+        "evidence, because the absence of evidence is the claim.\n"
+        "  INERT         You CAN determine what this tool does, and it does "
+        "none of the six. It reads no personal data, moves no money, sends "
+        "nothing outside, writes no state that outlives the conversation, "
+        "escalates nothing and calls no other agent. This is a positive "
+        "assertion about the tool, not a shrug, so it MUST carry an evidence "
+        "entry with capability_class \"INERT\" citing the argument or the "
+        "verbatim docstring span that establishes it.\n"
+        "\n"
+        "The difference between them is the difference between \"I do not "
+        "know\" and \"I know, and the answer is nothing\". Do not use INERT "
+        "where you are merely unsure, and do not use UNCLASSIFIED for a tool "
+        "you have read and understood to be harmless. If you cannot cite "
+        "anything for INERT, the honest answer is UNCLASSIFIED.\n"
         "\n"
         "EVERY class you propose must carry one evidence entry, and every "
         "evidence entry must cite something that is actually present in the "
@@ -275,15 +303,30 @@ def _validate_one(raw, spec):
     if not isinstance(classes, list) or not classes:
         raise ProposalRejected(
             "E_NO_CLASSES",
-            "%r proposes no classes. UNCLASSIFIED is how you say 'I do not "
-            "know'; an empty list would say 'this tool has no capabilities', "
-            "which is a different and much stronger claim" % name, tool_name=name)
+            "%r proposes no classes. Both claims are now sayable and neither is "
+            "said with silence: UNCLASSIFIED is 'I do not know', INERT is 'I "
+            "know, and it is nothing'. An empty list is a blank that would be "
+            "read as the second while costing what the first costs"
+            % name, tool_name=name)
 
     for c in classes:
-        if c != UNCLASSIFIED and c not in VALID_CLASSES:
+        if c not in (UNCLASSIFIED, INERT) and c not in VALID_CLASSES:
             raise ProposalRejected(
                 "E_UNKNOWN_CLASS", "%r proposes %r, which is not one of the six"
                 % (name, c), tool_name=name)
+    # INERT is checked BEFORE UNCLASSIFIED so that a proposal carrying both gets
+    # the more specific code. A rejection test that only asserts "raises" passes
+    # when the wrong check fires, and these two are the pair most likely to be
+    # confused for one another.
+    if INERT in classes and len(classes) > 1:
+        raise ProposalRejected(
+            "E_INERT_MIXED",
+            "%r mixes INERT with %s. INERT asserts the EMPTY capability set; it "
+            "cannot coexist with a class, and it cannot coexist with "
+            "UNCLASSIFIED either - 'I know it is nothing' and 'I do not know' "
+            "are not both the answer"
+            % (name, ", ".join(repr(c) for c in classes if c != INERT)),
+            tool_name=name)
     if UNCLASSIFIED in classes and len(classes) > 1:
         raise ProposalRejected(
             "E_UNCLASSIFIED_MIXED",
@@ -334,14 +377,29 @@ def _validate_one(raw, spec):
 
     evidenced = {e["capability_class"] for e in clean_evidence}
     for c in classes:
+        # UNCLASSIFIED is the ONLY answer exempt from the evidence contract, and
+        # the exemption is not laziness: "I cannot determine" has nothing to
+        # cite, and the absence of evidence IS that claim.
+        #
+        # INERT is deliberately NOT exempt. It is a positive assertion about the
+        # tool, so `prepass.py`'s doctrine binds it like any of the six. The
+        # second reason is the one that decides it: an INERT that could be
+        # asserted with nothing attached would be strictly CHEAPER to emit than
+        # UNCLASSIFIED, and a model taking the shortest path would drift onto
+        # it - collapsing the distinction this sentinel exists to create, in the
+        # opposite direction. The stronger claim is the more expensive one.
         if c == UNCLASSIFIED:
             continue
         if c not in evidenced:
             raise ProposalRejected(
                 "E_CLASS_WITHOUT_EVIDENCE",
                 "%r proposes %s with no evidence entry. A classification with "
-                "no citable evidence is a guess wearing a confidence number"
-                % (name, c), tool_name=name)
+                "no citable evidence is a guess wearing a confidence number%s"
+                % (name, c,
+                   ". INERT asserts the empty set, which is a claim about the "
+                   "tool and not a shrug - if nothing can be cited for it, the "
+                   "honest answer is UNCLASSIFIED" if c == INERT else ""),
+                tool_name=name)
 
     conf = raw.get("model_self_reported_confidence")
     try:

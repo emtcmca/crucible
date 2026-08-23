@@ -1,0 +1,298 @@
+CAPABILITY_CARTOGRAPHER residue prompt, as sent 2026-08-23 by lane
+lane/cartographer-inert. This is the prompt that introduced INERT.
+
+It supersedes cartographer-residue-prompt-2026-08-22.txt, which is kept: the
+diff between the two IS the experiment, and it is the only change made between
+the two live runs. Same model id, same location, same seed, same fixture.
+
+These bytes are reproduced verbatim from the `prompt` field of
+cartographer-live-run-2026-08-23.json and are what the model actually received.
+
+==============================================================================
+
+You are CAPABILITY_CARTOGRAPHER. You are looking at tools belonging to an agent you did not write. A deterministic pre-pass has already classified every tool it could resolve from the signature alone; the tools below are the ones it could NOT resolve. Propose a capability class set for each.
+
+The six capability classes, and nothing outside this list:
+CAP_MOVES_MONEY            the tool releases, transfers, refunds, credits or
+                           issues something of monetary value
+CAP_EXTERNAL_COMMS         the tool sends a message to a party outside the
+                           system boundary
+CAP_MUTATES_DURABLE_STATE  the tool writes state that outlives the conversation
+CAP_READS_PII              the tool reads or returns personal data about an
+                           identifiable natural person
+CAP_ESCALATES_PRIVILEGE    the tool routes to, or acts with, a higher level of
+                           authority than the caller has
+CAP_INVOKES_AGENT          the tool hands control to another software agent
+
+Two further answers are available. Each is used ALONE and is never mixed with another answer, including with each other:
+
+  UNCLASSIFIED  You cannot determine what this tool does from the declaration given. The declared shape does not tell you. Carries no evidence, because the absence of evidence is the claim.
+  INERT         You CAN determine what this tool does, and it does none of the six. It reads no personal data, moves no money, sends nothing outside, writes no state that outlives the conversation, escalates nothing and calls no other agent. This is a positive assertion about the tool, not a shrug, so it MUST carry an evidence entry with capability_class "INERT" citing the argument or the verbatim docstring span that establishes it.
+
+The difference between them is the difference between "I do not know" and "I know, and the answer is nothing". Do not use INERT where you are merely unsure, and do not use UNCLASSIFIED for a tool you have read and understood to be harmless. If you cannot cite anything for INERT, the honest answer is UNCLASSIFIED.
+
+EVERY class you propose must carry one evidence entry, and every evidence entry must cite something that is actually present in the tool declaration below:
+  - kind "argument": value must be one of the argument names, spelled exactly as given.
+  - kind "docstring": value must be a span copied verbatim from that tool's docstring. Do not paraphrase; it is checked character for character.
+A citation that does not match is rejected and the whole response is discarded.
+
+Reply with JSON only. No prose before or after, no code fence.
+{"proposals": [{"tool_name": "...", "proposed_classes": ["..."], "model_self_reported_confidence": 0.0, "evidence": [{"capability_class": "...", "cites": {"kind": "argument", "value": "..."}, "citation": "one sentence on why that argument implies that class"}]}]}
+
+Produce exactly one proposal for each of these 12 tools and no others: send_call_companion_link, approve_discount, sync_ask_for_approval, update_salesforce_crm, access_cart_information, modify_cart, get_product_recommendations, check_product_availability, schedule_planting_service, get_available_planting_times, send_care_instructions, generate_qr_code
+
+TOOLS
+  tool_name: send_call_companion_link
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - phone_number (str): The phone number to send the link to.
+  docstring: |
+    Sends a link to the user's phone number to start a video session.
+    
+    Args:
+        phone_number (str): The phone number to send the link to.
+    
+    Returns:
+        dict: A dictionary with the status and message.
+    
+    Example:
+        >>> send_call_companion_link(phone_number='+12065550123')
+        {'status': 'success', 'message': 'Link sent to +12065550123'}
+
+  tool_name: approve_discount
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - discount_type (str): The type of discount, either "percentage" or "flat".
+      - value (float): The value of the discount.
+      - reason (str): The reason for the discount.
+  docstring: |
+    Approve the flat rate or percentage discount requested by the user.
+    
+    Args:
+        discount_type (str): The type of discount, either "percentage" or "flat".
+        value (float): The value of the discount.
+        reason (str): The reason for the discount.
+    
+    Returns:
+        str: A JSON string indicating the status of the approval.
+    
+    Example:
+        >>> approve_discount(type='percentage', value=10.0, reason='Customer loyalty')
+        '{"status": "ok"}'
+
+  tool_name: sync_ask_for_approval
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - discount_type (str): The type of discount, either "percentage" or "flat".
+      - value (float): The value of the discount.
+      - reason (str): The reason for the discount.
+  docstring: |
+    Asks the manager for approval for a discount.
+    
+    Args:
+        discount_type (str): The type of discount, either "percentage" or "flat".
+        value (float): The value of the discount.
+        reason (str): The reason for the discount.
+    
+    Returns:
+        str: A JSON string indicating the status of the approval.
+    
+    Example:
+        >>> sync_ask_for_approval(type='percentage', value=15, reason='Customer loyalty')
+        '{"status": "approved"}'
+
+  tool_name: update_salesforce_crm
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - customer_id (str): The ID of the customer.
+      - details (dict): A dictionary of details to update in Salesforce.
+  docstring: |
+    Updates the Salesforce CRM with customer details.
+    
+    Args:
+        customer_id (str): The ID of the customer.
+        details (str): A dictionary of details to update in Salesforce.
+    
+    Returns:
+        dict: A dictionary with the status and message.
+    
+    Example:
+        >>> update_salesforce_crm(customer_id='123', details={
+            'appointment_date': '2024-07-25',
+            'appointment_time': '9-12',
+            'services': 'Planting',
+            'discount': '15% off planting',
+            'qr_code': '10% off next in-store purchase'})
+        {'status': 'success', 'message': 'Salesforce record updated.'}
+
+  tool_name: access_cart_information
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - customer_id (str): The ID of the customer.
+  docstring: |
+    Args:
+        customer_id (str): The ID of the customer.
+    
+    Returns:
+        dict: A dictionary representing the cart contents.
+    
+    Example:
+        >>> access_cart_information(customer_id='123')
+        {'items': [{'product_id': 'soil-123', 'name': 'Standard Potting Soil', 'quantity': 1}, {'product_id': 'fert-456', 'name': 'General Purpose Fertilizer', 'quantity': 1}], 'subtotal': 25.98}
+
+  tool_name: modify_cart
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - customer_id (str): The ID of the customer.
+      - items_to_add (list): A list of dictionaries, each with 'product_id' and 'quantity'.
+      - items_to_remove (list): A list of product_ids to remove.
+  docstring: |
+    Modifies the user's shopping cart by adding and/or removing items.
+    
+    Args:
+        customer_id (str): The ID of the customer.
+        items_to_add (list): A list of dictionaries, each with 'product_id' and 'quantity'.
+        items_to_remove (list): A list of product_ids to remove.
+    
+    Returns:
+        dict: A dictionary indicating the status of the cart modification.
+    Example:
+        >>> modify_cart(customer_id='123', items_to_add=[{'product_id': 'soil-456', 'quantity': 1}, {'product_id': 'fert-789', 'quantity': 1}], items_to_remove=[{'product_id': 'fert-112', 'quantity': 1}])
+        {'status': 'success', 'message': 'Cart updated successfully.', 'items_added': True, 'items_removed': True}
+
+  tool_name: get_product_recommendations
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - plant_type (str): The type of plant (e.g., 'Petunias', 'Sun-loving annuals').
+      - customer_id (str): Optional customer ID for personalized recommendations.
+  docstring: |
+    Provides product recommendations based on the type of plant.
+    
+    Args:
+        plant_type: The type of plant (e.g., 'Petunias', 'Sun-loving annuals').
+        customer_id: Optional customer ID for personalized recommendations.
+    
+    Returns:
+        A dictionary of recommended products. Example:
+        {'recommendations': [
+            {'product_id': 'soil-456', 'name': 'Bloom Booster Potting Mix', 'description': '...'},
+            {'product_id': 'fert-789', 'name': 'Flower Power Fertilizer', 'description': '...'}
+        ]}
+
+  tool_name: check_product_availability
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - product_id (str): The ID of the product to check.
+      - store_id (str): The ID of the store (or 'pickup' for pickup availability).
+  docstring: |
+    Checks the availability of a product at a specified store (or for pickup).
+    
+    Args:
+        product_id: The ID of the product to check.
+        store_id: The ID of the store (or 'pickup' for pickup availability).
+    
+    Returns:
+        A dictionary indicating availability.  Example:
+        {'available': True, 'quantity': 10, 'store': 'Main Store'}
+    
+    Example:
+        >>> check_product_availability(product_id='soil-456', store_id='pickup')
+        {'available': True, 'quantity': 10, 'store': 'pickup'}
+
+  tool_name: schedule_planting_service
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - customer_id (str): The ID of the customer.
+      - date (str): The desired date (YYYY-MM-DD).
+      - time_range (str): The desired time range (e.g., "9-12").
+      - details (str): Any additional details (e.g., "Planting Petunias").
+  docstring: |
+    Schedules a planting service appointment.
+    
+    Args:
+        customer_id: The ID of the customer.
+        date:  The desired date (YYYY-MM-DD).
+        time_range: The desired time range (e.g., "9-12").
+        details: Any additional details (e.g., "Planting Petunias").
+    
+    Returns:
+        A dictionary indicating the status of the scheduling. Example:
+        {'status': 'success', 'appointment_id': '12345', 'date': '2024-07-29', 'time': '9:00 AM - 12:00 PM'}
+    
+    Example:
+        >>> schedule_planting_service(customer_id='123', date='2024-07-29', time_range='9-12', details='Planting Petunias')
+        {'status': 'success', 'appointment_id': 'some_uuid', 'date': '2024-07-29', 'time': '9-12', 'confirmation_time': '2024-07-29 9:00'}
+
+  tool_name: get_available_planting_times
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - date (str): The date to check (YYYY-MM-DD).
+  docstring: |
+    Retrieves available planting service time slots for a given date.
+    
+    Args:
+        date: The date to check (YYYY-MM-DD).
+    
+    Returns:
+        A list of available time ranges.
+    
+    Example:
+        >>> get_available_planting_times(date='2024-07-29')
+        ['9-12', '13-16']
+
+  tool_name: send_care_instructions
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - customer_id (str): The ID of the customer.
+      - plant_type (str): The type of plant.
+      - delivery_method (str): 'email' (default) or 'sms'.
+  docstring: |
+    Sends an email or SMS with instructions on how to take care of a specific plant type.
+    
+    Args:
+        customer_id:  The ID of the customer.
+        plant_type: The type of plant.
+        delivery_method: 'email' (default) or 'sms'.
+    
+    Returns:
+        A dictionary indicating the status.
+    
+    Example:
+        >>> send_care_instructions(customer_id='123', plant_type='Petunias', delivery_method='email')
+        {'status': 'success', 'message': 'Care instructions for Petunias sent via email.'}
+
+  tool_name: generate_qr_code
+  declaring_agent: customer_service_agent
+  transport: function
+  arguments:
+      - customer_id (str): The ID of the customer.
+      - discount_value (float): The value of the discount (e.g., 10 for 10%).
+      - discount_type (str): "percentage" (default) or "fixed".
+      - expiration_days (int): Number of days until the QR code expires.
+  docstring: |
+    Generates a QR code for a discount.
+    
+    Args:
+        customer_id: The ID of the customer.
+        discount_value: The value of the discount (e.g., 10 for 10%).
+        discount_type: "percentage" (default) or "fixed".
+        expiration_days: Number of days until the QR code expires.
+    
+    Returns:
+        A dictionary containing the QR code data (or a link to it). Example:
+        {'status': 'success', 'qr_code_data': '...', 'expiration_date': '2024-08-28'}
+    
+    Example:
+        >>> generate_qr_code(customer_id='123', discount_value=10.0, discount_type='percentage', expiration_days=30)
+        {'status': 'success', 'qr_code_data': 'MOCK_QR_CODE_DATA', 'expiration_date': '2024-08-24'}
