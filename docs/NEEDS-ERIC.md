@@ -105,6 +105,40 @@ number means something.
 
 ---
 
+## 15. **V22 skips when Part B declares nothing, and that was a deliberate call** · NEW 2026-08-23 · not blocking
+
+**Small, and it reverses a written position, which is why it is yours.**
+
+`validator.py:472` reads `if self.declared_episode and qualified not in self.declared_episode`.
+A Part B declaring no `episode_fields` makes that set empty and **switches the check off in
+silence.** V10, ten lines earlier in the same file, answers the identical question the opposite
+way: declaring none admits none, loudly.
+
+**It was not an oversight.** `test_V10_CANNOT_BE_SWITCHED_OFF_BY_A_MANIFEST_THAT_DECLARES_NOTHING`
+says so in its own docstring: the skip is *"defensible for a backstop and would be fatal here."*
+Someone considered it and drew the line between the two checks on purpose.
+
+**The argument for reversing it, which is today's argument.** A rule naming `episode.foo` when
+Part B declares nothing is a rule that will be admitted and can then never fire, because
+`condition_holds` returns False on an absent path. **That is precisely the defect ruling 48 was
+written about**, on the other side of the system, and it cost four episodes their true verdict.
+"Defensible for a backstop" and "a check that cannot fail in one configuration" are the same
+sentence viewed from two angles.
+
+**Not live-exploitable today**, asserted rather than assumed: the corpus Part B declares three
+episode fields, so the check is active on every path that runs. The empty configuration is one
+edit away rather than present.
+
+**I wrote the fix and the red test, then deleted both** rather than quietly reversing a
+documented decision while you were away. One word. Say the word and it lands with its ruling.
+
+*(Found by the DSL mutation audit, which reported it instead of changing a validator it did not
+own. Same lane also proved `constrain_arg`'s fail-closed behaviour was correct but completely
+unguarded: two one-token mutations that defeat a learned amount ceiling both survived the whole
+suite. Twelve guards now cover it. No source change was needed there.)*
+
+---
+
 ## 13. **The Gemma ratification sheet — there is no partial signature** · NEW 2026-08-23
 
 You approved the sheet. Before I sign it in your name on a judge-facing artifact, one fact you

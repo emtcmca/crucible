@@ -105,8 +105,8 @@ audit does not re-run it. "Killed by" names the first or most specific test.
 | D12 | V8 - the totality sweep swallows its own exceptions | `test_V8_the_totality_sweep_can_actually_fail` |
 | D13 | V6 - seed rules become retractable | `test_V6_the_armorer_may_not_retract_a_seed_rule` |
 | D14 | retracting a rule not in the policy is accepted | `test_retracting_a_rule_that_is_not_there_is_refused` |
-| D15 | N3 - `match_mode` accepted | `test_l3_negative_checks.py::test_negative_check[N3]` (2) |
-| D16 | N3 - `match_mode` looked for only at the TOP LEVEL, not "at any depth" | same (2) |
+| D15 | N3 - `match_mode` accepted | `test_l3_negative_checks.py::test_negative_check[N3]` (2) |  <!-- sweep-ok: D15/D16 name the deleted token as what the MUTATION makes the validator accept; the row is the refusal, not a use -->
+| D16 | N3 - `match_mode` looked for only at the TOP LEVEL, not "at any depth" | same (2) |  <!-- sweep-ok: D15/D16 name the deleted token as what the MUTATION makes the validator accept; the row is the refusal, not a use -->
 | D18 | **check order** - V10 moved ABOVE V3, so `E_PRODUCT_IDENTIFIER` becomes nearly unreachable | 3, incl. `test_V10_does_not_swallow_V3` |
 | D19 | **check order** - V4 moved above V10, so a bad path is diagnosed as a bad enum | `test_V10_an_arg_path_must_be_declared_by_some_tool` |
 | D20 | `_paths` stops yielding the ACTION path, so V10 misses `constrain_arg`'s target | `test_V10_reaches_the_action_and_the_episode_scoped_clause_forms` |
