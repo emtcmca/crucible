@@ -164,7 +164,7 @@ exit 2. Do not route around it.
 **READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
 
 `main` green BY EXIT CODE: pytest 0, contract-check 0, tripwire selftest 0,
-`crucible.coverage` 0, **1826 collected**. Rulings 1-50, SPINE_VERSION **19**.
+`crucible.coverage` 0, **1843 collected**. Rulings 1-51, SPINE_VERSION **20**.
 **NO HASH VALUE IN THIS BLOCK - ruling 46. Read each off `docs/proof/`.**
 
 **THE FIRST TWO LIVE RUNS HAPPENED. NEITHER IS QUOTABLE AND BOTH ARE EVIDENCE.**
@@ -173,8 +173,19 @@ converged with **0 breaches in 30 scorable** and its own reader REJECTED it on t
 pooled exclusion ceiling. **Nothing has been PROMOTED**; `GcsBlobIO` has never
 executed.
 
-**AWAITING ERIC:** take a 7th hash move so `attack_mode` is a required C6 field
-(same change fixes hybrid per-round provenance), or fire in `corpus` mode now.
+**RULING 51 LANDED. THE NEXT LIVE RUN IS UNBLOCKED and takes an explicit
+`--attack-mode`.** `attack_mode` is a REQUIRED C6 root field and `episodes[]`
+carry per-round provenance. **ONE contract file moved (C6); NONE of the six
+hash-locks did, no freeze ran, `docs/proof/` untouched.** The coordinator had
+called this "the seventh hash move" - that is the name for a LOCK-FIELD move and
+it priced the change at several times what it cost. **Both live bundles of
+08-23 are now REJECTED by the reader; that is the requirement working.**
+
+**RED discovery is a DESIGN and the tree proves it is not shipped**
+(`docs/design/red-discovery-capability.md`, guarded by
+`tests/test_red_discovery_is_a_design_and_not_a_capability.py`). No `discovery`
+in `ATTACK_MODES`, no `red_authored` in either provenance enum, no authoring
+path in `red.py`. **Nothing in this tree authors an attack.**
 
 **Watch out for**
 - **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT** - and it includes CLAIMS.
@@ -189,6 +200,9 @@ executed.
   first changes ADK tool declarations while `target_agent_hash` stays identical.
 - **`provenance: generated` describes the TEXT, not the origin.** The corpus feeds
   both modes; `generated` is NOT discovery.
+- **"HASH MOVE" NAMES TWO DIFFERENT EVENTS.** A LOCK-FIELD move costs a re-freeze
+  plus a `docs/proof/` record; a CONTRACT-FILE move costs `hash-contracts.py`.
+  **Grep the value before pricing the work.**
 - `pathlib.glob` on a missing dir returns empty; `grep -c` exits 1 on zero;
   backticks in `git commit -m` get substituted; **ONE pytest at a time**;
   merging from inside a lane worktree prints "Already up to date".
