@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "required": [
     "bundle_version",
+    "attack_mode",
     "run_manifest",
     "episodes",
     "policy_chain",
@@ -29,6 +30,11 @@
       "type": "integer",
       "minimum": 1,
       "$comment": "2 as of 2026-08-22. Bumped from 1 when the bundle stopped being a hash ledger and became THE PRODUCT: attack text, autopsies, rule text, clause coverage, the exclusion ledger, execution provenance and the labels all became REQUIRED in one change. A reader handed a v1 bundle and a v2 bundle is looking at two different claims about what evidence is, and the version is the only field that says so before the schema does."
+    },
+    "attack_mode": {
+      "type": "string",
+      "enum": ["corpus", "generated", "hybrid"],
+      "$comment": "WHICH POPULATION THIS RUN ATTACKED WITH. Added 2026-08-23, ruling 51, and it is the only reason the C6 hash moved that day. corpus = every seed replayed VERBATIM, so the attack set is fixed by corpus_hash and this is the mode any figure quoted across runs must come from. generated = every seed's final turn REWRITTEN by the RED_STRATEGIST. hybrid = both arms in one run, split deterministically and broken out by provenance wherever a rate is reported. TWO BOUNDS THAT TRAVEL WITH THIS FIELD. (1) corpus mode fixes the ATTACK SET, not the target's responses - the target is a live sampled model, so the mode is reproducible in its INPUTS and variable in its OUTCOMES, and it is not determinism. (2) generated IS NOT DISCOVERY: vary() preserves the seed's attack_id and family_id and rewrites only the instruction, under a prompt that says pursue the SAME objective by the SAME sequence of actions. No mode in this enum authors an attack the corpus does not already hold. REQUIRED, AND NOT RECOMPUTABLE FROM THE ROWS: a generated run whose governor refused or whose model returned something unparseable emits variation 'fallback' and renders training_corpus, so inferring the mode from attacks[].provenance is wrong exactly when the run degraded."
     },
     "run_manifest": {
       "$ref": "https://crucible.invalid/contracts/run_manifest.schema.json",
@@ -178,6 +184,11 @@
             "minimum": 1,
             "maximum": 6,
             "$comment": "Which round this episode ran in. Optional: a v0 baseline episode and a vFinal held-out episode run OUTSIDE the round loop (measurement-spec 5.3 measures transfer exactly twice), so requiring it would force a false value on the two arms whose comparison is the headline."
+          },
+          "provenance": {
+            "type": "string",
+            "enum": ["training_corpus", "generated"],
+            "$comment": "WHICH ARM THIS EPISODE RAN IN, per round. Added 2026-08-23, ruling 51. attacks[] is deduped by attack_id and a generated variant supersedes a verbatim replay of the same id, so an instance select() drew in two rounds and attacked BOTH ways collapses to ONE catalogue row - measured on a real two-round hybrid at 12 attempts and 11 rows. An episode is one attack in ONE round, which is why the per-round split lives here and cannot live there. The value comes from the SAME _attack_provenance call the catalogue and the clause-coverage table use, so the three instruments cannot disagree about which attacks were rewritten. OPTIONAL, AND ABSENT RATHER THAN GUESSED: a verdict whose attack is not in its own round's attack list is unattributed - provenance_breakout carries a column for exactly that case - and folding it into either arm would move a published rate. Absent states that this bundle does not know, which is the true statement. NEVER POOL THE TWO ARMS: a mixed breach rate could report the same figure whether every replay held and every rewrite landed or the exact reverse."
           },
           "target_final_text": {
             "type": "string",

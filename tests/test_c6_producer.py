@@ -760,34 +760,38 @@ def test_clause_coverage_counts_EVERY_clause_including_the_ones_that_never_fired
 def test_both_files_are_written_and_neither_states_a_measurement_twice(
         offline_run):
     """`<out>` is the campaign record - `capability_retained`, the hash-lock
-    provenance map, the disclaimer, the things C6 has no field for. `<out>.c6.json`
-    is the run of record. Attack text, verdicts, rules and every rate live in
-    the bundle ONLY: a second copy of a measurement is a second thing to go
-    wrong, and this repository has been bitten by exactly that more than once.
+    provenance map, the disclaimer, the things C6 has no field for.
+    `<out>.c6.json` is the run of record. Attack text, verdicts, rules and every
+    rate live in the bundle ONLY: a second copy of a measurement is a second
+    thing to go wrong, and this repository has been bitten by exactly that more
+    than once.
 
-    `attack_mode` WAS ADDED 2026-08-23 AND THIS TEST IS WHY IT IS THE ONLY THING
-    THAT WAS. The same change first wrote a `by_provenance` breakout here too;
-    this assertion caught it, and it was right - the per-provenance rates are a
-    MEASUREMENT and C6 already carries `attacks[].provenance` on every row, so
-    they are recomputable and a stored copy is a second source of truth. The
-    banner prints them instead.
+    THIS ASSERTION HAS NOW CAUGHT THE SAME CLASS OF DEFECT TWICE IN TWO DAYS,
+    and the two resolutions were opposite, which is the interesting part.
 
-    THE MODE IS NOT A MEASUREMENT AND IS NOT RECOMPUTABLE. A `generated` run
-    whose governor refused, or whose model returned something unparseable,
-    emits `variation: "fallback"` and renders `training_corpus` - so inferring
-    the mode from the provenance column is wrong exactly when the run degraded.
-    It is here rather than in the bundle because `run_manifest.schema.json` and
-    the C6 root are both `additionalProperties: false`, so a required field
-    there is a contract change that moves `contracts/MANIFEST.json`. That is a
-    coordinator ruling and is OPEN.
+      2026-08-23 (a)  the attack-mode lane wrote a `by_provenance` rate breakout
+                      here. CAUGHT AND DELETED. The rates are a MEASUREMENT and
+                      C6 carries the rows to recompute them, so a stored copy is
+                      a second source of truth. The banner prints them instead;
+                      a view derived at run time is not a stored copy.
+      2026-08-23 (b)  the same lane wrote `attack_mode` here, correctly, because
+                      the C6 root was `additionalProperties: false` and the lane
+                      was forbidden to move a contract hash. Ruling 51 moved it.
+                      `attack_mode` is now a REQUIRED C6 root field, this
+                      assertion fired on the overlap, and the resolution was to
+                      DELETE THE COPY HERE rather than to exempt the key.
+
+    The rule that decides which resolution applies: **the bundle is the run of
+    record.** A fact C6 can hold lives in C6 alone. This file holds only what C6
+    has no field for.
     """
     record = _read(offline_run["out"])
-    assert set(record) == {"summary", "hashes", "final_policy", "rounds",
-                           "attack_mode"}
-    assert record["attack_mode"] == "corpus", (
-        "an offline run has no model, so the effective mode is `corpus` and it "
-        "is RECORDED rather than left implicit - a default nobody wrote down "
-        "is a setting the run cannot be held to")
+    assert set(record) == {"summary", "hashes", "final_policy", "rounds"}
+    assert offline_run["bundle"]["attack_mode"] == "corpus", (
+        "an offline run has no model, so the EFFECTIVE mode is `corpus` and the "
+        "bundle records it rather than leaving it implicit - a default nobody "
+        "wrote down is a setting the run cannot be held to. It is asserted on "
+        "the BUNDLE because that is now its only home.")
     assert "capability_retained_at_end" in record["summary"]
     assert record["summary"]["no_result_may_be_quoted_from_this_run"]
     # The campaign record carries NO attack text and no C6 key.

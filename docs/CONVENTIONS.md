@@ -11,7 +11,68 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 19` · last changed 2026-08-23
+`SPINE_VERSION: 20` · last changed 2026-08-23
+
+> **SPINE_VERSION 20 — ruling 51, 2026-08-23. THE RUN OF RECORD NOW DECLARES WHICH POPULATION IT
+> ATTACKED. `attack_mode` is a REQUIRED C6 root field and `episodes[]` carry per-round
+> provenance. Eric's ruling: fire the contract change and take the hash move.**
+>
+> **WHAT MOVED, STATED PRECISELY, BECAUSE "THE SEVENTH HASH MOVE" IS THE WRONG NAME FOR IT AND
+> THE COORDINATOR USED THAT NAME FOR A DAY.** One contract file changed —
+> `contracts/evidence_bundle.schema.json` — which moves the C6 entry inside
+> `contracts/MANIFEST.json` (`5375e450…` → `39d87896…`, 48698 → 51321 bytes) and nothing else.
+> **NONE OF THE SIX HASH-LOCKS MOVED.** `gate_rule`, `target_agent`, `manifest`,
+> `objective_set`, `corpus` and `derived_schema` are byte-identical, no freeze script ran, and
+> `docs/proof/` is untouched. `contract-check.py` pass 1 is the only thing in the tree that
+> pinned the old C6 value. The six moves of 2026-08-22/23 were lock-field moves and cost a
+> re-freeze each; this one costs a regenerated manifest. **Calling them the same kind of event
+> priced this change at several times what it was, and that mispricing is why it sat open
+> overnight behind a ruling.**
+>
+> **REQUIREMENT 1 — `attack_mode` IS REQUIRED, AND "UNREADABLE" MEANS REJECTED.** The three
+> modes are `corpus`, `generated` and `hybrid` (ruling for the selector itself: 2026-08-23,
+> `crucible/red/red.py::ATTACK_MODES`). The field is at the C6 root, in `required`, enum-bounded,
+> and the offline reader refuses a bundle without it. **It is not recomputable from the rows and
+> that is the whole argument for storing it:** a `generated` run whose governor refused, or whose
+> model returned something unparseable, emits `variation: "fallback"` and every `attacks[]` row
+> renders `training_corpus` — so inferring the mode from the provenance column is wrong EXACTLY
+> when the run degraded, which is when a reader most needs it.
+>
+> **REQUIREMENT 2 — `episodes[].provenance`, WHICH IS THE PER-ROUND SPLIT THE CATALOGUE
+> STRUCTURALLY CANNOT CARRY.** `attacks[]` is deduped by `attack_id` and a generated variant
+> supersedes a verbatim replay of the same id, so an instance drawn in two rounds and attacked
+> BOTH ways collapses to one row — measured on a real two-round hybrid at **12 attempts, 11
+> catalogue rows**. An episode is one attack in ONE round, so the split can only live there. The
+> value comes from the SAME `_attack_provenance` call the catalogue and the clause-coverage table
+> use, so the three instruments cannot disagree. **Optional and ABSENT rather than guessed:** a
+> verdict whose attack is not in its own round's list is unattributed, and folding it into either
+> arm would move a published rate.
+>
+> **THE MODE LEFT THE CAMPAIGN RECORD IN THE SAME CHANGE, AND THE EXISTING TEST IS WHAT FORCED
+> IT.** `test_both_files_are_written_and_neither_states_a_measurement_twice` fired on the key
+> overlap. The resolution was to DELETE the copy, not to exempt the key: **the bundle is the run
+> of record, and a fact C6 can hold lives in C6 alone.** The campaign record keeps only what C6
+> has no field for. That assertion has now caught this class twice in two days — it also stopped
+> a `by_provenance` rate breakout being stored beside the bundle that already carried the rows to
+> recompute it.
+>
+> **NO SPECULATIVE ENUM VALUE WAS ADDED, AND THAT IS A DECISION RATHER THAN AN OVERSIGHT.**
+> `discovery` is NOT in `attack_mode` and `red_authored` is NOT in either `provenance` enum.
+> Nothing in this tree authors an attack: `vary()` preserves the seed's `attack_id` and
+> `family_id` and rewrites only the `instruction`, under a prompt that says *pursue the SAME
+> objective by the SAME sequence of actions.* **A contract that admits a value no code path can
+> emit is a contract making a claim the implementation cannot back**, and on a judged submission
+> it reads as a shipped capability. When discovery ships it moves the C6 hash again, together
+> with its own values, and that second move is correct because discovery genuinely changes what a
+> bundle means. The design is `docs/design/red-discovery-capability.md`; **it is a design and
+> nothing implements it.**
+>
+> **WHAT IT INVALIDATES: the two live bundles of 2026-08-23 are now REJECTED by the offline
+> reader** — `E_SCHEMA at $: 'attack_mode' is a required property`, verified on both. **That is
+> the requirement working, not a casualty of it.** Neither was quotable before this ruling: run 1
+> halted with the benign floor at 16/26 and the gate never reached, and run 2's own reader
+> rejected it on the pooled exclusion ceiling. **No published figure changes, because there were
+> none.** They stay in `evidence/` as the record of two runs that happened.
 
 > **SPINE_VERSION 19 — ruling 50, 2026-08-23. CORRECTED THE SAME DAY, BEFORE ANY NUMBER WAS
 > PUBLISHED. THE CORPUS CLAIM WAS TRUE ALL ALONG. The coordinator diagnosed a RENDER as a fact

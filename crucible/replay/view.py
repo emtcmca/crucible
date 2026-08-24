@@ -43,6 +43,7 @@ import io
 import json
 import pathlib
 import sys
+import textwrap
 
 from .bundle import read_bundle
 # CONVENTIONS section 4, as amended by ruling 43: the benign denominator is fixed
@@ -76,6 +77,21 @@ LOCK_NOTES = (
     ("corpus_hash", "D5", "fifth lock, first half"),
     ("derived_schema_hash", "D5", "second half, gated on label-blindness"),
 )
+
+
+
+# WHAT EACH MODE MEANS TO A READER, AND WHAT IT DOES NOT PROMISE. These read
+# beside the number, because "attack mode: generated" on its own invites exactly
+# the reading the build must not make - that something here authored an attack.
+ATTACK_MODE_NOTES = {
+    "corpus": ("every seed replayed VERBATIM; the attack set is fixed by "
+               "corpus_hash. Fixes the INPUTS, not the target's responses."),
+    "generated": ("every seed's final turn REWRITTEN by the RED_STRATEGIST. "
+                  "A surface-form rewrite of a frozen instance - NOT discovery: "
+                  "the objective and the action sequence are the corpus's."),
+    "hybrid": ("both arms in one run. NEVER POOL THE RATES - see "
+               "episodes[].provenance for the per-round split."),
+}
 
 
 def _out():
@@ -224,6 +240,18 @@ def render(bundle, report, source="<bundle>", episode_id=None):
     add("  target model     %s   thinking_level=%s   modified_by_crucible=%s"
         % (target.get("model_id"), target.get("thinking_level"),
            json.dumps(target.get("modified_by_crucible"))))
+    # THE ATTACK POPULATION, ON THE SURFACE A JUDGE READS FIRST. Required by C6
+    # since ruling 51. Rendered with its bound attached rather than as a bare
+    # word: `corpus` is the only mode comparable across runs, and even there it
+    # fixes the ATTACK SET and not the target's sampled responses.
+    mode = bundle.get("attack_mode")
+    add("  attack mode      %s" % mode)
+    # WRAPPED, NOT TRUNCATED. `WIDTH` is 96 and the notes are two sentences; a
+    # note clipped at the page edge would drop the BOUND and keep the boast,
+    # which is the wrong half to lose.
+    for line in textwrap.wrap(ATTACK_MODE_NOTES.get(mode, ""),
+                              width=WIDTH - HEADER_COL):
+        add("%s%s" % (" " * HEADER_COL, line))
     add("")
 
     # DERIVED, NOT SPELLED OUT. This heading read "five, across six fields" and

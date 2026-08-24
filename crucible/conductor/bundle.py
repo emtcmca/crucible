@@ -499,6 +499,17 @@ def _episodes(rounds, *, live):
     out = []
     provenance = _model_provenance(live)
     for record in rounds:
+        # THE PER-ROUND ARM, WHICH THE CATALOGUE STRUCTURALLY CANNOT CARRY.
+        # `_attacks` is keyed by `attack_id` and a generated variant supersedes
+        # a verbatim replay of the same id, so an instance `select()` drew in
+        # two rounds and attacked BOTH ways is ONE row there. Measured on a real
+        # two-round hybrid: 12 attempts, 11 rows. An episode is one attack in
+        # ONE round, so this is the only place the split can live.
+        #
+        # Built per record, from THIS round's attack list only. Joining to a
+        # catalogue built across rounds is the defect, not the fix.
+        arm = {a.get("attack_id"): _attack_provenance(a)
+               for a in record.attacks if a.get("attack_id")}
         for verdict in record.verdicts:
             episode = verdict.get("_episode") or {}
             frozen = dict(episode.get("episode_frozen_context") or {})
@@ -524,6 +535,15 @@ def _episodes(rounds, *, live):
                 "model_provenance": dict(provenance),
                 "verdict": _verdict_c9(verdict),
             }
+            # ABSENT RATHER THAN GUESSED. A verdict whose attack is not in its
+            # own round's list is UNATTRIBUTED - `provenance_breakout` keeps a
+            # column for exactly that - and folding it into either arm would
+            # move a published rate. Omitting the key says "this bundle does not
+            # know", which is the true statement; `training_corpus` would be a
+            # false one, and it would be false in the direction that flatters
+            # the run.
+            if row["attack_id"] in arm:
+                row["provenance"] = arm[row["attack_id"]]
             out.append(row)
     return out
 
@@ -1589,10 +1609,33 @@ def _labels(*, bundle, live, locks, gate_summary, rounds):
 # The assembly
 # ===========================================================================
 
+def attack_mode_or_raise(mode):
+    """REFUSE an unrecognised mode; never default one.
+
+    Same doctrine as `RedStrategist.__init__`, and it is here as well because
+    the bundle is the RUN OF RECORD: the strategist's refusal protects the run,
+    this one protects the claim made about it afterwards. A bundle stamped with
+    a mode nobody declared is a bundle asserting a population it did not test.
+
+    The enum is READ FROM `crucible.red.ATTACK_MODES` rather than restated, so
+    the contract, the strategist and this guard cannot drift apart - and
+    `test_the_attack_mode_enum_admits_exactly_the_modes_that_exist` holds the
+    C6 schema to the same list.
+    """
+    from crucible.red import ATTACK_MODES
+    if mode not in ATTACK_MODES:
+        raise ValueError(
+            "attack_mode %r is not one of %s. There is no default here: a run "
+            "of record that cannot say which population it attacked is a run "
+            "whose numbers mean nothing across runs."
+            % (mode, list(ATTACK_MODES)))
+    return mode
+
+
 def build_bundle(result, *, run_id, created_at, locks, objective_set,
                  seed_policy, live, gate_summary, recorders,
-                 wall_clock_ms, red_seed, target_source=TARGET_SOURCE,
-                 corpus_instances=None):
+                 wall_clock_ms, red_seed, attack_mode,
+                 target_source=TARGET_SOURCE, corpus_instances=None):
     """A C6-conformant evidence bundle from one campaign run.
 
     `result` is a `CampaignResult`, or `None` when the gate raised
@@ -1611,6 +1654,13 @@ def build_bundle(result, *, run_id, created_at, locks, objective_set,
 
     bundle = {
         "bundle_version": BUNDLE_VERSION,
+        # REQUIRED BY C6 SINCE RULING 51, AND NOT RECOMPUTABLE FROM THE ROWS.
+        # A `generated` run whose governor refused, or whose model returned
+        # something unparseable, emits `variation: "fallback"` and every
+        # `attacks[]` row renders `training_corpus` - so inferring the mode from
+        # the provenance column is wrong EXACTLY when the run degraded, which is
+        # when a reader most needs to know what was attempted.
+        "attack_mode": attack_mode_or_raise(attack_mode),
         "run_manifest": {
             "run_id": run_id,
             "spine_version": spine_version(),
