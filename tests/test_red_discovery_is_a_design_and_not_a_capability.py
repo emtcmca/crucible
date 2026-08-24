@@ -74,6 +74,37 @@ def test_the_draft_omits_every_field_the_author_is_forbidden_to_write():
             "one." % forbidden)
 
 
+def test_the_capability_class_enum_matches_the_manifest_module():
+    """WRITTEN AFTER THE DRAFT SHIPPED WITH FOUR INVENTED CLASS NAMES.
+
+    On 2026-08-24 this file's enum read `CAP_MUTATES_RECORD`,
+    `CAP_SENDS_EXTERNAL`, `CAP_READS_SENSITIVE` and `CAP_CLOSES_CASE` - none of
+    which exist - and omitted `CAP_INVOKES_AGENT`, which does. Four of six
+    wrong, committed and pushed.
+
+    The file's own `$comment` had already named the hazard: the values were
+    "restated here ONLY because this file is not yet wired to
+    `crucible.manifest.load.CAPABILITY_CLASSES`". **Naming a drift site is not
+    guarding it.** Nothing compared the two lists, so the restatement was free
+    to be wrong from the moment it was typed, and it was.
+
+    What caught it was not a test. It was a live run: the round-1 patch the
+    benign floor rejected named `CAP_MUTATES_DURABLE_STATE` and
+    `CAP_INVOKES_AGENT` in its own failure text, and neither string appeared in
+    this schema. A restated enum with no check is the same defect as a count
+    taken on the wrong ref.
+    """
+    from crucible.manifest.load import CAPABILITY_CLASSES
+
+    enum = json.loads(DRAFT.read_text(encoding="utf-8"))[
+        "properties"]["target_capability_class"]["enum"]
+    assert set(enum) == set(CAPABILITY_CLASSES), (
+        "the draft's capability classes and the manifest module disagree. "
+        "draft-only: %s | module-only: %s"
+        % (sorted(set(enum) - set(CAPABILITY_CLASSES)),
+           sorted(set(CAPABILITY_CLASSES) - set(enum))))
+
+
 def test_the_draft_requires_the_world_and_not_only_the_payload():
     """THE CENTRAL DESIGN CLAIM, pinned so a later simplification cannot quietly
     reduce this back to `architecture-spec` 1.1's payload-only `AttackSpec`.
