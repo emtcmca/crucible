@@ -159,51 +159,43 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-23 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-24 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
 **READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
 
-`main` green BY EXIT CODE: pytest 0, contract-check 0, tripwire selftest 0,
-`crucible.coverage` 0, **1843 collected**. Rulings 1-51, SPINE_VERSION **20**.
+`main` green: pytest **1895 passed, 1 skipped**, contract-check 0, tripwire selftest 0,
+`crucible.coverage` 0 (**11 of 11 clauses, 0 DARK**). Rulings 1-53, SPINE **22**.
 **NO HASH VALUE IN THIS BLOCK - ruling 46. Read each off `docs/proof/`.**
 
-**THE FIRST TWO LIVE RUNS HAPPENED. NEITHER IS QUOTABLE AND BOTH ARE EVIDENCE.**
-Run 1 halted: benign floor 5/26 then 16/26, **the gate was never reached.** Run 2
-converged with **0 breaches in 30 scorable** and its own reader REJECTED it on the
-pooled exclusion ceiling. **Nothing has been PROMOTED**; `GcsBlobIO` has never
-executed.
+**A TEN-RUN LIVE BATCH MAY STILL BE IN FLIGHT** -> `evidence/batch-2026-08-24/`.
+It executes out of the PRIMARY tree: **do not edit here or merge to `main` while
+`run-10.exitcode` is missing.** Pre-registration and its four predictions:
+`docs/design/batch-2026-08-24-preregistration.md`. **Unmerged work waits in the
+worktree `C:\dev\crucible-wt-DEPLOY`.**
 
-**RULING 51 LANDED. THE NEXT LIVE RUN IS UNBLOCKED and takes an explicit
-`--attack-mode`.** `attack_mode` is a REQUIRED C6 root field and `episodes[]`
-carry per-round provenance. **ONE contract file moved (C6); NONE of the six
-hash-locks did, no freeze ran, `docs/proof/` untouched.** The coordinator had
-called this "the seventh hash move" - that is the name for a LOCK-FIELD move and
-it priced the change at several times what it cost. **Both live bundles of
-08-23 are now REJECTED by the reader; that is the requirement working.**
-
-**RED discovery is a DESIGN and the tree proves it is not shipped**
-(`docs/design/red-discovery-capability.md`, guarded by
-`tests/test_red_discovery_is_a_design_and_not_a_capability.py`). No `discovery`
-in `ATTACK_MODES`, no `red_authored` in either provenance enum, no authoring
-path in `red.py`. **Nothing in this tree authors an attack.**
+**CLOUD RUN IS DEPLOYED AND CURRENT** - revision `crucible-00004-gfk`, 100% traffic,
+`/list-apps` -> `["refund_agent"]` HTTP 200. **PC3 Trace Explorer and PC4 console
+captures are OWED, and are Eric's**, for revision 00004. **Nothing has EVER been
+PROMOTED**; `GcsBlobIO` has never executed.
 
 **Watch out for**
 - **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT** - and it includes CLAIMS.
-  **A render that omitted a field produced a spine ruling (50), corrected same day.**
-  **Diagnose from source. Verify a lane's correction too.**
-- **EXIT CODES LIE.** `cmd | tee` returns tee's status; the background wrapper
-  reported exit 0 for a run that raised, twice. **Assert the ARTIFACT.**
-- **A GREP THAT FINDS NOTHING IS NOT A PROOF** - the `separates_pair` check tests
-  a VALUE, not a name, and two documents called it unenforced.
-- **`scripts/hash-contracts.py --help` WRITES THE MANIFEST.**
-- **Live needs `GOOGLE_GENAI_USE_VERTEXAI=1` and `GOOGLE_CLOUD_PROJECT`.** The
-  first changes ADK tool declarations while `target_agent_hash` stays identical.
-- **`provenance: generated` describes the TEXT, not the origin.** The corpus feeds
-  both modes; `generated` is NOT discovery.
+  **DIAGNOSE FROM SOURCE, NEVER FROM A RENDER. Verify a lane's correction too.**
+- **EXIT CODES LIE - FOUR INSTANCES.** A background task notified "exit code 0"
+  while the real exit was 1 and no artifact existed. **ASSERT THE ARTIFACT.**
 - **"HASH MOVE" NAMES TWO DIFFERENT EVENTS.** A LOCK-FIELD move costs a re-freeze
   plus a `docs/proof/` record; a CONTRACT-FILE move costs `hash-contracts.py`.
   **Grep the value before pricing the work.**
-- `pathlib.glob` on a missing dir returns empty; `grep -c` exits 1 on zero;
-  backticks in `git commit -m` get substituted; **ONE pytest at a time**;
-  merging from inside a lane worktree prints "Already up to date".
+- **STALE ROWS NEARLY REACHED A JUDGE.** `docs/diagrams/architecture.md` asserts
+  "Cloud Run NOT DEPLOYED" and "no cartographer module exists". **Both FALSE.**
+  Do not upload that diagram until it is corrected, and **do not let Mermaid look
+  stock** - use the palette in `docs/devpost/crucible-explainer.html`.
+- **`bq` is BROKEN here** (`python3.14: command not found`) - BigQuery state is
+  UNVERIFIED, not absent.
+- **Do NOT "improve" the Warden's rejection feedback.** It works; the ARMORER
+  followed it precisely. The defect was upstream - it held a pointer into the
+  Objective Set it could not dereference.
+- **A heredoc collapses `\` to `\`** -> invalid JSON. Forward slashes in Windows
+  paths inside JSON. `hash-contracts.py --help` WRITES THE MANIFEST. Backticks in
+  `git commit -m` get substituted; use `-F`. **ONE pytest at a time.**
 <!-- VAULT:SESSION-STATE end -->
