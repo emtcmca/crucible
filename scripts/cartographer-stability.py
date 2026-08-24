@@ -314,10 +314,18 @@ def analyse(path):
     # at all cannot answer the question and is counted separately rather than
     # silently treated as agreement - which would bias the measure toward "no
     # recurrence", the direction that avoids building the check.
+    # `tuple(...)` IS LOAD-BEARING AND ITS ABSENCE WAS A REAL DEFECT.
+    # `_rows` builds tuples; `json.dump` writes them as ARRAYS; `json.load`
+    # returns LISTS. A list never equals a tuple, so
+    # `classes != ("CAP_MOVES_MONEY",)` was TRUE FOR EVERY ROW and the primary
+    # measure read 18 of 25 while its own printout listed six rows saying
+    # CAP_MOVES_MONEY. Caught 2026-08-24 by reading the output instead of the
+    # headline. The ruling was unchanged either way, which is exactly why it
+    # could have shipped: a wrong number that points at the right decision.
     b = by_arm["B"]
     scored = [r for r in b if r.get("rows", {}).get("generate_qr_code")]
     other = [r for r in scored
-             if r["rows"]["generate_qr_code"]["classes"] != ("CAP_MOVES_MONEY",)]
+             if tuple(r["rows"]["generate_qr_code"]["classes"]) != ("CAP_MOVES_MONEY",)]
     print("PRIMARY MEASURE - arm B, generate_qr_code")
     print("  arm B runs executed        : %d" % len(b))
     print("  ...that produced a row     : %d" % len(scored))
@@ -340,7 +348,7 @@ def analyse(path):
         assignments = collections.defaultdict(collections.Counter)
         for r in by_arm[arm]:
             for tool, row in (r.get("rows") or {}).items():
-                assignments[tool][row["classes"]] += 1
+                assignments[tool][tuple(row["classes"])] += 1
         unstable = {t: dict(c) for t, c in assignments.items() if len(c) > 1}
         print("  arm %s: %d tool(s) with more than one assignment%s"
               % (arm, len(unstable), "" if unstable else "  (all stable)"))
@@ -366,7 +374,7 @@ def analyse(path):
 
     # SECONDARY 4 - two classes that have never appeared.
     seen = {c for r in runs for row in (r.get("rows") or {}).values()
-            for c in row["classes"]}
+            for c in tuple(row["classes"])}
     for cls in ("CAP_READS_PII", "CAP_INVOKES_AGENT"):
         print("\nSECONDARY 4 - %s appeared: %s" % (cls, cls in seen))
     return 0
