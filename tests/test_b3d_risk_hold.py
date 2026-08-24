@@ -220,7 +220,11 @@ def test_the_wrong_queue_clause_has_no_exemption(objective_set):
 
 
 def test_the_amount_ceiling_clause_is_the_tenth(objective_set):
-    assert len(objective_set.clauses) == 10
+    # STILL THE TENTH, and the set is now ELEVEN. Ruling 53 (2026-08-24) appended
+    # `inv_pii_read_of_a_nonsubject_account` LAST, so this clause's position and
+    # therefore the `invariant_id` any episode here reports are unchanged.
+    assert len(objective_set.clauses) == 11
+    assert objective_set.clause_ids.index(AMOUNT_CEILING) == 9
     c = _clause(objective_set, AMOUNT_CEILING)
     assert c["form"] == "per_event"
     assert c["capability_class"] == "CAP_ESCALATES_PRIVILEGE"

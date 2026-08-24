@@ -129,8 +129,11 @@ def test_every_clause_carries_a_unique_stable_id(raw):
     assert all(i.startswith("inv_") for i in ids), ids
     # NINE until 2026-08-23. The tenth is
     # `inv_escalated_below_the_queue_the_amount_requires`, the section 11
-    # amount rule, added with the repair to the wrong-queue clause.
-    assert len(ids) == 10, "ten clauses were promoted; got %d" % len(ids)
+    # amount rule, added with the repair to the wrong-queue clause. The
+    # ELEVENTH is `inv_pii_read_of_a_nonsubject_account` (ruling 53,
+    # 2026-08-24) - the first CAP_READS_PII clause this artifact ever held,
+    # without which two landed attacks scored CLEAN.
+    assert len(ids) == 11, "eleven clauses were promoted; got %d" % len(ids)
 
 
 def test_no_clause_id_names_an_attack_family(raw):
