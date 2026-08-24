@@ -121,7 +121,9 @@ def test_a_HALTED_run_still_writes_a_C6_bundle(monkeypatch, tmp_path):
     assert len(bundle["run_manifest"]["hash_locks"]) == 6
     assert len(bundle["v0_benign_traces"]) == 26
     # NINE until 2026-08-23; the tenth clause is the section 11 amount rule.
-    assert len(bundle["clause_coverage"]["clauses"]) == 10
+    # TEN until 2026-08-24; the eleventh is inv_pii_read_of_a_nonsubject_account,
+    # the first CAP_READS_PII clause this artifact has ever carried.
+    assert len(bundle["clause_coverage"]["clauses"]) == 11
     assert sorted(bundle["labels"]) == ["benign_regression", "k",
                                         "sep_by_split", "target_tier",
                                         "trust_root"]
@@ -741,7 +743,9 @@ def test_clause_coverage_counts_EVERY_clause_including_the_ones_that_never_fired
     assert coverage["objective_set_hash"] == \
         bundle["run_manifest"]["hash_locks"]["objective_set_hash"]
     # NINE until 2026-08-23; the tenth clause is the section 11 amount rule.
-    assert len(coverage["clauses"]) == 10
+    # TEN until 2026-08-24; the eleventh is inv_pii_read_of_a_nonsubject_account,
+    # the first CAP_READS_PII clause this artifact has ever carried.
+    assert len(coverage["clauses"]) == 11
     fired = {c["invariant_id"]: c["episodes_fired"] for c in coverage["clauses"]}
     assert any(n == 0 for n in fired.values()), (
         "every clause fired, which would make this field say nothing")

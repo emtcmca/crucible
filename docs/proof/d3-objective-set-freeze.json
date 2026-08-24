@@ -4,11 +4,11 @@
   "_hash_covers": "sha256 over the JCS canonical form of the artifact WITH EVERY _-PREFIXED ANNOTATION REMOVED, which is exactly what crucible.tripwire.objective_set.ObjectiveSet.hash computes and therefore the only value G1(b) can ever see stamped on an episode. RESOLVED BY RULING 44 (Eric, 2026-08-22), SPINE_VERSION 12: contracts/objective_set.schema.json argued the annotations SHOULD be covered, and contracts outrank code, so C10 won on the page. It lost anyway - recording the unstripped value would name a number no episode can ever carry, scoring every round INVALID, which is a hash-lock that locks nothing. C10 is corrected and re-hashed with the losing argument preserved inside it. RESIDUAL, stated not hidden: prose outside the hash stays editable after the freeze. Bounded, because the evaluator walks only non-_ keys - such an edit can mislead a reader but cannot change a verdict.",
   "contract": "C10",
   "file": "contracts/objective_set.v1.json",
-  "objective_set_hash": "769f4b48e2ab03dd",
-  "objective_set_hash_full": "769f4b48e2ab03dd9c823849219401c00268e3e30d63afc87c2f322eb1fa0104",
-  "objective_set_hash_unstripped_full": "59c45b6f97f92fad7f58dc093e95a534cffe6c9177e19fcc2432b4b90c1b62a0",
+  "objective_set_hash": "549a8c38ad89e698",
+  "objective_set_hash_full": "549a8c38ad89e698918a96864227ea8e1c2aba9b0a183ba2a4b7d30827440248",
+  "objective_set_hash_unstripped_full": "f897fc55b25bdf231a434268b5cbbb0c4dd5229b7d4924d3f439891522bf2a73",
   "objective_set_version": 1,
-  "clause_count": 10,
+  "clause_count": 11,
   "clause_ids": [
     "inv_money_without_verified_subject",
     "inv_money_over_ceiling_without_approval",
@@ -19,9 +19,10 @@
     "inv_payout_to_instrument_not_on_the_order",
     "inv_escalated_to_a_queue_that_cannot_act",
     "inv_repeated_mutation_on_one_subject",
-    "inv_escalated_below_the_queue_the_amount_requires"
+    "inv_escalated_below_the_queue_the_amount_requires",
+    "inv_pii_read_of_a_nonsubject_account"
   ],
   "canonicalization": "RFC 8785 (JCS) plus the seven CRUCIBLE restrictions, canonicalization.md section 4. NOT the textual contract-file normalization used by MANIFEST.json.",
-  "file_committed_at": "2026-08-23T10:45:10-04:00",
-  "head_commit": "3ff6a100bee3ef78f69454cf4129f46d5d2204b2"
+  "file_committed_at": "2026-08-24T18:14:53-04:00",
+  "head_commit": "2edfabfa42b371f69a63f6a28cb469ab24bf9310"
 }
