@@ -159,54 +159,37 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-23 (Day 4 of 11) · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-23 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
 **READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
 
-`main` verified BY EXIT CODE: pytest 0, contract-check 0, tripwire selftest 0,
-`crucible.coverage` 0, **1812 collected**. Rulings **1-49**, SPINE_VERSION **18**.
-**NO HASH VALUE APPEARS IN THIS BLOCK - ruling 46. Read a lock off its own record
-in `docs/proof/`.**
+`main` green BY EXIT CODE: pytest 0, contract-check 0, tripwire selftest 0,
+`crucible.coverage` 0, **1826 collected**. Rulings 1-50, SPINE_VERSION **19**.
+**NO HASH VALUE IN THIS BLOCK - ruling 46. Read each off `docs/proof/`.**
 
-**THE LIVE RUN IS UNBLOCKED. Every NEEDS-ERIC item that gated it is closed.**
-Ruling 48 repointed two Objective Set clauses that named arguments no tool emits.
-Ruling 49 fixed an oracle that scored CORRECT CONDUCT as a breach: five verdicts
-moved, four of them false positives removed, one real attack lost and priced.
-`objective_set_hash`, `derived_schema_hash` and C3 all moved; both prior freeze
-records are ARCHIVED, not deleted. **Nothing has been PROMOTED**, so there is
-still no transfer number and `GcsBlobIO` has never executed.
+**THE FIRST TWO LIVE RUNS HAPPENED. NEITHER IS QUOTABLE AND BOTH ARE EVIDENCE.**
+Run 1 halted: benign floor 5/26 then 16/26, **the gate was never reached.** Run 2
+converged with **0 breaches in 30 scorable** and its own reader REJECTED it on the
+pooled exclusion ceiling. **Nothing has been PROMOTED**; `GcsBlobIO` has never
+executed.
 
-**Open threads**
-- **THE LIVE RUN.** Checklist `docs/ops/dry-run-preflight.md`. Eric picks
-  `--usd-cap`; `--holdout-expected 0`. **Then promote on SEPARATE DAYS before
-  08-31** - a policy accumulating day 1 to day 5 is the honest answer to the
-  track's asynchronous-operations language, and it is FALSE until something is
-  promoted.
-- **50 pre-registered Cartographer runs AFTER the live run**
-  (`docs/design/cartographer-stability-preregistration.md`, committed before any
-  call). 25 same-seed, 25 different-seed. **Decision rule is fixed; do not edit
-  the pre-reg.** Then the Gemma sheet is signed ONCE. Row 12 is wrong
-  (`generate_qr_code` INERT while declaring a float discount) and row 5 cannot
-  load as proposed.
-- **T2-8 runtime visuals**, scoped in `docs/design/`, blocked behind the run by
-  Eric's sequencing. ONE EVENT STREAM, TWO RENDERERS; emitter is an injected
-  no-op-default sink.
-- Owed: Devpost update 5 (drafted, states no hash on purpose), story canvas
-  appends (written, GitHub-linked), submission write-up, the demo video.
+**AWAITING ERIC:** take a 7th hash move so `attack_mode` is a required C6 field
+(same change fixes hybrid per-round provenance), or fire in `corpus` mode now.
 
 **Watch out for**
-- **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT.** Today: a strawman that had
-  become verdict-identical to another on 18 of 18 traces while the self-test
-  still called it caught. 21 pairwise guards now, falsified before trusting.
-- **ARTIFACTS WRITTEN IN A PRIVATE LANGUAGE AGREE WITH EACH OTHER AND NEVER MEET
-  THE TARGET.** Four so far: the clauses, the calibration fixtures,
-  `policy_v_final.json`, and the golden traces' TOOL names and handles.
-- **A GREP THAT FINDS NOTHING IS NOT A PROOF.** `separates_pair` was called
-  unenforced by two documents; the check tests a VALUE, not a name.
+- **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT** - and it includes CLAIMS.
+  **A render that omitted a field produced a spine ruling (50), corrected same day.**
+  **Diagnose from source. Verify a lane's correction too.**
+- **EXIT CODES LIE.** `cmd | tee` returns tee's status; the background wrapper
+  reported exit 0 for a run that raised, twice. **Assert the ARTIFACT.**
+- **A GREP THAT FINDS NOTHING IS NOT A PROOF** - the `separates_pair` check tests
+  a VALUE, not a name, and two documents called it unenforced.
 - **`scripts/hash-contracts.py --help` WRITES THE MANIFEST.**
-- **`pathlib.glob` on a MISSING directory returns empty rather than raising.**
-- **`grep -c` returns exit 1 on a zero count.** Use a real tool's exit code.
-- Backticks in `git commit -m` get command-substituted; use `-F`.
-- **ONE pytest at a time**; `git add <dir>` is as bad as `-A`.
-- **Merging from inside a lane worktree prints "Already up to date".**
+- **Live needs `GOOGLE_GENAI_USE_VERTEXAI=1` and `GOOGLE_CLOUD_PROJECT`.** The
+  first changes ADK tool declarations while `target_agent_hash` stays identical.
+- **`provenance: generated` describes the TEXT, not the origin.** The corpus feeds
+  both modes; `generated` is NOT discovery.
+- `pathlib.glob` on a missing dir returns empty; `grep -c` exits 1 on zero;
+  backticks in `git commit -m` get substituted; **ONE pytest at a time**;
+  merging from inside a lane worktree prints "Already up to date".
 <!-- VAULT:SESSION-STATE end -->
