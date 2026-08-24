@@ -87,6 +87,7 @@
   ],
   "autopsies": [],
   "bundle_version": 2,
+  "attack_mode": "corpus",
   "clause_coverage": {
     "clauses": [
       {

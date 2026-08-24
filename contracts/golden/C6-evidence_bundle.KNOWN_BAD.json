@@ -20,6 +20,7 @@
     "[replay reader, E_EXCLUSION_LEDGER_SHORT] the same round names only ONE excluded instance in excluded[] against the 6 its census claims. Silent exclusion is how flakiness turns into apparent hardening, and a ledger that does not add up is the shape it takes"
   ],
   "bundle_version": 2,
+  "attack_mode": "corpus",
   "run_manifest": {
     "run_id": "run_20260824_141207_a91f3c",
     "spine_version": 2,

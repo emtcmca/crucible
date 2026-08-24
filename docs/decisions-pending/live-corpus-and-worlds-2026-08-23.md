@@ -255,9 +255,21 @@ and neither is a world-resolution problem.
 
 ---
 
-## OPEN — needs a coordinator ruling, reported rather than decided
+## ~~OPEN — needs a coordinator ruling~~ **CLOSED 2026-08-23 by RULING 51.**
 
-### 9.1 Requirement 1 cannot be met without a contract change. **This is the STOP AND REPORT.**
+Eric: *"Fire the contract change and take the hash move."* Both items below
+landed together, because both wanted the same edit to the same file.
+**One contract file moved — `contracts/evidence_bundle.schema.json` — which moves
+the C6 entry in `contracts/MANIFEST.json` and NOTHING ELSE. None of the six
+hash-locks moved, no freeze script ran, `docs/proof/` is untouched.** The
+coordinator had been calling this "the seventh hash move", which is the name for
+a LOCK-FIELD move and priced this change at several times what it cost.
+
+The strike-through text below is kept verbatim. It was the correct report at the
+time and the lane was right to stop rather than take the hash itself.
+
+
+### ~~9.1 Requirement 1 cannot be met without a contract change.~~ **DONE.** `attack_mode` is a required C6 root field; the offline reader REJECTS a bundle without one (`E_SCHEMA at $`). Verified against both live bundles of 2026-08-23, which are now unreadable — the requirement working, not a casualty: neither was quotable.
 
 > "The mode is a REQUIRED field in the run manifest and in the C6 bundle… A run that
 > does not declare its mode must be unreadable."
@@ -285,7 +297,7 @@ stored value.
 **Until that lands, the mode lives in the campaign record and the offline reader still
 accepts a bundle that does not declare one.** Requirement 1 is **NOT DONE.**
 
-### 9.2 In `hybrid`, the bundle cannot report per-round provenance. Found while testing.
+### ~~9.2 In `hybrid`, the bundle cannot report per-round provenance.~~ **DONE.** `episodes[].provenance`, optional, from the SAME `_attack_provenance` call the catalogue and the coverage table use. Absent rather than guessed on an unattributed verdict.
 
 > "A reader must be able to tell, from the bundle alone, how many attacks came from each
 > source in each round."
@@ -304,7 +316,7 @@ per-round split is recoverable **only** when no id appears in both arms.
 Minimal fix, and it is the same contract change as 9.1: an optional
 `provenance` enum on `episodes[].items`. Not made here.
 
-### 9.3 The banner prints the split; only the banner does.
+### ~~9.3 The banner prints the split; only the banner does.~~ **DONE, as a consequence of 9.1 and 9.2.**
 
 Consequence of 9.1 and 9.2 together. The console transcript is currently the only
 artifact carrying the by-provenance rates in a form a reader does not have to derive.

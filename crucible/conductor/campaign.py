@@ -1091,6 +1091,10 @@ def run(argv=None):
             gate_summary=gate_summary(gate, gate_info), recorders=recorders,
             wall_clock_ms=(time.monotonic_ns() - started_ns) // 1_000_000,
             red_seed=RED_SEED,
+            # THE SAME VALUE THE STRATEGIST WAS BUILT WITH, not `args.attack_mode`
+            # - offline defaults to `corpus` and the run of record must carry the
+            # EFFECTIVE mode rather than the flag that was typed.
+            attack_mode=attack_mode,
             # SO A GENERATED ROW CAN NAME THE INSTANCE IT WAS REWRITTEN FROM.
             # Handed in rather than loaded inside `bundle.py`, which must be
             # able to write a bundle for a run whose corpus never loaded.
@@ -1156,8 +1160,7 @@ def run(argv=None):
     print("  spend        : $%.4f of $%.2f"
           % (governor.spent_usd, governor.budget.usd_cap))
 
-    _write_campaign_record(summary, result, out,
-                           attack_mode=attack_mode)
+    _write_campaign_record(summary, result, out)
     # THE RUN OF RECORD. Everything above this line was already being written;
     # NONE of it is C6, and until 2026-08-22 nothing else was either.
     errors, _path = write_bundle(_c6(result), c6_path(out))
@@ -1301,8 +1304,7 @@ def _report_gate_stop(kind, exc, gate, gate_info, preamble, args, out, locks,
           % (governor.spent_usd, governor.budget.usd_cap))
 
     _write_campaign_record(summary, None, out, hashes=dict(locks.values),
-                           final_policy=None, attack_mode=args.attack_mode
-                           or ("corpus" if not args.live else None))
+                           final_policy=None)
     # `result=None`: the loop never returned one, so the bundle carries the
     # run's frame and no episodes. It is still validated at write time - a
     # voided run's bundle has to be readable, or the void itself is unreadable.
@@ -1349,37 +1351,33 @@ def c6_path(out):
     return os.path.splitext(out)[0] + ".c6.json"
 
 
-def _write_campaign_record(summary, result, out, hashes=None, final_policy=None,
-                          attack_mode=None):
-    """`attack_mode` IS RECORDED, INCLUDING WHEN IT IS THE OFFLINE DEFAULT.
-    THE PER-PROVENANCE RATES ARE NOT, AND THE DIFFERENCE IS THE WHOLE RULE.
+def _write_campaign_record(summary, result, out, hashes=None,
+                           final_policy=None):
+    """THE MODE IS NOT HERE ANY MORE, AND THAT IS RULING 51 LANDING.
 
-    A rate is a MEASUREMENT and C6 already carries everything needed to compute
-    the split - `attacks[].provenance` on every row, `episodes[].attack_id`
-    joining to it. Writing the breakout here as well would be a second copy of a
-    measurement, which is the defect
-    `test_both_files_are_written_and_neither_states_a_measurement_twice` exists
-    to catch, and it caught this. The banner PRINTS the breakout, because a
-    printed view derived at run time is not a stored second source of truth.
+    It sat here for exactly one day, because the C6 root was
+    `additionalProperties: false` with a fixed `required` array and the lane that
+    found the gap was forbidden to move a contract hash. That made this file the
+    only artifact naming the attack population, which is the wrong home: the
+    campaign record is the things C6 has NO FIELD FOR - `capability_retained`,
+    the hash-lock provenance map, the disclaimer. **The bundle is the run of
+    record.** `attack_mode` is now a REQUIRED C6 root field and lives there
+    alone.
 
-    THE MODE IS NOT A MEASUREMENT AND IS NOT RECOMPUTABLE FROM THE BUNDLE.
-    That is why it is here and why it is not simply left to be inferred from the
-    provenance column. A `generated` run whose governor refused, or whose model
-    returned something unparseable, emits `variation: fallback` and renders as
-    `training_corpus` - so a pure generated run can read back as hybrid or even
-    as corpus. Inferring the mode from the rows would therefore be wrong exactly
-    when the run degraded, which is when a reader most needs to know.
+    `test_both_files_are_written_and_neither_states_a_measurement_twice` is what
+    forced the deletion rather than a second copy, and it has now caught this
+    same class of defect twice in two days. The first time it stopped a
+    `by_provenance` rate breakout from being written here beside the bundle that
+    already carried the rows to compute it.
 
-    THE C6 HALF OF REQUIREMENT 1 IS OPEN, NOT DONE. `run_manifest.schema.json`
-    and the C6 root are both `additionalProperties: false` with fixed `required`
-    arrays, so a REQUIRED `attack_mode` field in the bundle is a contract change
-    that moves `contracts/MANIFEST.json` - a coordinator ruling, not a lane's
-    call. Until it lands the campaign record carries the mode, and the offline
-    reader still accepts a bundle that does not declare one.
+    THE PER-PROVENANCE RATES STILL DO NOT BELONG HERE. A rate is a MEASUREMENT,
+    C6 carries `attacks[].provenance` on every row and `episodes[].provenance`
+    per round, so the split is recomputable and a stored copy is a second source
+    of truth. The banner PRINTS it; a view derived at run time is not a stored
+    second source.
     """
     with open(out, "w", encoding="utf-8") as fh:
         json.dump({"summary": summary,
-                   "attack_mode": attack_mode,
                    "hashes": (hashes if result is None
                               else dict(result.hashes)),
                    "final_policy": (final_policy if result is None
