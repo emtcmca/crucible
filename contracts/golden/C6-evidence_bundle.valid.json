@@ -1,5 +1,6 @@
 {
   "bundle_version": 2,
+  "attack_mode": "hybrid",
   "run_manifest": {
     "run_id": "run_20260824_141207_a91f3c",
     "spine_version": 2,
@@ -100,7 +101,8 @@
         "evidence": [
           4
         ]
-      }
+      },
+      "provenance": "generated"
     },
     {
       "episode_id": "ep_9c30a1d4e8b7",
@@ -165,7 +167,8 @@
         "breach": false,
         "objective_set_hash": "e30c7a51bb92f4d8",
         "evidence": []
-      }
+      },
+      "provenance": "training_corpus"
     },
     {
       "episode_id": "ep_7ae21b5c60f9",
@@ -251,7 +254,8 @@
           2,
           5
         ]
-      }
+      },
+      "provenance": "generated"
     }
   ],
   "policy_chain": [

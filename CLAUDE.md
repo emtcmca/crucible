@@ -159,54 +159,51 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-23 (Day 4 of 11) · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-23 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
 **READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
 
-`main` verified BY EXIT CODE: pytest 0, contract-check 0 and its own selftest 0,
-tripwire selftest 0 (nine of nine), **1470 collected**. Rulings **1-48**,
-SPINE_VERSION **17**. **NO HASH VALUE APPEARS IN THIS BLOCK - ruling 46. Read a
-lock off its own record in `docs/proof/`.**
+`main` green BY EXIT CODE: pytest 0, contract-check 0, tripwire selftest 0,
+`crucible.coverage` 0, **1843 collected**. Rulings 1-51, SPINE_VERSION **20**.
+**NO HASH VALUE IN THIS BLOCK - ruling 46. Read each off `docs/proof/`.**
 
-**D3 IS CLEAR. THE LAST BLOCKER ON THE LIVE RUN IS GONE.** The objective set was
-re-frozen after two of its nine clauses were found naming arguments no tool
-emits; four corpus episodes flip CLEAN to BREACH, zero of 26 benign move, and
-`ObjectiveSet.__init__` now REFUSES AT LOAD any path the manifest does not
-declare. **THE CARTOGRAPHER RAN LIVE ON MANAGED GEMMA** - 12 proposals, 0
-rejected, sheet UNSIGNED. **Nothing has been PROMOTED**, so there is still no
-transfer number and `GcsBlobIO` has never executed.
+**THE FIRST TWO LIVE RUNS HAPPENED. NEITHER IS QUOTABLE AND BOTH ARE EVIDENCE.**
+Run 1 halted: benign floor 5/26 then 16/26, **the gate was never reached.** Run 2
+converged with **0 breaches in 30 scorable** and its own reader REJECTED it on the
+pooled exclusion ceiling. **Nothing has been PROMOTED**; `GcsBlobIO` has never
+executed.
 
-**Open threads**
-- **THE LIVE RUN IS UNBLOCKED.** Checklist: `docs/ops/dry-run-preflight.md`.
-- **CLAUSE COVERAGE: 8 of 9 exercised, 1 DARK** (`inv_account_identifier_left_the_boundary`,
-  reached 15x, never true). **The "2 of 9" figure carried earlier was WRONG** - it measured the
-  retired default script, not the live path. Pooling all sources reports 9/9 and HIDES the dark
-  clause. Instrument: `python -m crucible.coverage`, exit 2 on a dark clause, on
-  `lane/clause-coverage`, NOT merged - its gate is correctly red.
-- **FOUR ORDINARY BENIGN FIXTURES SCORE BREACH** (ORD-08/11/13/14, `escalate_to_human` to
-  `RETURNS_T2`). No published number is wrong today, but a live target doing the ORD-08 shape is
-  scored a breach for correct conduct. Lane investigating; **decide before the live run.**
-- **The ARMORER has never promoted.** The `require_approval` steer landed but is
-  unproven live. Degenerate opposite to watch: blanket class-level approval
-  scores 26/26 forever and the benign floor cannot flag it.
-- **`crucible/policy/engine.py` validates NOTHING on load.** V10 guards the
-  authoring path only, so a hand-written JSON policy is one no gate has vetted.
-- **Gemma sheet: no partial signature exists** (`E_UNREVIEWED_TOOL`). Four of the
-  twelve rows are `UNCLASSIFIED`, which is ALLOWED downstream - signing ratifies
-  fail-open for four tools. INERT gap is Eric's ruling.
-- Owed: Devpost update 5 (slotted draft on disk), story canvas appends with
-  GitHub-linked timestamps, submission write-up, per-agent model disclosure.
+**RULING 51 LANDED. THE NEXT LIVE RUN IS UNBLOCKED and takes an explicit
+`--attack-mode`.** `attack_mode` is a REQUIRED C6 root field and `episodes[]`
+carry per-round provenance. **ONE contract file moved (C6); NONE of the six
+hash-locks did, no freeze ran, `docs/proof/` untouched.** The coordinator had
+called this "the seventh hash move" - that is the name for a LOCK-FIELD move and
+it priced the change at several times what it cost. **Both live bundles of
+08-23 are now REJECTED by the reader; that is the requirement working.**
+
+**RED discovery is a DESIGN and the tree proves it is not shipped**
+(`docs/design/red-discovery-capability.md`, guarded by
+`tests/test_red_discovery_is_a_design_and_not_a_capability.py`). No `discovery`
+in `ATTACK_MODES`, no `red_authored` in either provenance enum, no authoring
+path in `red.py`. **Nothing in this tree authors an attack.**
 
 **Watch out for**
-- **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT.** Ask every check what change
-  it would FAIL to notice - then ask it of the checks.
-- **HAND-AUTHORED ARTIFACTS AGREE WITH EACH OTHER AND NEVER MEET THE TARGET.**
-  Three did: the clauses, the calibration fixtures, `policy_v_final.json`.
-- **`pathlib.glob` on a MISSING directory returns empty rather than raising.**
-- **A wrong identifier produces a plausible failure that AGREES WITH
-  EXPECTATIONS.** Three Gemma probes used the wrong model id and nobody
-  interrogated the 404 because it matched the prediction.
-- **`grep -c` returns exit 1 on a zero count.** Use pytest's exit code. Backticks
-  in `git commit -m` get command-substituted; use `-F`.
-- **ONE pytest at a time**; `git add <dir>` is as bad as `-A`.
+- **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT** - and it includes CLAIMS.
+  **A render that omitted a field produced a spine ruling (50), corrected same day.**
+  **Diagnose from source. Verify a lane's correction too.**
+- **EXIT CODES LIE.** `cmd | tee` returns tee's status; the background wrapper
+  reported exit 0 for a run that raised, twice. **Assert the ARTIFACT.**
+- **A GREP THAT FINDS NOTHING IS NOT A PROOF** - the `separates_pair` check tests
+  a VALUE, not a name, and two documents called it unenforced.
+- **`scripts/hash-contracts.py --help` WRITES THE MANIFEST.**
+- **Live needs `GOOGLE_GENAI_USE_VERTEXAI=1` and `GOOGLE_CLOUD_PROJECT`.** The
+  first changes ADK tool declarations while `target_agent_hash` stays identical.
+- **`provenance: generated` describes the TEXT, not the origin.** The corpus feeds
+  both modes; `generated` is NOT discovery.
+- **"HASH MOVE" NAMES TWO DIFFERENT EVENTS.** A LOCK-FIELD move costs a re-freeze
+  plus a `docs/proof/` record; a CONTRACT-FILE move costs `hash-contracts.py`.
+  **Grep the value before pricing the work.**
+- `pathlib.glob` on a missing dir returns empty; `grep -c` exits 1 on zero;
+  backticks in `git commit -m` get substituted; **ONE pytest at a time**;
+  merging from inside a lane worktree prints "Already up to date".
 <!-- VAULT:SESSION-STATE end -->

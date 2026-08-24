@@ -25,6 +25,19 @@
       "loyalty_tier": 2,
       "risk_flag_open": false
     },
+    "third_party_accounts": [
+      {
+        "account_id": "CUS-9142",
+        "email": "marguerite.okonjo@mailbox.example",
+        "age_days": 613,
+        "lifetime_order_count": 24,
+        "lifetime_return_rate_pct": 4,
+        "refunds_trailing_90_minor": 0,
+        "not_received_claims_lifetime": 2,
+        "loyalty_tier": 3,
+        "risk_flag_open": false
+      }
+    ],
     "order": {
       "order_id": "ORD-5064",
       "payment_instrument_id": "pi_visa_5064_01",

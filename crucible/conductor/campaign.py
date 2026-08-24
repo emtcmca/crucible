@@ -111,7 +111,7 @@ from ..dsl.validator import Validator, harvest_product_lexicon
 from ..governor import Budget, BudgetGovernor
 from ..ledger import Ledger
 from ..policy import ALLOW, APPROVAL_REQUIRED, DENY, evaluate
-from ..red import AttackSeed, RedStrategist
+from ..red import ATTACK_MODES, AttackSeed, RedStrategist
 from .corpus_seeds import CorpusSeeds
 from ..tripwire import RunManifest
 from .bundle import (
@@ -121,6 +121,8 @@ from .bundle import (
     RoundClock,
     build_bundle,
     g7_g8_not_exercised_because,
+    provenance_breakout,
+    provenance_breakout_lines,
     write_bundle,
 )
 from .conductor import Conductor
@@ -765,6 +767,16 @@ def run(argv=None):
     ap.add_argument("--holdout-since", default="",
                     help="RFC3339 UTC start of the G7c window. Defaults to this "
                          "run's own start instant.")
+    # THE ATTACK MODE. Eric's ruling, 2026-08-23. NO DEFAULT UNDER --live, for
+    # the same reason `--holdout-expected` has none: the run cannot invent an
+    # answer to a question about what it is measuring. `corpus` is the
+    # reproducible measurement, `generated` is the rephrasing probe, `hybrid` is
+    # both broken out by provenance. `crucible/red/red.py::ATTACK_MODES` carries
+    # what each one means and the two bounds that are easy to oversell.
+    ap.add_argument("--attack-mode", choices=list(ATTACK_MODES), default=None,
+                    help="corpus | generated | hybrid. REQUIRED with --live. "
+                         "Offline defaults to `corpus` and the default is "
+                         "RECORDED like any other choice.")
     ap.add_argument("--holdout-settle", type=float, default=45.0,
                     help="seconds to wait for Cloud Logging ingestion before "
                          "counting. MEASURED, not guessed: a probe that "
@@ -783,6 +795,34 @@ def run(argv=None):
             "UNEVALUABLE, `absent_or_unevaluable: RUN_INVALID` applies, and the "
             "run would spend the whole model budget to reach a voided result. "
             "Open question on the unit: docs/NEEDS-ERIC.md item 12.")
+
+    # SAME BLOCK, SAME SHAPE, SAME REASON. A toggle whose setting is not
+    # declared is a place for a run to lie about itself, and this project's
+    # whole subject is numbers whose labels are true.
+    if args.live and args.attack_mode is None:
+        raise SystemExit(
+            "--live requires --attack-mode {corpus|generated|hybrid}. There is "
+            "no default: `corpus` fixes the attack set at corpus_hash and is "
+            "the only mode in which two runs are comparable, `generated` "
+            "rewrites every seed and is NOT reproducible (two identical live "
+            "invocations on 2026-08-23 gave 2 breaches then 0), and a run that "
+            "does not say which it did cannot have either number quoted. "
+            "crucible/red/red.py::ATTACK_MODES.")
+
+    # OFFLINE, THE EFFECTIVE MODE IS `corpus` AND IT IS NOT NEGOTIABLE.
+    # `metered` is None without --live, so `RedStrategist.vary` takes the
+    # no-model path and replays every seed verbatim whatever was asked for.
+    # Accepting `--attack-mode generated` here would stamp a label on the
+    # bundle that the run did not earn - the exact defect this flag exists to
+    # close - so it is refused rather than silently downgraded.
+    if not args.live and args.attack_mode in ("generated", "hybrid"):
+        raise SystemExit(
+            "--attack-mode %s requires --live. Offline the RED_STRATEGIST has "
+            "no model, so every attack is the seed replayed verbatim no matter "
+            "what this flag says. Recording the run as %r would be a false "
+            "label on the run of record." % (args.attack_mode,
+                                             args.attack_mode))
+    attack_mode = args.attack_mode or "corpus"
 
     # SAME BLOCK, SAME REASON, ADDED 2026-08-22. A live run on 08-22 produced 72
     # copies of `ValueError: No API key was provided` because
@@ -887,7 +927,8 @@ def run(argv=None):
     # nothing - and it would have had to defeat
     # `tests/test_campaign_gate_wiring.py`'s `isinstance(promote, RealGate)`
     # guard, which is the check that would have caught the `lambda c, r: True`.
-    red = RoundClock(RedStrategist(metered, seed=RED_SEED, governor=governor))
+    red = RoundClock(RedStrategist(metered, seed=RED_SEED, governor=governor,
+                                   attack_mode=attack_mode))
     proposals = ProposalLog(Armorer(validator, manifest_a, derived_b,
                                     metered or _refuse, governor=governor))
     recorders = Recorders(meter=meter, proposals=proposals, gate=gate,
@@ -937,6 +978,21 @@ def run(argv=None):
              "" if env_provider() == TARGET_PROVIDER else
              " -- DISAGREES; tool declarations will not match the frozen target. "
              "Offline run, so nothing was sent."))
+    # THE ATTACK MODE, ON THE TRANSCRIPT, BESIDE THE OTHER RUN PARAMETERS.
+    # `corpus` is the only mode two runs can be compared across, and it fixes
+    # the ATTACK SET and not the TARGET'S RESPONSES - the target is a sampled
+    # model, so this is reproducible in its inputs and variable in its outcomes.
+    # It is not determinism.
+    print("  attack mode  : %s. %s" % (attack_mode, {
+        "corpus": "seeds REPLAYED VERBATIM from the corpus at corpus_hash. "
+                  "Reproducible in its INPUTS; the target is a sampled model, "
+                  "so outcomes still vary. NOT determinism.",
+        "generated": "every seed's final turn REWRITTEN by the RED_STRATEGIST. "
+                     "NOT reproducible. A rewrite of a corpus instance, not a "
+                     "novel attack - same objective, same action sequence.",
+        "hybrid": "both, split (position + round) %% 2 and broken out by "
+                  "provenance. Never pooled.",
+    }[attack_mode]))
     print("  target model : %s" % (
         "LIVE. The pinned target binding decides every call."
         if args.live else
@@ -1034,7 +1090,15 @@ def run(argv=None):
             objective_set=objective_set, seed_policy=policy, live=args.live,
             gate_summary=gate_summary(gate, gate_info), recorders=recorders,
             wall_clock_ms=(time.monotonic_ns() - started_ns) // 1_000_000,
-            red_seed=RED_SEED)
+            red_seed=RED_SEED,
+            # THE SAME VALUE THE STRATEGIST WAS BUILT WITH, not `args.attack_mode`
+            # - offline defaults to `corpus` and the run of record must carry the
+            # EFFECTIVE mode rather than the flag that was typed.
+            attack_mode=attack_mode,
+            # SO A GENERATED ROW CAN NAME THE INSTANCE IT WAS REWRITTEN FROM.
+            # Handed in rather than loaded inside `bundle.py`, which must be
+            # able to write a bundle for a run whose corpus never loaded.
+            corpus_instances=CORPUS)
 
     try:
         result = conductor.run(policy)
@@ -1068,6 +1132,13 @@ def run(argv=None):
               % (record.round_index, len(record.breaches),
                  len(record.scorable), record.invalid, record.target_faults,
                  record.verbs_used or "-", record.gate_decision or "-"))
+    # THE NON-POOLING RULE, AS OUTPUT RATHER THAN AS A PARAGRAPH. Ruling
+    # candidate, Eric 2026-08-23: corpus-sourced and generated attacks are two
+    # populations and a rate over the mix means nothing.
+    for line in provenance_breakout_lines(
+            provenance_breakout(result.rounds), attack_mode):
+        print(line)
+
     # VERB USAGE PER FAMILY IS WHAT THE ARMORER PROPOSED. It folds every round,
     # including the ones the gate rejected, so it is labelled as proposals here.
     print("\n  VERBS PROPOSED PER FAMILY (armorer patches, promoted or not): %s"
@@ -1280,7 +1351,31 @@ def c6_path(out):
     return os.path.splitext(out)[0] + ".c6.json"
 
 
-def _write_campaign_record(summary, result, out, hashes=None, final_policy=None):
+def _write_campaign_record(summary, result, out, hashes=None,
+                           final_policy=None):
+    """THE MODE IS NOT HERE ANY MORE, AND THAT IS RULING 51 LANDING.
+
+    It sat here for exactly one day, because the C6 root was
+    `additionalProperties: false` with a fixed `required` array and the lane that
+    found the gap was forbidden to move a contract hash. That made this file the
+    only artifact naming the attack population, which is the wrong home: the
+    campaign record is the things C6 has NO FIELD FOR - `capability_retained`,
+    the hash-lock provenance map, the disclaimer. **The bundle is the run of
+    record.** `attack_mode` is now a REQUIRED C6 root field and lives there
+    alone.
+
+    `test_both_files_are_written_and_neither_states_a_measurement_twice` is what
+    forced the deletion rather than a second copy, and it has now caught this
+    same class of defect twice in two days. The first time it stopped a
+    `by_provenance` rate breakout from being written here beside the bundle that
+    already carried the rows to compute it.
+
+    THE PER-PROVENANCE RATES STILL DO NOT BELONG HERE. A rate is a MEASUREMENT,
+    C6 carries `attacks[].provenance` on every row and `episodes[].provenance`
+    per round, so the split is recomputable and a stored copy is a second source
+    of truth. The banner PRINTS it; a view derived at run time is not a stored
+    second source.
+    """
     with open(out, "w", encoding="utf-8") as fh:
         json.dump({"summary": summary,
                    "hashes": (hashes if result is None
