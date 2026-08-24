@@ -196,12 +196,25 @@ class ProposalLog:
     def __init__(self, armorer):
         self._armorer = armorer
         self.by_round = {}
+        # EVERY ATTEMPT, IN ORDER. `by_round` keeps the LAST patch of a round
+        # because that is the one the gate saw; `attempts_by_round` keeps all of
+        # them because the TRAJECTORY is the evidence.
+        #
+        # This was a dict assignment - `by_round[i] = patch` - and with the
+        # narrowing loop that silently discarded every attempt but the final
+        # one. The bundle would have shown a run's last failing patch and none
+        # of the narrowing that led to it, which is precisely the record needed
+        # to tell "it cannot narrow" from "it was still converging". Same defect
+        # class as the deduped attack catalogue: keyed by something that stopped
+        # being unique the moment a loop was added.
+        self.attempts_by_round = {}
 
     def propose(self, breach_record, current_policy, round_index,
                 rejection_feedback=None):
         patch = self._armorer.propose(breach_record, current_policy, round_index,
                                       rejection_feedback=rejection_feedback)
         self.by_round[int(round_index)] = patch
+        self.attempts_by_round.setdefault(int(round_index), []).append(patch)
         return patch
 
 

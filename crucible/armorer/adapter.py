@@ -75,6 +75,50 @@ ARMORER_INPUT_FIELDS = (
     "offending_tool_calls",
 )
 
+# THE CLAUSE PROJECTION - ALLOW-LIST, AND THE ALLOW-LIST IS THE POINT.
+#
+# `invariant_id` has always been validated here as "A POINTER INTO THE OBJECTIVE
+# SET", and until 2026-08-24 the ARMORER was handed the pointer with no way to
+# follow it. Two consecutive live rounds then bound
+# `derived.episode_count_same_subject > 1` against an invariant whose real
+# threshold is `gte 4`, because its projection carried the observed values
+# 1, 2, 3 and nothing else. `> 1` is the ONLY inference that input supports:
+# block above the lowest thing I saw. Not over-broad reasoning - correct
+# reasoning on an input with the answer removed.
+#
+# WHY THIS IS NOT A BLINDNESS BREACH. architecture-spec 1.1 lists what the
+# ARMORER is blind to: the attacker's NL rationale and payload, the benign and
+# known-bad suites, the Warden's report contents, product vocabulary, the
+# held-out family. THE OBJECTIVE SET IS NOT ON THAT LIST - it is on the
+# RED_STRATEGIST's, where the failure it prevents is Red gaming the oracle
+# instead of the target. Nothing about the benign suite passes through here.
+#
+# ALLOW-LIST RATHER THAN "DROP KEYS STARTING WITH _". `_why` is a paragraph of
+# prose and the ARMORER's input has NO FREE-TEXT FIELD OF ANY KIND ON ANY PATH
+# (locked 2026-08-20, after `generalization_hypothesis` was caught handing over
+# the rule in English). A denylist keyed on the underscore would pass the next
+# prose field somebody adds without one. This enumerates what may travel; every
+# entry below is a shape, an enum member, or a number.
+INVARIANT_FIELDS = (
+    "id",                 # the pointer, echoed so the two cannot disagree
+    "form",               # per_event | sequence | aggregate
+    "capability_class",   # enum member
+    "channel",
+    "window",
+    "group_by",
+    "sum_path",           # the derived field the threshold is on
+    "op",                 # gt | gte
+    "value",              # THE BOUNDARY. The field whose absence caused the defect.
+    "conditions",         # per_event predicates
+    "steps",              # sequence predicates
+)
+
+# Inside `conditions[]` and `steps[].conditions[]`. Same doctrine one level down:
+# a condition is a shape, never a sentence.
+INVARIANT_CONDITION_FIELDS = ("path", "op", "value", "context_field")
+INVARIANT_STEP_FIELDS = ("capability_class", "conditions")
+
+
 ARMORER_CALL_FIELDS = (
     "seq",
     "tool_handle",
@@ -210,7 +254,66 @@ def _project_call(call, drops):
     return out
 
 
-def project(record, drops=None):
+def _project_conditions(conditions):
+    out = []
+    for cond in conditions or ():
+        if not isinstance(cond, dict):
+            raise ProjectionError("a clause condition must be an object")
+        out.append({k: cond[k] for k in INVARIANT_CONDITION_FIELDS if k in cond})
+    return out
+
+
+def project_invariant(clause):
+    """One Objective Set clause, reduced to its predicate. No prose, ever."""
+    if not isinstance(clause, dict):
+        raise ProjectionError("an Objective Set clause must be an object")
+    out = {}
+    for field in INVARIANT_FIELDS:
+        if field not in clause:
+            continue
+        if field == "conditions":
+            out[field] = _project_conditions(clause[field])
+        elif field == "steps":
+            steps = []
+            for step in clause[field] or ():
+                reduced = {k: step[k] for k in INVARIANT_STEP_FIELDS
+                           if k in step and k != "conditions"}
+                if "conditions" in step:
+                    reduced["conditions"] = _project_conditions(step["conditions"])
+                steps.append(reduced)
+            out[field] = steps
+        else:
+            out[field] = copy.deepcopy(clause[field])
+    if "id" not in out:
+        raise ProjectionError("a projected clause with no id cannot be checked "
+                              "against the invariant_id it is supposed to be")
+    return out
+
+
+def _clause_for(objective_set, invariant_id):
+    """The clause an `invariant_id` points at. REFUSES rather than returning None.
+
+    A pointer that resolves to nothing means the record describes a breach
+    against an Objective Set other than the one in force. Emitting the projection
+    anyway would silently hand the ARMORER the input that produced `> 1`, and
+    nothing downstream could see that it had.
+    """
+    clauses = (getattr(objective_set, "clauses", None)
+               or (objective_set or {}).get("clauses") or ())
+    for clause in clauses:
+        raw = clause if isinstance(clause, dict) else getattr(clause, "raw", None)
+        if raw is None:
+            raw = {k: v for k, v in vars(clause).items() if not k.startswith("__")}
+        if raw.get("id") == invariant_id:
+            return raw
+    raise ProjectionError(
+        "invariant_id %r resolves to no clause in the Objective Set in force. "
+        "The pointer is dangling, which means this record was written against a "
+        "different definition of breach than the one this run is locked to."
+        % (invariant_id,))
+
+
+def project(record, drops=None, objective_set=None, _clause_override=None):
     """Project one C5 BreachRecord into the ARMORER's input.
 
     `drops` is an optional list; every value this adapter abstracts away is
@@ -254,6 +357,22 @@ def project(record, drops=None):
             out[field] = int(value)
         else:                                            # pragma: no cover
             out[field] = copy.deepcopy(value)
+
+    # THE DEREFERENCE. Optional so every existing caller and fixture keeps
+    # working - a required argument here would have been a wider change than the
+    # defect warranted - but the CONDUCTOR always passes it, and
+    # `test_the_conductor_hands_the_armorer_the_objective_set_in_force` is what
+    # stops "optional" from quietly becoming "never supplied".
+    if objective_set is not None or _clause_override is not None:
+        clause = _clause_override
+        if clause is None:
+            clause = _clause_for(objective_set, out["invariant_id"])
+        projected = project_invariant(clause)
+        if projected["id"] != out["invariant_id"]:
+            raise ProjectionError(
+                "the projected clause is %r and the record names %r"
+                % (projected["id"], out["invariant_id"]))
+        out["invariant"] = projected
 
     for field in ARMORER_INPUT_FIELDS:
         if field not in out:

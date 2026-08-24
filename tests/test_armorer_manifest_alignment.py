@@ -198,9 +198,14 @@ def _assemble(manifest_a, derived_b, **overrides):
         verb_guidance=prompt_mod.VERB_GUIDANCE,
         manifest=json.dumps(prompt_mod.project_manifest(manifest_a, derived_b),
                             indent=2, sort_keys=True),
-        policy="{}", breach_record="{}", round_index=1)
+        policy="{}", breach_record="{}", invariant="{}", round_index=1)
     fields.update(overrides)
-    return prompt_mod.USER_TEMPLATE.format(**fields)
+    # THROUGH THE REAL RENDERER, not a second `USER_TEMPLATE.format` here. This
+    # line restated the template's field set and went stale the day the template
+    # grew an `{invariant}` section - three leak-gate tests then failed on a
+    # KeyError, which says nothing about leaks and would read as this gate
+    # breaking.
+    return prompt_mod.render_user_message(**fields)
 
 
 def test_the_leak_gate_still_refuses_a_product_feature_name_in_the_payload():

@@ -340,6 +340,19 @@ entitled to and is not information you need.
 
 {breach_record}
 
+=== THE INVARIANT THIS BREACH VIOLATED ===
+
+{invariant}
+
+This is the definition of breach that fired. It is the only boundary that
+matters, and it is stated here because you cannot place a boundary you have not
+been shown.
+
+READ THE THRESHOLD OFF IT, do not infer one from the values in the breach
+record. Those values are the observations that happened to occur; the threshold
+is where the line actually is. Binding at the edge of what you observed blocks
+every legitimate call between that edge and the real line.
+
 === YOUR TASK ===
 
 Emit a patch that closes the capability path this breach used. This is round
@@ -350,10 +363,28 @@ Output the patch and nothing else.
 """
 
 
+def render_user_message(**fields) -> str:
+    """Pure formatting. ONE definition of the template's field set.
+
+    Extracted 2026-08-24. `tests/test_armorer_manifest_alignment.py` needs a
+    payload assembled WITHOUT `assert_no_leak` so it can feed the gate text the
+    projection would never produce - and it was doing that by restating the
+    field list. That copy went stale the moment the template grew an
+    `{invariant}` section, and three leak-gate tests died on a KeyError rather
+    than on anything about leaks.
+
+    A BYPASS FLAG ON `build_user_message` WOULD HAVE BEEN WORSE: a parameter
+    whose job is to switch off a safety gate is a parameter someone will pass in
+    production. Splitting render from assert leaves the gate unconditional on
+    the path that matters.
+    """
+    return USER_TEMPLATE.format(**fields)
+
+
 def build_user_message(*, projected_record, manifest_a, derived_schema_b,
                        policy_text, round_index, verb_guidance=None) -> str:
     """Assemble section 1-4 and assert the result is clean before returning."""
-    text = USER_TEMPLATE.format(
+    text = render_user_message(
         grammar=grammar_handout(),
         validator_rules=VALIDATOR_RULES,
         verb_guidance=verb_guidance or VERB_GUIDANCE,
@@ -361,6 +392,18 @@ def build_user_message(*, projected_record, manifest_a, derived_schema_b,
                             indent=2, sort_keys=True),
         policy=policy_text,
         breach_record=json.dumps(projected_record, indent=2, sort_keys=True),
+        # RENDERED IN ITS OWN SECTION rather than left to be noticed inside the
+        # breach-record JSON. The entire defect this fixes was the ARMORER
+        # reading a threshold off observed values, so burying the real threshold
+        # one level down in the same blob it was already misreading would be a
+        # fix that relies on the model looking harder.
+        invariant=(json.dumps(projected_record["invariant"], indent=2,
+                              sort_keys=True)
+                   if projected_record.get("invariant") else
+                   "(NOT AVAILABLE - this run did not resolve the invariant. "
+                   "Do not infer a threshold from the observed values; prefer a "
+                   "verb that leaves a route open over a boundary you would be "
+                   "guessing.)"),
         round_index=round_index,
     )
     assert_no_leak(text, manifest_a)

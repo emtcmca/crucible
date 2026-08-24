@@ -929,8 +929,14 @@ def run(argv=None):
     # guard, which is the check that would have caught the `lambda c, r: True`.
     red = RoundClock(RedStrategist(metered, seed=RED_SEED, governor=governor,
                                    attack_mode=attack_mode))
+    # `objective_set` IS THE ONE IN FORCE, resolved at line ~853 and the same
+    # object the tripwire scores with. Handing the ARMORER a different copy would
+    # let it patch against a definition of breach the run is not locked to, and
+    # `adapter.project` refuses a dangling `invariant_id` precisely so that
+    # cannot happen quietly.
     proposals = ProposalLog(Armorer(validator, manifest_a, derived_b,
-                                    metered or _refuse, governor=governor))
+                                    metered or _refuse, governor=governor,
+                                    objective_set=objective_set))
     recorders = Recorders(meter=meter, proposals=proposals, gate=gate,
                           clock=red, governor=governor)
 

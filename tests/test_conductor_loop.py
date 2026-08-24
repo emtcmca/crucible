@@ -96,8 +96,23 @@ def scorer(episode):
 
 
 def make(*, breach_plan, benign, promote=None, armorer=None, budget=None,
-         red=None):
-    """`breach_plan` is one entry per round: True, False, "fault" or "invalid"."""
+         red=None, narrowing_attempts=1):
+    """`breach_plan` is one entry per round: True, False, "fault" or "invalid".
+
+    `narrowing_attempts` DEFAULTS TO 1 HERE AND TO SIX IN PRODUCTION, and the
+    asymmetry is deliberate rather than an oversight.
+
+    Every test in this file is about the ROUND protocol - dry streaks, the
+    consecutive-rejection halt, the convergence count. Their `benign` stubs key
+    on a CALL COUNTER and assume one Warden call per round, which was true until
+    the narrowing loop landed on 2026-08-24. Letting the default change would
+    have rewritten what a dozen unrelated tests measure, in the direction of
+    "the numbers moved, adjust them" - which is how a suite stops asserting what
+    it was written to assert.
+
+    So: 1 restores the exact pre-loop call pattern for the round-protocol tests,
+    and `tests/test_narrowing_loop.py` drives the loop deliberately.
+    """
     # The round index is derived from the EPISODE COUNT, not from a counter the
     # gate bumps: the gate only fires on non-dry rounds, so incrementing there
     # left the plan frozen across every dry round. Caught by
@@ -125,7 +140,8 @@ def make(*, breach_plan, benign, promote=None, armorer=None, budget=None,
                              call_cap=1000)),
         run_episode=run_episode, score=score, benign_gate=benign_gate,
         promote=promote or (lambda c, r: True), hashes=HASHES, seeds=SEEDS,
-        run_id="run_20260820_120000_abc123")
+        run_id="run_20260820_120000_abc123",
+        narrowing_attempts=narrowing_attempts)
 
 
 PASS = {"passed": 24, "total": 24, "near_miss_passed": 12, "near_miss_total": 12,

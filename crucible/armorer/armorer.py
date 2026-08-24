@@ -108,10 +108,21 @@ class Armorer:
 
     def __init__(self, validator, manifest_a, derived_schema_b, call_model,
                  *, model=ARMORER_MODEL, thinking_level=ARMORER_THINKING_LEVEL,
-                 governor=None):
+                 governor=None, objective_set=None):
         self.validator = validator
         self.manifest_a = manifest_a
         self.derived_schema_b = derived_schema_b
+        # THE OBJECTIVE SET IN FORCE, so `invariant_id` stops being a pointer
+        # with nothing on the other end. Frozen at `objective_set_hash` for the
+        # whole run, which is why it is a constructor argument rather than a
+        # per-call one: an ARMORER that could be handed a different definition
+        # of breach between rounds is an ARMORER patching a moving target.
+        #
+        # OPTIONAL, and the default is the OLD behaviour on purpose. Every
+        # offline fixture and every existing test builds one without it, and a
+        # required argument would have turned a two-file fix into a sweep. The
+        # CONDUCTOR always supplies it.
+        self.objective_set = objective_set
         self.call_model = call_model
         self.model = model
         self.thinking_level = thinking_level
@@ -162,7 +173,8 @@ class Armorer:
     # ----------------------------------------------------------------
     def propose(self, breach_record, current_policy, round_index,
                 rejection_feedback=None) -> PatchResult:
-        projected = project(breach_record)
+        projected = project(breach_record,
+                            objective_set=self.objective_set)
         policy_text = render_current(current_policy)
         user_text = prompt_mod.build_user_message(
             projected_record=projected, manifest_a=self.manifest_a,
