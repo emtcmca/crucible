@@ -887,71 +887,120 @@ def _patch_proposals(rounds, proposals, run_id):
     """
     out = []
     for record in rounds:
-        patch = proposals.get(record.round_index)
-        if patch is None or not getattr(patch, "ok", False):
-            continue
-        autopsy_id = (record.autopsy or {}).get("autopsy_id")
-        if not autopsy_id:                               # pragma: no cover
-            continue
-        assigned_to_placeholder = _proposed_id_map(patch)
-        by_id = {r["rule_id"]: r for r in (patch.hashed_payload or {}).get("rules", [])}
-        rules = []
-        for rule_id in patch.new_rule_ids:
-            stored = by_id.get(rule_id)
-            if stored is None:                           # pragma: no cover
-                continue
-            row = {"rule_id_assigned": rule_id,
-                   "dsl_text": render_rule(stored)}
-            placeholder = assigned_to_placeholder.get(rule_id)
-            if placeholder:
-                row["rule_id_as_proposed"] = placeholder
-            rules.append(row)
-        verbs = sorted(set(patch.verbs_used or ()))
-        if not rules or not verbs:
-            continue
-        decision = record.gate_decision
-        proposal = {
-            "proposal_id": "pp_%s_r%02d" % (_id_slug(run_id), record.round_index),
-            "round_index": record.round_index,
-            "autopsy_id": autopsy_id,
-            "verbs": verbs,
-            "rules": rules,
-            "accepted": decision == "PROMOTE",
-            "repaired": bool(patch.repaired),
-            "validator_result": (
-                "ACCEPT after %d attempt(s); placeholder rule ids rewritten "
-                "from the canonical rule bytes (CONVENTIONS 2.6)"
-                % len(patch.attempts or ())),
-        }
-        if record.benign_total is not None:
-            # FIXED 2026-08-23. This read "%s/%s benign fixtures replayed
-            # clean", and "clean" is the reader's word for "ran untouched".
-            # RULING 2 counts a call the policy STOPPED with APPROVAL_REQUIRED,
-            # and which the scripted APPROVAL_ORACLE then approved, as a PASS -
-            # so part of this numerator may be work a human carried.
-            #
-            # RULING 37 IS THAT THOSE TWO ARE DIFFERENT RESULTS AND MUST NOT
-            # PRINT THE SAME, and 26/26 is precisely the score a policy reaches
-            # by routing everything to a human. The caveat therefore travels on
-            # a PROMOTION as well as on a rejection - it matters more there.
-            #
-            # 37.1 wants the approval-masked count itself. It has no producer:
-            # `real_warden.run_benign_suite` returns five fields and that is
-            # not one of them, and the field name appears in the README only as
-            # unbuilt. AN ABSENT NUMBER SAID TO BE ABSENT IS HONEST; the same
-            # number quietly omitted next to the word "clean" is not.
-            proposal["warden_result"] = (
-                "%s/%s benign fixtures PASSED the warden replay. Ruling 2 "
-                "counts a call the policy stopped with APPROVAL_REQUIRED and "
-                "the APPROVAL_ORACLE then approved as a pass, so PASSED is "
-                "not 'ran untouched'. The ruling 37.1 approval-masked count "
-                "(benign_passes_requiring_approval) has no producer and is "
-                "NOT in this bundle."
-                % (record.benign_passed, record.benign_total))
-        if decision == "REJECT":
-            proposal["rejected_reason"] = _rejection_reason(record)
-        out.append(proposal)
+        # EVERY NARROWING ATTEMPT, IN ORDER - not just the one the gate saw.
+        #
+        # This read `proposals.get(record.round_index)`, a single patch per
+        # round, which was right until the ARMORER gained a narrowing loop on
+        # 2026-08-24. A round may now put up to six candidates to the WARDEN,
+        # and the trajectory across them is the evidence that separates "it
+        # cannot narrow" from "it was still converging when the budget ran out".
+        # Run 1 was the second (benign 5/26 -> 16/26, then halted) and nothing
+        # recorded it.
+        #
+        # `attempts_by_round` is the list; `by_round` is kept as the last
+        # attempt for callers that want the candidate the gate ruled on. A dict
+        # keyed by round stopped being unique the moment a loop existed - the
+        # same defect the attack catalogue has, one file over.
+        attempts = getattr(proposals, "attempts_by_round", None)
+        if attempts is not None:
+            round_patches = attempts.get(record.round_index) or []
+        else:                                              # plain dict fallback
+            one = proposals.get(record.round_index)
+            round_patches = [one] if one is not None else []
+
+        for attempt_index, patch in enumerate(round_patches, start=1):
+            _emit_proposal(out, record, patch, attempt_index,
+                           attempt_index == len(round_patches), run_id)
     return out
+
+
+def _emit_proposal(out, record, patch, attempt_index, is_final, run_id):
+    """One row for one ARMORER attempt. Appends nothing when the attempt
+    produced no rule - a proposal with no rule is not a proposal."""
+    if patch is None or not getattr(patch, "ok", False):
+        return
+    autopsy_id = (record.autopsy or {}).get("autopsy_id")
+    if not autopsy_id:                               # pragma: no cover
+        # A round with a patch always has an autopsy - `_round` calls the
+        # CORONER first - so a missing one drops the row rather than emitting a
+        # fabricated id. `return` here, not `continue`: this is a function per
+        # attempt now, not a loop body.
+        return
+    assigned_to_placeholder = _proposed_id_map(patch)
+    by_id = {r["rule_id"]: r for r in (patch.hashed_payload or {}).get("rules", [])}
+    rules = []
+    for rule_id in patch.new_rule_ids:
+        stored = by_id.get(rule_id)
+        if stored is None:                           # pragma: no cover
+            continue
+        row = {"rule_id_assigned": rule_id,
+               "dsl_text": render_rule(stored)}
+        placeholder = assigned_to_placeholder.get(rule_id)
+        if placeholder:
+            row["rule_id_as_proposed"] = placeholder
+        rules.append(row)
+    verbs = sorted(set(patch.verbs_used or ()))
+    if not rules or not verbs:
+        return
+    decision = record.gate_decision
+    # ONLY THE LAST ATTEMPT OF A ROUND CAN HAVE BEEN PROMOTED. The earlier ones
+    # are by definition the candidates the benign floor turned down, and marking
+    # them `accepted` because the ROUND eventually promoted would report a
+    # rejected patch as the one that shipped.
+    #
+    # `is_final` COMES FROM THE LIST, not from `record.narrowing_attempts`. The
+    # first version read that field and broke every synthetic fixture in
+    # `test_c6_producer`, which builds a RoundRecord directly and leaves the
+    # counter at its default 0 - so a one-attempt round reported `accepted:
+    # false` on a patch the gate had promoted. Deriving it from the thing being
+    # iterated cannot disagree with the thing being iterated.
+    proposal = {
+        # THE ID CARRIES THE ATTEMPT. Six proposals sharing one
+        # `proposal_id` would make "which patch is this" unanswerable in the
+        # one artifact that exists to answer it.
+        "proposal_id": "pp_%s_r%02d_a%02d" % (_id_slug(run_id),
+                                              record.round_index,
+                                              attempt_index),
+        "round_index": record.round_index,
+        "narrowing_attempt": attempt_index,
+        "autopsy_id": autopsy_id,
+        "verbs": verbs,
+        "rules": rules,
+        "accepted": bool(is_final and decision == "PROMOTE"),
+        "repaired": bool(patch.repaired),
+        "validator_result": (
+            "ACCEPT after %d attempt(s); placeholder rule ids rewritten "
+            "from the canonical rule bytes (CONVENTIONS 2.6)"
+            % len(patch.attempts or ())),
+    }
+    if record.benign_total is not None:
+        # FIXED 2026-08-23. This read "%s/%s benign fixtures replayed
+        # clean", and "clean" is the reader's word for "ran untouched".
+        # RULING 2 counts a call the policy STOPPED with APPROVAL_REQUIRED,
+        # and which the scripted APPROVAL_ORACLE then approved, as a PASS -
+        # so part of this numerator may be work a human carried.
+        #
+        # RULING 37 IS THAT THOSE TWO ARE DIFFERENT RESULTS AND MUST NOT
+        # PRINT THE SAME, and 26/26 is precisely the score a policy reaches
+        # by routing everything to a human. The caveat therefore travels on
+        # a PROMOTION as well as on a rejection - it matters more there.
+        #
+        # 37.1 wants the approval-masked count itself. It has no producer:
+        # `real_warden.run_benign_suite` returns five fields and that is
+        # not one of them, and the field name appears in the README only as
+        # unbuilt. AN ABSENT NUMBER SAID TO BE ABSENT IS HONEST; the same
+        # number quietly omitted next to the word "clean" is not.
+        proposal["warden_result"] = (
+            "%s/%s benign fixtures PASSED the warden replay. Ruling 2 "
+            "counts a call the policy stopped with APPROVAL_REQUIRED and "
+            "the APPROVAL_ORACLE then approved as a pass, so PASSED is "
+            "not 'ran untouched'. The ruling 37.1 approval-masked count "
+            "(benign_passes_requiring_approval) has no producer and is "
+            "NOT in this bundle."
+            % (record.benign_passed, record.benign_total))
+    if decision == "REJECT":
+        proposal["rejected_reason"] = _rejection_reason(record)
+    out.append(proposal)
 
 
 def _rejection_reason(record):
@@ -1694,7 +1743,11 @@ def build_bundle(result, *, run_id, created_at, locks, objective_set,
         "autopsies": _autopsies(rounds),
         "patch_proposals": _patch_proposals(
             rounds,
-            recorders.proposals.by_round if recorders.proposals else {},
+            # THE LOG ITSELF, not its `by_round` dict: `_patch_proposals`
+            # needs `attempts_by_round` to emit every narrowing attempt. It
+            # still accepts a plain dict, which is what the offline fixtures
+            # hand it.
+            recorders.proposals if recorders.proposals else {},
             run_id),
         "clause_coverage": _clause_coverage(objective_set, rounds),
         "excluded": [row for record in rounds for row in _excluded_rows(record)],

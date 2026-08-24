@@ -533,6 +533,7 @@
     {
       "proposal_id": "pp_run20260824_r01_01",
       "round_index": 1,
+      "narrowing_attempt": 1,
       "autopsy_id": "aut_run20260824_r01_01",
       "verbs": [
         "deny"
@@ -552,6 +553,7 @@
     {
       "proposal_id": "pp_run20260824_r02_01",
       "round_index": 2,
+      "narrowing_attempt": 1,
       "autopsy_id": "aut_run20260824_r01_01",
       "verbs": [
         "deny"

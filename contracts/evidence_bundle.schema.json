@@ -317,6 +317,7 @@
         "required": [
           "proposal_id",
           "round_index",
+          "narrowing_attempt",
           "autopsy_id",
           "verbs",
           "rules",
@@ -376,6 +377,11 @@
           },
           "accepted": {
             "type": "boolean"
+          },
+          "narrowing_attempt": {
+            "type": "integer",
+            "minimum": 1,
+            "$comment": "WHICH ATTEMPT AT THE BENIGN FLOOR THIS PROPOSAL WAS, within its round. Added 2026-08-24 with the ARMORER narrowing loop. A round may now put up to six candidates to the WARDEN, each one narrowed against the previous attempt's benign_failures and capability classes, and the loop stops early after two consecutive non-improving attempts. WITHOUT THIS FIELD THE LOOP IS UNMEASURABLE IN THE ONE WAY THAT MATTERS. The stated risk of giving the ARMORER narrowing feedback is that it stops writing rules and starts carving exceptions shaped like the benign fixtures - which would pass the WARDEN while generalising to nothing, and generalisation is the headline claim of this project. The test for that already exists: a patch that generalises blocks sealed holdout attacks, one carved to satisfy 26 fixtures does not. So compare holdout transfer for patches promoted on attempt 1 against those promoted on attempt N. That comparison needs the attempt number, and array order is not it - a reader must not have to infer a fact the producer knows. ABSENT ON A ONE-ATTEMPT ROUND IS NOT PERMITTED: every proposal carries it, because 'attempt 1' and 'nobody recorded which attempt' are different statements and only one of them is true."
           },
           "repaired": {
             "type": "boolean",
