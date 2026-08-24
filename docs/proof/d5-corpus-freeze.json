@@ -1,0 +1,52 @@
+{
+  "_what": "D5 hash-lock of THE CORPUS. The fifth lock's first half; derived_schema_hash is the second.",
+  "_why": "The claim is that the suite every number is measured against existed, complete and unchangeable, BEFORE the first patch was written. That claim is about a moment, so the record names the commit and its timestamp rather than only the hash.",
+  "_hash_covers": "sha256 over the JCS canonical bytes of each covered file, assembled with its repo-relative path into one payload and hashed again. Covered: corpus/training/*.json, fixtures/benign/*.json, corpus/pairs.json, corpus/F4-MANIFEST.json, and the `fingerprint` field of docs/proof/sealed-family-commitment.json. The coverage decision and its citations live in corpus/freeze.py.",
+  "_hash_does_not_cover": "The nine known-bad calibration fixtures (their digests are below, outside the hash - KB5 carries a rate and KB6/KB8 an explicit null, and canonicalization restrictions 4 and 5 forbid both in a hashed payload; editing a calibration fixture so a hash will accept it is weakening a gate to fit a check). Also out: capability manifest Part A (manifest_hash, D3), derived_schema.json (derived_schema_hash, D5), and every .py and .md under corpus/.",
+  "corpus_hash": "96d507c44be92972",
+  "corpus_hash_full": "96d507c44be9297235150ebfaf7f38e8500a2b92d90cc854139cb1cdbd8ecf89",
+  "covered_files_total": 78,
+  "counts": {
+    "training": 50,
+    "benign": 26,
+    "data_files": 2,
+    "covered_files_total": 78
+  },
+  "canonicalization": "RFC 8785 (JCS) plus the seven CRUCIBLE restrictions, canonicalization.md. NOT the textual contract-file normalization.",
+  "references": {
+    "_why": "execution-spec D5 item 3: the corpus is hashed and committed 'referencing the frozen target hash and the gate rule hash'. These are REFERENCED, not hashed into the payload - a corpus_hash that moved when the target was re-frozen would stop being a function of the corpus. The reference is load-bearing because this script REFUSES when either prior record is absent.",
+    "gate_rule_hash": "cff9f52929397efb",
+    "target_agent_hash": "2434172103377704",
+    "manifest_hash": "8cf2cad84008bde2"
+  },
+  "sealed_family": {
+    "_how": "BY REFERENCE ONLY. corpus/sealed/ is gitignored and its content is never read here - a read across that boundary is RUN INVALID. Two already-published content-addressed digests carry it into the hash instead: the 24 instance_ids and set_digest inside corpus/F4-MANIFEST.json, and the fingerprint in docs/proof/sealed-family-commitment.json.",
+    "_consequence": "corpus_hash is IDENTICAL on a machine holding the sealed set and on a fresh public clone that does not. Adding the sealed files changes nothing, because there is nothing to add. That is what makes this hash reproducible by a judge.",
+    "hashed_fingerprint": "2cde0250de00e692d07303b3a07cf033c0d9c7ceafcf2059cd5f19488ab9a761",
+    "seal_verification": {
+      "result": "SEAL INTACT",
+      "instances": 24,
+      "fingerprint": "2cde0250de00e692d07303b3a07cf033c0d9c7ceafcf2059cd5f19488ab9a761",
+      "matches_hashed_fingerprint": true
+    }
+  },
+  "sealed_not_covered_by_commit_check": "corpus/sealed/ is gitignored and can never be committed, so the uncommitted-changes refusal structurally CANNOT cover it. What IS asserted is different and is stated rather than assumed: scripts/seal-commitment.py --verify reported SEAL INTACT on this machine, meaning the sealed bytes still match the published fingerprint that is inside corpus_hash.",
+  "known_bad_calibration": {
+    "_not_in_corpus_hash": true,
+    "_why_recorded_anyway": "known_bad_count: 9 is a frozen C7 parameter and G1(a) asserts each fixture's expected verdict every round, but neither covers a known-bad's CONTENT. A KB whose body moved without flipping its verdict would touch no hash-lock. These digests close that gap with evidence rather than with a hash the payload cannot legally carry.",
+    "_algorithm": "sha256 over LF-normalized file bytes (canonicalization.md section 4, the textual form).",
+    "digests": {
+      "KB1": "81ceea6f83f36a8fba3bb61eba755d9f73c3ac116a50903472b57d6484c25c4a",
+      "KB2": "18778ec4b62f0a85ed1c5f763deaf7f00e6a339ba6c7fab980d0590b1fc74485",
+      "KB3": "a55b605617b15311398241646f047eb483a6dc4b5c8a953f0af400dbe7eb4f7b",
+      "KB4": "f3c9111a167b1930a6fa55334ff26f09a901ba8f487b7e501a621184fc285582",
+      "KB5": "ea3feea206015c5c97690c02ed6a7bcd5bd078862b1334d0395d6461ad884450",
+      "KB6": "556f43356658eaa285fe484f79ada83d0e627f98bee5560975a91a3671a9c921",
+      "KB7": "c7fc33a16b0aa98e121e127f1b14b1cabb39e0a905dd3d335234e525505cd6fa",
+      "KB8": "5ba14c31f53356ebaccfdbc0b1fb61cf3335c59e65cf8e5fb4a7c7a632f16627",
+      "KB9": "d1e2313c13a80f30f248429a6e9741abb8b909fcfd36c140e4ec6bfcceddba12"
+    }
+  },
+  "head_commit": "21365b5930a813b5b9b1e9d141782ac0ea23e98c",
+  "training_committed_at": "2026-08-24T17:18:02-04:00"
+}
