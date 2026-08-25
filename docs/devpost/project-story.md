@@ -143,7 +143,7 @@ purpose, which is the only reason the replacement can be trusted.
 
 ## The loop ran (added 2026-08-25)
 
-Sixty live campaigns overnight, against the real target agent on Vertex AI, with the pure code arbiters wired in place of the last stand-in. 1,770 episodes, of which 1,616 were scorable. Every bundle validated against the offline reader with zero errors. The gate promoted a policy **95 times**, at a mean of 1.58 per run.
+Sixty live campaigns overnight, against the real target agent on Vertex AI, with the pure code arbiters wired in place of the last stand-in. 1,770 episodes, of which 1,614 were scorable. Every bundle validated against the offline reader with zero errors. The gate promoted a policy **95 times**, at a mean of 1.58 per run.
 
 Before this batch nothing had ever been promoted in this project. The policies bucket was empty and the storage write path, with its read-back-and-rehash assertion, had never executed once.
 
