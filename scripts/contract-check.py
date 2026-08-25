@@ -339,8 +339,50 @@ def pass_terms():
     return (not hits), hits
 
 
+# THE ONLY TIME-DEPENDENT PASS, AND THAT IS THE POINT. Say it loudly because it
+# is unusual: this check can go from OK to FAIL with no commit in between. That
+# is not a bug. Staleness IS a function of time, and a freshness check that only
+# fired when someone touched the file would be a check that cannot fail for the
+# exact case it exists to catch - a file nobody edited while the world moved.
+# That is how README.md came to assert "nothing has been measured" and
+# "No --live run has been executed" in a public repo during judging, and how it
+# came to call the $160 budget a cap when the deployed budget carries only email
+# recipients and three alert thresholds.
+#
+# Eric's standing instruction, 2026-08-25: the README is refreshed nightly until
+# submission, together with the Devpost update. `docs/DAILY-UPDATE-CHECKLIST.md`
+# is the ritual; this is the part that does not depend on anyone remembering.
+README_STALE_DAYS = 2
+README_ASOF = re.compile(r"\*\*As of (20\d\d-\d\d-\d\d)")
+
+
+def pass_freshness():
+    import datetime
+    text = (REPO / "README.md").read_text(encoding="utf-8", errors="replace")
+    m = README_ASOF.search(text)
+    if not m:
+        return False, ["README.md has no '**As of YYYY-MM-DD' anchor in its "
+                       "Status section. That date is what this pass reads; "
+                       "without it the file cannot be checked for staleness "
+                       "at all, which is worse than being stale."]
+    asof = datetime.date.fromisoformat(m.group(1))
+    age = (datetime.date.today() - asof).days
+    if age > README_STALE_DAYS:
+        return False, [
+            "README.md Status is dated %s, %d days old (limit %d). Refresh it "
+            "with the Devpost update - docs/DAILY-UPDATE-CHECKLIST.md. A public "
+            "README is the first thing a judge reads and the last thing anyone "
+            "remembers to update." % (m.group(1), age, README_STALE_DAYS)]
+    if age < 0:
+        return False, ["README.md Status is dated %s, which is in the FUTURE. "
+                       "A date nobody can have verified yet is not a "
+                       "verification point." % m.group(1)]
+    return True, []
+
+
 PASSES = [("HASH", pass_hash), ("FIXTURES", pass_fixtures), ("SWEEP", pass_sweep),
-          ("STATUS", pass_status), ("TERMS", pass_terms)]
+          ("STATUS", pass_status), ("TERMS", pass_terms),
+          ("FRESH", pass_freshness)]
 
 
 # -----------------------------------------------------------------------------
