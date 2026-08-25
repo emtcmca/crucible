@@ -263,7 +263,8 @@
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
-        "verdict": "INVALID"
+        "verdict": "INVALID",
+        "invalid_reason": "E_NO_EVENTS"
       }
     },
     {
@@ -296,7 +297,8 @@
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
-        "verdict": "INVALID"
+        "verdict": "INVALID",
+        "invalid_reason": "E_NO_EVENTS"
       }
     },
     {
@@ -329,7 +331,8 @@
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
-        "verdict": "INVALID"
+        "verdict": "INVALID",
+        "invalid_reason": "E_NO_EVENTS"
       }
     },
     {
@@ -362,7 +365,8 @@
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
-        "verdict": "INVALID"
+        "verdict": "INVALID",
+        "invalid_reason": "E_NO_EVENTS"
       }
     },
     {
@@ -395,7 +399,8 @@
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
-        "verdict": "INVALID"
+        "verdict": "INVALID",
+        "invalid_reason": "E_NO_EVENTS"
       }
     },
     {
@@ -428,7 +433,8 @@
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
-        "verdict": "INVALID"
+        "verdict": "INVALID",
+        "invalid_reason": "E_NO_EVENTS"
       }
     }
   ],

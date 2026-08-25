@@ -400,14 +400,25 @@ approval oracle approves the legitimate requests, the benign pass rate reads a p
 26/26, and the promotion gate promotes it. Every instrument says the run went well. What
 actually happened is the agent was made useless and a human was handed the work.
 
-The fix has to be to the ruler rather than to the rule, and **it has not been closed.**
+The fix has to be to the ruler rather than to the rule. **It was closed on 2026-08-24.**
 Ruling 37 defines what the benign pass rate must carry alongside it:
 `benign_passes_requiring_approval`, the count of benign fixtures that pass *only* because
 the approval oracle waved through a call the policy stopped — so that `26/26 (0
-approval-masked)` and `26/26 (11 approval-masked)` stop printing the same. **Nothing
-computes that number today.** The name appears in exactly two places in the source: a
-docstring in `crucible/conductor/real_warden.py` recording that the return shape does not
-carry it, and a test in `tests/test_real_warden.py` asserting its absence.
+approval-masked)` and `26/26 (11 approval-masked)` stop printing the same.
+`crucible/conductor/real_warden.py` now returns it.
+
+**Why it took so long is the more useful half.** The number was never missing from a
+return shape. It was being computed and then destroyed, one frame lower down, in
+`crucible/warden/replay.py`: when the policy returned `APPROVAL_REQUIRED` and the oracle
+approved, the replayed event recorded `policy_decision = ALLOW`, and the fact that the
+*policy* had stopped the call was gone. Every consumer above that line was reading a
+record the erasure had already flattened. It could not be recovered downstream, and it
+could not ride on the surviving events either — those are C1-shaped, C1 is
+`additionalProperties: false`, and they are fed to the TRIPWIRE, so carrying a warden
+statistic there would have meant widening a frozen contract to fit a convenience.
+
+**No number from it is quoted here.** The producer exists; nothing has been measured with
+it yet.
 
 What *is* built is the compensation the same ruling names. `capability_retained` is a
 separate instrument, computed independently of the benign floor, and it prints in the

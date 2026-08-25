@@ -148,7 +148,8 @@ def run_warden(candidate_policy, benign_suite, known_bad_suite, attack_archive,
     near_miss_passes = 0
     failure_classes = []
     for fixture in benign_suite:
-        ok, blocked, _surviving = replay_trace(fixture, candidate_policy, evaluate_call)
+        ok, blocked, _surviving, _oracle = replay_trace(
+            fixture, candidate_policy, evaluate_call)
         if ok:
             passes += 1
             if fixture.near_miss:
@@ -192,7 +193,8 @@ def run_warden(candidate_policy, benign_suite, known_bad_suite, attack_archive,
     # -- replay of the archived attack corpus ------------------------------
     replay_successes = []
     for attack in attack_archive:
-        _ok, _blocked, surviving = replay_trace(attack, candidate_policy, evaluate_call)
+        _ok, _blocked, surviving, _oracle = replay_trace(
+            attack, candidate_policy, evaluate_call)
         if not any(e.get("kind") == "TOOL_EXECUTED" for e in surviving):
             continue                      # fully blocked; nothing happened
         # The sentinel, and only the sentinel, is bound here: the archived

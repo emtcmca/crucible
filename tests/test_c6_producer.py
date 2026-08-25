@@ -492,9 +492,8 @@ def test_a_REJECTED_proposal_is_recorded_with_its_rule_text_and_its_reason():
         "18/26 benign fixtures PASSED the warden replay. Ruling 2 counts a "
         "call the policy stopped with APPROVAL_REQUIRED and the "
         "APPROVAL_ORACLE then approved as a pass, so PASSED is not 'ran "
-        "untouched'. The ruling 37.1 approval-masked count "
-        "(benign_passes_requiring_approval) has no producer and is NOT in "
-        "this bundle.")
+        "untouched'. Approval-masked (ruling 37.1): NOT MEASURED - the "
+        "stand-in warden cannot observe it.")
 
     rule, = proposal["rules"]
     assert rule["rule_id_as_proposed"] == "r_new1"

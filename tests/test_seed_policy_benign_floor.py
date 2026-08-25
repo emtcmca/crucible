@@ -181,7 +181,8 @@ def test_the_eight_escalating_benign_fixtures_pass_individually(seed):
     suite = {f.fixture_id: f for f in rw.load_real_benign_suite()}
     assert expected <= set(suite), "fixture set moved: %s" % sorted(expected - set(suite))
     for slug in sorted(expected):
-        ok, blocked, _surviving = replay_trace(suite[slug], seed, rw._l3_evaluate_call)
+        ok, blocked, _surviving, _oracle = replay_trace(
+            suite[slug], seed, rw._l3_evaluate_call)
         assert ok, "%s is blocked at v0 on %s" % (slug, sorted(blocked))
 
 

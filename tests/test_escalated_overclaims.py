@@ -416,7 +416,12 @@ def test_the_warden_line_says_the_approval_masked_count_is_absent():
     does not include it. An absent number said to be absent is honest; the
     same number quietly omitted beside the word "clean" is the defect."""
     result = _one_proposal()["warden_result"]
-    assert "benign_passes_requiring_approval" in result
+    # INVERTED 2026-08-24. This asserted the warden line NAMED the field while
+    # saying it had no producer. The producer landed, so the line now carries
+    # the value (or "NOT MEASURED" when the stand-in gate is in use, which is a
+    # different statement from zero). What must never happen is the caveat
+    # disappearing while the count is still unavailable.
+    assert "Approval-masked (ruling 37.1)" in result
 
 
 def test_a_promoted_proposal_gets_the_same_caveat():

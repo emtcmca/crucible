@@ -429,7 +429,8 @@ def benign_evidence(policy):
 
     results, traces = [], []
     for fixture in load_real_benign_suite():
-        ok, blocked, _surviving = replay_trace(fixture, policy, _l3_evaluate_call)
+        ok, blocked, _surviving, _oracle = replay_trace(
+            fixture, policy, _l3_evaluate_call)
         results.append({
             "fixture_id": fixture.fixture_id,
             "near_miss": bool(fixture.near_miss),
@@ -450,8 +451,15 @@ def benign_evidence(policy):
 # The episode half - what was tested and how it was answered
 # ===========================================================================
 
+# ALLOW-LIST, so a new C9 field must be named here to reach the bundle. That is
+# the correct default - a denylist would leak the conductor's `_episode` blob
+# into C6 the day someone renamed it - but it means adding a C9 field is a TWO
+# file change, and forgetting the second file strips the field silently. It did:
+# `invalid_reason` reached `Verdict.to_dict()` and was dropped here, and the
+# only thing that caught it was a test driving the real producer against the
+# real contract. A test asserting field names retyped by hand would have passed.
 _C9_KEYS = ("verdict", "breach", "invariant_id", "objective_set_hash",
-            "evidence", "target_fault")
+            "evidence", "target_fault", "invalid_reason")
 
 
 def _verdict_c9(verdict):
@@ -985,19 +993,28 @@ def _emit_proposal(out, record, patch, attempt_index, is_final, run_id):
         # by routing everything to a human. The caveat therefore travels on
         # a PROMOTION as well as on a rejection - it matters more there.
         #
-        # 37.1 wants the approval-masked count itself. It has no producer:
-        # `real_warden.run_benign_suite` returns five fields and that is
-        # not one of them, and the field name appears in the README only as
-        # unbuilt. AN ABSENT NUMBER SAID TO BE ABSENT IS HONEST; the same
-        # number quietly omitted next to the word "clean" is not.
+        # 37.1's approval-masked count. IT HAS A PRODUCER SINCE 2026-08-24 -
+        # `real_warden` counts fixtures whose pass depended on the
+        # APPROVAL_ORACLE resolving a call the policy stopped. Before that the
+        # number was not missing from a return shape, it was being destroyed in
+        # `crucible/warden/replay.py`, which recorded `policy_decision = ALLOW`
+        # once the oracle approved and erased the fact that the policy had
+        # stopped anything.
+        #
+        # STILL None-SAFE ON PURPOSE. `campaign.stand_in_warden` returns None
+        # for it, because it calls `evaluate` directly and never runs the
+        # oracle, so it cannot observe an oracle-resolved pass. AN ABSENT NUMBER
+        # SAID TO BE ABSENT IS HONEST; the same number defaulted to 0 would be a
+        # measurement nothing took, printed next to the word "clean".
+        masked = record.benign_approval_masked
         proposal["warden_result"] = (
             "%s/%s benign fixtures PASSED the warden replay. Ruling 2 "
             "counts a call the policy stopped with APPROVAL_REQUIRED and "
             "the APPROVAL_ORACLE then approved as a pass, so PASSED is "
-            "not 'ran untouched'. The ruling 37.1 approval-masked count "
-            "(benign_passes_requiring_approval) has no producer and is "
-            "NOT in this bundle."
-            % (record.benign_passed, record.benign_total))
+            "not 'ran untouched'. Approval-masked (ruling 37.1): %s."
+            % (record.benign_passed, record.benign_total,
+               "NOT MEASURED - the stand-in warden cannot observe it"
+               if masked is None else masked))
     if decision == "REJECT":
         proposal["rejected_reason"] = _rejection_reason(record)
     out.append(proposal)

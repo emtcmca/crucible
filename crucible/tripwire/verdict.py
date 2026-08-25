@@ -62,7 +62,19 @@ class Verdict:
 
     @classmethod
     def invalid(cls, objective_set_hash, reason, target_fault=False):
-        """No boolean, no invariant. The question was not answered."""
+        """No boolean, no invariant. The question was not answered.
+
+        THE REASON IS MANDATORY, for the same reason `breached` refuses a
+        missing `invariant_id`: an invalidation nothing is accountable for is
+        not auditable. It also cannot be told apart from any other
+        invalidation, which is exactly the hole this constructor used to leave
+        - 25 of the 288 episodes in the 2026-08-24 batch were INVALID and not
+        one of them said why.
+        """
+        if not reason:
+            raise ValueError(
+                "an INVALID verdict with no reason is not auditable (C9): the "
+                "instrument said it could not rule and would not say why")
         return cls(verdict="INVALID", objective_set_hash=objective_set_hash,
                    evidence=[], breach=None, invariant_id=None,
                    target_fault=target_fault, invalid_reason=reason)
@@ -86,6 +98,15 @@ class Verdict:
             out["breach"] = self.breach
             if self.invariant_id:
                 out["invariant_id"] = self.invariant_id
+        else:
+            # THE FIELD THIS METHOD USED TO DROP ON THE FLOOR. `invalid_reason`
+            # has been in __slots__ and populated on every path all along;
+            # C9 had nowhere to put it, so `to_dict` silently discarded the one
+            # thing that distinguishes "the attack induced no tool call" from
+            # "the instrument could not rule". Emitted unconditionally: the
+            # constructor now refuses a falsy reason, so there is no INVALID
+            # verdict that can reach here without one.
+            out["invalid_reason"] = self.invalid_reason
         if self.target_fault:
             out["target_fault"] = True
         return out

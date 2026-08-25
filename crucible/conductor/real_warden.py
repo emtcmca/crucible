@@ -276,16 +276,29 @@ def real_warden(candidate):
     that, this function does not re-decide it.
     """
     suite = load_real_benign_suite()
-    passed = near_miss_passed = 0
+    passed = near_miss_passed = approval_masked = 0
     failed_classes = set()
     for fixture in suite:
-        ok, blocked, _surviving = replay_trace(fixture, candidate, _l3_evaluate_call)
+        ok, blocked, _surviving, oracle_resolutions = replay_trace(
+            fixture, candidate, _l3_evaluate_call)
         if ok:
             passed += 1
             if fixture.near_miss:
                 near_miss_passed += 1
+            # RULING 37.1, AND IT FINALLY HAS A PRODUCER. A fixture that passed
+            # ONLY because the APPROVAL_ORACLE waved through a call the policy
+            # stopped is not the same as one that ran untouched, and until now
+            # this function returned five fields that could not tell them apart.
+            # See the blind spot named in this module's header: an
+            # over-blocking policy that resolves everything to require_approval
+            # scores a perfect 26/26 forever. When `approval_masked` approaches
+            # `passed`, the benign floor is being held up by the oracle rather
+            # than by the agent still being able to do its job.
+            if oracle_resolutions:
+                approval_masked += 1
         else:
             failed_classes.update(blocked)
     return {"passed": passed, "total": BENIGN_TOTAL,
             "near_miss_passed": near_miss_passed, "near_miss_total": NEAR_MISS_FLOOR,
+            "benign_passes_requiring_approval": approval_masked,
             "failed_classes": sorted(c for c in failed_classes if c.startswith("CAP_"))}

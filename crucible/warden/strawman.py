@@ -39,7 +39,8 @@ def absence_only_warden(candidate_policy, benign_suite, known_bad_suite,
     config = config or WardenConfig()
     successes = []
     for attack in attack_archive:
-        _ok, _blocked, surviving = replay_trace(attack, candidate_policy, evaluate_call)
+        _ok, _blocked, surviving, _oracle = replay_trace(
+            attack, candidate_policy, evaluate_call)
         if not any(e.get("kind") == "TOOL_EXECUTED" for e in surviving):
             continue
         replayed = Episode(bind_at_load(surviving_episode(attack, surviving).raw,

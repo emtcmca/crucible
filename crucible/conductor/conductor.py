@@ -170,6 +170,10 @@ class RoundRecord:
     gate_detail: str = ""
     benign_passed: Optional[int] = None
     benign_total: Optional[int] = None
+    # RULING 37.1. How many of `benign_passed` passed ONLY because the
+    # APPROVAL_ORACLE approved a call the policy stopped. None means the gate in
+    # use could not observe it, which is a different statement from zero.
+    benign_approval_masked: Optional[int] = None
     rejection_feedback: Optional[dict] = None
     # HOW MANY TIMES THE ARMORER WAS ASKED IN THIS ROUND, and what the benign
     # floor did across those attempts. The trajectory is the evidence that
@@ -550,6 +554,8 @@ class Conductor:
             report = self.benign_gate(candidate)
             record.benign_passed = report.get("passed")
             record.benign_total = report.get("total")
+            record.benign_approval_masked = report.get(
+                "benign_passes_requiring_approval")
             record.benign_trajectory.append(int(report.get("passed") or 0))
 
             if (report.get("passed") == report.get("total")

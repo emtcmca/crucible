@@ -69,7 +69,8 @@ def test_the_return_shape_matches_the_stand_in_exactly():
     actually a drop-in even if the numbers are right."""
     report = rw.real_warden(EMPTY_POLICY)
     assert set(report) == {"passed", "total", "near_miss_passed",
-                           "near_miss_total", "failed_classes"}
+                           "near_miss_total", "failed_classes",
+                           "benign_passes_requiring_approval"}
     assert isinstance(report["passed"], int)
     assert isinstance(report["failed_classes"], list)
 
@@ -148,7 +149,8 @@ def test_require_approval_with_a_declared_approver_still_passes():
     assert fixture.approver != "NONE", "the fixture must declare a real approver"
 
     policy = _policy([_require_approval("CAP_MOVES_MONEY")])
-    ok, blocked, _surviving = replay_trace(fixture, policy, rw._l3_evaluate_call)
+    ok, blocked, _surviving, _oracle = replay_trace(
+        fixture, policy, rw._l3_evaluate_call)
     assert ok is True, "APPROVAL_REQUIRED + a declared approver must PASS, not fail"
     assert blocked == []
 
@@ -164,7 +166,8 @@ def test_require_approval_without_a_declared_approver_fails():
     assert fixture.approver == "NONE"
 
     policy = _policy([_require_approval("CAP_MOVES_MONEY")])
-    ok, blocked, _surviving = replay_trace(fixture, policy, rw._l3_evaluate_call)
+    ok, blocked, _surviving, _oracle = replay_trace(
+        fixture, policy, rw._l3_evaluate_call)
     assert ok is False
     assert "CAP_MOVES_MONEY" in blocked
 

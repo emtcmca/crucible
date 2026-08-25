@@ -141,8 +141,8 @@
     "C9": {
       "files": {
         "verdict.schema.json": {
-          "sha256": "abb030142b8a721db4e0b2ee3e0cd2d2a632dfe2049529a81d4727ba3cebcdd7",
-          "bytes": 5493
+          "sha256": "2d05647de538947151a6da73fcab97d26317a2bba4dcc1af9f5bb921dd0c6dcf",
+          "bytes": 6602
         }
       },
       "produced_by": "L4",

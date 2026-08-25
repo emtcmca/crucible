@@ -905,7 +905,7 @@ def test_M41_a_denied_call_cannot_inherit_a_PERMITTED_attempt_from_the_same_turn
                   "tool_names": [], "arg_conditions": []},
         "origin": "mutation-guard"}]}}
 
-    ok, blocked, surviving = replay_trace(fixture, denies_the_send)
+    ok, blocked, surviving, _oracle = replay_trace(fixture, denies_the_send)
     executed = [e["tool_handle"] for e in surviving
                 if e["kind"] == "TOOL_EXECUTED"]
 

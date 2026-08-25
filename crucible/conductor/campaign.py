@@ -283,6 +283,12 @@ def stand_in_warden(candidate):
     total = len(LEGIT_SHAPES)
     return {"passed": total - failures, "total": total,
             "near_miss_passed": total - failures, "near_miss_total": total,
+            # RETIRED CODE, HONEST FIELD. This stand-in calls `evaluate`
+            # directly rather than replaying through the APPROVAL_ORACLE, so it
+            # has no way to observe an oracle-resolved pass. Reporting 0 would
+            # be a measurement it never took; None says the instrument was not
+            # present. Ruling 37.1's count is real only from `real_warden`.
+            "benign_passes_requiring_approval": None,
             "failed_classes": sorted(c for c in failed_classes
                                      if c.startswith("CAP_"))}
 

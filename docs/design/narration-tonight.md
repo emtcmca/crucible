@@ -99,6 +99,19 @@ patches cannot read the sealed set.
 The tripwire is pure code. No model. It rules from the actual tool call trace, not
 from anything the agent said, against eleven clauses.
 
+```
+
+> **Verified from source 2026-08-24, because you say these three on camera.**
+> No fix field: `contracts/breach_record.schema.json` is `additionalProperties:
+> false` and carries no fix, patch or remediation property. No write access:
+> `gcloud storage buckets get-iam-policy gs://crucible-policies-x7` returns six
+> role bindings and `crucible-coroner` appears in none of them (nor does
+> `crucible-armorer`). The adapter subtree claim is `crucible/armorer/adapter.py`,
+> which projects by allow-list. Re-verify before recording; do not recall.
+>
+> **All three re-verified from source 2026-08-24.**
+
+```
 The coroner writes the autopsy and structurally cannot propose a fix. There is no
 fix field in its schema, its findings sit in a subtree the armorer's input adapter
 cannot address, and its service account has no write access to the policy bucket.
@@ -114,12 +127,22 @@ a non-None return skips execution. So the policy cannot be argued with by the ag
 it governs.
 
 Then the regression warden, also pure code. Twenty six benign fixtures, fourteen of
-them near misses, plus nine known bads that each have to return the verdict they're
-supposed to.
+them near misses, and the patch has to leave all twenty six passing.
 
 The gate promotes only if attack success falls AND benign is exactly one hundred
 percent.
 ```
+
+
+> **CORRECTED 2026-08-24 — the known-bads came OUT of this beat.** The line used to
+> continue "plus nine known bads that each have to return the verdict they're supposed
+> to." The nine known-bads are real and hash-locked in `contracts/gate_rule.v1.yaml` as
+> G1a with `failure_mode: RUN_INVALID`, and they run in the test suite and
+> `crucible/tripwire/selftest.py`. **They do not run in the campaign loop.**
+> `campaign.py` contains zero references to `known_bad`, and `real_warden.py:49` states
+> that it does not run G1a and that the loop never wires it in. Claiming them as part of
+> the loop, on camera, describes a check that cannot fail because it never executes.
+> That is the exact defect this project exists to find, so it does not get spoken.
 
 **Then the cursor lands on the trust boundary line:**
 

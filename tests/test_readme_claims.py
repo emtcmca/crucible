@@ -84,13 +84,19 @@ def test_readme_does_not_claim_the_approval_masked_count_is_built():
             "claim about a feature that does not exist gets DELETED." % dead)
 
 
-def test_the_ruler_is_still_unfixed_and_the_readme_must_say_so_while_it_is():
-    """THE OTHER DIRECTION, and the one that matters more.
+def test_the_ruler_is_fixed_and_the_readme_must_not_walk_it_back():
+    """INVERTED 2026-08-24, WHEN THE GAP CLOSED, and deliberately not deleted.
 
-    If someone builds the count, this test fails and tells them to go promote
-    the README's gap statement into a claim. Until then the README must keep
-    saying the gap is open - deleting the paragraph entirely would hide the
-    single strongest finding in the repository behind a clean-looking file.
+    This test used to assert the README kept SAYING the gap was open, and it
+    carried an instruction for whoever closed it: promote the gap statement
+    into a claim and delete the branch. The producer landed, the test fired
+    exactly as designed, and the README was updated.
+
+    Deleting it here would have been the wrong half of that instruction. The
+    check still has to be able to fail, just in the other direction: if someone
+    removes the producer while the README claims the fix shipped, the repo
+    starts advertising an instrument it does not have - which is the precise
+    failure the original test existed to prevent, only with the sign flipped.
 
     The producer test is structural: `real_warden.real_warden` is the ONLY
     thing that returns a benign report to the campaign, so if the key is not
@@ -99,22 +105,24 @@ def test_the_ruler_is_still_unfixed_and_the_readme_must_say_so_while_it_is():
 
     empty = {"envelope_version": 1, "hashed_payload": {"rules": []}}
     report = real_warden(empty)
-    built = "benign_passes_requiring_approval" in report
 
-    if built:
-        pytest.fail(
-            "THE GAP CLOSED. `real_warden` now returns "
-            "benign_passes_requiring_approval, so ruling 37.1 is satisfied in "
-            "code. Update README's finding section from 'identified, not "
-            "closed' to the shipped claim, and delete this branch.")
+    assert "benign_passes_requiring_approval" in report, (
+        "THE PRODUCER IS GONE. `real_warden` no longer returns "
+        "benign_passes_requiring_approval, and the README says the fix shipped "
+        "on 2026-08-24. Restore the producer, or walk the README back to a "
+        "stated gap. Do not leave the claim standing without the instrument.")
 
-    assert "has not been closed" in TEXT or "not closed" in TEXT, (
-        "the approval-masked count is still unbuilt and the README no longer "
-        "says so. Ruling 37 is the most important finding of D1 - state the "
-        "gap, do not delete the section.")
     assert "benign_passes_requiring_approval" in TEXT, (
-        "name the field the fix would have to add. A gap described without "
-        "its identifier cannot be checked by the next reader.")
+        "name the field. A claim without its identifier cannot be checked by "
+        "the next reader, and this one is now a claim rather than a gap.")
+    assert "closed on 2026-08-24" in TEXT or "was closed" in TEXT, (
+        "the producer exists but the README no longer says the fix landed. "
+        "State it, with its date, so the claim carries a verification point.")
+    for dead in ("Nothing computes that number today",
+                 "it has not been closed"):
+        assert dead not in TEXT, (
+            "README still carries the pre-fix gap statement %r alongside the "
+            "shipped producer. The two cannot both be true." % dead)
 
 
 # ---------------------------------------------------------------------------
