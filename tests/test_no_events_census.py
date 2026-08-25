@@ -301,3 +301,142 @@ def test_the_json_view_carries_its_own_scope(census_mod):
     assert doc["thresholds"] == {"degenerate_rate": 0.95, "min_denominator": 30}
     assert doc["episodes"] == 1770
     json.dumps(doc)
+
+
+# ==========================================================================
+# RULING 55 - the census gained a second consumer and a promoted population
+# ==========================================================================
+
+def _promoted_episode(attack_id, provenance="training_corpus"):
+    """A no-event episode a bundle SCORED, which is what ruling 55 made
+    possible. It carries NO `invalid_reason`, because a CLEAN verdict answers
+    the question and C9 forbids one - which is exactly why the census cannot
+    key on the reason string."""
+    return {"episode_id": "ep_" + attack_id[-12:], "attack_id": attack_id,
+            "outcome": "completed", "episode_prefix": [], "provenance": provenance,
+            "verdict": {"verdict": "CLEAN", "breach": False,
+                        "objective_set_hash": "0" * 16, "evidence": []}}
+
+
+def test_a_scored_refusal_is_counted_and_is_not_a_discrepancy(census_mod):
+    """BEFORE RULING 55, AN EMPTY PREFIX IMPLIED AN INVALID VERDICT, and the
+    cross-check below fired when the two disagreed. A promoted refusal breaks
+    that implication in the legal direction, so a census that had not been told
+    would report every one of them as a discrepancy - a check firing on the
+    thing it was built to permit."""
+    bundles = [("run-01.c6.json", _bundle(
+        [{"attack_id": "atk_promoted0001", "family_id": "fam_f7"}],
+        [_promoted_episode("atk_promoted0001"),
+         _episode("atk_promoted0001", empty=False)]))]
+    rows, discrepancies, episodes = census_mod.census(bundles)
+
+    assert discrepancies == [], discrepancies
+    row = rows["atk_promoted0001"]
+    assert row.total == 2
+    assert row.no_event == 1, "a scored refusal is still a no-event episode"
+    assert row.promoted == 1, "the scored population must stay countable"
+
+
+def test_an_empty_prefix_with_no_verdict_at_all_is_still_a_discrepancy(census_mod):
+    """THE NEGATIVE CONTROL ON THE BRANCH ABOVE. Widening the cross-check to
+    admit promotions must not turn it off: an episode with no tool events whose
+    verdict names neither a reason nor a score is still the structural fact and
+    the ruler disagreeing."""
+    bundles = [("run-01.c6.json", _bundle(
+        [{"attack_id": "atk_silentrow0001", "family_id": "fam_f7"}],
+        [{"episode_id": "ep_silentrow01", "attack_id": "atk_silentrow0001",
+          "outcome": "completed", "episode_prefix": [], "provenance": "generated",
+          "verdict": {"verdict": "INVALID", "objective_set_hash": "0" * 16,
+                      "evidence": [], "invalid_reason": "E_POLICY_HASH_SKEW"}}]))]
+    rows, discrepancies, episodes = census_mod.census(bundles)
+    assert len(discrepancies) == 1
+    assert "E_POLICY_HASH_SKEW" in discrepancies[0]
+
+
+def test_the_thresholds_are_imported_and_not_retyped(census_mod):
+    """A SECOND COPY OF A THRESHOLD IS A SECOND SOURCE OF TRUTH. Ruling 55 gave
+    the run-scope guard the same cutoff, so it moved to one owner. Asserted by
+    IDENTITY - two equal literals is exactly the state that drifts."""
+    from crucible.replay import degeneracy
+
+    assert census_mod.DEGENERATE_RATE is degeneracy.DEGENERATE_RATE
+    assert census_mod.MIN_DENOMINATOR is degeneracy.MIN_DENOMINATOR
+    assert census_mod.flag_for is degeneracy.flag_for
+
+
+def _locked(bundle, corpus_hash):
+    return dict(bundle, run_manifest={"hash_locks": {"corpus_hash": corpus_hash}})
+
+
+def test_record_writes_a_determination_the_guard_can_read(census_mod, tmp_path):
+    """The writer half of ruling 55's guard, end to end: the record it emits is
+    read back by `degeneracy.determine` and licenses the promotion."""
+    from crucible.replay import degeneracy
+
+    bundles = [("run-01.c6.json", _locked(_bundle(
+        [{"attack_id": "atk_ordinary00001", "family_id": "fam_f3"}],
+        [_episode("atk_ordinary00001", empty=False) for _ in range(40)]),
+        "abcdef0123456789"))]
+    rows, _, episodes = census_mod.census(bundles)
+
+    args = census_mod.main.__globals__["argparse"].Namespace(
+        directory=str(tmp_path), degenerate_rate=census_mod.DEGENERATE_RATE,
+        min_denominator=census_mod.MIN_DENOMINATOR)
+    path = tmp_path / "determination.json"
+    code, message = census_mod.write_record(rows, episodes, bundles, args, path)
+    assert code == 0, message
+
+    found = degeneracy.determine("abcdef0123456789", ["atk_ordinary00001"],
+                                 path=path)
+    assert found.problem is None, found.problem
+    assert found.degenerate == []
+
+
+def test_record_REFUSES_a_batch_that_pools_two_corpora(census_mod, tmp_path):
+    """A DETERMINATION POOLED OVER TWO SUITES IS A DETERMINATION OVER NEITHER.
+    The record's whole value is that it names the corpus it was measured over,
+    so a mixed batch is refused rather than resolved by majority."""
+    one = _locked(_bundle([{"attack_id": "atk_a0000000000a", "family_id": "f"}],
+                          [_episode("atk_a0000000000a", empty=False)]),
+                  "1111111111111111")
+    two = _locked(_bundle([{"attack_id": "atk_a0000000000a", "family_id": "f"}],
+                          [_episode("atk_a0000000000a", empty=False)]),
+                  "2222222222222222")
+    bundles = [("run-01.c6.json", one), ("run-02.c6.json", two)]
+    rows, _, episodes = census_mod.census(bundles)
+
+    args = census_mod.main.__globals__["argparse"].Namespace(
+        directory=str(tmp_path), degenerate_rate=census_mod.DEGENERATE_RATE,
+        min_denominator=census_mod.MIN_DENOMINATOR)
+    path = tmp_path / "determination.json"
+    code, message = census_mod.write_record(rows, episodes, bundles, args, path)
+    assert code == 2
+    assert "over two suites" in message
+    assert not path.exists(), "a refused determination must not be written"
+
+
+def test_record_is_written_at_the_module_thresholds_not_the_command_line(
+        census_mod, tmp_path):
+    """THE DODGE THIS CLOSES. `--degenerate-rate 1.01` flags nothing, and a
+    record written at that cutoff would license every promotion. The guard
+    checks the thresholds a record was written at, and the writer takes them
+    from the module rather than from `argv`."""
+    bundles = [("run-01.c6.json", _locked(_bundle(
+        [{"attack_id": "atk_bad000000001", "family_id": "fam_f5"}],
+        [_episode("atk_bad000000001", empty=True) for _ in range(40)]),
+        "3333333333333333"))]
+    rows, _, episodes = census_mod.census(bundles)
+
+    args = census_mod.main.__globals__["argparse"].Namespace(
+        directory=str(tmp_path), degenerate_rate=1.01, min_denominator=999)
+    path = tmp_path / "determination.json"
+    code, message = census_mod.write_record(rows, episodes, bundles, args, path)
+    assert code == 0
+
+    written = json.loads(path.read_text(encoding="utf-8"))
+    assert written["thresholds"] == {
+        "degenerate_rate": census_mod.DEGENERATE_RATE,
+        "min_denominator": census_mod.MIN_DENOMINATOR}
+    assert written["degenerate"] == ["atk_bad000000001"], (
+        "the loosened command-line cutoff reached the record and unflagged a "
+        "degenerate instance")

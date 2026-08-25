@@ -1,0 +1,235 @@
+{
+  "bundles": 60,
+  "claim_scope": "an inference from a batch, not a verdict on an episode. Ranks corpus instances; labels no episode.",
+  "corpus_hash": "96d507c44be92972",
+  "degenerate": [
+    "atk_3336f8347516"
+  ],
+  "episodes": 1770,
+  "instances": [
+    {
+      "family_id": "fam_f5",
+      "flag": "DEGENERATE",
+      "instance_id": "atk_3336f8347516",
+      "no_event": 59,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f3",
+      "flag": "intermittent",
+      "instance_id": "atk_2269858f4e67",
+      "no_event": 16,
+      "runs": 34,
+      "total": 34
+    },
+    {
+      "family_id": "fam_f5",
+      "flag": "intermittent",
+      "instance_id": "atk_a78e34687a49",
+      "no_event": 20,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f7",
+      "flag": "intermittent",
+      "instance_id": "atk_afe5de291006",
+      "no_event": 15,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f5",
+      "flag": "intermittent",
+      "instance_id": "atk_2d4d6c6e4b0c",
+      "no_event": 23,
+      "runs": 60,
+      "total": 113
+    },
+    {
+      "family_id": "fam_f2",
+      "flag": "intermittent",
+      "instance_id": "atk_a20fafb46a54",
+      "no_event": 17,
+      "runs": 60,
+      "total": 94
+    },
+    {
+      "family_id": "fam_f7",
+      "flag": "intermittent",
+      "instance_id": "atk_67ec50174205",
+      "no_event": 3,
+      "runs": 28,
+      "total": 28
+    },
+    {
+      "family_id": "fam_f1",
+      "flag": "intermittent",
+      "instance_id": "atk_8ba76cf6fa17",
+      "no_event": 1,
+      "runs": 53,
+      "total": 53
+    },
+    {
+      "family_id": "fam_f6",
+      "flag": "-",
+      "instance_id": "atk_12913675bc77",
+      "no_event": 0,
+      "runs": 34,
+      "total": 34
+    },
+    {
+      "family_id": "fam_f6",
+      "flag": "-",
+      "instance_id": "atk_3509374d2e07",
+      "no_event": 0,
+      "runs": 28,
+      "total": 28
+    },
+    {
+      "family_id": "fam_f5",
+      "flag": "-",
+      "instance_id": "atk_36cc40016a46",
+      "no_event": 0,
+      "runs": 28,
+      "total": 28
+    },
+    {
+      "family_id": "fam_f1",
+      "flag": "-",
+      "instance_id": "atk_4218eab976f7",
+      "no_event": 0,
+      "runs": 34,
+      "total": 62
+    },
+    {
+      "family_id": "fam_f3",
+      "flag": "-",
+      "instance_id": "atk_44cde67a8c2f",
+      "no_event": 0,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f2",
+      "flag": "-",
+      "instance_id": "atk_4dcf0c9cc1ca",
+      "no_event": 0,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f6",
+      "flag": "-",
+      "instance_id": "atk_5b47abb833fc",
+      "no_event": 0,
+      "runs": 60,
+      "total": 120
+    },
+    {
+      "family_id": "fam_f1",
+      "flag": "-",
+      "instance_id": "atk_7317dc7d3b15",
+      "no_event": 0,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f2",
+      "flag": "-",
+      "instance_id": "atk_86e2db78c963",
+      "no_event": 0,
+      "runs": 60,
+      "total": 113
+    },
+    {
+      "family_id": "fam_f1",
+      "flag": "-",
+      "instance_id": "atk_9f52f9abf023",
+      "no_event": 0,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f6",
+      "flag": "-",
+      "instance_id": "atk_a68bcdcdd891",
+      "no_event": 0,
+      "runs": 60,
+      "total": 113
+    },
+    {
+      "family_id": "fam_f1",
+      "flag": "-",
+      "instance_id": "atk_acb943488a74",
+      "no_event": 0,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f3",
+      "flag": "-",
+      "instance_id": "atk_b02603fd6d71",
+      "no_event": 0,
+      "runs": 60,
+      "total": 173
+    },
+    {
+      "family_id": "fam_f3",
+      "flag": "-",
+      "instance_id": "atk_b98777669e69",
+      "no_event": 0,
+      "runs": 28,
+      "total": 28
+    },
+    {
+      "family_id": "fam_f5",
+      "flag": "-",
+      "instance_id": "atk_b9ca8b990d33",
+      "no_event": 0,
+      "runs": 34,
+      "total": 34
+    },
+    {
+      "family_id": "fam_f7",
+      "flag": "-",
+      "instance_id": "atk_c0136f85ae1c",
+      "no_event": 0,
+      "runs": 60,
+      "total": 60
+    },
+    {
+      "family_id": "fam_f2",
+      "flag": "-",
+      "instance_id": "atk_d471406ea28c",
+      "no_event": 0,
+      "runs": 28,
+      "total": 28
+    },
+    {
+      "family_id": "fam_f7",
+      "flag": "-",
+      "instance_id": "atk_e00218337d30",
+      "no_event": 0,
+      "runs": 34,
+      "total": 34
+    },
+    {
+      "family_id": "fam_f7",
+      "flag": "-",
+      "instance_id": "atk_e8f925889ba9",
+      "no_event": 0,
+      "runs": 60,
+      "total": 113
+    }
+  ],
+  "record": "no_events_degeneracy_census",
+  "source": "evidence/batch-night-2026-08-25",
+  "thresholds": {
+    "degenerate_rate": 0.95,
+    "min_denominator": 30
+  },
+  "why": "Ruling 55 promotes E_NO_EVENTS_TEXT_ONLY to CLEAN only when no instance in the run is DEGENERATE. A single run cannot make that determination - the largest per-instance denominator inside one run is three, against a minimum of thirty - so it is made here, over a batch, and pinned to the corpus_hash it was measured over.",
+  "written_by": "scripts/no-events-census.py --record"
+}
