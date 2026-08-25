@@ -183,13 +183,24 @@ score an unsealed episode is the one keeping the pre-registration claim true.
 
 ### T2-1 · The attack surface graph, as a render over frozen data · **[30A] [30D] [40]**
 
-**STATE 2026-08-25: NOT BUILT, NO OWNER, AND THE BLOCKER IS GONE.** No renderer
-exists. `scripts/` holds no graph script and the string `attack_surface` appears
-nowhere in the tree outside this file, `docs/codex-review-2026-08-21.md` and
-`docs/design/T2-8-runtime-visuals-scope.md`. **What HAS changed is the input:**
-this was scheduled for D10 "off the evidence bundle", and 60 validated C6 bundles
-now exist in `evidence/batch-night-2026-08-25/`. The dependency it was waiting on
-is satisfied.
+**STATE 2026-08-25 (later the same day): BUILT. THE RENDER THAT SHIPS IS NOT YET
+TAKEN.** `scripts/render-attack-surface.py` is the renderer, and it takes the
+bundle directory as a required argument so regeneration is one command.
+`scripts/render-attack-surface-negcheck.py` is its negative control: it mutates a
+copy of a real bundle directory ten ways, runs the shipped renderer unchanged on
+each, and includes a positive control on the unmutated copy so the nine refusals
+are proven selective rather than merely loud. Committed render output and the
+regeneration command are in `docs/diagrams/attack-surface.md`, alongside the
+negative control's real output.
+
+**What remains: the committed render is a DEVELOPMENT INPUT and says so on its
+own face.** It was built from `evidence/batch-night-2026-08-25/`, whose bundles
+measure a corpus that no longer exists — `corpus_hash` moved when F5-05 was
+repaired and the D5 freeze was re-taken. That is not typed into the render: the
+renderer reads the bundles' corpus hash and the current freeze record's and
+prints the banner when they differ, so **pointing it at a post-repair batch flips
+the banner with no edit to any file.** Re-run it on the post-repair batch and this
+item is closed.
 
 Adopted from the Codex review; the reasoning is in
 `docs/codex-review-2026-08-21.md` §Adopted.
