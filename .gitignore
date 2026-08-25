@@ -56,6 +56,12 @@ planning/
 # Holds the crucible-scoped caveman disable set 2026-08-21.
 .claude/settings.local.json
 
+# Agent worktrees. Each is a FULL CHECKOUT of this repository, so a single
+# `git add -A` would commit whole copies of the tree into the tree. The standing
+# rule is to stage by explicit path and never `-A`, and this is the guard for the
+# day somebody does it anyway. Added 2026-08-25 after four lanes ran at once.
+.claude/worktrees/
+
 # Cloud Run deploy staging tree. Derived from target/ by deploy/build-stage.py
 # and rebuilt every deploy - a committed copy would be a second source of truth
 # for the frozen target.
