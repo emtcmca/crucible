@@ -1,6 +1,6 @@
-# CRUCIBLE — see it work in four minutes
+# CRUCIBLE — see it work in five minutes
 
-<walkthrough-tutorial-duration duration="4"/>
+<walkthrough-tutorial-duration duration="5"/>
 
 You are in a free Google Cloud Shell VM with this repository already cloned. Nothing
 here costs you anything, calls a model, or touches a project of yours.
@@ -12,12 +12,13 @@ cannot propose a fix. An Armorer proposes policy rules but cannot promote them. 
 pure-code gate promotes or rolls back. Every component is deliberately blind to
 something, because a system that grades its own work is not measuring anything.
 
-**What this tutorial shows.** The three parts that are pure code and therefore need no
+**What this tutorial shows.** The parts that are pure code and therefore need no
 credential: the checker that proves it can fail, the policy language that refuses to
-learn a string filter, and the offline evidence reader. Click **Next** to start.
+learn a string filter — including its refusal to quote an attack back at you — and the
+offline evidence reader. Click **Next** to start.
 
 The full attack loop is **not** run here. It needs Vertex AI and a billing account of
-your own. Step 5 says exactly what it is and where the proof of it lives.
+your own. Step 6 says exactly what it is and where the proof of it lives.
 
 ## Step 1 — the ninety seconds
 
@@ -111,13 +112,37 @@ everything on a new target and report **100% transfer, for free**. The validator
 refuses it explicitly, and says so in the error, because the alternative is a headline
 result that is manufactured rather than measured.
 
-**What to look for:** the accepted rules come back with a `rule_id` like
-`r_8ca68146180f`. The model never wrote that. It emits the placeholder `r_new1` and
-the validator computes the hash from the canonical rule body — because a model asked
-to produce a SHA-256 will produce something that looks like one, and the next guess
-lands somewhere nobody can see.
+**What to look for:** the accepted rules come back with an `r_`-prefixed `rule_id`. The
+model never wrote it. It emits the placeholder `r_new1` and the validator computes the
+hash from the canonical rule body — because a model asked to produce a SHA-256 will
+produce something that looks like one, and the next guess lands somewhere nobody can
+see.
 
-## Step 3 — read the evidence with no credentials at all
+## Step 3 — the same rule, accepted and then refused
+
+One more refusal, and it is the one that decides whether the transfer claim means
+anything.
+
+A rule is not allowed to quote the attack it was learned from. The Armorer cannot
+invent an attacker's prose — the grammar has no free strings — so the realistic way a
+string filter gets into the policy is that an **attack payload quotes DSL-shaped text
+and the Armorer parrots it back**. Run the controlled pair:
+
+```bash
+python scripts/try-a-rule.py --payload-demo
+```
+
+**What to look for: the rule text is byte-identical in both halves.** Judged against an
+empty corpus it is `ACCEPTED` and gets a computed `rule_id`. Judged with that one
+payload in the corpus it is `REFUSED` with `E_PAYLOAD_SUBSTRING`, and the error names
+the exact eight-token run it reproduced. Nothing changed but the corpus.
+
+That is the whole argument in one command. A rule that quotes an attack would score
+perfectly against that attack and transfer to nothing, so the headline transfer result
+would be an artifact of memorisation. The validator refuses it rather than trusting
+whoever wrote the rule to have been disciplined.
+
+## Step 4 — read the evidence with no credentials at all
 
 An evidence bundle is what a run produces. Reading one takes a path and nothing else —
 no project flag, no credential file, no endpoint:
@@ -128,10 +153,17 @@ python -m crucible.replay contracts/golden/C6-evidence_bundle.valid.json
 
 **Read this label before you read the output.** That file is the golden *contract
 fixture* for the bundle schema — a hand-authored instance kept in the tree so the
-viewer and the schema can be exercised before any run exists. Its `run_id` is
-synthetic. **It is not a result and no figure in it is a measurement.** As of
-2026-08-22 no attack has been scored, and the repository says so on its front page
-rather than in a footnote.
+viewer and the schema can be exercised without a run. Its `run_id` is synthetic.
+**It is not a result, and no figure in it is a measurement.** It is here to show you
+what the reader checks and what the reader refuses, not to tell you how CRUCIBLE
+scored.
+
+**Where the real bundles are, and why they are not in your clone.** Live runs have
+happened and they do produce bundles this same command reads. `evidence/` is
+gitignored, so those bundles are on the builder's machine and are **not publicly
+verifiable** — the repository's own Status section says so, in those words. Do not
+take anything in this tutorial as a measured result. The README's `Observed` column is
+the only place a measurement is allowed to appear, and it says what it says.
 
 **What to look for:**
 
@@ -152,7 +184,7 @@ rather than in a footnote.
   labels any figure from it must carry, because a rate needs a denominator decision
   and that decision belongs to the component that owns the measurement.
 
-## Step 4 — the whole thing, if you want it
+## Step 5 — the whole thing, if you want it
 
 Everything above ran on three small packages. The full suite additionally needs the
 pinned Agent Development Kit and pytest, which take a minute or two to install:
@@ -169,7 +201,7 @@ fail, sweeps the documentation for values that have been corrected, and rejects 
 present-tense claim about an artifact that carries no date. It has a `--selftest` of
 its own that proves each of the five passes can still fail.
 
-## Step 5 — what was deliberately not run here, and where the rest is
+## Step 6 — what was deliberately not run here, and where the rest is
 
 The attack loop itself — red strategist, target agent, Coroner, Armorer — calls Gemini
 on Vertex AI. Running it needs a Google Cloud project with billing that belongs to
