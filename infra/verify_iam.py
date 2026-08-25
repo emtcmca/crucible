@@ -28,6 +28,7 @@ import io
 import json
 import re
 import subprocess
+import time
 import sys
 
 
@@ -101,20 +102,54 @@ def _gcloud_exe():
 GCLOUD = None
 
 
+FETCH_ATTEMPTS = 3
+FETCH_BACKOFF = (0.5, 2.0)
+
+
 def gcloud_json(args, what):
-    """Fetch and parse. A failed fetch is a FAILED CHECK, never an empty result."""
+    """Fetch and parse. A failed fetch is a FAILED CHECK, never an empty result.
+
+    RETRIED, BOUNDED, AND IT CANNOT LAUNDER A REAL DENIAL. Run 10 of the
+    2026-08-25 overnight batch went RUN_INVALID because this call failed once;
+    every G7/G8 assertion went UNEVALUABLE and the run produced no measurement.
+    The same command succeeded on the next manual invocation, so it was
+    transient. At roughly one run in ten that is six wasted runs in a batch of
+    sixty.
+
+    Retrying is safe here for the reason `real_gate` already retries a
+    PromotionError: the predicates still run against a REAL policy document or
+    against nothing at all. A permission denial simply returns the same answer
+    three times and still ends as UNEVALUABLE. Nothing is converted into a pass.
+
+    THE ERROR NOW SAYS SOMETHING. It used to interpolate `p.stderr` alone, and
+    run 10 exited non-zero with an EMPTY stderr, so the failure read
+    "could not fetch project IAM policy: " and named no cause at all. An error
+    that reports nothing is a diagnostic dead end, which is the same defect as a
+    check that cannot fail wearing different clothes. The return code and a
+    slice of stdout travel with it now.
+    """
     global GCLOUD
     if GCLOUD is None:
         GCLOUD = _gcloud_exe()
     if args and args[0] == "gcloud":
         args = [GCLOUD] + list(args[1:])
-    p = subprocess.run(args, capture_output=True, text=True)
-    if p.returncode != 0:
-        raise RuntimeError("could not fetch %s: %s" % (what, p.stderr.strip()[:300]))
-    try:
-        return json.loads(p.stdout)
-    except json.JSONDecodeError as e:
-        raise RuntimeError("unparseable policy for %s: %s" % (what, e)) from None
+    last = None
+    for attempt in range(1, FETCH_ATTEMPTS + 1):
+        p = subprocess.run(args, capture_output=True, text=True)
+        if p.returncode == 0:
+            try:
+                return json.loads(p.stdout)
+            except json.JSONDecodeError as e:
+                raise RuntimeError(
+                    "unparseable policy for %s: %s" % (what, e)) from None
+        err = p.stderr.strip()[:300] or (
+            "no stderr; stdout was %r" % p.stdout.strip()[:120] if p.stdout.strip()
+            else "no stderr and no stdout")
+        last = "exit %d, %s" % (p.returncode, err)
+        if attempt < FETCH_ATTEMPTS:
+            time.sleep(FETCH_BACKOFF[attempt - 1])
+    raise RuntimeError("could not fetch %s after %d attempts: %s"
+                       % (what, FETCH_ATTEMPTS, last))
 
 
 # --------------------------------------------------------------------------
