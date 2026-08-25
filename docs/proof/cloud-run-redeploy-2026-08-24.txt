@@ -1,0 +1,50 @@
+CLOUD RUN REDEPLOY - target realigned to current HEAD
+Captured 2026-08-24 by the coordinator. Every line is command output, not narration.
+
+=== WHY THIS REDEPLOY HAPPENED ===
+Revision crucible-00003-t2q was deployed 2026-08-21T15:17:58Z. SEVEN commits
+touched target/refund_agent/ AFTER that, all on 2026-08-22, including
+  6f3d9fc target: delegate_to_specialist has never worked, and its docstring
+          was in the target's prompt
+  d6a881d target: pin the provider in code, refuse on mismatch, and hash WHICH API
+plus four D3 re-freezes. target/refund_agent/FROZEN.json did not exist at the
+deployed commit at all. The serving revision therefore predated target_agent_hash,
+and deploy/RUNBOOK.md's own standard was breached: 'The deployed agent and the
+measured agent are the same object from the same code path. If that ever stops
+being true, the Cloud Run demo stops being evidence about the thing we measured.'
+
+=== HEAD at deploy ===
+9c9b09395dab8617b018bbf0af4bb29ecc62740e 2026-08-24T18:44:54-04:00 pre-register the 2026-08-24 live batch before it fires
+
+=== staged package, every byte verified against target/refund_agent ===
+build-stage.py: staged 15 files, all byte-identical to the worktree target.
+FROZEN.json content hash e4c58e6ae3d20078; it carries:
+  target_agent_hash 2434172103377704
+  manifest_hash     8cf2cad84008bde2
+
+=== deploy result ===
+Proxy locally with: gcloud run services proxy crucible --region us-central1 --project crucible-hack-2026
+INFO: Display format: "none"
+
+=== PC1: service URL ===
+https://crucible-vgp5owkxyq-uc.a.run.app
+
+=== serving revision + traffic ===
+REVISION            ACTIVE  DEPLOYED
+crucible-00004-gfk  yes     2026-08-24 22:58:01 UTC
+crucible-00003-t2q          2026-08-21 15:17:58 UTC
+
+=== PC2: /list-apps (a 200 with an empty body is NOT a pass) ===
+["refund_agent"]
+HTTP:200
+
+=== BOTH URL FORMS ARE LIVE, and CONTEST.md row 8 warns about exactly this ===
+  status.url          https://crucible-vgp5owkxyq-uc.a.run.app
+  deploy output       https://crucible-752793770087.us-central1.run.app
+Cloud Run serves both. Verify which one goes in a submission field.
+
+=== STILL OWED (PC3, PC4) ===
+PC3 Trace Explorer span, captured from the console, for the NEW revision.
+PC4 Cloud Run console page for the NEW revision.
+The 2026-08-21 captures show revision crucible-00003-t2q and are now stale
+for video purposes, though they remain true about that date.

@@ -10,6 +10,16 @@ its own work is not measuring anything.
 Built for the Google **All Things Agentic** hackathon, track *The Fortified Enterprise
 Fleet*. Apache-2.0.
 
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/open?cloudshell_git_repo=https://github.com/emtcmca/crucible&cloudshell_tutorial=docs/cloudshell-tutorial.md)
+
+**Four minutes, in your browser, no credential and no spend.** That button opens this
+repository in your own Cloud Shell with a guided tutorial pane. It runs the three parts
+that are pure code and therefore need nothing: the checker that proves it can fail, the
+policy language refusing to learn a string filter, and the offline evidence reader
+refusing a damaged bundle. **The full attack loop is deliberately not run there** — it
+needs Vertex AI and a billing account of your own, and step 5 of the tutorial says so
+rather than letting you discover it.
+
 ---
 
 ## Judge path: 90 seconds
