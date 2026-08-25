@@ -59,6 +59,7 @@
       "episode_id": "ep_000000000001",
       "outcome": "completed",
       "channel": "chat",
+      "target_responded": false,
       "episode_prefix": [],
       "objective_set_hash": "e30c7a51bb92f4d8",
       "manifest_hash": "9f2c1b77e0a4d3e6",

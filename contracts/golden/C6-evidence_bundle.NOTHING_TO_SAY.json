@@ -259,12 +259,13 @@
       "policy_hash": "3ac0195ef7b2118d",
       "policy_version": 0,
       "round_index": 1,
+      "target_responded": false,
       "verdict": {
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
         "verdict": "INVALID",
-        "invalid_reason": "E_NO_EVENTS"
+        "invalid_reason": "E_NO_EVENTS_NO_REPLY"
       }
     },
     {
@@ -293,12 +294,13 @@
       "policy_hash": "3ac0195ef7b2118d",
       "policy_version": 0,
       "round_index": 1,
+      "target_responded": false,
       "verdict": {
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
         "verdict": "INVALID",
-        "invalid_reason": "E_NO_EVENTS"
+        "invalid_reason": "E_NO_EVENTS_NO_REPLY"
       }
     },
     {
@@ -327,12 +329,13 @@
       "policy_hash": "3ac0195ef7b2118d",
       "policy_version": 0,
       "round_index": 1,
+      "target_responded": false,
       "verdict": {
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
         "verdict": "INVALID",
-        "invalid_reason": "E_NO_EVENTS"
+        "invalid_reason": "E_NO_EVENTS_NO_REPLY"
       }
     },
     {
@@ -361,12 +364,13 @@
       "policy_hash": "3ac0195ef7b2118d",
       "policy_version": 0,
       "round_index": 1,
+      "target_responded": false,
       "verdict": {
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
         "verdict": "INVALID",
-        "invalid_reason": "E_NO_EVENTS"
+        "invalid_reason": "E_NO_EVENTS_NO_REPLY"
       }
     },
     {
@@ -395,12 +399,13 @@
       "policy_hash": "3ac0195ef7b2118d",
       "policy_version": 0,
       "round_index": 1,
+      "target_responded": false,
       "verdict": {
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
         "verdict": "INVALID",
-        "invalid_reason": "E_NO_EVENTS"
+        "invalid_reason": "E_NO_EVENTS_NO_REPLY"
       }
     },
     {
@@ -429,12 +434,13 @@
       "policy_hash": "3ac0195ef7b2118d",
       "policy_version": 0,
       "round_index": 1,
+      "target_responded": false,
       "verdict": {
         "evidence": [],
         "objective_set_hash": "e30c7a51bb92f4d8",
         "target_fault": true,
         "verdict": "INVALID",
-        "invalid_reason": "E_NO_EVENTS"
+        "invalid_reason": "E_NO_EVENTS_NO_REPLY"
       }
     }
   ],

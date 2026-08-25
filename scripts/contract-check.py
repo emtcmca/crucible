@@ -440,6 +440,12 @@ def _sandbox():
     shutil.copytree(CONTRACTS, tmp / "contracts")
     (tmp / "docs").mkdir()
     shutil.copy2(REPO / "docs" / "CONVENTIONS.md", tmp / "docs")
+    # README.md is COPIED for the same reason CONVENTIONS.md is: `pass_freshness`
+    # reads it off REPO, so without it here the pass raises in the sandbox instead
+    # of failing cleanly, and NO BREAKER COULD BE WRITTEN FOR IT. That is exactly
+    # why FRESH shipped 2026-08-25 with no selftest entry and why `--selftest` has
+    # been exiting 1 ever since: the assertion below caught it, and nothing ran it.
+    shutil.copy2(REPO / "README.md", tmp / "README.md")
     saved = {n: globals()[n] for n in _SANDBOX_GLOBALS}
     globals().update(REPO=tmp, CONTRACTS=tmp / "contracts",
                      GOLDEN=tmp / "contracts" / "golden", DOCS=tmp / "docs")
@@ -486,17 +492,34 @@ def _break_terms(tmp):
     p.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
 
 
+def _break_fresh(tmp):
+    """A README Status anchor backdated past the staleness limit.
+
+    Backdated rather than deleted, deliberately. Deleting the anchor also fails
+    the pass, but by the OTHER branch, so it would prove the pass notices a
+    missing anchor and prove nothing at all about whether it notices STALENESS,
+    which is the thing the pass exists for.
+    """
+    import datetime
+    p = tmp / "README.md"
+    stale = datetime.date.today() - datetime.timedelta(days=README_STALE_DAYS + 5)
+    text = README_ASOF.sub("**As of %s" % stale.isoformat(),
+                           p.read_text(encoding="utf-8", errors="replace"), count=1)
+    p.write_text(text, encoding="utf-8")
+
+
 BREAKERS = {
     "HASH": (_break_hash, "verdict.schema.json"),
     "FIXTURES": (_break_fixtures, "C9-selftest-empty"),
     "SWEEP": (_break_sweep, "four-hash-locks"),
     "STATUS": (_break_status, "selftest-status.md"),
     "TERMS": (_break_terms, "approver_role"),
+    "FRESH": (_break_fresh, "days old"),
 }
 
 
 def selftest():
-    """Prove each pass CAN fail, by making it fail. All five, every run."""
+    """Prove each pass CAN fail, by making it fail. All six, every run."""
     print("SELFTEST - every pass, run clean and run broken, on a throwaway copy\n")
     ok = True
     assert set(BREAKERS) == {n for n, _ in PASSES}, \

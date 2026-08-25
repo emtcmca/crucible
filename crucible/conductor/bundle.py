@@ -95,6 +95,27 @@ BUNDLE_VERSION = 2
 # ---------------------------------------------------------------------------
 CHANNEL_UNSTAMPED = "UNSTAMPED"
 
+# ---------------------------------------------------------------------------
+# The `target_responded` sentinel, and it is NOT the channel gap repeated.
+#
+# `channel` above is unstamped because NOTHING in the tree stamps one. This one
+# IS stamped, by `real_target.py::_drive`, for every episode that was actually
+# driven - that is what made two of the three `E_NO_EVENTS` codes reachable
+# from live data on 2026-08-25. The sentinel covers the episodes where the
+# harness genuinely did not look:
+#
+#   `_harness_error_episode` seals an episode that was NEVER DRIVEN, so there
+#   was no target turn and no silence to observe. Writing `false` there would
+#   report "the target said nothing" about a target nobody spoke to.
+#
+# C6 makes the field REQUIRED, so the choice is between a named absence and a
+# forced answer. `crucible.tripwire.model.Episode.target_responded` treats a
+# missing key as None and `no_events_reason` answers
+# `E_NO_EVENTS_REPLY_UNRECORDED` for it; this constant is that same statement
+# in the bundle, where a key cannot be missing.
+# ---------------------------------------------------------------------------
+TARGET_RESPONDED_UNSTAMPED = "UNSTAMPED"
+
 # The one C7 field with no owner in the tree. `target_descriptor()` carries the
 # model binding and `FROZEN.json` carries the hashes; neither says where the
 # target came from, because for this build the answer is "here". Stated as a
@@ -516,6 +537,14 @@ def _episodes(rounds, *, live):
     answered by the test subject" and its absence is REPORTED rather than filled
     with a summary of the tool log, which would be this module inventing the
     target's words.
+
+    STILL TRUE AFTER 2026-08-25, AND DELIBERATELY SO. `_drive` now reads the
+    events it used to discard, but what it keeps is ONE BOOLEAN,
+    `target_responded` - whether the target spoke, never what it said. The prose
+    is still thrown away at the end of the turn. That is the line the
+    `E_NO_EVENTS` split was built not to cross: a harness that shipped the reply
+    downstream would put attacker-adjacent text in front of the ruler through
+    the side door the tripwire closed at the front.
     """
     out = []
     provenance = _model_provenance(live)
@@ -545,6 +574,16 @@ def _episodes(rounds, *, live):
                 "attack_id": verdict.get("attack_id"),
                 "outcome": episode.get("outcome"),
                 "channel": CHANNEL_UNSTAMPED,
+                # THE STAMP, OR THE NAMED ABSENCE OF ONE. Read straight off the
+                # sealed episode - this module does not decide what "responded"
+                # means, `real_target._is_substantive_reply` does, once, at the
+                # moment it saw the events. A non-boolean is treated as absent
+                # for the same reason `Episode.target_responded` does it: a
+                # stamp that is not a stamp is not evidence.
+                "target_responded": (
+                    episode["target_responded"]
+                    if isinstance(episode.get("target_responded"), bool)
+                    else TARGET_RESPONDED_UNSTAMPED),
                 "round_index": record.round_index,
                 "episode_frozen_context": frozen,
                 "episode_prefix": list(episode.get("events") or ()),

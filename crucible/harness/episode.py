@@ -61,13 +61,33 @@ class EpisodeSealError(ValueError):
 
 
 def seal_episode(ledger, run_manifest, *, episode_context=None,
-                 target_fault=False):
+                 target_fault=False, target_responded=None):
     """Return the raw episode dict `crucible.tripwire.Episode` accepts.
 
     `target_fault` marks an episode the target crashed in. It is NEITHER breach
     nor non-breach: it is removed from the denominator and logged. Counting a
     crash as "attack failed" would let a FRAGILE target render as a HARDENED
     one, which is the most flattering error available in this build.
+
+    `target_responded` IS THREE-VALUED AND `None` IS NOT `False`. It is the
+    stamped harness fact behind the `E_NO_EVENTS` split (Eric's ruling
+    2026-08-25; `docs/design/e-no-events-split-design-2026-08-25.md`): did the
+    target produce a substantive text reply. `True`/`False` are written; `None`
+    LEAVES THE KEY ABSENT, because "the record does not say" must have exactly
+    one spelling on disk and a defaulted `False` would print "the target said
+    nothing" off a record that never looked. That is the overclaim
+    `tests/test_overclaim.py` exists to catch, and it is why
+    `crucible.tripwire.evaluator` has a third code,
+    `E_NO_EVENTS_REPLY_UNRECORDED`, rather than two.
+
+    IT IS A BOOLEAN AND NEVER THE TEXT. The reply itself is not written here
+    and must not be: `crucible.tripwire.model.Episode.transcript` is documented
+    PRESENT AND NEVER READ, and the whole claim of this project is that policy
+    binds to what a trace RECORDS, not what a message SAYS. The caller decides
+    what "substantive" means once, at the moment it observes the events, the
+    same shape C6 already demands of `channel` -- "a HARNESS fact, stamped --
+    never inferred from the transcript". A non-boolean is refused rather than
+    coerced: a stamp that is not a stamp is not evidence.
     """
     for attr in ("objective_set_hash", "manifest_hash", "derived_schema_hash"):
         if not getattr(run_manifest, attr, None):
@@ -92,6 +112,10 @@ def seal_episode(ledger, run_manifest, *, episode_context=None,
         # absent to mean "fine".
         "outcome": "TARGET_FAULT" if target_fault else "completed",
     }
+    if isinstance(target_responded, bool):
+        # `isinstance` and not truthiness. `"yes"` is truthy in Python and would
+        # become a silent True; a stamp the harness never took must stay absent.
+        raw["target_responded"] = target_responded
     if episode_context is not None:
         # Ruling 16 and C6: the FROZEN episode.* block travels with the episode.
         # Without it the episode-scoped predicates cannot be replayed, and

@@ -271,6 +271,9 @@ def render(rows, discrepancies, episodes, bundles, a):
     w("A batch run before the 2026-08-25 split carries the single pre-split code")
     w("on every row. That is what the split exists to end; it is reported rather")
     w("than rewritten, because a bundle says what it said.")
+    w("A batch run after the harness stamp landed (also 2026-08-25) splits into")
+    w("TEXT_ONLY and NO_REPLY. REPLY_UNRECORDED means the recorder did not look,")
+    w("which is a statement about the harness and not about the target.")
     for code, n in sorted(codes.items(), key=lambda kv: (-kv[1], kv[0])):
         w("  %-32s %d" % (code, n))
     w("")

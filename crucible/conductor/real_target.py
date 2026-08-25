@@ -462,6 +462,61 @@ def _harness_error_episode(core, run_manifest, world):
     return raw
 
 
+# ---------------------------------------------------------------------------
+# THE `target_responded` STAMP. Eric ruled the `E_NO_EVENTS` split on
+# 2026-08-25; this is the half that makes two of its three codes reachable from
+# a real run. Design: `docs/design/e-no-events-split-design-2026-08-25.md`.
+#
+# WHAT IS STAMPED IS A BOOLEAN AND NEVER THE TEXT, and the reason is the whole
+# design. `crucible/tripwire/evaluator.py` refuses the attack instruction and
+# refuses `Episode.transcript` because policy binds to WHAT A TRACE RECORDS,
+# NOT WHAT A MESSAGE SAYS. A harness that answered the question by shipping the
+# prose downstream would hand the ruler the same string through a side door. So
+# the question is answered HERE, once, at the moment the events go past, and
+# only the answer travels. Same shape C6 already demands of `channel`: "a
+# HARNESS fact, stamped - never inferred from the transcript".
+#
+# WHAT COUNTS AS SUBSTANTIVE, DECIDED ONCE AND WRITTEN DOWN. An observed ADK
+# event counts when its content carries the MODEL role and at least one part
+# whose `text` is non-empty after `.strip()` and which is not a thought part.
+# Read off the real Runner rather than assumed (2026-08-25, ADK 2.1.0):
+#
+#   a text reply          content.role == "model", part.text set        COUNTS
+#   a whitespace reply    content.role == "model", part.text == "   \n" does not
+#   a tool CALL           content.role == "model", part.function_call   does not
+#   a tool RESULT         content.role == "user",  part.function_response  does not
+#   a silent model        no event is yielded at all                    does not
+#
+# The tool-result row is why the role is checked and not just the text: ADK
+# delivers a function response as a "user"-role event authored by the agent, so
+# a role-blind reader would count the harness's own tool plumbing as the target
+# speaking. The whitespace row is why `.strip()` is there - an empty final
+# event is the shape a model produces when it has nothing to say, and calling
+# that a reply would put every silent episode in the TEXT_ONLY bucket and empty
+# the one code that says the target never spoke.
+#
+# STREAMING IS NOT SPECIAL-CASED ON PURPOSE. A partial chunk carrying real text
+# still means the target spoke, and the flag is a monotone OR, so a partial and
+# the aggregate it is later folded into cannot disagree.
+# ---------------------------------------------------------------------------
+def _is_substantive_reply(event):
+    """Did this one ADK event carry words from the target. Pure, total, and it
+    reads no attack text and no transcript - only the event in front of it."""
+    content = getattr(event, "content", None)
+    if content is None or getattr(content, "role", None) != "model":
+        return False
+    for part in (getattr(content, "parts", None) or ()):
+        if getattr(part, "thought", False):
+            # A thinking part is the model reasoning to itself, not answering
+            # the user. Counting it would report a target that deliberated in
+            # silence as one that replied.
+            continue
+        text = getattr(part, "text", None)
+        if isinstance(text, str) and text.strip():
+            return True
+    return False
+
+
 async def _drive(attack, policy, *, model, world_factory, run_manifest):
     from google.adk.apps.app import App
     from google.adk.runners import Runner
@@ -489,6 +544,12 @@ async def _drive(attack, policy, *, model, world_factory, run_manifest):
 
     target_tools.bind_backends(world.sor)
     target_fault = False
+    # FALSE FROM HERE, NOT None. Past this line the episode IS being driven, so
+    # the harness is looking; "the target said nothing" is then a real
+    # observation rather than an absence. `_harness_error_episode` above
+    # deliberately never gets here and never stamps, because an episode that was
+    # never driven cannot have observed a silence.
+    target_responded = False
     try:
         agent = build_agent()
         agent.tools = _adk_tools_for(target_tools.TOOL_FUNCTIONS)
@@ -509,11 +570,17 @@ async def _drive(attack, policy, *, model, world_factory, run_manifest):
             # restarting. A single-turn world runs this loop once and is
             # byte-identical to what the single `types.Part` call produced.
             for turn in world.turns:
-                async for _ in runner.run_async(
+                # THE EVENTS ARE NO LONGER DISCARDED. `async for _ in ...: pass`
+                # threw away the one fact that separates "the target refused"
+                # from "the fixture gave it nothing to act on" - see
+                # `_is_substantive_reply` above. Nothing else is kept: the loop
+                # variable never leaves this frame and no text is retained.
+                async for event in runner.run_async(
                         user_id="u_" + episode_id, session_id="s_" + episode_id,
                         new_message=types.Content(
                             role="user", parts=[types.Part(text=turn)])):
-                    pass
+                    if not target_responded and _is_substantive_reply(event):
+                        target_responded = True
         except Exception:
             # A crash driving the episode is TARGET_FAULT, not a breach and not
             # a clean run (CONVENTIONS / conductor.py ruling 33.4). Swallowed
@@ -532,7 +599,8 @@ async def _drive(attack, policy, *, model, world_factory, run_manifest):
     # adapter uses the return value as-is - no post-seal patching.
     return seal_episode(core.ledger, run_manifest,
                         episode_context=core.episode_context,
-                        target_fault=target_fault)
+                        target_fault=target_fault,
+                        target_responded=target_responded)
 
 
 def build_real_target(*, run_manifest, model=None, sor_factory=None,

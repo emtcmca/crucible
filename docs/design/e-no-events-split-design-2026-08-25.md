@@ -84,6 +84,48 @@ tripwire exists to be.
 > **Making the two designed codes fire on live data is a separate piece of work**: stamp
 > the flag in `_drive`/`seal_episode`, and move `contracts/evidence_bundle.schema.json` to
 > let a bundle carry it. Both need a coordinator ruling. Neither was done here.
+>
+> ---
+>
+> **CLOSED LATER THE SAME DAY, 2026-08-25, on Eric's ruling. Both halves are built and
+> the paragraph above is now history rather than status.** `_drive` no longer discards
+> the ADK events: it asks each one whether the target spoke, ORs the answer, and hands a
+> boolean to `seal_episode`, which writes `target_responded` when it is a boolean and
+> leaves the key absent when it is not. What counts as substantive is decided once, at
+> the moment of observation, by `real_target._is_substantive_reply` - a model-role event
+> carrying a text part that is non-empty after `.strip()` and is not a thought part. A
+> whitespace-only final event does NOT count, and that is a negative control rather than
+> a detail: counting it would put every silent episode in `TEXT_ONLY` and leave
+> `NO_REPLY` unreachable, which is the same defect one layer down.
+>
+> **Both refusals were honored.** The attack instruction is not passed to the tripwire and
+> `Episode.transcript` is not read - by the harness either. The reply TEXT is never
+> written to the episode or the bundle, and
+> `tests/test_target_responded_stamp.py::test_the_words_themselves_never_reach_the_episode`
+> asserts it rather than promising it.
+>
+> **The contract move is a CONTRACT-FILE move, not a lock-field move**, and the two get
+> confused. `contracts/evidence_bundle.schema.json` gains `target_responded` as a
+> **REQUIRED** episode field, which moves the C6 file hash inside `contracts/MANIFEST.json`
+> and nothing else; `manifest_hash` is the CAPABILITY manifest and none of the six lock
+> fields move, so it costs `python scripts/hash-contracts.py` and no `docs/proof/` record.
+> Required rather than optional on the standard Eric set for C9's `invalid_reason`: an
+> optional field gets silently omitted and nothing has changed. Every bundle written
+> before this date stops validating, which is the requirement working. The field is
+> three-valued - `true`, `false`, `"UNSTAMPED"` - because `_harness_error_episode` seals an
+> episode that was NEVER DRIVEN, and a required boolean would force it to report a silence
+> nobody observed. The sentinel follows `channel`'s UNSTAMPED precedent in the same schema.
+>
+> **Measured, offline, at $0.0000 billed.** A real campaign whose target replies and calls
+> nothing now writes 36 of 36 episodes as `E_NO_EVENTS_TEXT_ONLY`; one whose target emits
+> no event at all writes 36 of 36 as `E_NO_EVENTS_NO_REPLY`; and the same run with the old
+> recorder restored writes 36 of 36 as `E_NO_EVENTS_REPLY_UNRECORDED`. All three bundles
+> pass C6 validation and the offline reader's 17 integrity checks.
+>
+> **NOTHING WAS PROMOTED.** All three codes stay INVALID and stay excluded. Re-running
+> `scripts/no-events-census.py` over `evidence/batch-night-2026-08-25/` reports the same
+> 154 of 1770 (8.7%) it did before, all still on the pre-split code: old bundles do not
+> carry the flag and are not rewritten.
 
 So the honest split at episode scope is **not A versus B**. It is a narrower distinction
 that is genuinely in the trace, plus a second mechanism at batch scope for A versus B.

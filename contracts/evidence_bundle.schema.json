@@ -57,7 +57,8 @@
           "verdict",
           "policy_version",
           "policy_hash",
-          "model_provenance"
+          "model_provenance",
+          "target_responded"
         ],
         "properties": {
           "episode_id": {
@@ -84,6 +85,14 @@
           "channel": {
             "type": "string",
             "$comment": "A HARNESS fact, stamped - never inferred from the transcript."
+          },
+          "target_responded": {
+            "enum": [
+              true,
+              false,
+              "UNSTAMPED"
+            ],
+            "$comment": "DID THE TARGET REPLY IN WORDS AT ALL. A HARNESS fact of the same kind as `channel`: stamped by `crucible/conductor/real_target.py::_drive` at the moment the ADK events go past, never inferred from the transcript, and never the text itself. REQUIRED as of 2026-08-25, and required rather than optional for the reason ruling 51's `attack_mode` and C9's `invalid_reason` were: an optional field gets silently omitted and nothing has changed. THREE-VALUED, AND THAT IS NOT A HEDGE. The whole point of Eric's E_NO_EVENTS split is that `E_NO_EVENTS_NO_REPLY` (the target said nothing) and `E_NO_EVENTS_TEXT_ONLY` (the target engaged and called nothing) are different findings, so a bundle that could only say true or false would have to answer one of them for an episode nobody looked at - `_harness_error_episode` seals an episode that was NEVER DRIVEN, and there is no target silence to report because there was no target turn. The sentinel is uppercase for the same reason `channel`'s UNSTAMPED is: it cannot be mistaken for an answer. COST, ACCEPTED: every bundle written before 2026-08-25 stops validating, exactly as the invalid_reason move accepted. That is the requirement working, and a dual-path reader that tolerated the old shape would leave the field optional in practice while claiming it was required."
           },
           "episode_frozen_context": {
             "type": "object",
