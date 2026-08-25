@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "spine_version": 23,
+  "spine_version": 24,
   "frozen_at": "W0",
   "contract_count": 10,
   "normalization": "LF; trailing whitespace stripped per line; exactly one trailing newline; UTF-8 no BOM. NOT JCS - see contracts/canonicalization.md section 4.",
