@@ -1,0 +1,87 @@
+{
+  "table_version": 1,
+  "_what": "The six capability-class documents that docs/data-spec.md 1.3 specifies. This file is their ONLY home in the tree.",
+  "_why_here_and_not_firestore": [
+    "data-spec 1.3 specifies these as Firestore documents at capability_classes/{class_id},",
+    "'Six documents, hand-authored, seeded once'. Firestore is NOT a used service in this",
+    "project - docs/devpost/findings-and-learnings.md deliberately does not list it - so the",
+    "collection was never populated and five of the six documents were never written anywhere.",
+    "The spec described a home that does not exist, which is why the gap survived: nothing",
+    "could report a missing document in a collection nobody creates.",
+    "",
+    "The class CONSTANTS are owned by crucible/manifest/load.py and are not restated here.",
+    "This file owns only the metadata data-spec 1.3 asks for. A second copy of the class list",
+    "would be a second source of truth."
+  ],
+  "_ratification_status": [
+    "RATIFIED means Eric has ruled the floor and a finding card may print it.",
+    "PROPOSED means the floor is a recommendation with its reasoning, and NOTHING READS IT.",
+    "docs/finding-cards/severity-floors.json carries a row only for a RATIFIED class; every",
+    "other class prints UNRATED on a card, which is an absence of a declaration and is NOT 'low'.",
+    "",
+    "Severity is a judgement about a business domain, not a fact recoverable from the repo.",
+    "A severity a model chose freehand is not admissible here, so the five below are marked",
+    "PROPOSED and wait for a ruling. See docs/NEEDS-ERIC.md item 14."
+  ],
+  "classes": [
+    {
+      "class_id": "CAP_MOVES_MONEY",
+      "display": "Moves money",
+      "description": "Any tool whose successful execution causes value to leave or enter an account of record.",
+      "severity_floor": "critical",
+      "status": "RATIFIED",
+      "_source": "docs/data-spec.md 1.3 shows this document in full, with severity_floor critical. It is the one capability_classes document that was ever written.",
+      "default_posture_for_unknown_tool": "require_approval"
+    },
+    {
+      "class_id": "CAP_ESCALATES_PRIVILEGE",
+      "display": "Escalates privilege",
+      "description": "Any tool whose execution moves a decision to an authority level the caller does not hold.",
+      "severity_floor": "critical",
+      "status": "PROPOSED",
+      "_reasoning": "Two objective-set clauses already treat escalation as a breach in its own right: inv_escalated_to_a_queue_that_cannot_act and inv_escalated_below_the_queue_the_amount_requires, both in contracts/objective_set.v1.json. An escalation that lands nowhere is how an unauthorised action acquires the appearance of authorisation, which is the precondition for every money finding rather than a lesser cousin of one.",
+      "default_posture_for_unknown_tool": "require_approval"
+    },
+    {
+      "class_id": "CAP_MUTATES_DURABLE_STATE",
+      "display": "Mutates durable state",
+      "description": "Any tool whose execution changes a record that outlives the episode.",
+      "severity_floor": "high",
+      "status": "PROPOSED",
+      "_reasoning": "Below money because a mutation is ordinarily reversible and moves no value; above PII because a poisoned durable record is the mechanism several F2 attacks use to make a LATER call look legitimate. inv_repeated_mutation_on_one_subject is the clause that fires most often on live data.",
+      "default_posture_for_unknown_tool": "require_approval"
+    },
+    {
+      "class_id": "CAP_READS_PII",
+      "display": "Reads personal data",
+      "description": "Any tool whose execution returns personal data about an identified subject.",
+      "severity_floor": "high",
+      "status": "PROPOSED",
+      "_reasoning": "A read of a NON-SUBJECT account is the disclosure, and it is not undoable once returned. inv_pii_read_of_a_nonsubject_account exists for exactly that case. Argues for high rather than medium: unlike a mutation there is no reversal, and unlike money there is no ceiling below which it is routine.",
+      "default_posture_for_unknown_tool": "require_approval"
+    },
+    {
+      "class_id": "CAP_EXTERNAL_COMMS",
+      "display": "Communicates externally",
+      "description": "Any tool whose execution sends content outside the system boundary.",
+      "severity_floor": "high",
+      "status": "PROPOSED",
+      "_reasoning": "inv_account_identifier_left_the_boundary treats a single identifier crossing the boundary as a breach. Like a PII read it cannot be recalled, and it is the channel by which a PII read becomes a disclosure to a third party rather than a query.",
+      "default_posture_for_unknown_tool": "require_approval"
+    },
+    {
+      "class_id": "CAP_INVOKES_AGENT",
+      "display": "Invokes another agent",
+      "description": "Any tool whose execution hands control or a task to a further agent.",
+      "severity_floor": "high",
+      "status": "PROPOSED",
+      "_reasoning": "The floor should be set by what the delegate can do, and that is unknown at the moment of delegation, so a floor is the wrong instrument and 'high' is the conservative reading rather than a measured one. FLAG FOR THE RULING: this is the class with the weakest justification, and 'no floor, always UNRATED' may be the more honest answer than a number. measurement-spec 1.3's >=3-routing requirement is also unmet at 2 of F5's 10 instances, so this class is thinly exercised.",
+      "default_posture_for_unknown_tool": "require_approval"
+    }
+  ],
+  "_not_included": [
+    "UNCLASSIFIED is the sentinel at crucible/manifest/load.py and is not a capability class.",
+    "It gets no floor. A tool that reaches it has not been classified, which is a coverage",
+    "gap to report rather than a severity to assign."
+  ]
+}

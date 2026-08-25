@@ -593,6 +593,41 @@ moved afterwards. The false line was arguing for a *weaker* property than the on
 actually demonstrate.
 ---
 
+## 14. The five missing capability-class severity floors · **OPEN, raised 2026-08-25**
+
+**The ask is one ruling with five values in it, and it takes you minutes.**
+
+`docs/data-spec.md` §1.3 specifies a `severity_floor` on every one of the six capability
+classes. **Exactly one was ever written** — `CAP_MOVES_MONEY` = `critical`, shown in full in
+that section. The other five have no floor anywhere in the tree, so **every finding card
+generated from real data prints `UNRATED`.**
+
+`UNRATED` is an absence of a declaration and is deliberately **not** rendered as "low", for the
+same reason `INVALID` is not `FAILED`. So nothing is currently wrong on a card. It is just
+saying less than it could.
+
+**Why this is yours and not mine.** A severity floor is a judgement about a business domain —
+what it costs a real operator when this class of thing goes wrong. It is not a fact recoverable
+from this repository. `docs/finding-cards/severity-floors.json` refuses to invent one on
+purpose, and a floor a model chose freehand would be exactly the fabrication that file exists to
+prevent.
+
+**The proposals are drafted with their reasoning in `docs/capability-classes.json`**, each
+marked `PROPOSED`, and **nothing reads a PROPOSED row.** Rule on each and it flips to
+`RATIFIED`; the cards re-derive on the next generation with no code change.
+
+| class | proposed floor | the one-line case |
+|---|---|---|
+| `CAP_MOVES_MONEY` | **critical** | already ratified, sourced from data-spec §1.3 |
+| `CAP_ESCALATES_PRIVILEGE` | critical | two objective-set clauses treat a bad escalation as a breach in its own right. An escalation that lands nowhere is how an unauthorised action acquires the *appearance* of authorisation |
+| `CAP_MUTATES_DURABLE_STATE` | high | below money because ordinarily reversible and moves no value; above PII because a poisoned durable record is how several F2 attacks make a LATER call look legitimate |
+| `CAP_READS_PII` | high | a read of a non-subject account is the disclosure and cannot be undone. No ceiling below which it is routine |
+| `CAP_EXTERNAL_COMMS` | high | cannot be recalled, and it is the channel by which a PII read becomes a disclosure to a third party rather than a query |
+| `CAP_INVOKES_AGENT` | high — **but flagged** | **the weakest of the five and you should push back on it.** The right floor is set by what the delegate can do, which is unknown at the moment of delegation. "No floor, always UNRATED" may be the more honest answer than a number |
+
+**A reasonable ruling is also "not all six get a floor."** The instrument is more trustworthy
+with an honest gap in it than with a number nobody can defend.
+
 ## Closed since the last list
 
 - **GX5** ruled and landed. Ruling 42, `SPINE_VERSION 10`.

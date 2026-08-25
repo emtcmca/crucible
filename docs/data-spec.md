@@ -305,6 +305,28 @@ The mirror **never carries rule bodies**, so it cannot drift into being treated 
 
 Six: `CAP_MOVES_MONEY`, `CAP_EXTERNAL_COMMS`, `CAP_MUTATES_DURABLE_STATE`, `CAP_READS_PII`, `CAP_ESCALATES_PRIVILEGE`, `CAP_INVOKES_AGENT`. **Per round:** 0 reads (loaded once).
 
+> **CORRECTED 2026-08-25. This section said "Six documents, hand-authored, seeded once" and
+> exactly ONE was ever written — the `CAP_MOVES_MONEY` example above.** The other five had no
+> `severity_floor` anywhere in the tree, so every finding card generated from real data printed
+> `UNRATED`. Found by building the card producer, not by review.
+>
+> **Why it survived: this section described a home that does not exist.** These are specified as
+> Firestore documents at `capability_classes/{class_id}`, and **Firestore is not a used service in
+> this project.** The collection is never created, so nothing could report a missing document in
+> it. A check that cannot reach the artifact cannot fail for it — the same shape as the README
+> rotting while `contract-check` swept `docs/` only.
+>
+> **The owner is now `docs/capability-classes.json`**, in-tree, one file, all six. The class
+> constants themselves stay owned by `crucible/manifest/load.py` and are not restated there; that
+> file carries only the metadata this section asks for.
+>
+> **Five of the six floors are marked `PROPOSED` and nothing reads them.**
+> `docs/finding-cards/severity-floors.json` carries a row only for a `RATIFIED` class, and every
+> other class still prints `UNRATED` — which is an absence of a declaration and **is not "low"**.
+> A severity is a judgement about a business domain, not a fact recoverable from this repository,
+> so inventing the missing five would be exactly the fabrication the card producer refuses.
+> Eric's ruling: `docs/NEEDS-ERIC.md` item 14.
+
 ### 1.4 `tool_registry/{tool_doc_id}`
 
 **Doc ID (deterministic):** `{target_id}__{sha1(tool_fqname)[:12]}`. Deterministic on the fully-qualified name means re-attaching the same agent re-derives the same IDs — **the day-10 live attach is idempotent and re-runnable on camera.**
