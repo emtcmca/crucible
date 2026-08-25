@@ -1,0 +1,233 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-labelledby="ttl desc" font-family="'IBM Plex Sans','Segoe UI',system-ui,-apple-system,sans-serif">
+ <title id="ttl">CRUCIBLE - the hardening loop</title>
+ <desc id="desc">Seventeen components in three bands. A horizontal trust boundary separates the four model-bearing components above it from the thirteen pure-code components below it.</desc>
+ <style>
+  .name { letter-spacing: .005em; }
+  .sub { letter-spacing: .008em; }
+  .edge-label { letter-spacing: .01em; }
+  .eyebrow { letter-spacing: .16em; }
+  .node, .edge { transition: opacity .28s ease, filter .28s ease; }
+ </style>
+ <defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7"
+   markerHeight="7" orient="auto-start-reverse">
+   <path d="M0,0.6 L10,5 L0,9.4 Z" fill="#7C736B"/></marker>
+  <marker id="arrow-muted" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="6.6"
+   markerHeight="6.6" orient="auto-start-reverse">
+   <path d="M0,0.6 L10,5 L0,9.4 Z" fill="#9A938B"/></marker>
+  <!-- refusal paths get their OWN head shape, not just their own hue: an open
+       chevron, so the quench path stays distinguishable from molten in grayscale
+       and at a glance. -->
+  <marker id="arrow-quench" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="5.2"
+   markerHeight="5.2" orient="auto-start-reverse">
+   <path d="M1,0.5 L11,6 L1,11.5" fill="none" stroke="#C23B44" stroke-width="2.6"
+    stroke-linecap="square" stroke-linejoin="miter"/></marker>
+ </defs>
+ <rect id="ground" x="0" y="0" width="1920" height="1080" fill="#14110F"/>
+ <g id="chrome">
+  <text x="60" y="70" font-size="19" font-weight="600" fill="#E8933A" text-anchor="start" letter-spacing="0.3em" class="eyebrow">CRUCIBLE</text>
+  <text x="60" y="106" font-size="33" font-weight="600" fill="#EDE8E2" text-anchor="start">The hardening loop</text>
+  <line x1="60" y1="128" x2="1860" y2="128" stroke="#2E2A26" stroke-width="1"/>
+  <rect x="1164" y="73" width="20" height="20" fill="#2A1A0F" stroke="#E8933A" stroke-width="2"/>
+  <text x="1201.52" y="89" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start">[M]  contains a model</text>
+  <rect x="1419" y="73" width="20" height="20" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2"/>
+  <text x="1456.6399999999999" y="89" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start">[C]  pure code</text>
+  <line x1="1613" y1="83" x2="1639" y2="83" stroke="#C23B44" stroke-width="3" stroke-linecap="square"/>
+  <path d="M1630,77 L1638,83 L1630,89" fill="none" stroke="#C23B44" stroke-width="2.4"/>
+  <text x="1650.7199999999998" y="89" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start">refusal / rejection path</text>
+ </g>
+ <g id="zone-model"><rect x="28" y="228" width="1864" height="190" fill="#1A1410"/></g>
+ <g id="band-headings">
+  <text x="60" y="176" font-size="17" font-weight="600" fill="#9A938B" text-anchor="start" letter-spacing="0.12em">①  PROVOKE</text>
+  <text x="60" y="202" font-size="16" font-weight="400" fill="#6E665E" text-anchor="start">the agent is put under pressure</text>
+  <text x="876" y="176" font-size="17" font-weight="600" fill="#9A938B" text-anchor="start" letter-spacing="0.12em">②  RULE</text>
+  <text x="1192" y="176" font-size="17" font-weight="600" fill="#9A938B" text-anchor="start" letter-spacing="0.12em">③  REPAIR</text>
+  <text x="1192" y="202" font-size="16" font-weight="400" fill="#6E665E" text-anchor="start">and prove the repair broke nothing</text>
+ </g>
+ <g id="void-note">
+  <line x1="876" y1="248" x2="876" y2="332" stroke="#6E665E" stroke-width="2"/>
+  <text x="892" y="270" font-size="16" font-weight="500" fill="#6E665E" text-anchor="start" letter-spacing="0.06em" class="eyebrow">nothing above this line</text>
+  <text x="892" y="302" font-size="20" font-weight="600" fill="#EDE8E2" text-anchor="start">No model decides whether</text>
+  <text x="892" y="328" font-size="20" font-weight="600" fill="#EDE8E2" text-anchor="start">a breach happened.</text>
+ </g>
+ <g id="trust-boundary">
+  <line x1="28" y1="411" x2="1892" y2="411" stroke="#E8933A" stroke-width="1.6"/>
+  <line x1="28" y1="418" x2="1892" y2="418" stroke="#574E46" stroke-width="3.2"/>
+  <line x1="28" y1="425" x2="1892" y2="425" stroke="#7FA0B0" stroke-width="1.6"/>
+  <line x1="28" y1="405" x2="28" y2="431" stroke="#9A938B" stroke-width="1.8"/>
+  <line x1="1892" y1="405" x2="1892" y2="431" stroke="#9A938B" stroke-width="1.8"/>
+  <text x="876" y="384" font-size="16" font-weight="600" fill="#E8933A" text-anchor="start" letter-spacing="0.09em" class="eyebrow">model-generated ·</text>
+  <text x="876" y="406" font-size="16" font-weight="600" fill="#E8933A" text-anchor="start" letter-spacing="0.09em" class="eyebrow">untrusted</text>
+  <text x="876" y="452" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="start" letter-spacing="0.09em" class="eyebrow">deterministic code</text>
+ </g>
+ <g id="edges">
+  <path class="edge flow" id="e_GOV_RED" d="M185,478 V354" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_RED_TGT" d="M310,296 H430" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_TGT_PLG" d="M555,354 V478" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_PLG_ENG" d="M555,594 V646" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_ENG_TGT" d="M430,732 H370 V320 H430" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge quench" id="e_ENG_PLG" d="M430,672 H395 V518 H430" fill="none" stroke="#C23B44" stroke-width="2.2" stroke-linejoin="miter" stroke-linecap="square" marker-end="url(#arrow-quench)"/>
+  <path class="edge flow" id="e_PLG_LED" d="M680,518 H750 V872 H680" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_LED_TW" d="M680,900 H856 V536 H876" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_TW_DRY" d="M1001,594 V652" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_DRY_CONV" d="M1001,756 V814" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_DRY_COR" d="M1101,704 H1168 V296 H1192" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_COR_ADP" d="M1317,354 V478" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_ADP_ARM" d="M1442,536 H1540 V390 H1630 V354" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_ARM_VAL" d="M1697,354 V478" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_VAL_WAR" d="M1697,594 V646" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_WAR_NARROW" d="M1572,704 H1417" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge quench" id="e_NARROW_ARM" d="M1317,652 V620 H1500 V300 H1572" fill="none" stroke="#C23B44" stroke-width="2.2" stroke-linejoin="miter" stroke-linecap="square" marker-end="url(#arrow-quench)"/>
+  <path class="edge flow" id="e_NARROW_GATE" d="M1317,756 V814" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_GATE_NEXT" d="M1442,872 H1597" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge return" id="e_CONV_GOV" d="M1001,930 V1032" fill="none" stroke="#9A938B" stroke-width="2.0" stroke-linejoin="miter" stroke-linecap="butt" stroke-dasharray="13 6"/>
+  <path class="edge return" id="e_NEXT_GOV_promote" d="M1697,924 V1032" fill="none" stroke="#9A938B" stroke-width="2.0" stroke-linejoin="miter" stroke-linecap="butt" stroke-dasharray="13 6"/>
+  <path class="edge return" id="e_NEXT_GOV_rollback" d="M1797,872 H1822 V1032" fill="none" stroke="#9A938B" stroke-width="2.0" stroke-linejoin="miter" stroke-linecap="butt" stroke-dasharray="13 6"/>
+  <path class="edge return" id="e_return_bus" d="M1822,1032 H185 V594" fill="none" stroke="#9A938B" stroke-width="2.0" stroke-linejoin="miter" stroke-linecap="butt" stroke-dasharray="13 6" marker-end="url(#arrow-muted)"/>
+ </g>
+ <g id="edge-labels">
+  <rect class="lbl-bg" x="319" y="285" width="101" height="24" fill="#1A1410"/>
+  <text x="370" y="300" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">AttackSpec</text>
+  <rect class="lbl-bg" x="509" y="437" width="92" height="24" fill="#14110F"/>
+  <text x="555" y="452" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">tool call</text>
+  <rect class="lbl-bg" x="337" y="437" width="67" height="24" fill="#14110F"/>
+  <text x="370" y="452" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">ALLOW</text>
+  <text x="386" y="626" font-size="16" font-weight="600" fill="#C23B44" text-anchor="end" class="edge-label">DENY ·</text>
+  <text x="386" y="648" font-size="16" font-weight="600" fill="#C23B44" text-anchor="end" class="edge-label">APPROVAL_REQUIRED</text>
+  <rect class="lbl-bg" x="677" y="567" width="172" height="61" fill="#14110F"/>
+  <text x="763" y="582" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">TOOL_ATTEMPT ·</text>
+  <text x="763" y="601" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">TOOL_EXECUTED ·</text>
+  <text x="763" y="620" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">TOOL_ERROR</text>
+  <text x="1015" y="790" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start" class="edge-label">no</text>
+  <text x="1015" y="1006" font-size="16" font-weight="500" fill="#6E665E" text-anchor="start" class="edge-label">next round</text>
+  <text x="1150" y="632" font-size="16" font-weight="600" fill="#EDE8E2" text-anchor="end" class="edge-label">yes — first breach</text>
+  <rect class="lbl-bg" x="1258" y="437" width="119" height="24" fill="#14110F"/>
+  <text x="1317" y="452" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">BreachRecord</text>
+  <text x="1478" y="376" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start" class="edge-label">+ the fired clause predicate</text>
+  <rect class="lbl-bg" x="1581" y="437" width="232" height="24" fill="#14110F"/>
+  <text x="1697" y="452" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">PatchSet, placeholder ids</text>
+  <text x="1684" y="624" font-size="16" font-weight="500" fill="#9A938B" text-anchor="end" class="edge-label">candidate policy vN+1</text>
+  <text x="1385" y="642" font-size="16" font-weight="600" fill="#C23B44" text-anchor="middle" class="edge-label">no — retry, up to 6</text>
+  <text x="1331" y="790" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start" class="edge-label">yes</text>
+  <text x="1810" y="936" font-size="16" font-weight="500" fill="#6E665E" text-anchor="end" class="edge-label">rolled back</text>
+  <text x="1684" y="1006" font-size="16" font-weight="500" fill="#6E665E" text-anchor="end" class="edge-label">policy becomes vN+1</text>
+  <text x="205" y="946" font-size="16" font-weight="600" fill="#9A938B" text-anchor="start" letter-spacing="0.16em" class="eyebrow">return path</text>
+  <text x="205" y="974" font-size="16" font-weight="400" fill="#6E665E" text-anchor="start">every round re-enters</text>
+  <text x="205" y="994" font-size="16" font-weight="400" fill="#6E665E" text-anchor="start">at BUDGET_GOVERNOR</text>
+ </g>
+ <g id="nodes">
+ <g class="node code" id="GOV">
+  <rect class="shape" x="60" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="296" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="74" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">BUDGET_GOVERNOR</text>
+  <text x="74" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">opens the round,</text>
+  <text x="74" y="565" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">or refuses</text>
+ </g>
+ <g class="node model" id="RED">
+  <rect class="shape" x="60" y="238" width="250" height="116" fill="#2A1A0F" stroke="#E8933A" stroke-width="2.0"/>
+  <text x="296" y="262" font-size="16" font-weight="600" fill="#F5B461" text-anchor="end" letter-spacing="0.1em" class="tag">[M]</text>
+  <text x="74" y="284" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">RED_STRATEGIST</text>
+  <text x="74" y="306" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">gemini-3.6-flash</text>
+  <text x="74" y="325" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">6 attack specs</text>
+ </g>
+ <g class="node model" id="TGT">
+  <rect class="shape" x="430" y="238" width="250" height="116" fill="#2A1A0F" stroke="#E8933A" stroke-width="2.0"/>
+  <text x="666" y="262" font-size="16" font-weight="600" fill="#F5B461" text-anchor="end" letter-spacing="0.1em" class="tag">[M]</text>
+  <text x="444" y="284" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">TARGET_AGENT</text>
+  <text x="444" y="306" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">gemini-3.5-flash-lite</text>
+  <text x="444" y="325" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">refund agent, 8 tools</text>
+ </g>
+ <g class="node code" id="PLG">
+  <rect class="shape" x="430" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="666" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="444" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">CRUCIBLE_PLUGIN</text>
+  <text x="444" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">ADK before_tool</text>
+  <text x="444" y="565" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">stamp, evaluate,</text>
+  <text x="444" y="584" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">short-circuit</text>
+ </g>
+ <g class="node code" id="ENG">
+  <rect class="shape" x="430" y="646" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="666" y="670" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="444" y="692" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">POLICY_ENGINE</text>
+  <text x="444" y="714" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">evaluates policy at vN</text>
+ </g>
+ <g class="node store" id="LED">
+  <path class="shape" d="M430,827 A125.0,13 0 0 1 680,827 L680,917 A125.0,13 0 0 1 430,917 Z" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <path class="shape-lip" d="M430,827 A125.0,13 0 0 0 680,827" fill="none" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="666" y="846" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="444" y="868" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">Episode ledger</text>
+  <text x="444" y="890" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">ordered ToolEvent list</text>
+ </g>
+ <g class="node code" id="TW">
+  <rect class="shape" x="876" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1112" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="890" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">TRIPWIRE</text>
+  <text x="890" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">11 Objective Set clauses</text>
+  <text x="890" y="565" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">over the ordered</text>
+  <text x="890" y="584" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">event list</text>
+ </g>
+ <g class="node term" id="CONV">
+  <rect class="shape" x="876" y="814" width="250" height="116" fill="#241F1B" stroke="#4A5F6B" stroke-width="1.5"/>
+  <text x="890" y="860" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">3 consecutive</text>
+  <text x="890" y="882" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">dry rounds</text>
+  <text x="890" y="902" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">= converged</text>
+ </g>
+ <g class="node model" id="COR">
+  <rect class="shape" x="1192" y="238" width="250" height="116" fill="#2A1A0F" stroke="#E8933A" stroke-width="2.0"/>
+  <text x="1428" y="262" font-size="16" font-weight="600" fill="#F5B461" text-anchor="end" letter-spacing="0.1em" class="tag">[M]</text>
+  <text x="1206" y="284" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">CORONER</text>
+  <text x="1206" y="306" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">gemini-3.5-flash-lite</text>
+  <text x="1206" y="325" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">writes the autopsy</text>
+  <text x="1206" y="344" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">no fix field in its schema</text>
+ </g>
+ <g class="node code" id="ADP">
+  <rect class="shape" x="1192" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1428" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="1206" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">Armorer input adapter</text>
+  <text x="1206" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">enumerated projection</text>
+  <text x="1206" y="565" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">no free text</text>
+ </g>
+ <g class="node model" id="ARM">
+  <rect class="shape" x="1572" y="238" width="250" height="116" fill="#2A1A0F" stroke="#E8933A" stroke-width="2.0"/>
+  <text x="1808" y="262" font-size="16" font-weight="600" fill="#F5B461" text-anchor="end" letter-spacing="0.1em" class="tag">[M]</text>
+  <text x="1586" y="284" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">ARMORER</text>
+  <text x="1586" y="306" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">gemini-3.7-flash</text>
+  <text x="1586" y="325" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">deny · constrain_arg</text>
+  <text x="1586" y="344" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">require_approval</text>
+ </g>
+ <g class="node code" id="VAL">
+  <rect class="shape" x="1572" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1808" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="1586" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">DSL parser + validator</text>
+  <text x="1586" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">assigns the rule id</text>
+ </g>
+ <g class="node code" id="WAR">
+  <rect class="shape" x="1572" y="646" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1808" y="670" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="1586" y="692" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">REGRESSION_WARDEN</text>
+  <text x="1586" y="714" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">26 fixtures, 14 near-miss</text>
+  <text x="1586" y="733" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">must be 26 of 26</text>
+ </g>
+ <g class="node code" id="GATE">
+  <rect class="shape" x="1192" y="814" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1428" y="838" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="1206" y="860" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">PROMOTION_GATE</text>
+  <text x="1206" y="882" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">write · read the bytes</text>
+  <text x="1206" y="901" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">back · recompute the hash</text>
+ </g>
+ <g class="node decision" id="DRY">
+  <polygon class="shape" points="1001,652 1101,704 1001,756 901,704" fill="#14110F" stroke="#4A5F6B" stroke-width="1.5"/>
+  <text x="1001" y="699" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">any</text>
+  <text x="1001" y="721" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">breach?</text>
+ </g>
+ <g class="node decision" id="NARROW">
+  <polygon class="shape" points="1317,652 1417,704 1317,756 1217,704" fill="#14110F" stroke="#4A5F6B" stroke-width="1.5"/>
+  <text x="1317" y="699" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">floor</text>
+  <text x="1317" y="721" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">holds?</text>
+ </g>
+ <g class="node decision" id="NEXT">
+  <polygon class="shape" points="1697,820 1797,872 1697,924 1597,872" fill="#14110F" stroke="#4A5F6B" stroke-width="1.5"/>
+  <text x="1697" y="878" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">promoted?</text>
+ </g>
+ </g>
+</svg>
