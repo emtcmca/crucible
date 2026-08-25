@@ -157,35 +157,40 @@ ending 08-31. **G8 asserts the policy exists, not that it is locked.**
 exit 2. Do not route around it.
 
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
-## Session State (auto-maintained)
-
 **Updated:** 2026-08-25 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-`main` @ `abcd91e`, pushed. pytest 0, contract-check 0 across **six** passes (FRESH is new).
-**The 60-run overnight batch is COMPLETE** - all exit 0, zero C6 errors, 1,770 episodes,
-**95 promotions**. `evidence/batch-night-2026-08-25/`.
+`main` @ `cb19e58`, pushed. pytest 0, contract-check 0, **`--selftest` 0** (all six passes
+now prove they can fail; FRESH had no breaker for 12 hours).
 
-**"NOTHING HAS EVER BEEN PROMOTED" IS NOW FALSE**, along with "`GcsBlobIO` has never
-executed" and "the policies bucket is empty". Canon still says otherwise in four places -
-fix before any external CRUCIBLE sentence (Q `c-20260824-2006-7060`).
+**THREE SPINE RULINGS TODAY. SPINE_VERSION 25.**
+- **54** - "hash-lock" was never a unit. FIVE `REQUIRED_HASHES` / SIX `LOCK_FIELDS` / five
+  freeze RECORDS are all true. **Six is canonical for FIELDS.**
+- **55** - a refusal is a defense. `E_NO_EVENTS_TEXT_ONLY` scores CLEAN, guarded.
+- **56** - a determination pins to the INSTANCE (`instance_id`), not `corpus_hash`.
 
-Baseline tag `pre-batch-2026-08-24` @ `89ea21f`. `git log --oneline pre-batch-2026-08-24..main`
-is the overnight review list, atomic and unsquashed. Log: `docs/NIGHT-LOG-2026-08-25.md`.
+**THE PARAPHRASE RESULT IS WITHDRAWN.** 729 pairs / zero discordant DOES NOT REPRODUCE; it is
+1,949 / 70. Caught before publication. It survived review because it arrived as the
+CORRECTION to a 2.2x artifact - **a null result gets less scrutiny than the finding it kills.**
+
+**F5-05 REPAIRED, D5 RE-FROZEN** from `crucible-wt-SEAL`. `corpus_hash` moved, so the 60
+bundles of the 08-25 batch measured a corpus that no longer exists.
 **NO HASH VALUE IN THIS BLOCK - ruling 46.**
 
 **Open threads**
-- **ERIC RULES ON E_NO_EVENTS** - all 154 INVALID carry one code from 8 attacks, exclusion
-  over ceiling in 51 of 60 runs. It conflates a broken fixture with a SUCCESSFUL DEFENSE.
-  Brief: `docs/design/e-no-events-conflation-2026-08-25.md`. Scoring it CLEAN is forbidden.
-- Fill the README Results `Observed` column from the batch: k=1 + SEP-BY beside every figure.
-- Update 6 drafted and **UNPOSTED**: `docs/devpost/DRAFT-update-6-first-promotions.md`.
+- **Ruling 56 implementation IN FLIGHT.** Its open question: does a policy DENY record an
+  event? If a denied call leaves the list EMPTY, the policy version MUST be in the pin.
+- **THE SMOKE RUN, 3 to 5.** ~630 changed lines on the gate path no campaign has run. Expect
+  `E_DEGENERACY_CENSUS_MISSING`; that is the guard working, not a fault.
+- Update 7 owes the **1,614** correction (posted update 6 says 1,616).
+- Somebody must **OPEN** the Cloud Shell URL. Recording a fix is not opening it.
 - Held-out unseal **08-28** · code freeze **08-28** · submit **08-30**.
 
 **Watch out for**
-- **A REPORTED STATUS IS NOT EVIDENCE - SIX INSTANCES.** A batch reported KILLED was alive
-  and two runners raced one directory. **ASSERT THE ARTIFACT.**
-- **A CHECK THAT DOES NOT COVER THE ARTIFACT CANNOT FAIL FOR IT** - why README rotted, and
-  why G1a is hash-locked, RUN_INVALID, and never evaluated.
-- **SEPARATE POPULATIONS, NEVER POOL** - a 2.2x effect went to ZERO under the paired test.
-- PowerShell has no heredocs: write commit messages with Bash, commit with `-F`.
+- **A CHECK THAT DERIVES ITS EXPECTATION THE SAME WAY AS THE CLAIM CANNOT CATCH IT.**
+- **CRLF**: LF in HEAD, CRLF on disk, hidden by git's stat cache. Python `write_text`
+  translates newlines and rewrites the whole file. Three hits in one day.
+- **`convert` is the Windows FAT-to-NTFS utility**, not ImageMagick. Use headless Chrome.
+- **Two agents in one working directory** produced 34 phantom failures. Use worktrees.
+- **A REPORTED STATUS IS NOT EVIDENCE, and it cuts both ways** - the coordinator called G7
+  UNEVALUABLE on 60 runs from one corrupted console. It is 1,520/1,520 PASS.
 <!-- VAULT:SESSION-STATE end -->
