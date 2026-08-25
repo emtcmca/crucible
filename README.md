@@ -25,8 +25,10 @@ rather than letting you discover it.
 ## Judge path: 90 seconds
 
 1. **The demo video** — *not yet recorded. Link goes here.*
-2. **The claim and its evidence** → [Results](#results). **Read that section first: no run
-   has been executed and nothing has been measured.** Every cell is empty on purpose.
+2. **The claim and its evidence** → [Results](#results). **Read that section first: a
+   ten-run live batch ran on 2026-08-24, so measurements now exist, but the `Observed`
+   column is still empty on purpose.** Those figures have not been through the labelling
+   pass, and no rate in this repository is a result until they have.
 3. **The architecture, one image** → [Architecture](#architecture)
 4. **Replay evidence yourself, offline, no credentials:**
 
@@ -45,8 +47,9 @@ rather than letting you discover it.
 
    **The bundle above is the golden contract fixture, not a run.** It is a hand-authored
    instance of the C6 evidence-bundle schema, kept in the tree so the viewer and the
-   schema can be exercised before any run exists. Its `run_id` is synthetic. When a real
-   run happens, its bundle goes in `evidence/` and this path changes.
+   schema can be exercised without a run. Its `run_id` is synthetic. Real run bundles exist
+   as of 2026-08-24 and live in `evidence/`, which is gitignored, so this fixture stays
+   the path a stranger can replay from a clone.
 
 5. **Watch the loop run end to end with no model and no cloud project:**
 
@@ -66,16 +69,34 @@ rather than letting you discover it.
 
 ## Status
 
-**As of 2026-08-22: nothing has been measured.** No attack has been scored against a
-persuadable target. There is no attack-success rate, no benign pass rate, no transfer figure,
-and no convergence result. **The loop does run** — `python -m crucible.conductor.campaign`
-drives the real target, the real breach oracle and the real 26-fixture benign suite to a
-recorded termination — but without `--live` the target's model is scripted, and **a scripted
-model is not persuadable**, so what an offline run measures is enforcement and never
-susceptibility. No `--live` run has been executed. Every number in this file is one of three things and is labelled
+**As of 2026-08-24: a live batch has run and measurements exist.** Ten `--live` runs fired on
+2026-08-24. Nine produced evidence bundles in `evidence/batch-2026-08-24/`; run 08 crashed on
+an unhandled `E_CONVERGED` and has no bundle, and that crash has since been fixed. Across the
+nine bundles **288 episodes were scored: 24 BREACH, 239 CLEAN, 25 INVALID.** Policy was
+**PROMOTED for the first time.** `GcsBlobIO`, the write path behind a real promotion,
+executed against GCS and its generation-pinned read-back assertion held, and there are now
+**21 policy objects under `gs://crucible-policies-x7/runs/`**, confirmed by a direct
+`gcloud storage ls`.
+
+Every count in that paragraph is **single-sample, k=1, with no stability estimate**, and none
+of it is an attack-success rate, a benign pass rate, a transfer figure, or a convergence
+result. Those require a labelling pass and the policy / approval-oracle split, and the
+`Observed` column in [Results](#results) stays empty until they are done. **The three earlier
+live runs (two on 2026-08-23, one on 2026-08-24) remain INVALID and are not evidence for anything.**
+`evidence/` is gitignored, so these bundles are on the builder's machine and are **not in your
+clone and not publicly verifiable**.
+
+Without `--live` the target's model is scripted, and **a scripted model is not persuadable**,
+so what an offline run measures is enforcement and never susceptibility.
+
+Every number in this file is one of three things and is labelled
 as such: a **frozen parameter** (decided before measurement so it cannot be chosen
 afterwards to fit a result), a **corpus count** (how many fixtures exist), or a **design
 target** taken from `docs/measurement-spec.md` §8.1.
+
+**Amended 2026-08-24: there is now a fourth kind, an observation.** It is a count read off
+the live batch above. Observations appear in this section and in the run bundles, never in the
+`Observed` column, and every one carries single-sample, k=1, no stability estimate.
 
 A design target is not a result. If you find a figure in this repository presented as a
 result, it is a defect — report it.
@@ -328,9 +349,13 @@ is reported, including the ones that look good.
 
 ## Results
 
-**There are none. Every cell below is empty and will stay empty until a scoreable run
-happens.** *(Precise as of 2026-08-22: the loop has been run offline, against a scripted
-target model. Nothing it produces is admissible here — see Status above.)* The table's shape is published now, before the numbers exist, so the rows
+**Every cell below is still empty, and as of 2026-08-24 it is empty for a stated reason
+rather than because nothing has run.** A ten-run live batch executed on 2026-08-24 and left
+nine evidence bundles; what it measured is summarised in [Status](#status). Filling these
+cells requires the `k=1` labelling and the policy / approval-oracle split that every headline
+figure here is required to print beside it, and the held-out rows are gated on the sealed
+family's unseal. They will be filled with labelled figures, never with raw counts lifted out
+of a bundle. The table's shape was published before the numbers existed, so the rows
 cannot be chosen afterwards to suit the result. The target column is copied from
 `docs/measurement-spec.md` §8.1 and is a design target, not a prediction and not a claim.
 
@@ -545,7 +570,9 @@ than emitting a canned patch that would make a degraded run look like a working 
    `gcloud` call, and marks any candidate that reaches it **RUN INVALID rather than
    promoted**. Seal integrity and non-self-approval are therefore unmeasured by this
    command, and no G7 or G8 claim may be made from its bundle. `GcsBlobIO`, the write path
-   behind a real promotion, **has still never executed.**
+   behind a real promotion, **never executes on this path at all.** It first executed on
+   2026-08-24, in the live batch described under [Status](#status), where its
+   generation-pinned read-back assertion held.
 2. **The target's model is scripted.** Everything downstream of it is real — tools, plugin,
    policy engine, ledger, seal, tripwire, warden — but **a scripted model is not
    persuadable**, so an offline run measures ENFORCEMENT and measures nothing whatever about
@@ -805,9 +832,12 @@ exist to be read. **Defaulting it to 0 would print a green check computed from a
 never created.** `contracts/gate_rule.v1.yaml` routes `absent_or_unevaluable` to RUN INVALID
 precisely so a check that measured nothing cannot be scored as a check that held. Two things
 this probe deliberately does not show: the operator is a human with `roles/owner` and can read
-everything here — **you are the trust root and no control defends against you** — and nothing
-has been promoted, because the write path with its read-back assertion has never run against
-GCS.
+everything here — **you are the trust root and no control defends against you** — and it was
+run before anything had ever been promoted, so it says nothing about the write path. That
+path first ran against GCS in the 2026-08-24 live batch, which promoted policy and left 21
+objects under `gs://crucible-policies-x7/runs/`. **The probe has not been re-run since**, so
+G7 and G8 remain evaluated once, on 2026-08-22, against a policies bucket that was then
+empty.
 
 ---
 
@@ -957,9 +987,13 @@ that decide anything are the ones with no model in them.
 
 This section is the one that decides whether anything above is worth reading.
 
-**1. Nothing has been measured.** No loop has been run. Every figure in the Results table is
-empty and every target is a target. Whatever else is true of this repository, it currently
-contains zero evidence about how any agent behaves under attack.
+**1. What has been measured is one batch, and it is unlabelled.** Ten live runs on 2026-08-24
+scored 288 episodes and promoted policy for the first time. Every figure in the Results table
+is still empty and every target there is still a target, because those episode counts have
+not been through the labelling pass or the policy / approval-oracle split. Until they have,
+this repository contains raw counts about how one agent behaved under attack and **no rate
+that may be quoted as a result.** The bundles are gitignored, so a reader cannot check them
+against this file.
 
 **2. `k = 1`, single sample, no stability estimate.** When numbers exist they will be from
 one run each. Nothing here will support a claim about variance, and stability will be
@@ -1028,14 +1062,25 @@ downloads, and no adoption of any kind.
 
 ## Cost
 
-The spend cap is a **frozen parameter at $160** — a cap, not an alert, so an overrun is a
-deliberate decision rather than a discovery. Token ceiling 40M, with the cut list
-auto-triggering at 32M.
+**$160 is an ALERT, not a cap. Nothing stops at $160.** Corrected 2026-08-24 against the
+live billing configuration, which carries `notificationsRule` with project-level email
+recipients and three `thresholdRules` at 50%, 90% and 100% of spend. There is no usage
+pause, no billing-disable trigger, and no automated stop of any kind. An overrun would
+arrive as email after the fact.
 
-**Actual dollars spent are not yet recorded, because no billed run has occurred.** The only
-loop execution to date ran with no model configured and reported `$0.0000 of $5.00`. Per-run
-cost is written into every evidence bundle, so this section fills itself in from the bundles
-once a run happens rather than being estimated by hand.
+This section previously read *"a cap, not an alert, so an overrun is a deliberate decision
+rather than a discovery"*, which is the opposite of what is deployed. `docs/data-spec.md`
+§15 specified a Spend Cap Budget with usage pause enabled; that is the plan, and it is not
+what exists. The wrong version is quoted rather than deleted because the gap between a spec
+and its deployment is exactly the class of defect this project is about.
+
+The $160 figure is a frozen parameter. Token ceiling 40M, with the cut list auto-triggering
+at 32M.
+
+**Billed runs have now occurred, in the ten-run live batch of 2026-08-24, and no dollar
+total is stated here.** Per-run cost is written into every evidence bundle, so this section fills
+itself in from the bundles rather than being estimated by hand, and a figure typed in by hand
+would be exactly the kind of number this file refuses.
 
 ---
 

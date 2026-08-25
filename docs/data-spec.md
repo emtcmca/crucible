@@ -1483,6 +1483,17 @@ The policy prefix is re-sent on **every single turn** — it is the single most 
 
 **Inside the $160 cap**, with uncertainty now concentrated in a single line: **development iteration count.** Dropping Agent Runtime removed both the $20 provisional line and the only unmeasured price in the model. **The cap is $160 and it is a cap, not an alert** — Eric holds further credits if a run needs them, but the cap stays where it is so an overrun is a **deliberate decision rather than a discovery.**
 
+> **CORRECTED 2026-08-24, against the live billing configuration.** **$160 is an ALERT.**
+> The deployed budget carries `notificationsRule` with project-level email recipients and
+> three `thresholdRules` at 50%, 90% and 100% of spend. **There is no usage pause, no
+> billing-disable trigger, and no automated stop.** The two statements below - "it is a
+> cap, not an alert" and "with usage pause enabled" - describe what was SPECIFIED and
+> never what was BUILT. They are left in place rather than rewritten: this document is the
+> plan, and the gap between the plan and the deployment is the finding. The public README
+> carried the same false claim until this date. Read the budget with
+> `gcloud billing budgets list`, never from either document.
+
+
 ### 8.4 The single change that most reduces cost
 
 **Dominant line: Vertex tokens spent on development runs — not the demo run.** Roughly 70% of spend is re-running the loop while debugging, and most of those re-runs are debugging the **pure-code** components.
@@ -1496,6 +1507,17 @@ Stackable seconds: default every agent except the Armorer to the cheap tier (~3�
 ### 8.5 Guardrails — configure day 1, before writing loop code
 
 1. **Spend Cap Budget at $160** with usage pause enabled, covering Gemini API, Vertex AI, Cloud Run. **Alerts do not stop spending; caps do.** *(Corrected 2026-08-20: this said $120 and `execution-spec.md` D1 said $60. **$160 is the ruling**, and it supersedes both.)*
+
+> **CORRECTED 2026-08-24, against the live billing configuration.** **$160 is an ALERT.**
+> The deployed budget carries `notificationsRule` with project-level email recipients and
+> three `thresholdRules` at 50%, 90% and 100% of spend. **There is no usage pause, no
+> billing-disable trigger, and no automated stop.** The two statements below - "it is a
+> cap, not an alert" and "with usage pause enabled" - describe what was SPECIFIED and
+> never what was BUILT. They are left in place rather than rewritten: this document is the
+> plan, and the gap between the plan and the deployment is the finding. The public README
+> carried the same false claim until this date. Read the budget with
+> `gcloud billing budgets list`, never from either document.
+
 2. **In-code run budget**: `runs.token_budget.limit_usd_micros`, incremented after every model call; **halt the run** on exceed with `halt_reason: TOKEN_BUDGET_EXCEEDED`. A runaway convergence loop is the realistic failure mode; **`max_rounds: 6`** and the budget are two independent stops. *(10 → 4 → **6**; raised by ruling 10 once ruling 11 took the fixture episodes out of the round.)*
 3. **`min-instances=0`** everywhere except the recorded demo window.
 4. A daily Q2 query posted to yourself each evening — spend you can see is spend you can control.

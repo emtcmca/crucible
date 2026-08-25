@@ -106,6 +106,25 @@ NARROWING_STALL_STOP = 2
 # `HALT_ARMORER_EXHAUSTED`, which means the patch would not parse.
 HALT_ARMORER_CANNOT_NARROW = "HALT_ARMORER_CANNOT_NARROW"
 
+# THE SECOND CONVERGENCE SIGNAL, AND IT USED TO KILL THE RUN.
+#
+# `crucible/gate/promote.py` raises PromotionError("E_CONVERGED") when the
+# proposed policy hashes identically to the head - the ARMORER has nothing left
+# to add. Its own message says "This is the convergence signal, not a failure",
+# `real_gate` correctly declines to retry it, and then it propagated straight
+# through this loop to top level. Run 08 of the 2026-08-24 batch promoted a
+# policy to GCS and DIED proving it had converged, so the one bundle that would
+# have documented a fixpoint is the one bundle that does not exist. THE RUN THAT
+# SUCCEEDS MOST COMPLETELY WAS THE ONLY ONE THAT COULD NOT REPORT IT.
+#
+# It resolves to status "converged", the same terminal state three dry rounds
+# reach, because it IS convergence. The SIGNAL is recorded separately because
+# the two are not the same finding: DRY_ROUNDS means no breach was found,
+# POLICY_FIXPOINT means a breach was found and the policy already covers it.
+# Folding them into one word would be E_NO_EVENTS in a new place.
+CONVERGED_DRY_ROUNDS = "DRY_ROUNDS"
+CONVERGED_POLICY_FIXPOINT = "POLICY_FIXPOINT"
+
 
 @dataclass(frozen=True)
 class RejectionFeedback:
@@ -147,7 +166,8 @@ class RoundRecord:
     patch_repaired: bool = False
     verbs_used: List[str] = field(default_factory=list)
     new_rule_ids: List[str] = field(default_factory=list)
-    gate_decision: Optional[str] = None   # PROMOTE | REJECT | HALT
+    gate_decision: Optional[str] = None   # PROMOTE | REJECT | HALT | CONVERGED
+    gate_detail: str = ""
     benign_passed: Optional[int] = None
     benign_total: Optional[int] = None
     rejection_feedback: Optional[dict] = None
@@ -234,6 +254,8 @@ class CampaignResult:
     final_policy: Optional[dict] = None
     governor: Optional[dict] = None
     verb_usage_by_family: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    # Which convergence signal ended the run. None unless status == "converged".
+    convergence_signal: Optional[str] = None
 
     def summary(self) -> dict:
         return {
@@ -334,6 +356,7 @@ class Conductor:
                 dry_streak += 1
                 if dry_streak >= CONVERGENCE_DRY_ROUNDS:
                     result.status = "converged"
+                    result.convergence_signal = CONVERGED_DRY_ROUNDS
                     break
                 feedback = _feedback(record)
                 rejection_feedback = None
@@ -347,6 +370,11 @@ class Conductor:
                 result.final_policy = policy
                 rejections = 0
                 rejection_feedback = None
+            elif record.gate_decision == "CONVERGED":
+                result.status = "converged"
+                result.convergence_signal = CONVERGED_POLICY_FIXPOINT
+                result.halt_detail = record.gate_detail
+                break
             elif record.gate_decision == "REJECT":
                 rejections += 1
                 rejection_feedback = record._rejection  # noqa: SLF001
@@ -564,9 +592,16 @@ class Conductor:
         # the benign floor is on the never-cut list.
         passed = (report.get("passed") == report.get("total")
                   and report.get("near_miss_passed") == report.get("near_miss_total"))
-        if passed and self.promote(candidate, record):
+        if passed and self._promote_or_converge(candidate, record):
             record.gate_decision = "PROMOTE"
             record._candidate = candidate              # noqa: SLF001
+        elif record.gate_decision == "CONVERGED":
+            # The fixpoint. NOT a rejection: the benign floor held and the gate
+            # accepted the policy, there was simply nothing new in it. Falling
+            # into the branch below would count a converged round as a gate
+            # rejection, and two of those halt the campaign - which would turn
+            # the success signal into HALT_GATE_REJECTED_TWICE.
+            pass
         else:
             record.gate_decision = "REJECT"
             failures = (report.get("total") or 0) - (report.get("passed") or 0)
@@ -576,6 +611,28 @@ class Conductor:
             record._rejection = rf                     # noqa: SLF001
             record.rejection_feedback = rf.as_dict()
         return record
+
+
+    def _promote_or_converge(self, candidate, record):
+        """Call the injected promoter, converting the fixpoint signal into a
+        terminal state instead of an exception.
+
+        Caught by DUCK TYPE, not by class. The conductor takes its promoter as
+        an injected callable so the loop is testable offline and the same path
+        runs against a local directory and against GCS; importing
+        `crucible.gate.PromotionError` here to catch it would put a hard edge
+        across that seam for one string comparison. Anything else re-raises
+        unchanged - a promoter that fails for any other reason must still halt,
+        because an automatic resume past a failed assertion is the fabrication
+        the assertion exists to prevent."""
+        try:
+            return self.promote(candidate, record)
+        except RuntimeError as e:
+            if getattr(e, "code", None) != "E_CONVERGED":
+                raise
+            record.gate_decision = "CONVERGED"
+            record.gate_detail = getattr(e, "detail", "") or str(e)
+            return False
 
 
 def _feedback(record):
