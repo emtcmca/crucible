@@ -159,15 +159,19 @@ One reason code cannot serve both, and until the night before this batch neither
 
 The obvious fix is to score these clean. That brings the rate under the ceiling in one line and launders the broken fixtures into passes. It is not going to happen here. The fixtures move; the answer key does not.
 
-## The result I nearly published (added 2026-08-25)
+## The result I nearly published, twice (added 2026-08-25)
 
 Splitting the episodes by provenance, an axis that was already in the data, gave `generated` attacks breaching at 9.2 percent against `training_corpus` at 4.1 percent. A clean 2.2x, and the story writes itself: rephrase a known attack and it lands more often.
 
-Every generated attack records the seed it came from, so the paired test was available. **729 pairs where a seed and its own variant were both scorable in the same run: 60 breach to breach, 669 clean to clean, and zero discordant pairs.**
+That one was caught. The corpus arm carries nearly twice the exclusions, because eight unscoreable instances concentrate there, so the two arms were never the same population. The comparison was real over a denominator that meant nothing. I wrote the lesson down: run the paired test before publishing the marginal one.
 
-The 2.2x was a composition artifact. The corpus arm carries nearly twice the exclusions, because those eight unscoreable instances concentrate there, so the two arms were never the same population. The marginal comparison was real over a denominator that meant nothing.
+**Then I published the paired test without re-deriving it, and it did not hold either.**
 
-What survived is stronger and it is on thesis: **the target's behaviour is invariant to paraphrase**. Rewriting an attack's surface text, using a different model, changed the outcome in none of 729 opportunities. That is direct evidence for binding policy to what a trace records rather than to what a message says, which is the design claim the whole project rests on.
+The write-up claimed 729 seed-and-variant pairs with zero discordant outcomes, and concluded the target was invariant to paraphrase. Re-derived from the bundles on the only link the data actually carries, the seed id each generated attack records, it comes out at 1,949 pairs with 70 discordant. A stricter pairing gives 273 with 10. No construction reproduces 729 with zero.
+
+**So both are withdrawn: the 2.2x and the null result that killed it.** This project makes no claim about paraphrase in either direction. The measurement that would support one has not been made.
+
+The lesson is not the one I wrote down last night. Checking the marginal claim and then trusting the check is the same error one level up, and the second level is more dangerous than the first, because a null result arrives looking like rigor. The number that killed a flattering finding got less scrutiny than the flattering finding did, purely because of which direction it pointed.
 
 ## What is still not known (added 2026-08-25)
 

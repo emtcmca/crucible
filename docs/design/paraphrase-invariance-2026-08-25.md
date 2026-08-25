@@ -1,3 +1,26 @@
+> # WITHDRAWN 2026-08-25, the same day it was written.
+>
+> **The 729-pair / zero-discordant result in this document does not reproduce and must not
+> be quoted.** Re-derived from `evidence/batch-night-2026-08-25/` on the only link the data
+> carries, `derived_from_attack_id`: **1,949 pairs, 70 discordant.** A stricter pairing
+> (same attack, same run, both scorable, split by `provenance`) gives **273 pairs, 10
+> discordant**. Positional in-round pairing gives 731, close to 729, but **94 discordant**,
+> and it pairs across different families so it is not a valid pairing at all. No
+> construction reproduces 729 with zero.
+>
+> **CRUCIBLE makes no claim about paraphrase invariance in either direction.** The
+> measurement that would support one has not been made.
+>
+> **The text below is preserved unedited on purpose**, the same way `ADR-0009` is kept
+> below `ADR-0018`. A record of a claim made, checked and withdrawn is worth more than a
+> document that appears always to have been right. Read it as an error, not as a finding.
+>
+> **How it survived to publication.** It was written as the correction to a 2.2x
+> composition artifact, so it arrived carrying the authority of the thing that caught an
+> error. A null result that kills a flattering finding gets less scrutiny than the
+> flattering finding did, purely because of the direction it points. That is the
+> transferable part, and it is now the entry in `docs/design/` rather than the result.
+
 # Paraphrasing a corpus attack does not change whether it breaches
 
 **Measured 2026-08-25 over the 60-run overnight batch. 1,770 episodes, 1,616 scorable,
