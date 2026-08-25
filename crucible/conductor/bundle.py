@@ -1249,6 +1249,16 @@ def _excluded_rows(record):
                 "the TRIPWIRE could not rule on this episode, so it answered no "
                 "question. INVALID is the absence of a measurement, not a clean "
                 "result.")
+            # THE REASON THE VERDICT ALREADY CARRIES, CARRIED THROUGH. C9 gained
+            # `invalid_reason` because 25 of the 288 episodes in the 2026-08-24
+            # batch were INVALID and not one of them said why; the exclusion
+            # ledger repeated that hole one file later. It matters most for
+            # ruling 56's reverted refusals, whose whole requirement is that the
+            # fallback is never silent - but a generic reason is no reason for
+            # any of the others either, so nothing narrows to that code.
+            invalid_reason = verdict.get("invalid_reason")
+            if invalid_reason:
+                detail = "%s %s" % (detail, invalid_reason)
         else:
             continue
         episode = verdict.get("_episode") or {}

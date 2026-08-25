@@ -364,8 +364,24 @@ def test_the_thresholds_are_imported_and_not_retyped(census_mod):
     assert census_mod.flag_for is degeneracy.flag_for
 
 
-def _locked(bundle, corpus_hash):
-    return dict(bundle, run_manifest={"hash_locks": {"corpus_hash": corpus_hash}})
+TARGET_HASH = "7777777777777777"
+MANIFEST_HASH = "8888888888888888"
+
+
+def _locked(bundle, corpus_hash, target_agent_hash=TARGET_HASH,
+            manifest_hash=MANIFEST_HASH):
+    """A bundle carrying the lock fields `--record` reads.
+
+    RULING 56 split the two roles apart. `target_agent_hash` and
+    `manifest_hash` are THE PIN a run must match; `corpus_hash` is provenance
+    the record still names and nothing gates on. Both are checked for
+    uniqueness across the batch, because a batch that changed either mid-flight
+    did not measure one thing.
+    """
+    return dict(bundle, run_manifest={"hash_locks": {
+        "corpus_hash": corpus_hash,
+        "target_agent_hash": target_agent_hash,
+        "manifest_hash": manifest_hash}})
 
 
 def test_record_writes_a_determination_the_guard_can_read(census_mod, tmp_path):
@@ -386,16 +402,29 @@ def test_record_writes_a_determination_the_guard_can_read(census_mod, tmp_path):
     code, message = census_mod.write_record(rows, episodes, bundles, args, path)
     assert code == 0, message
 
-    found = degeneracy.determine("abcdef0123456789", ["atk_ordinary00001"],
-                                 path=path)
-    assert found.problem is None, found.problem
+    found = degeneracy.determine(TARGET_HASH, MANIFEST_HASH,
+                                 ["atk_ordinary00001"], path=path)
+    assert found.unpinned is None, found.unpinned
     assert found.degenerate == []
+    assert found.uncovered == []
+    assert found.licensed == ["atk_ordinary00001"]
+
+    # RULING 56: the corpus the counts were measured over is RECORDED and is
+    # NOT the pin. A run against a different corpus is still covered.
+    written = json.loads(path.read_text(encoding="utf-8"))
+    assert written[degeneracy.MEASURED_OVER_BLOCK]["corpus_hash"] == \
+        "abcdef0123456789"
+    assert "corpus_hash" not in written
 
 
 def test_record_REFUSES_a_batch_that_pools_two_corpora(census_mod, tmp_path):
-    """A DETERMINATION POOLED OVER TWO SUITES IS A DETERMINATION OVER NEITHER.
-    The record's whole value is that it names the corpus it was measured over,
-    so a mixed batch is refused rather than resolved by majority."""
+    """A DETERMINATION POOLED OVER TWO OF ANYTHING IS A DETERMINATION OVER
+    NEITHER. The record's whole value is that it names what it was measured
+    against, so a mixed batch is refused rather than resolved by majority.
+
+    RULING 56 demoted `corpus_hash` from the pin to provenance and this test did
+    NOT relax with it. A batch that changed corpus mid-flight did not measure
+    one thing, whatever the field's role in the gate afterwards."""
     one = _locked(_bundle([{"attack_id": "atk_a0000000000a", "family_id": "f"}],
                           [_episode("atk_a0000000000a", empty=False)]),
                   "1111111111111111")
@@ -411,7 +440,32 @@ def test_record_REFUSES_a_batch_that_pools_two_corpora(census_mod, tmp_path):
     path = tmp_path / "determination.json"
     code, message = census_mod.write_record(rows, episodes, bundles, args, path)
     assert code == 2
-    assert "over two suites" in message
+    assert "corpus_hash" in message
+    assert "over two of anything" in message
+    assert not path.exists(), "a refused determination must not be written"
+
+
+def test_record_REFUSES_a_batch_that_pools_two_TARGETS(census_mod, tmp_path):
+    """THE HALF OF THE PIN RULING 56 KEPT. Whether an instruction can cause a
+    tool call depends on what tools exist to be called, so a batch that changed
+    target agent mid-flight measured two different questions and can license
+    neither."""
+    one = _locked(_bundle([{"attack_id": "atk_a0000000000a", "family_id": "f"}],
+                          [_episode("atk_a0000000000a", empty=False)]),
+                  "1111111111111111", target_agent_hash="aaaa000000000000")
+    two = _locked(_bundle([{"attack_id": "atk_a0000000000a", "family_id": "f"}],
+                          [_episode("atk_a0000000000a", empty=False)]),
+                  "1111111111111111", target_agent_hash="bbbb000000000000")
+    bundles = [("run-01.c6.json", one), ("run-02.c6.json", two)]
+    rows, _, episodes = census_mod.census(bundles)
+
+    args = census_mod.main.__globals__["argparse"].Namespace(
+        directory=str(tmp_path), degenerate_rate=census_mod.DEGENERATE_RATE,
+        min_denominator=census_mod.MIN_DENOMINATOR)
+    path = tmp_path / "determination.json"
+    code, message = census_mod.write_record(rows, episodes, bundles, args, path)
+    assert code == 2
+    assert "target_agent_hash" in message
     assert not path.exists(), "a refused determination must not be written"
 
 

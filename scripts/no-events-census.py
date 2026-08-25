@@ -50,10 +50,20 @@ DEGENERATE. That guard is run-scoped and lives in
 DETERMINATION RECORD this script writes with `--record`. A single run cannot
 compute the determination itself - the largest per-instance denominator inside
 one run is THREE against a minimum of 30 - so the determination is made here,
-over a batch, and pinned to the `corpus_hash` it was measured over. The
-reasoning is in `crucible/replay/degeneracy.py`, which also OWNS the two
-thresholds this script used to define; they are imported rather than retyped,
-because a second copy of a threshold is a second source of truth.
+over a batch.
+
+RULING 56, THE SAME DAY, CHANGED WHAT THAT RECORD PINS TO. It used to pin the
+whole determination to `corpus_hash`; the F5-05 repair moved that hash hours
+later and retired seven valid determinations to express one invalidation. A row
+now pins to the INSTANCE it is about, through the content-addressed
+`instance_id` the census has always keyed on, and the record as a whole pins to
+the TARGET it was measured against (`target_agent_hash`, `manifest_hash`) -
+because whether an instruction can cause a tool call depends on what tools exist
+to be called. `corpus_hash` is still written, under `measured_over`, as
+provenance nothing gates on. The reasoning is in
+`crucible/replay/degeneracy.py`, which also OWNS the two thresholds this script
+used to define; they are imported rather than retyped, because a second copy of
+a threshold is a second source of truth.
 
 Run:
     python scripts/no-events-census.py
@@ -80,7 +90,10 @@ from crucible.replay.degeneracy import (  # noqa: E402
     FLAG_INTERMITTENT,
     FLAG_NONE,
     FLAG_UNDERPOWERED,
+    MEASURED_OVER_BLOCK,
     MIN_DENOMINATOR,
+    PIN_BLOCK,
+    PIN_FIELDS,
     RECORD_KIND,
     RECORD_PATH,
     flag_for,
@@ -359,22 +372,28 @@ def _rel(path):
         return str(path).replace("\\", "/")
 
 
-def corpus_hashes(bundles):
-    """`corpus_hash` -> the bundles carrying it. Refuses nothing; reports.
+def lock_values(bundles, lock):
+    """`hash_locks[lock]` -> the bundles carrying it. Refuses nothing; reports.
 
-    A DETERMINATION POOLED OVER TWO SUITES IS A DETERMINATION OVER NEITHER, so
+    A DETERMINATION POOLED OVER TWO TARGETS IS A DETERMINATION OVER NEITHER, so
     `--record` reads this and refuses rather than picking the majority. The
-    whole value of the record is that it names the suite it was measured over.
+    whole value of the record is that it names what it was measured against.
+
+    RULING 56 made this a parameter. It used to read `corpus_hash` and nothing
+    else, because that was the pin; the pin is now the TARGET
+    (`target_agent_hash` + `manifest_hash`) and `corpus_hash` is provenance -
+    but a batch pooled over two corpora is still not one measurement, so all
+    three are checked and the two roles stay visibly apart in the record.
     """
     seen = collections.defaultdict(list)
     for name, bundle in bundles:
         locks = ((bundle.get("run_manifest") or {}).get("hash_locks") or {})
-        seen[locks.get("corpus_hash")].append(name)
+        seen[locks.get(lock)].append(name)
     return dict(seen)
 
 
-def record_document(rows, episodes, bundles, a, corpus_hash):
-    """The DETERMINATION the run-scope ruling-55 guard reads.
+def record_document(rows, episodes, bundles, a, pin, corpus_hash):
+    """The DETERMINATION the ruling-55 guard and the ruling-56 licence read.
 
     NO CLOCK IN IT, deliberately. Every other field is a function of the
     bundles it was computed from, so re-running this command over the same
@@ -385,21 +404,43 @@ def record_document(rows, episodes, bundles, a, corpus_hash):
     `flag` is written for a human. The guard RECOMPUTES it from `no_event` and
     `total` rather than trusting it, because a stored flag compared to itself
     passes on any corruption.
+
+    THE TWO HASH BLOCKS ARE NOT INTERCHANGEABLE AND THE NAMES SAY SO.
+    `pin` is what a run must match to be covered. `measured_over` is
+    PROVENANCE: it is written so a reader can see which corpus produced these
+    counts and diff a regeneration, and NOTHING READS IT AS A GATE. Ruling 56
+    is exactly the correction of the day this file pinned to `corpus_hash` and
+    a one-instance repair retired seven valid determinations.
     """
     ordered = sorted(rows.values(),
                      key=lambda r: (-r.rate, -r.no_event, r.instance_id))
     return {
         "record": RECORD_KIND,
         "written_by": "scripts/no-events-census.py --record",
-        "why": ("Ruling 55 promotes E_NO_EVENTS_TEXT_ONLY to CLEAN only when no "
-                "instance in the run is DEGENERATE. A single run cannot make "
-                "that determination - the largest per-instance denominator "
-                "inside one run is three, against a minimum of thirty - so it "
-                "is made here, over a batch, and pinned to the corpus_hash it "
-                "was measured over."),
+        "why": ("Ruling 55 promotes E_NO_EVENTS_TEXT_ONLY to CLEAN only when a "
+                "determination covers the instance the refusal was drawn from "
+                "and does not flag it DEGENERATE. A single run cannot make that "
+                "determination - the largest per-instance denominator inside "
+                "one run is three, against a minimum of thirty - so it is made "
+                "here, over a batch. Ruling 56 pins each row to the INSTANCE it "
+                "is about, via the content-addressed instance_id, and the whole "
+                "record to the TARGET it was measured against."),
         "claim_scope": ("an inference from a batch, not a verdict on an "
                         "episode. Ranks corpus instances; labels no episode."),
-        "corpus_hash": corpus_hash,
+        PIN_BLOCK: dict(pin, _note=(
+            "RULING 56. A run is covered by this determination only if it "
+            "records these target hashes AND names the instance in "
+            "instances[]. The pin is the instance and the target, never "
+            "corpus_hash (over-broad: a one-instance repair retired seven "
+            "valid determinations) and never objective_set_hash (it decides "
+            "whether a call was a BREACH, not whether a call happened).")),
+        MEASURED_OVER_BLOCK: {
+            "corpus_hash": corpus_hash,
+            "_note": ("PROVENANCE, NOT A PIN. Nothing reads this as a gate. It "
+                      "is here so a reader can see which corpus produced these "
+                      "counts, and so a regeneration over the same batch "
+                      "diffs clean."),
+        },
         # REPO-RELATIVE. An absolute path pins the record to one machine and
         # tells a judge cloning the public repo nothing they can act on.
         "source": _rel(a.directory),
@@ -419,22 +460,46 @@ def record_document(rows, episodes, bundles, a, corpus_hash):
     }
 
 
+def _one_value(bundles, lock):
+    """`(value, problem)`. One value for `lock` across the batch, or a refusal.
+
+    A DETERMINATION POOLED OVER TWO OF ANYTHING IS A DETERMINATION OVER
+    NEITHER. Applied to every lock the record carries, both the pin and the
+    provenance, because a batch that changed corpus mid-flight did not measure
+    one thing even if the field it changed is no longer the gate.
+    """
+    seen = lock_values(bundles, lock)
+    if len(seen) != 1 or None in seen:
+        return None, ("the bundles carry %d distinct %s value(s) %r"
+                      % (len(seen), lock, sorted(str(k) for k in seen)))
+    return next(iter(seen)), None
+
+
 def write_record(rows, episodes, bundles, a, path):
     """`(exit_code, message)`. Writes only when the batch can license one."""
-    by_hash = corpus_hashes(bundles)
-    if len(by_hash) != 1 or None in by_hash:
-        return 2, ("refusing to write a determination: the bundles carry %d "
-                   "distinct corpus_hash value(s) %r. A determination pooled "
-                   "over two suites is a determination over neither."
-                   % (len(by_hash), sorted(str(k) for k in by_hash)))
-    corpus_hash = next(iter(by_hash))
-    doc = record_document(rows, episodes, bundles, a, corpus_hash)
+    pin, problems = {}, []
+    for lock in PIN_FIELDS:
+        value, problem = _one_value(bundles, lock)
+        if problem:
+            problems.append(problem)
+        else:
+            pin[lock] = value
+    corpus_hash, problem = _one_value(bundles, "corpus_hash")
+    if problem:
+        problems.append(problem)
+    if problems:
+        return 2, ("refusing to write a determination: %s. A determination "
+                   "pooled over two of anything is a determination over "
+                   "neither." % "; ".join(problems))
+    doc = record_document(rows, episodes, bundles, a, pin, corpus_hash)
     path = pathlib.Path(path)
     path.write_text(json.dumps(doc, indent=2, sort_keys=True) + chr(10),
                     encoding="utf-8", newline=chr(10))
-    return 0, ("wrote %s: corpus_hash %s, %d instance(s), %d flagged "
-               "%s" % (path, corpus_hash, len(doc["instances"]),
-                       len(doc["degenerate"]), FLAG_DEGENERATE))
+    return 0, ("wrote %s: pinned to target_agent_hash %s / manifest_hash %s, "
+               "measured over corpus_hash %s, %d instance(s), %d flagged %s"
+               % (path, pin["target_agent_hash"], pin["manifest_hash"],
+                  corpus_hash, len(doc["instances"]), len(doc["degenerate"]),
+                  FLAG_DEGENERATE))
 
 
 def as_json(rows, discrepancies, episodes, bundles, a):

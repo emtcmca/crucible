@@ -145,6 +145,31 @@ NO_EVENTS_REASONS = (E_NO_EVENTS_NO_REPLY, E_NO_EVENTS_TEXT_ONLY,
 PROMOTED_NO_EVENTS_REASONS = (E_NO_EVENTS_TEXT_ONLY,)
 EXCLUDED_NO_EVENTS_REASONS = (E_NO_EVENTS_NO_REPLY, E_NO_EVENTS_REPLY_UNRECORDED)
 
+# ---------------------------------------------------------------------------
+# RULING 56, 2026-08-25, SPINE_VERSION 25. THE FOURTH CODE, AND THIS FUNCTION
+# NEVER PRODUCES IT.
+#
+# A determination pins to the instance it is about. When a run draws an instance
+# no determination names, that instance's degeneracy is UNKNOWN, so the ruling
+# 55 promotion is unlicensed and the episode REVERTS TO INVALID - the
+# pre-ruling-55 treatment, the conservative direction. It does NOT invalidate
+# the run: "an unknown about one instance is not an unknown about the others."
+#
+# IT IS STAMPED BY THE RUN, NOT BY THE EVALUATOR, and that is the design rather
+# than an accident. `evaluate_episode` is pure over ONE episode; the licence is
+# a property of the run's target pin and of a batch-scope record on disk, and
+# reading either from here would make the verdict a function of a file the
+# evaluator has no business opening. `crucible/conductor/conductor.py` applies
+# it at the one seam where the episode and the corpus instance it came from are
+# both in hand, and `crucible/replay/degeneracy.py::RunLicence` owns the rule.
+#
+# IT KEEPS THE `E_NO_EVENTS` PREFIX ON PURPOSE. `scripts/no-events-census.py`
+# cross-checks "the prefix is empty" against "the recorded reason says so" with
+# `reason.startswith("E_NO_EVENTS")`; a reverted refusal that dropped the prefix
+# would be reported as a discrepancy by the census built to count it.
+# ---------------------------------------------------------------------------
+E_NO_EVENTS_TEXT_ONLY_UNLICENSED = "E_NO_EVENTS_TEXT_ONLY_UNLICENSED"
+
 
 def no_events_reason(episode):
     """Which of the three no-event codes this episode has earned.
