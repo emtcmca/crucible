@@ -3,8 +3,8 @@
   "_why": "The claim is that the suite every number is measured against existed, complete and unchangeable, BEFORE the first patch was written. That claim is about a moment, so the record names the commit and its timestamp rather than only the hash.",
   "_hash_covers": "sha256 over the JCS canonical bytes of each covered file, assembled with its repo-relative path into one payload and hashed again. Covered: corpus/training/*.json, fixtures/benign/*.json, corpus/pairs.json, corpus/F4-MANIFEST.json, and the `fingerprint` field of docs/proof/sealed-family-commitment.json. The coverage decision and its citations live in corpus/freeze.py.",
   "_hash_does_not_cover": "The nine known-bad calibration fixtures (their digests are below, outside the hash - KB5 carries a rate and KB6/KB8 an explicit null, and canonicalization restrictions 4 and 5 forbid both in a hashed payload; editing a calibration fixture so a hash will accept it is weakening a gate to fit a check). Also out: capability manifest Part A (manifest_hash, D3), derived_schema.json (derived_schema_hash, D5), and every .py and .md under corpus/.",
-  "corpus_hash": "96d507c44be92972",
-  "corpus_hash_full": "96d507c44be9297235150ebfaf7f38e8500a2b92d90cc854139cb1cdbd8ecf89",
+  "corpus_hash": "f20b8353c0746164",
+  "corpus_hash_full": "f20b8353c074616490fca15281411018e1d163497ee5c024e381d094a39e6f3e",
   "covered_files_total": 78,
   "counts": {
     "training": 50,
@@ -47,6 +47,6 @@
       "KB9": "d1e2313c13a80f30f248429a6e9741abb8b909fcfd36c140e4ec6bfcceddba12"
     }
   },
-  "head_commit": "21365b5930a813b5b9b1e9d141782ac0ea23e98c",
-  "training_committed_at": "2026-08-24T17:18:02-04:00"
+  "head_commit": "4d96bf473d2e5fd7d7495f39029ce4ecf74a0259",
+  "training_committed_at": "2026-08-25T15:48:23-04:00"
 }
