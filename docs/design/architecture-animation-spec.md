@@ -72,3 +72,87 @@ One move, and the thesis lands visually before the sentence finishes.
 stale silently — `docs/diagrams/architecture.md` carried "Cloud Run NOT DEPLOYED — 0
 services" and "no cartographer module exists" for days after both became false, and it
 nearly reached a judge. Ruling 46 in a different medium.
+
+---
+
+# PRODUCTION SPEC — added 2026-08-24
+
+The three rules above are the intent. This half is what a builder needs so nothing
+below gets invented on the fly.
+
+## Frame
+
+**1920x1080, 16:9.** The diagram must be legible in full at frame one (rule 1), so nothing
+may depend on zooming or panning. Type floor: no text below 16px at 1920 width.
+
+## The node set is FROZEN at what `docs/diagrams/_loop.mmd` contains
+
+18 nodes, ids exactly as they appear there: `GOV RED TGT PLG ENG LED TW DRY CONV COR ADP
+ARM VAL FLOOR NARROW WAR GATE NEXT`. Three bands: PROVOKE, RULE, REPAIR.
+
+**Adding a node after the cue list is written is the failure this spec exists to prevent.**
+If the architecture changes, the node set is re-frozen and the cue list is re-validated
+first. Never the other way round.
+
+## Colour carries semantics, and only semantics
+
+| Token | Hex | Means |
+|---|---|---|
+| brass | `#9A6B12` / fill `#E9DCBD` | contains a model. UNTRUSTED |
+| verdigris | `#2C6355` | pure code. DETERMINISTIC |
+| rust | `#94371F` | a refusal or rejection path |
+| ground / ink | `#F1F3EF` / `#14181B` | everything else |
+
+No node gets a colour for emphasis, contrast, or variety. Palette source:
+`docs/devpost/crucible-explainer.html`.
+
+## The trust boundary is a real line at a real coordinate
+
+Drawn from frame one, not revealed. Every `[M]` node sits on one side, every `[C]` node on
+the other. If the layout cannot place them cleanly on two sides, **the layout is wrong** -
+do not compromise the line, which is rule 3 and the closing thesis.
+
+## Cue list
+
+A data file, `docs/diagrams/loop-cues.json`. Cued to Eric's RECORDED narration, not to the
+script's estimates - N4's real duration sets the timeline.
+
+```json
+{
+  "beat": "N4", "duration_ms": 45000, "svg": "loop.svg",
+  "cues": [
+    {"t_ms": 0,     "spotlight": [],      "dim": [], "note": "full topology visible"},
+    {"t_ms": 3200,  "spotlight": ["RED"], "dim": []},
+    {"t_ms": 18000, "spotlight": ["ARM"], "dim": ["RED_PAYLOAD","BENIGN","WARDEN_REPORT","HELDOUT"]},
+    {"t_ms": 41000, "boundary": "resolve"}
+  ]
+}
+```
+
+`spotlight` brightens; everything not listed dims. `dim` names blindness targets (rule 2).
+`boundary: "resolve"` fires rule 3 exactly once, last.
+
+## The validator is the point, not a nicety
+
+`scripts/check-loop-cues.py`, exit non-zero on any of:
+
+1. a cue id that resolves to no element in the SVG **(the dangling pointer - this is the
+   ARMORER defect that cost a live run, in a new medium)**
+2. a node in the SVG named by no cue **(a component nobody narrates)**
+3. `boundary: "resolve"` appearing zero times or more than once
+4. any `t_ms` beyond `duration_ms`, or out of order
+
+**Write one deliberately-broken fixture the validator must always reject**, the same reason
+the eval harness ships known-bads: a check that cannot fail is not measuring anything.
+
+## Blindness targets
+
+Read the per-component blind lists from `docs/architecture-spec.md` §1.1 at build time.
+**Do not recall them.** The known trap: **the Objective Set is on RED's blind list, NOT the
+ARMORER's** - that has been got wrong once already.
+
+## Capture
+
+Playwright drives the page and records. Each beat is one unbroken take; cuts fall between
+beats, never inside one. This beat is explanation rather than execution, so it sits outside
+the unedited-execution criterion either way.

@@ -83,5 +83,12 @@ flowchart TB
   class DRY,NARROW,NEXT decision
   class CONV terminal
 
-  linkStyle 13 stroke:#94371F,stroke-width:2.5px
-  linkStyle 18 stroke:#94371F,stroke-width:2.5px
+  %% RUST MEANS A REFUSAL OR REJECTION PATH, AND THESE INDICES WERE WRONG.
+  %% 13 is ADP->ARM (the fired clause predicate) and 18 is NARROW->WAR ("yes").
+  %% Colouring a SUCCESS path as a refusal is a semantic inversion in the one
+  %% place the spec says colour must carry semantics. Corrected 2026-08-24 to
+  %% the two edges that actually are refusals:
+  %%   5   ENG->PLG    "DENY / APPROVAL_REQUIRED"  the policy stopping a call
+  %%   17  NARROW->ARM "no - retry, up to 6"       the benign floor rejecting
+  linkStyle 5 stroke:#94371F,stroke-width:2.5px
+  linkStyle 17 stroke:#94371F,stroke-width:2.5px
