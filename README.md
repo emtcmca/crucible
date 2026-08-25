@@ -603,7 +603,7 @@ L5 CAMPAIGN  run_20260823_034248_5100ff
     target_agent_hash    2434172103377704  FROZEN   target/refund_agent/FROZEN.json
     manifest_hash        8cf2cad84008bde2  FROZEN   target/refund_agent/FROZEN.json
     objective_set_hash   549a8c38ad89e698  FROZEN   docs/proof/d3-objective-set-freeze.json
-    corpus_hash          96d507c44be92972  FROZEN   docs/proof/d5-corpus-freeze.json
+    corpus_hash          f20b8353c0746164  FROZEN   docs/proof/d5-corpus-freeze.json
     derived_schema_hash  4ed107cff558bdc9  FROZEN   docs/proof/d5-derived-schema-freeze.json
 ==============================================================================
 
