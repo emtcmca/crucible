@@ -11,7 +11,58 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 22` · last changed 2026-08-24
+`SPINE_VERSION: 23` · last changed 2026-08-25
+
+> **SPINE_VERSION 23 — ruling 54, 2026-08-25. "HASH-LOCK" WAS NEVER A UNIT. FIVE AND SIX ARE
+> BOTH CORRECT AND THEY COUNT DIFFERENT SETS. THE SPINE CARRIED BOTH, SO PRECEDENCE COULD NOT
+> SETTLE IT AND THE CONTRADICTION IS THE SPINE'S OWN DEFECT.**
+>
+> This file says SIX at `:159` (ruling 51, the newest statement, which enumerates them) and FIVE
+> at `:1481`, `:1945` and `:2476`. Seventeen downstream sites say five. **A downstream document
+> cannot be the defect when the spine contradicts itself**, so this is closed here rather than by
+> correcting anything below.
+>
+> **Ruling 46 decides it: the artifact owns the number.** Read, not recalled:
+>
+> - **`crucible/conductor/conductor.py:76`, `REQUIRED_HASHES` — FIVE.** `gate_rule_hash`,
+>   `target_agent_hash`, `manifest_hash`, `objective_set_hash`, `derived_schema_hash`. This is the
+>   set the conductor refuses to **START** without.
+> - **`crucible/conductor/hashlocks.py:145`, `LOCK_FIELDS` — SIX.** Those five plus
+>   **`corpus_hash`**. This is the set a **BUNDLE** must carry to be evidence.
+>
+> **The difference is exactly one field and it is not bookkeeping.** `corpus_hash` is the field
+> that says WHICH SUITE every rate in a bundle was measured against. `campaign.py:1179` records
+> that the banner "said five and checked five until 2026-08-22", which is precisely the window the
+> five-statements were written in. They were not wrong. They went stale by standing still, the
+> failure mode this project has now met in four separate files.
+>
+> **A third number exists and it is also right: FIVE freeze RECORDS on disk.**
+> `d2-gate-rule-freeze.json`, `target/refund_agent/FROZEN.json`, `d3-objective-set-freeze.json`,
+> `d5-corpus-freeze.json`, `d5-derived-schema-freeze.json`. Five records, six fields, because
+> `FROZEN.json` carries two.
+>
+> **THE RULING. Six is the canonical count of hash-locked FIELDS, and the phrase "hash-locks"
+> is retired as a bare noun.** Every future statement names its unit:
+>
+> - "six hash-locked **fields**" — `LOCK_FIELDS`
+> - "the five **`REQUIRED_HASHES`**" — never "the five hash-locks"
+> - "five freeze **records**"
+>
+> A count is only as good as the ref it was taken on. This adds the other half: **a count is only
+> as good as the unit it names.** Three true numbers were in circulation for five days and every
+> document was right, which is why nothing caught it.
+>
+> **Enforced mechanically, not by this paragraph:**
+> `tests/test_corpus_precondition.py::test_the_six_lock_fields_agree_with_their_owner`.
+>
+> **One code comment is corrected by this ruling.** `campaign.py:1051` reconciles five-versus-six
+> as "ruling 20's fifth lock is two fields". That is not the reconciliation: D5 has **two separate
+> freeze records**, and the single record carrying two fields is `target/refund_agent/FROZEN.json`.
+> The accurate version is four lines further down at `:1179`. The wrong one is the one a reader
+> hits first.
+>
+> **No hash value appears in this ruling.** Ruling 46: read each off the record that owns it.
+
 
 > **SPINE_VERSION 22 — ruling 53, 2026-08-24. THE OBJECTIVE SET HAD NO `CAP_READS_PII` CLAUSE,
 > AND TWO ATTACKS THAT SUCCEED SCORED CLEAN. `objective_set_hash` moves; D3 is re-frozen.**
