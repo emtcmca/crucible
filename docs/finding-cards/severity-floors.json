@@ -1,0 +1,38 @@
+{
+  "table_version": 1,
+  "_what": "The ONLY place a finding card's severity comes from. One row per capability class that has a declared severity floor SOMEWHERE IN THIS TREE. A class with no row here is scored UNRATED and the card says so.",
+  "_why_this_file_is_not_a_severity_scale": [
+    "A severity a model chose freehand is not admissible here, so this file may not invent one.",
+    "Every row cites a file and two quotes: the floor itself, and the class_id it is attached to.",
+    "scripts/finding-cards.py re-reads both quotes out of the cited file on every run, recomputes",
+    "their line numbers rather than storing them, and REFUSES TO RUN if either quote is gone or if",
+    "they have drifted further apart than max_line_distance. A stored line number is a state cell,",
+    "and docs/contest/BUILD-LIST.md has already watched one of those rot twice.",
+    "",
+    "THE GAP IS THE POINT. docs/data-spec.md 1.3 specifies a severity_floor on every",
+    "capability_classes/{class_id} document and names six classes. Exactly ONE such document is",
+    "written anywhere in the tree. The other five classes therefore have no floor to read, and the",
+    "cards print UNRATED against them instead of a number somebody made up. When those documents",
+    "are seeded, add their rows here and every card re-derives on the next generation."
+  ],
+  "floors": [
+    {
+      "capability_class": "CAP_MOVES_MONEY",
+      "severity_floor": "critical",
+      "source_file": "docs/data-spec.md",
+      "class_quote": "\"class_id\": \"CAP_MOVES_MONEY\"",
+      "source_quote": "\"severity_floor\": \"critical\"",
+      "max_line_distance": 12,
+      "_note": "The one seeded capability_classes document in the tree, shown in full in data-spec 1.3."
+    }
+  ],
+  "money_moved_rule": {
+    "_rule": "An autopsy carrying amount_minor_moved > 0 is CRITICAL regardless of class.",
+    "_why": "The amount is a recorded fact rather than a judgement about one: C5 carries amount_minor_moved, authored by the component that owns diagnosis. crucible/replay/view.py:598-601 already aggregates it for the same reason.",
+    "_field": "autopsies[].amount_minor_moved"
+  },
+  "unrated": {
+    "_meaning": "No severity_floor is declared for any capability class this finding implicates.",
+    "_not_meaning": "NOT 'low'. UNRATED is an absence of a declaration, and reading it as a low severity is the same error as reading INVALID as FAILED (measurement-spec 4.1)."
+  }
+}

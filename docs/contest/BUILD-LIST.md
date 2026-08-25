@@ -225,8 +225,25 @@ trade the strongest thing the project has for a demo flourish.
 
 ### T2-2 · Finding cards with reproduce commands · **[30D] [40]**
 
-**STATE 2026-08-25: NOT BUILT, NO OWNER.** No finding-card producer exists in the
-tree. Same unblocking as T2-1: 60 bundles now exist to point it at.
+**STATE 2026-08-25 (evening): BUILT.** `scripts/finding-cards.py` is the
+producer; `docs/finding-cards/` holds the method, the severity table, and the
+generated sheets. The rollup is refused in code and on every sheet. Regenerate
+with the command in `docs/finding-cards/README.md`; `--verify-repro` RUNS every
+command the cards print and exits 4 if one did not reproduce, and `--selftest`
+proves the severity assigner and its citation check can fail.
+
+**The unblocking line above was wrong, and the correction is the finding.** It
+said *"60 bundles now exist to point it at."* Pointed at
+`evidence/batch-night-2026-08-25/` on `SPINE_VERSION 25`, **all 60 are REJECTED
+by `crucible.replay`** — every one fails `E_SCHEMA` on
+`episodes[].target_responded`, the field the C6 contract gained with ruling 55
+the same day, and 46 additionally fail `E_EXCLUSION_CEILING_RUN`. Their
+`corpus_hash` also no longer matches `docs/proof/d5-corpus-freeze.json` after the
+F5-05 repair and the D5 re-freeze. **A bundle that exists is not a bundle that
+opens.** The shipped sheets are generated from `evidence/smoke-2026-08-25`
+instead, whose bundles the reader accepts and whose six lock fields all match the
+artifacts in force — the sheet prints that comparison in a table cell rather than
+in a caveat somebody has to remember to write.
 
 Adopted from the Codex review, without its rollup number. Every deduction points
 to a reproducible trace: attack path, expected, observed, result, severity,
