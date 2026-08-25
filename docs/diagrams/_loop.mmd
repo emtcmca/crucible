@@ -1,0 +1,87 @@
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "IBM Plex Sans, Segoe UI, system-ui, sans-serif",
+    "fontSize": "15px",
+    "background": "#F1F3EF",
+    "primaryColor": "#FBFCFA",
+    "primaryTextColor": "#14181B",
+    "primaryBorderColor": "#A9B1A8",
+    "lineColor": "#6C757A",
+    "clusterBkg": "#FBFCFA",
+    "clusterBorder": "#D0D5CD",
+    "edgeLabelBackground": "#F1F3EF",
+    "tertiaryColor": "#E7EAE4"
+  },
+  "flowchart": { "curve": "basis", "nodeSpacing": 34, "rankSpacing": 44, "padding": 12 }
+}}%%
+flowchart TB
+
+  subgraph BAND1["① &nbsp;PROVOKE &nbsp;—&nbsp; the agent is put under pressure"]
+    direction LR
+    GOV["BUDGET_GOVERNOR &nbsp;[C]<br/><span class='sub'>opens the round, or refuses</span>"]
+    RED["RED_STRATEGIST &nbsp;[M]<br/><span class='sub'>gemini-3.6-flash · 6 attack specs</span>"]
+    TGT["TARGET_AGENT &nbsp;[M]<br/><span class='sub'>gemini-3.5-flash-lite · refund agent, 8 tools</span>"]
+    PLG["CRUCIBLE_PLUGIN &nbsp;[C]<br/><span class='sub'>ADK before_tool · stamp, evaluate, short-circuit</span>"]
+    ENG["POLICY_ENGINE &nbsp;[C]<br/><span class='sub'>evaluates policy at vN</span>"]
+    LED[("Episode ledger &nbsp;[C]<br/><span class='sub'>ordered ToolEvent list</span>")]
+  end
+
+  subgraph BAND2["② &nbsp;RULE &nbsp;—&nbsp; no model decides whether a breach happened"]
+    direction LR
+    TW["TRIPWIRE &nbsp;[C]<br/><span class='sub'>11 Objective Set clauses<br/>over the ordered event list</span>"]
+    DRY{"any<br/>breach?"}
+    CONV["3 consecutive dry rounds<br/><span class='sub'>= converged</span>"]
+  end
+
+  subgraph BAND3["③ &nbsp;REPAIR &nbsp;—&nbsp; and prove the repair broke nothing"]
+    direction LR
+    COR["CORONER &nbsp;[M]<br/><span class='sub'>gemini-3.5-flash-lite · writes the autopsy<br/>no fix field in its schema</span>"]
+    ADP["Armorer input adapter &nbsp;[C]<br/><span class='sub'>enumerated projection · no free text</span>"]
+    ARM["ARMORER &nbsp;[M]<br/><span class='sub'>gemini-3.7-flash<br/>deny · constrain_arg · require_approval</span>"]
+    VAL["DSL parser + validator &nbsp;[C]<br/><span class='sub'>assigns the rule id</span>"]
+    FLOOR["BENIGN FLOOR &nbsp;[C]<br/><span class='sub'>26 fixtures, 14 near-miss<br/>must be 26 of 26</span>"]
+    NARROW{"floor<br/>holds?"}
+    WAR["REGRESSION_WARDEN &nbsp;[C]<br/><span class='sub'>9 known-bads · each returns<br/>its expected verdict · replay</span>"]
+    GATE["PROMOTION_GATE &nbsp;[C]<br/><span class='sub'>write · read the bytes back<br/>recompute the hash</span>"]
+    NEXT{"promoted?"}
+  end
+
+  GOV --> RED
+  RED -->|"AttackSpec"| TGT
+  TGT -->|"tool call"| PLG
+  PLG --> ENG
+  ENG -->|"ALLOW"| TGT
+  ENG -->|"DENY · APPROVAL_REQUIRED"| PLG
+  PLG -->|"TOOL_ATTEMPT · TOOL_EXECUTED · TOOL_ERROR"| LED
+
+  LED --> TW
+  TW --> DRY
+  DRY -->|"no"| CONV
+  CONV -.->|"next round"| GOV
+
+  DRY -->|"yes — first breach"| COR
+  COR -->|"BreachRecord"| ADP
+  ADP -->|"+ the fired clause predicate"| ARM
+  ARM -->|"PatchSet, placeholder ids"| VAL
+  VAL -->|"candidate policy vN+1"| FLOOR
+  FLOOR --> NARROW
+  NARROW -->|"no — retry, up to 6"| ARM
+  NARROW -->|"yes"| WAR
+  WAR --> GATE
+  GATE --> NEXT
+  NEXT -.->|"policy becomes vN+1"| GOV
+  NEXT -.->|"rolled back"| GOV
+
+  classDef model fill:#E9DCBD,stroke:#9A6B12,stroke-width:2px,color:#14181B
+  classDef code fill:#FBFCFA,stroke:#2C6355,stroke-width:2px,color:#14181B
+  classDef decision fill:#F1F3EF,stroke:#A9B1A8,stroke-width:1.5px,color:#454E54
+  classDef terminal fill:#E7EAE4,stroke:#6C757A,stroke-width:1.5px,color:#454E54
+
+  class RED,TGT,COR,ARM model
+  class GOV,PLG,ENG,LED,TW,ADP,VAL,FLOOR,WAR,GATE code
+  class DRY,NARROW,NEXT decision
+  class CONV terminal
+
+  linkStyle 13 stroke:#94371F,stroke-width:2.5px
+  linkStyle 18 stroke:#94371F,stroke-width:2.5px

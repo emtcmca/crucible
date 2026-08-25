@@ -1,0 +1,61 @@
+flowchart TB
+    subgraph vertex["Vertex AI — in use"]
+      V1["gemini-3.7-flash — ARMORER"]
+      V2["gemini-3.6-flash — RED_STRATEGIST"]
+      V3["gemini-3.5-flash-lite — CORONER and TARGET_AGENT"]
+      V4["gemma-4-26b-a4b-it-maas — CAPABILITY_CARTOGRAPHER"]
+    end
+
+    subgraph modelsa["Service accounts holding roles/aiplatform.user"]
+      SAARM["crucible-armorer"]
+      SARED["crucible-red"]
+      SACOR["crucible-coroner"]
+      SATGT["crucible-target"]
+      SAORCH["crucible-orchestrator"]
+      SASEAL["crucible-sealed-eval"]
+    end
+
+    subgraph codesa["Service accounts with NO model access — this absence is the claim"]
+      SATW["crucible-tripwire"]
+      SAWAR["crucible-warden"]
+      SAGATE["crucible-gate"]
+    end
+
+    subgraph gcs["Cloud Storage — three buckets, us-central1, UBLA on, public access prevention enforced"]
+      BSEAL[("gs://crucible-sealed-x7")]
+      BPOL[("gs://crucible-policies-x7<br/>versioning on, retention 14d, NOT locked")]
+      BEV[("gs://crucible-evidence-x7")]
+    end
+
+    FS[("Firestore<br/>us-central1, Native mode")]
+    SQL[("SQLite run ledger<br/>crucible/ledger/store.py<br/>append-only by trigger")]
+    BQ[("BigQuery<br/>crucible_telemetry, crucible_sealed")]
+    CR["Cloud Run<br/>target agent service"]
+    UI["Demo UI — crucible-ui"]
+
+    SAARM --> V1
+    SARED --> V2
+    SACOR --> V3
+    SATGT --> V3
+    SAGATE -->|"roles/storage.objectCreator<br/>CREATE ONLY"| BPOL
+    SAGATE -->|"roles/storage.objectViewer"| BPOL
+    SAORCH -->|"objectViewer"| BPOL
+    SATGT -->|"objectViewer"| BPOL
+    SAARM -.->|"NO ROLE — asserted equal to zero"| BPOL
+    SAARM -.->|"NO ROLE — 403 captured with a positive control"| BSEAL
+    SARED -.->|"NO ROLE"| BSEAL
+    SASEAL -->|"objectViewer and objectCreator"| BSEAL
+    SAORCH -->|"objectCreator"| BEV
+    SATW -.-> BQ
+    SAWAR -.-> CR
+    SAGATE --> SQL
+    SAORCH -.-> FS
+    SAORCH -.-> CR
+    UI -.-> BPOL
+
+    classDef live fill:#d5e8d4,stroke:#5a8a4a,color:#000
+    classDef notbuilt fill:#f5f5f5,stroke:#999,color:#333,stroke-dasharray: 5 3
+    classDef store fill:#cfe6f7,stroke:#3a7ca5,color:#000
+    classDef model fill:#f8cecc,stroke:#b85450,color:#000
+    class V1,V2,V3,V4 model
+    class BSEAL,BPOL,BEV,SQL store

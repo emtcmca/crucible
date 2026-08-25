@@ -60,3 +60,9 @@ planning/
 # and rebuilt every deploy - a committed copy would be a second source of truth
 # for the frozen target.
 deploy/.stage/
+
+# Diagram render artifacts and local tool config. Sources are tracked; renders are not.
+docs/diagrams/*.png
+docs/diagrams/*.render.log
+docs/diagrams/*.exitcode
+pptr-config.json
