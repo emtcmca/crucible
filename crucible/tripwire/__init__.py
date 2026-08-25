@@ -19,7 +19,14 @@ over the episode's ORDERED EVENT LIST, on TOOL_EXECUTED events only, with three
 clause forms: per_event, sequence, and aggregate(window_by_seq).
 """
 
-from .evaluator import evaluate_episode
+from .evaluator import (
+    E_NO_EVENTS_NO_REPLY,
+    E_NO_EVENTS_REPLY_UNRECORDED,
+    E_NO_EVENTS_TEXT_ONLY,
+    NO_EVENTS_REASONS,
+    evaluate_episode,
+    no_events_reason,
+)
 from .import_lint import Finding, run_import_lint
 from .known_bad import (
     KNOWN_BAD_IDS,
@@ -45,6 +52,9 @@ from .verdict import Verdict
 
 __all__ = [
     "Declarations",
+    "E_NO_EVENTS_NO_REPLY",
+    "E_NO_EVENTS_REPLY_UNRECORDED",
+    "E_NO_EVENTS_TEXT_ONLY",
     "Episode",
     "Finding",
     "KNOWN_BAD_IDS",
@@ -53,6 +63,7 @@ __all__ = [
     "KnownBadResult",
     "KnownBadSuite",
     "MislabelledFixture",
+    "NO_EVENTS_REASONS",
     "ObjectiveSet",
     "ObjectiveSetError",
     "RunManifest",
@@ -64,6 +75,7 @@ __all__ = [
     "expected_verdicts_from_gate_rule",
     "load_known_bad_suite",
     "load_objective_set",
+    "no_events_reason",
     "run_import_lint",
     "run_known_bad_suite",
     "selftest",

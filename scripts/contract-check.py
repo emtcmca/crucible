@@ -120,7 +120,16 @@ EXEMPT = re.compile(
     r"must be rejected|KNOWN_BAD|_must_fail_because|no match_mode|is removed|is GONE|"
     r"is DELETED|not\s+EVALUATED|NEVER|"
     # a TRANSITION statement legitimately names the value it is retiring
-    r"become[sd]?\s+FIVE|becomes?\s+five|now\s+five|are\s+five|to\s+five|"
+    # markdown emphasis around the number broke every one of these until
+    # 2026-08-25: `become **FIVE**` flagged while `become FIVE` exempted, so a
+    # correction document that BOLDED the number reported itself as drift. A
+    # check with a high false-positive rate gets switched off, which is the
+    # reason the STATUS pass had to be rescoped once already.
+    r"become[sd]?\s+[*`_]*FIVE|becomes?\s+[*`_]*five|now\s+[*`_]*five|"
+    r"are\s+[*`_]*five|to\s+[*`_]*five|"
+    # prose citing a NUMBERED RULING as the source of the change is correction
+    # prose by construction. Narrow on purpose: it requires the ruling number.
+    r"since\s+ruling\s+\d|per\s+ruling\s+\d|"
     # correction prose QUOTING the dead value back
     r"sites?\s+(?:asserted|said|carry|carrie[ds]|still)|was\s+carrying|"
     r"stated as|wrong\s+in|drifted|stale|this\s+read|it\s+read|previously",

@@ -122,6 +122,41 @@ class Episode:
         return self.raw.get("episode_frozen_context", {})
 
     @property
+    def target_responded(self):
+        """DID THE TARGET REPLY IN WORDS AT ALL. A STAMPED HARNESS FACT, and
+        THREE-VALUED: True, False, or None for "this record does not say".
+
+        Read by `evaluator.no_events_reason` and by nothing else, to split the
+        old single `E_NO_EVENTS` into the code for an episode where nothing
+        happened at all and the code for one where the agent engaged and called
+        nothing. Both stay INVALID and both stay excluded; the split makes two
+        populations countable, it does not promote either.
+
+        IT IS NOT `transcript`, AND THAT IS THE POINT. The transcript one
+        property up is documented PRESENT AND NEVER READ, and
+        `tests/test_tripwire_verdicts.py::
+        test_the_transcript_does_not_change_any_verdict` asserts that swapping
+        the prose for its opposite moves nothing. Deriving this from the
+        transcript - even only by asking whether it is empty - would make that
+        invariant false for exactly the episode class where it newly matters. A
+        boolean stamped by the harness carries the same information without
+        putting a string in front of the oracle, which is the same shape C6
+        already demands of `channel`: "a HARNESS fact, stamped - never inferred
+        from the transcript".
+
+        None IS NOT False. NOTHING IN THE TREE STAMPS THIS YET -
+        `conductor/real_target.py::_drive` discards every ADK model event and
+        `harness/episode.py::seal_episode` writes no such key - so every live
+        episode currently answers None. Defaulting that to False would print
+        "the target said nothing" off a record that never looked, which is the
+        overclaim `tests/test_overclaim.py` exists to catch. A non-boolean value
+        is treated as absent for the same reason: a stamp that is not a stamp is
+        not evidence.
+        """
+        value = self.raw.get("target_responded")
+        return value if isinstance(value, bool) else None
+
+    @property
     def events(self):
         return [ToolEvent(e) for e in self.raw.get("events", [])]
 
@@ -142,6 +177,15 @@ class Episode:
 
     def with_transcript(self, value):
         return self._mutated(lambda r: r.__setitem__("transcript", value))
+
+    def with_target_responded(self, value):
+        """Stamp the three-valued reply flag. `None` REMOVES the key rather than
+        writing a null, so "the record does not say" has exactly one spelling on
+        disk and a test cannot accidentally prove the split works against a
+        shape no recorder produces."""
+        if value is None:
+            return self.without("target_responded")
+        return self._mutated(lambda r: r.__setitem__("target_responded", value))
 
     def without(self, field):
         return self._mutated(lambda r: r.pop(field, None))
