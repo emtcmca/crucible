@@ -159,43 +159,33 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-24 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-25 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**READ `docs/contest/CONTEST.md` AND `docs/NEEDS-ERIC.md` BEFORE PLANNING ANYTHING.**
+`main` @ `abcd91e`, pushed. pytest 0, contract-check 0 across **six** passes (FRESH is new).
+**The 60-run overnight batch is COMPLETE** - all exit 0, zero C6 errors, 1,770 episodes,
+**95 promotions**. `evidence/batch-night-2026-08-25/`.
 
-`main` green: pytest **1895 passed, 1 skipped**, contract-check 0, tripwire selftest 0,
-`crucible.coverage` 0 (**11 of 11 clauses, 0 DARK**). Rulings 1-53, SPINE **22**.
-**NO HASH VALUE IN THIS BLOCK - ruling 46. Read each off `docs/proof/`.**
+**"NOTHING HAS EVER BEEN PROMOTED" IS NOW FALSE**, along with "`GcsBlobIO` has never
+executed" and "the policies bucket is empty". Canon still says otherwise in four places -
+fix before any external CRUCIBLE sentence (Q `c-20260824-2006-7060`).
 
-**A TEN-RUN LIVE BATCH MAY STILL BE IN FLIGHT** -> `evidence/batch-2026-08-24/`.
-It executes out of the PRIMARY tree: **do not edit here or merge to `main` while
-`run-10.exitcode` is missing.** Pre-registration and its four predictions:
-`docs/design/batch-2026-08-24-preregistration.md`. **Unmerged work waits in the
-worktree `C:\dev\crucible-wt-DEPLOY`.**
+Baseline tag `pre-batch-2026-08-24` @ `89ea21f`. `git log --oneline pre-batch-2026-08-24..main`
+is the overnight review list, atomic and unsquashed. Log: `docs/NIGHT-LOG-2026-08-25.md`.
+**NO HASH VALUE IN THIS BLOCK - ruling 46.**
 
-**CLOUD RUN IS DEPLOYED AND CURRENT** - revision `crucible-00004-gfk`, 100% traffic,
-`/list-apps` -> `["refund_agent"]` HTTP 200. **PC3 Trace Explorer and PC4 console
-captures are OWED, and are Eric's**, for revision 00004. **Nothing has EVER been
-PROMOTED**; `GcsBlobIO` has never executed.
+**Open threads**
+- **ERIC RULES ON E_NO_EVENTS** - all 154 INVALID carry one code from 8 attacks, exclusion
+  over ceiling in 51 of 60 runs. It conflates a broken fixture with a SUCCESSFUL DEFENSE.
+  Brief: `docs/design/e-no-events-conflation-2026-08-25.md`. Scoring it CLEAN is forbidden.
+- Fill the README Results `Observed` column from the batch: k=1 + SEP-BY beside every figure.
+- Update 6 drafted and **UNPOSTED**: `docs/devpost/DRAFT-update-6-first-promotions.md`.
+- Held-out unseal **08-28** · code freeze **08-28** · submit **08-30**.
 
 **Watch out for**
-- **A CHECK THAT CANNOT FAIL IS THE HOUSE DEFECT** - and it includes CLAIMS.
-  **DIAGNOSE FROM SOURCE, NEVER FROM A RENDER. Verify a lane's correction too.**
-- **EXIT CODES LIE - FOUR INSTANCES.** A background task notified "exit code 0"
-  while the real exit was 1 and no artifact existed. **ASSERT THE ARTIFACT.**
-- **"HASH MOVE" NAMES TWO DIFFERENT EVENTS.** A LOCK-FIELD move costs a re-freeze
-  plus a `docs/proof/` record; a CONTRACT-FILE move costs `hash-contracts.py`.
-  **Grep the value before pricing the work.**
-- **STALE ROWS NEARLY REACHED A JUDGE.** `docs/diagrams/architecture.md` asserts
-  "Cloud Run NOT DEPLOYED" and "no cartographer module exists". **Both FALSE.**
-  Do not upload that diagram until it is corrected, and **do not let Mermaid look
-  stock** - use the palette in `docs/devpost/crucible-explainer.html`.
-- **`bq` is BROKEN here** (`python3.14: command not found`) - BigQuery state is
-  UNVERIFIED, not absent.
-- **Do NOT "improve" the Warden's rejection feedback.** It works; the ARMORER
-  followed it precisely. The defect was upstream - it held a pointer into the
-  Objective Set it could not dereference.
-- **A heredoc collapses `\` to `\`** -> invalid JSON. Forward slashes in Windows
-  paths inside JSON. `hash-contracts.py --help` WRITES THE MANIFEST. Backticks in
-  `git commit -m` get substituted; use `-F`. **ONE pytest at a time.**
+- **A REPORTED STATUS IS NOT EVIDENCE - SIX INSTANCES.** A batch reported KILLED was alive
+  and two runners raced one directory. **ASSERT THE ARTIFACT.**
+- **A CHECK THAT DOES NOT COVER THE ARTIFACT CANNOT FAIL FOR IT** - why README rotted, and
+  why G1a is hash-locked, RUN_INVALID, and never evaluated.
+- **SEPARATE POPULATIONS, NEVER POOL** - a 2.2x effect went to ZERO under the paired test.
+- PowerShell has no heredocs: write commit messages with Bash, commit with `-F`.
 <!-- VAULT:SESSION-STATE end -->
