@@ -225,10 +225,14 @@ def build_graph(manifest, bundles, freeze_path=None):
                         % (path.name, name, sorted(ev_classes), sorted(by_name[name]["classes"])),
                     )
                 if e.get("tool_handle") and e["tool_handle"] != by_name[name]["handle"]:
+                    # The manifest's own handle is deliberately NOT echoed here. Ruling 46:
+                    # a frozen value has one owner, the artifact. The error names where to
+                    # read it instead, so this text is safe to paste into a document.
                     raise RenderError(
                         "E_HANDLE_DRIFT",
-                        "%s: %s recorded as handle %s, manifest declares %s"
-                        % (path.name, name, e["tool_handle"], by_name[name]["handle"]),
+                        "%s: %s recorded as handle %s, which is not the handle the frozen "
+                        "manifest declares for it (read it from %s)"
+                        % (path.name, name, e["tool_handle"], DEFAULT_MANIFEST),
                     )
                 calls[name] += 1
                 dec = e.get("policy_decision")

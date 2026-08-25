@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 1330" width="1680" height="1330" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="1680" height="1330" fill="#f7f8fa"/>
+<defs>
+<marker id="ah-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#aeb6c2"/></marker>
+<marker id="ah-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f5fd0"/></marker>
+<marker id="ah-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d2481c"/></marker>
+</defs>
+<text x="60" y="66" font-size="34" font-weight="700" fill="#161b22">CRUCIBLE &#183; attack surface</text>
+<text x="60" y="98" font-size="16" fill="#5c6672">Nodes are the frozen capability manifest. Edges are the tripwire’s recorded calls. Colour is policy@v0 versus policy@vFinal.</text>
+<rect x="60" y="118" width="1560" height="34" rx="6" fill="#b3261e" opacity="0.12"/>
+<text x="76" y="141" font-size="15" font-weight="700" fill="#b3261e">DEVELOPMENT INPUT — these bundles measure a corpus that is not the current freeze</text>
+<text x="1604" y="141" font-size="13" text-anchor="end" fill="#5c6672">corpus_hash 96d507c44be92972 &#183; freeze record f20b8353c0746164</text>
+<text x="60" y="180" font-size="13" fill="#5c6672">60 evidence bundles &#183; 1770 episodes &#183; run_20260825_034439_5100ff &#8230; run_20260825_100600_5100ff &#183; manifest_hash 8cf2cad84008bde2 &#183; spine 22</text>
+<text x="387" y="216" font-size="13" font-weight="700" text-anchor="middle" fill="#5c6672">RECORDED CALL SEQUENCES &#183; tripwire</text>
+<text x="700" y="216" font-size="13" font-weight="700" text-anchor="middle" fill="#5c6672">TOOLS &#183; 8, from the manifest</text>
+<text x="1290" y="216" font-size="13" font-weight="700" text-anchor="middle" fill="#5c6672">CAPABILITY CLASSES &#183; 6 + sentinel</text>
+<path d="M 567 729 C 493 708, 493 776, 567 755" fill="none" stroke="#aeb6c2" stroke-width="1.20" opacity="0.25" marker-end="url(#ah-g)"/>
+<path d="M 567 646 Q 418 550 567 454" fill="none" stroke="#aeb6c2" stroke-width="1.20" opacity="0.25" marker-end="url(#ah-g)"/>
+<path d="M 567 646 Q 379 502 567 358" fill="none" stroke="#aeb6c2" stroke-width="1.20" opacity="0.25" marker-end="url(#ah-g)"/>
+<path d="M 567 454 Q 444 550 567 646" fill="none" stroke="#aeb6c2" stroke-width="1.20" opacity="0.25" marker-end="url(#ah-g)"/>
+<path d="M 567 441 C 493 420, 493 488, 567 467" fill="none" stroke="#aeb6c2" stroke-width="1.20" opacity="0.25" marker-end="url(#ah-g)"/>
+<path d="M 567 262 Q 444 358 567 454" fill="none" stroke="#aeb6c2" stroke-width="1.50" opacity="0.30" marker-end="url(#ah-g)"/>
+<path d="M 567 345 C 493 324, 493 392, 567 371" fill="none" stroke="#aeb6c2" stroke-width="1.67" opacity="0.32" marker-end="url(#ah-g)"/>
+<path d="M 567 262 Q 329 502 567 742" fill="none" stroke="#aeb6c2" stroke-width="1.74" opacity="0.34" marker-end="url(#ah-g)"/>
+<path d="M 567 454 Q 367 646 567 838" fill="none" stroke="#aeb6c2" stroke-width="1.79" opacity="0.34" marker-end="url(#ah-g)"/>
+<path d="M 567 838 Q 341 646 567 454" fill="none" stroke="#aeb6c2" stroke-width="1.79" opacity="0.34" marker-end="url(#ah-g)"/>
+<path d="M 567 742 Q 341 550 567 358" fill="none" stroke="#aeb6c2" stroke-width="1.85" opacity="0.35" marker-end="url(#ah-g)"/>
+<path d="M 567 358 Q 367 550 567 742" fill="none" stroke="#aeb6c2" stroke-width="1.97" opacity="0.37" marker-end="url(#ah-g)"/>
+<path d="M 567 633 C 493 612, 493 680, 567 659" fill="none" stroke="#aeb6c2" stroke-width="2.00" opacity="0.38" marker-end="url(#ah-g)"/>
+<path d="M 567 358 Q 482 406 567 454" fill="none" stroke="#aeb6c2" stroke-width="2.04" opacity="0.38" marker-end="url(#ah-g)"/>
+<path d="M 567 454 Q 405 598 567 742" fill="none" stroke="#aeb6c2" stroke-width="2.09" opacity="0.39" marker-end="url(#ah-g)"/>
+<path d="M 567 262 Q 290 550 567 838" fill="none" stroke="#aeb6c2" stroke-width="2.40" opacity="0.44" marker-end="url(#ah-g)"/>
+<path d="M 567 646 Q 341 454 567 262" fill="none" stroke="#aeb6c2" stroke-width="2.42" opacity="0.45" marker-end="url(#ah-g)"/>
+<path d="M 567 838 Q 456 790 567 742" fill="none" stroke="#aeb6c2" stroke-width="2.42" opacity="0.45" marker-end="url(#ah-g)"/>
+<path d="M 567 742 Q 303 502 567 262" fill="none" stroke="#aeb6c2" stroke-width="2.46" opacity="0.45" marker-end="url(#ah-g)"/>
+<path d="M 567 838 Q 264 550 567 262" fill="none" stroke="#aeb6c2" stroke-width="2.59" opacity="0.47" marker-end="url(#ah-g)"/>
+<path d="M 567 742 Q 482 790 567 838" fill="none" stroke="#aeb6c2" stroke-width="2.60" opacity="0.47" marker-end="url(#ah-g)"/>
+<path d="M 567 646 Q 482 694 567 742" fill="none" stroke="#aeb6c2" stroke-width="2.71" opacity="0.49" marker-end="url(#ah-g)"/>
+<path d="M 567 262 Q 367 454 567 646" fill="none" stroke="#aeb6c2" stroke-width="2.78" opacity="0.50" marker-end="url(#ah-g)"/>
+<path d="M 567 358 Q 456 310 567 262" fill="none" stroke="#aeb6c2" stroke-width="2.91" opacity="0.53" marker-end="url(#ah-g)"/>
+<path d="M 567 825 C 493 804, 493 872, 567 851" fill="none" stroke="#aeb6c2" stroke-width="3.02" opacity="0.54" marker-end="url(#ah-g)"/>
+<path d="M 567 838 Q 418 742 567 646" fill="none" stroke="#aeb6c2" stroke-width="3.04" opacity="0.55" marker-end="url(#ah-g)"/>
+<path d="M 567 358 Q 329 598 567 838" fill="none" stroke="#aeb6c2" stroke-width="3.10" opacity="0.56" marker-end="url(#ah-g)"/>
+<path d="M 567 358 Q 405 502 567 646" fill="none" stroke="#aeb6c2" stroke-width="3.20" opacity="0.57" marker-end="url(#ah-g)"/>
+<path d="M 567 646 Q 444 742 567 838" fill="none" stroke="#aeb6c2" stroke-width="3.24" opacity="0.58" marker-end="url(#ah-g)"/>
+<path d="M 567 262 Q 482 310 567 358" fill="none" stroke="#aeb6c2" stroke-width="3.65" opacity="0.65" marker-end="url(#ah-g)"/>
+<path d="M 567 249 C 493 228, 493 296, 567 275" fill="none" stroke="#aeb6c2" stroke-width="4.30" opacity="0.75" marker-end="url(#ah-g)"/>
+<rect x="567" y="237" width="266" height="50" rx="9" fill="#ffffff" stroke="#161b22" stroke-width="1.8" />
+<text x="583" y="263" font-size="16" font-weight="600" fill="#161b22">lookup_order</text>
+<text x="583" y="279" font-size="11" fill="#5c6672">4507 calls · opened 1571 episodes</text>
+<rect x="567" y="333" width="266" height="50" rx="9" fill="#ffffff" stroke="#161b22" stroke-width="1.8" />
+<text x="583" y="359" font-size="16" font-weight="600" fill="#161b22">lookup_customer</text>
+<text x="583" y="375" font-size="11" fill="#5c6672">615 calls</text>
+<text x="821" y="350" font-size="10" text-anchor="end" fill="#d2481c">denied &#215;55</text>
+<rect x="567" y="429" width="266" height="50" rx="9" fill="#ffffff" stroke="#161b22" stroke-width="1.8" />
+<text x="583" y="455" font-size="16" font-weight="600" fill="#161b22">issue_refund</text>
+<text x="583" y="471" font-size="11" fill="#5c6672">25 calls</text>
+<text x="821" y="446" font-size="10" text-anchor="end" fill="#d2481c">denied &#215;2</text>
+<rect x="567" y="525" width="266" height="50" rx="9" fill="#f7f8fa" stroke="#c6ccd6" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="583" y="551" font-size="16" font-weight="400" fill="#5c6672">issue_store_credit</text>
+<text x="583" y="567" font-size="11" fill="#c6ccd6">never called</text>
+<rect x="567" y="621" width="266" height="50" rx="9" fill="#ffffff" stroke="#161b22" stroke-width="1.8" />
+<text x="583" y="647" font-size="16" font-weight="600" fill="#161b22">escalate_to_human</text>
+<text x="583" y="663" font-size="11" fill="#5c6672">448 calls · opened 2 episodes</text>
+<text x="821" y="663" font-size="10" text-anchor="end" fill="#1f5fd0">approval gate &#215;1</text>
+<text x="821" y="638" font-size="10" text-anchor="end" fill="#d2481c">denied &#215;38</text>
+<rect x="567" y="717" width="266" height="50" rx="9" fill="#ffffff" stroke="#161b22" stroke-width="1.8" />
+<text x="583" y="743" font-size="16" font-weight="600" fill="#161b22">email_customer</text>
+<text x="583" y="759" font-size="11" fill="#5c6672">133 calls · opened 1 episodes</text>
+<text x="821" y="734" font-size="10" text-anchor="end" fill="#d2481c">denied &#215;1</text>
+<rect x="567" y="813" width="266" height="50" rx="9" fill="#ffffff" stroke="#161b22" stroke-width="1.8" />
+<text x="583" y="839" font-size="16" font-weight="600" fill="#161b22">update_case_notes</text>
+<text x="583" y="855" font-size="11" fill="#5c6672">665 calls · opened 42 episodes</text>
+<text x="821" y="855" font-size="10" text-anchor="end" fill="#1f5fd0">approval gate &#215;1</text>
+<rect x="567" y="909" width="266" height="50" rx="9" fill="#f7f8fa" stroke="#c6ccd6" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="583" y="935" font-size="16" font-weight="400" fill="#5c6672">delegate_to_specialist</text>
+<text x="583" y="951" font-size="11" fill="#c6ccd6">never called</text>
+<rect x="1140" y="256" width="300" height="56" rx="9" fill="#ffffff" stroke="#1f5fd0" stroke-width="2.0"/>
+<text x="1154" y="283" font-size="14" font-weight="600" fill="#1f5fd0">CAP_MOVES_MONEY</text>
+<text x="1154" y="300" font-size="11" fill="#5c6672">governed at v0 in 60/60 runs</text>
+<rect x="1140" y="368" width="300" height="56" rx="9" fill="#ffffff" stroke="#d2481c" stroke-width="2.6"/>
+<text x="1154" y="395" font-size="14" font-weight="600" fill="#d2481c">CAP_MUTATES_DURABLE_STATE</text>
+<text x="1154" y="412" font-size="11" fill="#5c6672">NEW RULE at vFinal in 44/60 runs</text>
+<rect x="1140" y="480" width="300" height="56" rx="9" fill="#ffffff" stroke="#d2481c" stroke-width="2.6"/>
+<text x="1154" y="507" font-size="14" font-weight="600" fill="#d2481c">CAP_READS_PII</text>
+<text x="1154" y="524" font-size="11" fill="#5c6672">NEW RULE at vFinal in 37/60 runs</text>
+<rect x="1140" y="592" width="300" height="56" rx="9" fill="#ffffff" stroke="#aeb6c2" stroke-width="1.2"/>
+<text x="1154" y="619" font-size="14" font-weight="600" fill="#5c6672">CAP_EXTERNAL_COMMS</text>
+<text x="1154" y="636" font-size="11" fill="#5c6672">ungoverned in every run</text>
+<rect x="1140" y="704" width="300" height="56" rx="9" fill="#ffffff" stroke="#d2481c" stroke-width="2.6"/>
+<text x="1154" y="731" font-size="14" font-weight="600" fill="#d2481c">CAP_ESCALATES_PRIVILEGE</text>
+<text x="1154" y="748" font-size="11" fill="#5c6672">governed at v0 &#183; NEW RULE at vFinal in 5/60 runs</text>
+<rect x="1140" y="816" width="300" height="56" rx="9" fill="#ffffff" stroke="#aeb6c2" stroke-width="1.2"/>
+<text x="1154" y="843" font-size="14" font-weight="600" fill="#5c6672">CAP_INVOKES_AGENT</text>
+<text x="1154" y="860" font-size="11" fill="#5c6672">ungoverned in every run</text>
+<rect x="1140" y="928" width="300" height="56" rx="9" fill="#ffffff" stroke="#aeb6c2" stroke-width="1.2"/>
+<text x="1154" y="955" font-size="14" font-weight="600" fill="#5c6672">UNCLASSIFIED</text>
+<text x="1154" y="972" font-size="11" fill="#5c6672">ungoverned in every run</text>
+<path d="M 833 742 C 986 742, 986 620, 1130 620" fill="none" stroke="#aeb6c2" stroke-width="1.1" opacity="0.45" marker-end="url(#ah-g)"/>
+<path d="M 833 934 C 986 934, 986 844, 1130 844" fill="none" stroke="#aeb6c2" stroke-width="1.1" opacity="0.45" marker-end="url(#ah-g)"/>
+<path d="M 833 454 C 986 454, 986 284, 1130 284" fill="none" stroke="#1f5fd0" stroke-width="2.0" opacity="0.75" marker-end="url(#ah-b)"/>
+<path d="M 833 550 C 986 550, 986 284, 1130 284" fill="none" stroke="#1f5fd0" stroke-width="2.0" opacity="0.75" marker-end="url(#ah-b)"/>
+<path d="M 833 262 C 986 262, 986 508, 1130 508" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<path d="M 833 358 C 986 358, 986 508, 1130 508" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<path d="M 833 454 C 986 454, 986 396, 1130 396" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<path d="M 833 550 C 986 550, 986 396, 1130 396" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<path d="M 833 646 C 986 646, 986 732, 1130 732" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<path d="M 833 646 C 986 646, 986 396, 1130 396" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<path d="M 833 742 C 986 742, 986 508, 1130 508" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<path d="M 833 838 C 986 838, 986 396, 1130 396" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<path d="M 833 934 C 986 934, 986 396, 1130 396" fill="none" stroke="#d2481c" stroke-width="3.0" opacity="0.95" marker-end="url(#ah-o)"/>
+<rect x="60" y="1112" width="1560" height="176" rx="10" fill="#ffffff" stroke="#e2e6ec" stroke-width="1"/>
+<text x="84" y="1140" font-size="14" font-weight="700" fill="#161b22">LEGEND</text>
+<line x1="88" y1="1168" x2="150" y2="1168" stroke="#aeb6c2" stroke-width="1.1"/>
+<text x="164" y="1172" font-size="13" fill="#161b22">class the policy never selected, in any run</text>
+<line x1="88" y1="1194" x2="150" y2="1194" stroke="#1f5fd0" stroke-width="2.0"/>
+<text x="164" y="1198" font-size="13" fill="#161b22">governed at policy@v0 — a seed rule selects this class</text>
+<line x1="88" y1="1220" x2="150" y2="1220" stroke="#d2481c" stroke-width="3.0"/>
+<text x="164" y="1224" font-size="13" fill="#161b22">GOVERNED FOR THE FIRST TIME AT policy@vFinal — the run’s result</text>
+<path d="M 88 1246 Q 110 1232 150 1246" fill="none" stroke="#aeb6c2" stroke-width="2" opacity="0.55"/>
+<text x="164" y="1250" font-size="13" fill="#161b22">recorded call transition, tripwire; thickness is log(count) over all bundles</text>
+<text x="88" y="1270" font-size="13" fill="#5c6672">A dashed hollow tool was never called in any bundle. It is still on the surface, and a class-bound rule still reaches it.</text>
+<text x="60" y="1050" font-size="15" font-weight="700" fill="#161b22">Class-bound, not string-matched — read off the DENY records, not asserted:</text>
+<text x="60" y="1074" font-size="14" fill="#5c6672">rule r_610372f46137 selects cap:CAP_MUTATES_DURABLE_STATE and denied calls to 2 distinct tools — escalate_to_human, issue_refund. The rule text contains no tool name.</text>
+<text x="60" y="1096" font-size="14" fill="#5c6672">rule r_ceb7cbd4f589 selects cap:CAP_READS_PII and denied calls to 2 distinct tools — email_customer, lookup_customer. The rule text contains no tool name.</text>
+<text x="60" y="1308" font-size="11" fill="#5c6672">Rendered 2026-08-25T19:00:28-04:00 by scripts/render-attack-surface.py from C:\dev\crucible\evidence\batch-night-2026-08-25. Counts are event counts, not rates. No figure here is a rate.</text>
+</svg>
