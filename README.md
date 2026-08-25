@@ -373,6 +373,18 @@ is reported, including the ones that look good.
 
 ## Results
 
+> **THESE FIGURES ARE PENDING REGENERATION, and the reason is stated here rather than
+> discovered by you.** Two things moved after this column was filled, on the same day. The
+> corpus was re-frozen when instance F5-05 was repaired, so `corpus_hash` no longer matches
+> these bundles. And ruling 55 made `episodes[].target_responded` a required field, so
+> **`python -m crucible.replay` now refuses every bundle in that batch** with
+> `E_SCHEMA: 'target_responded' is a required property`. That refusal is the reader working
+> as designed — a schema change that bundles predate should not be silently tolerated, and a
+> dual-path reader was refused deliberately when the same cost came due for `invalid_reason`.
+> The consequence is real and is owned: **a figure below cannot currently be re-derived from
+> the artifact it came from.** The column is regenerated from a post-repair batch, and until
+> it is, no figure here should be quoted.
+
 **Filled 2026-08-25 from the sixty-run batch in `evidence/batch-night-2026-08-25/`.** The
 `Observed` column carries a figure only for a row that batch actually measured. The rest stay
 dashed with a lettered reason, and the reasons are spelled out under the table. The table's
