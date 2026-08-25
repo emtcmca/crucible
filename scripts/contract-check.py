@@ -50,6 +50,33 @@ CONTRACTS = REPO / "contracts"
 GOLDEN = CONTRACTS / "golden"
 DOCS = REPO / "docs"
 
+
+def swept_markdown():
+    """Every markdown file the SWEEP and STATUS passes police.
+
+    README.md IS IN THIS LIST AND WAS NOT, WHICH IS WHY IT ROTTED. Both passes
+    walked `docs/` only, so the single most public file in a public repository
+    was the one file nothing checked. On 2026-08-24 it was found asserting
+    "nothing has been measured", "No --live run has been executed", that nothing
+    had been promoted because the write path had never run against GCS, and -
+    worst - that "The spend cap is a frozen parameter at $160, a cap, not an
+    alert, so an overrun is a deliberate decision rather than a discovery."
+    That last one is backwards: `gcloud billing budgets list` returns a
+    notificationsRule with email recipients and three thresholdRules at 50, 90
+    and 100 percent. Nothing stops at $160. An overrun is precisely a discovery.
+
+    The lesson is the one this project keeps relearning in new places: a check
+    that does not cover the artifact is a check that cannot fail for it.
+    """
+    seen = set()
+    for p in sorted(DOCS.rglob("*.md")):
+        seen.add(p)
+        yield p
+    for name in ("README.md", "CLAUDE.md"):
+        p = REPO / name
+        if p.exists() and p not in seen:
+            yield p
+
 # Which schema validates which fixture prefix.
 FIXTURE_SCHEMA = {
     "C1": "tool_event.schema.json",
@@ -257,7 +284,7 @@ def pass_fixtures():
 
 def pass_sweep():
     hits = []
-    for p in sorted(DOCS.rglob("*.md")):
+    for p in sorted(swept_markdown()):
         raw = p.read_text(encoding="utf-8", errors="replace")
         src_lines = raw.split("\n")
         norm, lmap = normalize(raw)
@@ -272,7 +299,7 @@ def pass_sweep():
 
 def pass_status():
     hits = []
-    for p in sorted(DOCS.rglob("*.md")):
+    for p in sorted(swept_markdown()):
         norm, lmap = normalize(p.read_text(encoding="utf-8", errors="replace"))
         for m in STATUS_CLAIM.finditer(norm):
             win = _window(norm, m.start(), 160)
