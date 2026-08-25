@@ -8,6 +8,26 @@ today: it is the **last full batch before the held-out family is unsealed on 202
 it is the first batch run against the corpus as it now exists. Every prediction below can be
 wrong, and the ones most likely to be wrong are named as such.
 
+> ### AMENDMENT 1, 2026-08-25 evening. The sentence above is wrong and is left standing.
+>
+> **"The last full batch before the unseal" is false.** Eric, tonight: *"tonight does not have
+> to be the last batch before the 8/28 unseal; we are not bound in a monetary sense in that
+> regard. Run more batches if it helps us tune."* Real billed spend across every live run to
+> date is under a dollar, so scarcity was never the constraint and I asserted one that does not
+> exist. More batches may run before 08-28.
+>
+> **The predictions below are NOT amended and are not being re-tuned.** Only the framing claim
+> is corrected. A pre-registration whose predictions move after it is written is a description.
+>
+> **A pilot ran before the main batch, and that is disclosed here rather than discovered later.**
+> Twelve runs into `evidence/pilot-2026-08-25/`, launched after this file was committed, to reach
+> branches the 3-run smoke could not: the degeneracy census with real input, ruling 56's
+> `UNCOVERED` path, the revert. It cannot answer P1 or P5 — P1 needs a per-run distribution and
+> P5 needs a denominator clearing `MIN_DENOMINATOR`, neither of which twelve runs gives.
+> **The standing condition: if the pilot causes a code change before the main batch, the main
+> batch is testing the fix rather than the prediction, and that gets stated here in a further
+> amendment.** It does not get quietly absorbed.
+
 **Output directory: `evidence/batch-2026-08-25-post-repair/`.** Deliberately not
 `batch-night-*`. Tonight's smoke resumed into a directory that already held a run from the
 night before, the runner correctly skipped it, and a stale artifact was one aggregation away
