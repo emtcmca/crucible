@@ -415,9 +415,16 @@ def classify_probe(expect, returncode, output):
         return (FAIL, "THE READ SUCCEEDED. The boundary does not exist.")
     if any(m in low for m in _STORAGE_LAYER):
         return (PASS, "refused at the storage layer")
+    # THE OUTPUT TRAVELS WITH THE VERDICT. Run 10 of the 2026-08-25 batch put
+    # all four arms in this branch and the finding named no cause, because this
+    # detail string was fixed text and the probe's own output was discarded
+    # here. A finding that reports nothing is a diagnostic dead end, which is
+    # the same defect as a check that cannot fail wearing different clothes.
+    tail = " ".join((output or "").split())[:300] or "(no output on either stream)"
     return (UNEVALUABLE,
             "failed for a reason that is not a storage permission denial, so "
-            "the storage boundary was not exercised")
+            "the storage boundary was not exercised. exit %s; output: %s"
+            % (returncode, tail))
 
 
 # THE PROBE PREFIX. It is DELIBERATELY NOT the prefix the corpus lives under,
@@ -505,12 +512,76 @@ def seal_probe_findings(env, run=None):
     return out
 
 
-def _run_capture(argv):
-    exe = verify_iam._gcloud_exe()                          # noqa: SLF001
-    if argv and argv[0] == "gcloud":
-        argv = [exe] + list(argv[1:])
-    p = subprocess.run(argv, capture_output=True, text=True)
-    return p.returncode, (p.stdout or "") + (p.stderr or "")
+def is_classifiable(returncode, output):
+    """Did this invocation produce an ANSWER, as opposed to nothing at all?
+
+    An answer is semantic and must be returned unchanged on the first attempt:
+
+      rc == 0                      the read succeeded. PASS for the allow arm,
+                                   FAIL for a deny arm. Both are results.
+      _IMPERSONATION_LAYER matched the identity was genuinely refused at IAM.
+                                   UNEVALUABLE, and a real one.
+      _STORAGE_LAYER matched       a real 403 from GCS. PASS for a deny arm.
+
+    Anything else is a non-zero exit with nothing to classify, which is what
+    run 10 of the 2026-08-25 batch produced on all four arms at once: an empty
+    stderr, which a denial never has. That is the only shape worth asking again.
+    """
+    if returncode == 0:
+        return True
+    low = (output or "").lower()
+    return (any(m in low for m in _IMPERSONATION_LAYER)
+            or any(m in low for m in _STORAGE_LAYER))
+
+
+def _run_capture(argv, runner=None, sleep=None):
+    """The G7a probe invocation. RETRIED ONLY WHEN IT ANSWERED NOTHING.
+
+    `57f4e94` gave `verify_iam.gcloud_json` a bounded retry and left this call
+    site - the one that failed on all four probe arms simultaneously - a bare
+    single-shot `subprocess.run`. It reuses `verify_iam.FETCH_ATTEMPTS` and
+    `FETCH_BACKOFF` rather than declaring its own, because three retry policies
+    for one decision is three sources of truth.
+
+    **THIS CANNOT LAUNDER A DENIAL INTO A PASS, AND THE GUARD IS THE POINT.**
+    `is_classifiable` returns True for every semantic outcome, so a real 403,
+    a real impersonation refusal, and a successful read are each returned on
+    attempt one and never asked again - the same reason
+    `_promote_with_assertion` refuses to retry `E_WRONG_PROMOTER`. Retrying a
+    semantic answer produces the same answer three times and only costs time.
+    A FAIL is an answer too.
+
+    Exhausting the attempts returns the LAST result with a diagnostic appended,
+    so `classify_probe` files it UNEVALUABLE - RUN_INVALID - carrying the exit
+    code instead of the empty string run 10 reported. The appended text
+    deliberately contains no substring `classify_probe` keys on, and
+    `tests/test_fetch_retry.py` asserts that it still classifies UNEVALUABLE.
+    """
+    if runner is None:
+        exe = verify_iam._gcloud_exe()                      # noqa: SLF001
+        if argv and argv[0] == "gcloud":
+            argv = [exe] + list(argv[1:])
+
+        def runner(argv_):
+            return subprocess.run(argv_, capture_output=True, text=True)
+    sleep = sleep or time.sleep
+    attempts = verify_iam.FETCH_ATTEMPTS
+    backoff = verify_iam.FETCH_BACKOFF
+    rc, text = 1, ""
+    for attempt in range(1, attempts + 1):
+        p = runner(argv)
+        rc = p.returncode
+        text = (p.stdout or "") + (p.stderr or "")
+        if is_classifiable(rc, text):
+            return rc, text
+        if attempt < attempts:
+            sleep(backoff[min(attempt - 1, len(backoff) - 1)])
+    return rc, text + (
+        "\n[crucible] the probe exited %d on all %d attempts and produced "
+        "nothing to classify. An exit with no output is a process-level or "
+        "transport-level failure, not an API answer: a refusal always writes a "
+        "message. Reported as unevaluable, which is RUN INVALID, and NOT as a "
+        "boundary that held." % (rc, attempts))
 
 
 # --------------------------------------------------------------------------

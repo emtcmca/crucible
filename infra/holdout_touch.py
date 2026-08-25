@@ -42,9 +42,9 @@ have seen. Before any count is returned:
   * the project policy must still carry the storage `DATA_READ` auditConfig.
     A binding removed after this file was written is invisible to a check that
     ran earlier - the same reason `verify_iam.py` re-asserts every run.
-  * **the canary query must return at least one entry** over the whole
-    attestable window. That is the positive control, and it is what makes a
-    zero in the *run* window mean "nobody touched the seal" instead of "this
+  * **the canary query must return at least one GRANTED CONTENT READ** over the
+    whole attestable window. That is the positive control, and it is what makes
+    a zero in the *run* window mean "nobody touched the seal" instead of "this
     query has never seen anything." One real read is recorded in the log
     permanently (2026-08-22T19:31:19Z, `crucible-sealed-eval` reading
     `families/_probe/canary.txt`), so this control holds from now on without
@@ -53,6 +53,46 @@ have seen. Before any count is returned:
     rather than "at least N". G7 does not have an "at least" outcome.
 
 None of those return 0. They all raise.
+
+TWO SERVER-SIDE NARROWINGS WERE ADDED 2026-08-25, AND THEY BOTH REINTRODUCE
+THE FAILURE ABOVE IN A NEW PLACE
+------------------------------------------------------------------
+The base filter matched 624 entries against a cap of 1000 that raises
+UNEVALUABLE, growing about four per gate call: one more batch the size of the
+2026-08-25 one and G7c goes dark on the run that matters. So the count query now
+drops the methods `classify` already refuses to count, and the intruder query
+additionally excludes the permitted principals in the filter (624 -> 14 -> 9,
+all measured). **A filter that asks the server for only the bad entries returns
+zero when the filter is wrong, and zero looks exactly like a clean seal.**
+
+What stops that, and both halves are mandatory:
+
+  * `_check_canary` runs THE SAME CONSTRUCTION, both narrowings included,
+    excluding a SENTINEL principal that cannot exist. The known-present read has
+    to survive the whole compiled filter or nothing is trusted.
+  * the exclusion is a BOUND, NEVER THE DECISION. `compute()` re-applies
+    `principal not in permitted_principals` in Python to both result sets and
+    unions them. The server narrows what travels; this file decides what it
+    means.
+
+ATTESTED READS. WHAT THEY ARE, AND THE TWO THINGS THEY ARE NOT
+------------------------------------------------------------------
+Seven operator reads from 2026-08-22 sit permanently inside the attestation
+window, and Cloud Logging cannot delete them, so the proof artifact's G7c line
+was red forever for an intact boundary. They are handled by ATTESTATION, from
+the dated record at `docs/proof/holdout-attested-reads-2026-08-22.md`:
+
+  * NOT by moving the window forward. That hides the reads, and a control that
+    stops looking is not a control that passed.
+  * NOT by adding the operator to `permitted_principals`. Exempting the human is
+    the self-certification move G8 exists to prevent, and it would forgive every
+    future operator read too.
+
+An attestation key is an INSTANT - timestamp, principal, method, object - so it
+can only ever match a read that has already happened and been explained. An
+attested read is COUNTED and SHOWN, moved out of `intruders` and into
+`attested_reads` with its reason. An unexplained read still marks the run
+INVALID.
 
 WHAT THE LOG ACTUALLY CONTAINS - MEASURED, NOT ASSUMED
 ------------------------------------------------------------------
@@ -143,6 +183,7 @@ deletes, and binds nothing.
 """
 
 import json
+import os
 import subprocess
 import time
 
@@ -170,6 +211,66 @@ STORAGE_SERVICE = "storage.googleapis.com"
 
 # Above this, a result is assumed truncated rather than complete.
 DEFAULT_CAP = 1000
+
+# --------------------------------------------------------------------------
+# THE CAP HAD A COUNTDOWN ON IT. What this narrowing is and what it is not.
+# --------------------------------------------------------------------------
+# Measured against the live project 2026-08-25, window = ATTESTATION_FLOOR_UTC:
+#
+#   base filter, every clause below except these         624 entries / cap 1000
+#     of which storage.objects.list                      606
+#     of which storage.buckets.getStorageLayout            4
+#     of which storage.objects.get                        14
+#
+# `compute()` raises UNEVALUABLE at the cap, correctly, because a truncated
+# result has no "at least N" outcome. 624 of 1000 with roughly four entries
+# added per gate call is about ninety gate calls of headroom: ONE MORE BATCH
+# THE SIZE OF THE 2026-08-25 ONE AND G7c GOES DARK on the run that matters.
+#
+# The population that blows up is NOT reads. It is `storage.objects.list`, and
+# 606 of those 624 are the G7a impersonation probe's own four arms - one granted
+# listing by the permitted evaluator plus three denials - firing on every gate
+# call. `classify` below already files every one of them as ENUMERATION and
+# refuses to count them. So this is a PUSHDOWN of a rule the module already
+# applies client-side, not a new exclusion: the server stops shipping entries
+# this file was going to throw away anyway. 624 -> 14, measured.
+#
+# WHAT IS DELIBERATELY *NOT* DROPPED, because the reason matters more than the
+# saving:
+#   * `storage.objects.get` on a PREFIX (resource ends in `/`) is still
+#     retrieved, and still filed as ENUMERATION client-side. The narrowing is by
+#     METHOD only, so the prefix-probe branch stays reachable against live data.
+#   * a DENIED get is still retrieved, so the tally can still show the boundary
+#     refusing someone.
+#   * an UNRECOGNISED method is still retrieved, because "a method this module
+#     has never seen is not evidence of nothing" (see `classify`). This is why
+#     the narrowing is written as NOT-a-touch exclusions rather than as an
+#     `methodName="storage.objects.get"` inclusion: an inclusion filter would
+#     have silently deleted the OTHER branch.
+#
+# THE COST, STATED: a GRANTED `storage.objects.list` by an unpermitted principal
+# is no longer retrieved. It was never counted as a touch either, and the
+# boundary it would evidence is the one G7a's impersonation probe tests
+# DIRECTLY, on every gate call, against all four identities. Naming the gap
+# rather than covering it.
+#
+# These two tuples MUST stay in step with `classify`'s ENUMERATION-by-method
+# branches. `tests/test_holdout_touch.py` asserts that coupling rather than
+# trusting it.
+NOT_A_TOUCH_METHODS = ("storage.objects.list",)
+NOT_A_TOUCH_METHOD_PREFIXES = ("storage.buckets.",)
+
+# The canary reads the EARLIEST entries in the attestable window (`--order=asc`)
+# and the read it is looking for happened at the floor itself, so a small cap is
+# sufficient and a large one would only cost latency. It is a DIFFERENT constant
+# from `DEFAULT_CAP` on purpose: the two windows want different values and
+# raising one to fix the other is the move `docs/design/g7-unevaluable-
+# 2026-08-25.md` section 5.2 refuses.
+CANARY_CAP = 25
+
+# The dated record of operator reads that are ACCOUNTED FOR. Single source of
+# truth; see `load_attested_reads`.
+ATTESTED_READS_RECORD = "docs/proof/holdout-attested-reads-2026-08-22.md"
 
 
 class HoldoutTouchError(RuntimeError):
@@ -211,8 +312,33 @@ def bucket_name(bucket_uri):
     return bucket_uri.replace("gs://", "").rstrip("/")
 
 
-def build_filter(project, bucket_uri, since):
+def build_filter(project, bucket_uri, since,
+                 drop_non_touch_methods=False, exclude_principals=()):
     """The Cloud Logging filter, assembled from sourced names only.
+
+    TWO OPTIONAL NARROWINGS, AND THE SECOND ONE IS THE DANGEROUS KIND.
+
+    `drop_non_touch_methods` pushes `classify`'s ENUMERATION-by-method rule to
+    the server. See NOT_A_TOUCH_METHODS above for the measurement and for what
+    is deliberately still retrieved.
+
+    `exclude_principals` asks the server for only the entries whose principal is
+    NOT in the permitted set - the INTRUDER query. It bounds that query by the
+    number of UNATTESTED reads instead of by all reads.
+
+    **A FILTER THAT ASKS FOR ONLY THE BAD ENTRIES RETURNS ZERO WHEN THE FILTER
+    IS WRONG, AND ZERO LOOKS EXACTLY LIKE A CLEAN SEAL.** That is the single
+    failure this module exists to refuse, and adding a NOT-clause reintroduces
+    it in a new place. Two things stop it, and both are mandatory:
+
+      1. `_check_canary` runs THIS SAME CONSTRUCTION - both narrowings included -
+         over the attestable window, excluding a SENTINEL principal that cannot
+         exist, and requires it to still see a real granted content read. An
+         over-broad NOT-clause blanks that query and is caught there.
+      2. The exclusion is a BOUND, NEVER THE DECISION. `compute()` re-applies
+         `principal not in permitted_principals` in Python to both result sets
+         and takes the UNION. The server narrows what travels; this file decides
+         what it means.
 
     Every clause is load-bearing:
 
@@ -232,49 +358,113 @@ def build_filter(project, bucket_uri, since):
                          read` otherwise applies its own `--freshness` default
                          and the window becomes a CLI default nobody chose.
     """
-    return (
-        'logName="projects/%s/logs/%s"'
-        ' AND protoPayload.serviceName="%s"'
-        ' AND resource.type="gcs_bucket"'
-        ' AND resource.labels.bucket_name="%s"'
-        ' AND timestamp>="%s"'
-        % (project, DATA_ACCESS_LOG, STORAGE_SERVICE,
-           bucket_name(bucket_uri), since)
-    )
+    clauses = [
+        'logName="projects/%s/logs/%s"' % (project, DATA_ACCESS_LOG),
+        'protoPayload.serviceName="%s"' % STORAGE_SERVICE,
+        'resource.type="gcs_bucket"',
+        'resource.labels.bucket_name="%s"' % bucket_name(bucket_uri),
+        'timestamp>="%s"' % since,
+    ]
+    if drop_non_touch_methods:
+        for method in NOT_A_TOUCH_METHODS:
+            clauses.append('NOT protoPayload.methodName="%s"' % method)
+        for prefix in NOT_A_TOUCH_METHOD_PREFIXES:
+            clauses.append('NOT protoPayload.methodName:"%s"' % prefix)
+    # SORTED, so the filter string is deterministic and the `command()` printed
+    # into the proof artifact is the command a judge can paste back.
+    principals = sorted(p for p in (exclude_principals or ()) if p)
+    if principals:
+        clauses.append(
+            'NOT protoPayload.authenticationInfo.principalEmail=(%s)'
+            % " OR ".join('"%s"' % p for p in principals))
+    return " AND ".join(clauses)
 
 
-def gcloud_log_read(project, filter_text, cap):
+def _fetch_backoff(attempt):
+    """Seconds to wait before attempt+1. ONE POLICY, `verify_iam`'s.
+
+    Indexed defensively so raising `FETCH_ATTEMPTS` past the length of
+    `FETCH_BACKOFF` cannot turn a retry into an IndexError, which would convert
+    a transient fetch failure into a crash - a different failure, reported in a
+    way nobody would connect back to gcloud.
+    """
+    backoff = verify_iam.FETCH_BACKOFF
+    return backoff[min(attempt - 1, len(backoff) - 1)]
+
+
+def gcloud_log_read(project, filter_text, cap, runner=None, sleep=None):
     """`gcloud logging read` -> list of entry dicts. READ-ONLY.
 
     A non-zero exit RAISES. It must never degrade to `[]`: an empty list is
     indistinguishable from a clean seal, which is the whole failure this file
     exists to refuse.
+
+    RETRIED, BOUNDED, AND THE ERROR NOW SAYS SOMETHING. `57f4e94` fixed exactly
+    these two defects in `verify_iam.gcloud_json` and left this call site - one
+    of the two that actually failed - untouched. Run 10 of the 2026-08-25
+    overnight batch was invalidated by a transient gcloud failure whose stderr
+    was EMPTY, and this function reproduced that dead end verbatim: it
+    interpolated `p.stderr` alone, so an exit-1 with no stderr rendered as
+    `gcloud logging read exited 1: .`
+
+    `FETCH_ATTEMPTS` and `FETCH_BACKOFF` are IMPORTED from `verify_iam` rather
+    than redeclared. Three call sites with three retry policies is three sources
+    of truth for one decision.
+
+    RETRYING CANNOT LAUNDER A FAILURE INTO A PASS. Only a non-zero exit is
+    retried, and exhausting the attempts RAISES. A permission denial simply
+    returns the same non-zero exit three times and still ends UNEVALUABLE. A
+    zero exit is returned on the first attempt, parsed or refused; malformed
+    JSON is a semantic answer and is not retried.
+
+    `runner` and `sleep` are injected so `tests/test_fetch_retry.py` can drive
+    the retry without a network. `57f4e94` shipped the `gcloud_json` retry with
+    no test at all, and a retry nothing exercises is a check that cannot fail
+    wearing different clothes.
     """
-    exe = verify_iam._gcloud_exe()                            # noqa: SLF001
+    if runner is None:
+        exe = verify_iam._gcloud_exe()                        # noqa: SLF001
+
+        def runner(argv_):
+            return subprocess.run(argv_, capture_output=True, text=True)
+    else:
+        exe = "gcloud"
     argv = [exe, "logging", "read", filter_text,
             "--project=%s" % project,
             "--limit=%d" % cap,
             "--order=asc",
             "--format=json"]
-    p = subprocess.run(argv, capture_output=True, text=True)
-    if p.returncode != 0:
-        raise HoldoutTouchUnevaluable(
-            "gcloud logging read exited %d: %s. A failed fetch is not an empty "
-            "log; returning 0 here would report a seal nobody touched."
-            % (p.returncode, (p.stderr or "").strip()[:300]))
-    text = (p.stdout or "").strip()
-    if not text:
-        return []
-    try:
-        entries = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise HoldoutTouchUnevaluable(
-            "unparseable log output: %s" % e) from None
-    if not isinstance(entries, list):
-        raise HoldoutTouchUnevaluable(
-            "expected a JSON array of log entries, got %s"
-            % type(entries).__name__)
-    return entries
+    sleep = sleep or time.sleep
+    last = None
+    for attempt in range(1, verify_iam.FETCH_ATTEMPTS + 1):
+        p = runner(argv)
+        if p.returncode == 0:
+            text = (p.stdout or "").strip()
+            if not text:
+                return []
+            try:
+                entries = json.loads(text)
+            except json.JSONDecodeError as e:
+                raise HoldoutTouchUnevaluable(
+                    "unparseable log output: %s" % e) from None
+            if not isinstance(entries, list):
+                raise HoldoutTouchUnevaluable(
+                    "expected a JSON array of log entries, got %s"
+                    % type(entries).__name__)
+            return entries
+        # The diagnostic run 10 did not get. An error that reports nothing is a
+        # diagnostic dead end; the return code and a stdout slice travel with it.
+        out = (p.stdout or "").strip()
+        err = (p.stderr or "").strip()[:300] or (
+            "no stderr; stdout was %r" % out[:120] if out
+            else "no stderr and no stdout")
+        last = "exit %d, %s" % (p.returncode, err)
+        if attempt < verify_iam.FETCH_ATTEMPTS:
+            sleep(_fetch_backoff(attempt))
+    raise HoldoutTouchUnevaluable(
+        "gcloud logging read failed on all %d attempts (%s). A failed fetch is "
+        "not an empty log; returning 0 here would report a seal nobody touched."
+        % (verify_iam.FETCH_ATTEMPTS, last))
 
 
 # --------------------------------------------------------------------------
@@ -356,16 +546,114 @@ def classify(entry):
             "timestamp": entry.get("timestamp", "")}
 
 
-def tally(entries, permitted_principals):
+# --------------------------------------------------------------------------
+# ATTESTATION. Named reads that are ACCOUNTED FOR - never a principal exemption.
+# --------------------------------------------------------------------------
+
+def attestation_key(row):
+    """The identity of one read: nanosecond timestamp, principal, method, object.
+
+    ALL FOUR, AND THE TIMESTAMP IS WHY THIS IS NOT AN EXEMPTION. Attesting a
+    PRINCIPAL would hand the human operator a permanent hole in the one control
+    that records what the trust root did, which is the self-certification move
+    G8 exists to prevent. Attesting an INSTANT attests a past event: it can
+    never match a read that has not happened yet, because that read carries a
+    different timestamp. A new operator read is unexplained by construction and
+    still fails.
+    """
+    return (row.get("timestamp", ""), row.get("principal", ""),
+            row.get("method", ""), row.get("resource", ""))
+
+
+def _record_path(path=None):
+    if path is not None:
+        return path
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(repo_root, *ATTESTED_READS_RECORD.split("/"))
+
+
+def load_attested_reads(path=None):
+    """The dated record -> `{attestation_key: reason}`. One source of truth.
+
+    The record is a MARKDOWN document carrying a single fenced ```json block.
+    One file, so the prose a judge reads and the keys the code matches cannot
+    drift apart - a second copy of a fact is a second source of truth, and this
+    fact is "which reads of the sealed holdout are explained".
+
+    THE TWO FAILURE DIRECTIONS ARE DELIBERATELY DIFFERENT:
+
+      record MISSING     -> attest NOTHING, and report the problem. Fails SAFE:
+                            every operator read stays unexplained and G7c stays
+                            red. A missing file must never widen what is
+                            forgiven.
+      record UNPARSEABLE -> RAISE. The file exists and the control is broken.
+                            Attesting nothing would be the safe direction and
+                            also a silent one, and a broken instrument is
+                            exactly what UNEVALUABLE is for.
+    """
+    p = _record_path(path)
+    if not os.path.exists(p):
+        return {}, ("the attestation record %s IS MISSING, so NO read is "
+                    "treated as explained. Nothing is forgiven by a file that "
+                    "is not there." % ATTESTED_READS_RECORD)
+    with open(p, "r", encoding="utf-8") as fh:
+        text = fh.read()
+    start = text.find("```json")
+    if start < 0:
+        raise HoldoutTouchUnevaluable(
+            "%s carries no ```json block. The record exists and cannot be read, "
+            "which is a broken control rather than an empty one."
+            % ATTESTED_READS_RECORD)
+    body_start = text.index("\n", start) + 1
+    end = text.find("```", body_start)
+    if end < 0:
+        raise HoldoutTouchUnevaluable(
+            "%s has an unterminated ```json block." % ATTESTED_READS_RECORD)
+    try:
+        doc = json.loads(text[body_start:end])
+    except json.JSONDecodeError as e:
+        raise HoldoutTouchUnevaluable(
+            "%s does not parse: %s" % (ATTESTED_READS_RECORD, e)) from None
+    attested = {}
+    for row in doc.get("attested_reads") or []:
+        missing = [f for f in ("timestamp", "principal", "method", "resource",
+                               "why") if not row.get(f)]
+        if missing:
+            raise HoldoutTouchUnevaluable(
+                "%s has an attested read missing %s. A read attested without a "
+                "reason is an exemption with better manners."
+                % (ATTESTED_READS_RECORD, ", ".join(missing)))
+        attested[(row["timestamp"], row["principal"], row["method"],
+                  row["resource"])] = row["why"]
+    return attested, None
+
+
+def tally(entries, permitted_principals, attested=None):
     """Classified entries -> a structured tally. Pure.
 
     `count` is the number G7c compares. Everything else is there so the finding
     can say WHO and WHAT rather than only how many - "any read from another SA"
     is a statement about principals, and a bare integer cannot carry it.
+
+    `attested` maps `attestation_key` -> reason. An attested read is COUNTED and
+    SHOWN, never excluded: it moves out of `intruders` and into
+    `attested_reads`, still inside `count`, still printed with its object and
+    its reason. Hiding it would remove the only record that the trust root
+    touched the seal, which is the record's entire value.
     """
+    attested = attested or {}
     rows = [classify(e) for e in entries]
     reads = [r for r in rows if r["kind"] == CONTENT_READ and r["granted"]]
-    intruders = [r for r in reads if r["principal"] not in permitted_principals]
+    outside = [r for r in reads if r["principal"] not in permitted_principals]
+    attested_reads = []
+    intruders = []
+    for r in outside:
+        why = attested.get(attestation_key(r))
+        if why:
+            r = dict(r, attested_why=why)
+            attested_reads.append(r)
+        else:
+            intruders.append(r)
     # `distinct_reads` collapses the metadata-fetch + media-download pair that
     # one `cat` produces. Reported ALONGSIDE `count`, never instead of it: which
     # unit `holdout_touch_count` means is a measurement-spec question, and this
@@ -377,6 +665,8 @@ def tally(entries, permitted_principals):
         "distinct_objects": sorted({r["resource"] for r in reads}),
         "reads": reads,
         "intruders": intruders,
+        "attested_reads": attested_reads,
+        "outside_permitted": len(outside),
         "denied": [r for r in rows if not r["granted"]],
         "enumerations": [r for r in rows
                          if r["kind"] == ENUMERATION and r["granted"]],
@@ -459,7 +749,8 @@ class HoldoutTouchCounter:
 
     def __init__(self, env, since, permitted_principals=None,
                  cap=DEFAULT_CAP, log_read=None, policy_fetch=None,
-                 floor=ATTESTATION_FLOOR_UTC, settle_seconds=0.0, sleep=None):
+                 floor=ATTESTATION_FLOOR_UTC, settle_seconds=0.0, sleep=None,
+                 attested=None, attested_path=None):
         self.env = env
         self.project = env["CRUCIBLE_PROJECT"]
         self.bucket = env["CRUCIBLE_SEALED_BUCKET"]
@@ -480,6 +771,19 @@ class HoldoutTouchCounter:
                 "%s@%s.iam.gserviceaccount.com"
                 % (env["SA_SEALED_EVAL"], self.project)}
         self.permitted_principals = set(permitted_principals)
+        # THE CANARY'S SENTINEL. A principal that cannot exist, excluded by the
+        # SAME construction the intruder query uses, so the control exercises
+        # the NOT-clause rather than merely the clauses around it. Built from
+        # the SOURCED project id; nothing here is a retyped name.
+        self.canary_sentinel = (
+            "crucible-canary-control-never-exists@%s.iam.gserviceaccount.com"
+            % self.project)
+        if attested is None:
+            attested, self.attestation_problem = load_attested_reads(
+                attested_path)
+        else:
+            self.attestation_problem = None
+        self.attested = dict(attested)
         self.last_tally = None
 
     def _default_policy_fetch(self):
@@ -490,7 +794,25 @@ class HoldoutTouchCounter:
     # -- the read command, exposed so the proof artifact can quote it ------
 
     def filter_text(self, since=None):
-        return build_filter(self.project, self.bucket, since or self.since)
+        """THE COUNT QUERY. Every touch candidate in the window, from anyone.
+
+        No principal exclusion: `holdout_touch_count` is a count of reads, not a
+        count of intrusions, and the permitted evaluator's reads are exactly what
+        `expected_for_this_phase` is about.
+        """
+        return build_filter(self.project, self.bucket, since or self.since,
+                            drop_non_touch_methods=True)
+
+    def intruder_filter_text(self, since=None, exclude=None):
+        """THE INTRUDER QUERY. Bounded by unattested reads, not by all reads.
+
+        `exclude` defaults to the permitted set. `_check_canary` passes the
+        sentinel instead, which is what makes this construction falsifiable.
+        """
+        exclude = self.permitted_principals if exclude is None else exclude
+        return build_filter(self.project, self.bucket, since or self.since,
+                            drop_non_touch_methods=True,
+                            exclude_principals=exclude)
 
     def command(self, since=None):
         """The exact read-only command behind the number, as a display string.
@@ -501,6 +823,11 @@ class HoldoutTouchCounter:
         return ("gcloud logging read '%s' --project=%s --limit=%d --order=asc "
                 "--format=json" % (self.filter_text(since), self.project,
                                    self.cap))
+
+    def intruder_command(self, since=None):
+        return ("gcloud logging read '%s' --project=%s --limit=%d --order=asc "
+                "--format=json" % (self.intruder_filter_text(since),
+                                   self.project, self.cap))
 
     # -- the preconditions -------------------------------------------------
 
@@ -537,17 +864,61 @@ class HoldoutTouchCounter:
         entry is known to exist and cannot be removed (Cloud Logging entries are
         not deletable by the project owner; only the whole bucket's retention
         expires).
+
+        IT RUNS THE INTRUDER CONSTRUCTION, NOT THE BASE ONE, and that is the
+        half added 2026-08-25. The count query and the intruder query now carry
+        two server-side narrowings that did not exist when this control was
+        written - a method exclusion and a principal exclusion - and either one,
+        written wrong, blanks the result. A control that exercises only the
+        clauses those narrowings were added around would pass while the
+        narrowings returned nothing. So the canary excludes a SENTINEL principal
+        that cannot exist: the known-present read must survive the whole
+        compiled filter, NOT-clause included.
+
+        AND IT NOW REQUIRES A GRANTED CONTENT READ, not merely an entry. The
+        earliest entry in the attestable window is a `granted: true` /
+        `status.code: 5` prefix probe, which `is_granted` correctly refuses to
+        count - so "at least one entry" could be satisfied by a shape that can
+        never produce a non-zero count. The control asserts the whole pipeline,
+        filter through `classify`, can yield the number it exists to produce.
+        `--order=asc` puts the known read (2026-08-22T19:31:19Z) among the
+        earliest entries in the window, so CANARY_CAP does not have to grow.
         """
-        entries = self._log_read(self.project,
-                                 self.filter_text(self.floor), 1)
+        filt = self.intruder_filter_text(self.floor,
+                                         exclude={self.canary_sentinel})
+        # THE CONTROL MUST CONTAIN THE CLAUSE IT EXISTS TO CONTROL. Found by
+        # running this against the live project 2026-08-25: `build_filter` drops
+        # empty principals, so a `canary_sentinel` that was ever None or "" would
+        # compile to a filter with NO exclusion clause, the canary would pass on
+        # the clauses around the new one, and the control would look green while
+        # testing nothing. A control that can be silently switched off is a check
+        # that cannot fail.
+        if "NOT protoPayload.authenticationInfo.principalEmail" not in filt:
+            raise HoldoutTouchUnevaluable(
+                "the canary filter compiled WITHOUT its exclusion clause "
+                "(sentinel %r), so it would not exercise the NOT-clause the "
+                "intruder query depends on. Refusing to treat that as a passing "
+                "control. Filter: %s" % (self.canary_sentinel, filt))
+        entries = self._log_read(self.project, filt, CANARY_CAP)
+        rows = [classify(e) for e in entries]
+        reads = [r for r in rows if r["kind"] == CONTENT_READ and r["granted"]]
         if not entries:
             raise HoldoutTouchUnevaluable(
                 "THE CANARY QUERY RETURNED NOTHING. Over the entire attestable "
                 "window (%s -> now) this filter matches zero entries, and at "
                 "least one read is known to be recorded there. A misspelled "
-                "bucket, a renamed log, and a seal nobody touched all look "
-                "exactly like this, so no count from this filter can be "
-                "trusted. Filter: %s" % (self.floor, self.filter_text(self.floor)))
+                "bucket, a renamed log, an over-broad method or principal "
+                "exclusion, and a seal nobody touched all look exactly like "
+                "this, so no count from this filter can be trusted. Filter: %s"
+                % (self.floor, filt))
+        if not reads:
+            raise HoldoutTouchUnevaluable(
+                "THE CANARY QUERY MATCHED %d ENTRIES AND NOT ONE OF THEM IS A "
+                "GRANTED CONTENT READ. A known granted read of the holdout is "
+                "recorded in this window, so the filter is reaching the log and "
+                "the pipeline from filter to classify cannot produce a non-zero "
+                "count. A counter that can only ever answer 0 is a check that "
+                "cannot fail. Filter: %s" % (len(entries), filt))
 
     # -- the number --------------------------------------------------------
 
@@ -565,24 +936,64 @@ class HoldoutTouchCounter:
         entries = self._log_read(self.project, self.filter_text(), self.cap)
         if len(entries) >= self.cap:
             raise HoldoutTouchUnevaluable(
-                "the log query returned %d entries at its cap of %d, so the "
+                "the count query returned %d entries at its cap of %d, so the "
                 "result is truncated and the true count is unknown. G7 has no "
                 "'at least N' outcome." % (len(entries), self.cap))
 
-        result = tally(entries, self.permitted_principals)
+        # THE INTRUDER QUERY. A SECOND, INDEPENDENTLY BOUNDED PATH TO THE SAME
+        # VERDICT. Its cap is a real guard on its own terms: a result at the cap
+        # is a truncated list of unattested reads, which is the one list that
+        # must never be shortened by an accident of paging.
+        intruder_entries = self._log_read(
+            self.project, self.intruder_filter_text(), self.cap)
+        if len(intruder_entries) >= self.cap:
+            raise HoldoutTouchUnevaluable(
+                "the INTRUDER query returned %d entries at its cap of %d. A "
+                "truncated list of unattested reads is not a shorter list of "
+                "unattested reads. Raising the cap silently would be the same "
+                "defect wearing a bigger number." % (len(intruder_entries),
+                                                     self.cap))
+
+        result = tally(entries, self.permitted_principals, self.attested)
         result["since"] = self.since
         result["filter"] = self.filter_text()
         result["command"] = self.command()
+        result["intruder_filter"] = self.intruder_filter_text()
+        result["intruder_command"] = self.intruder_command()
+        result["intruder_entries"] = len(intruder_entries)
+        result["attestation_problem"] = self.attestation_problem
+        result["attestation_record"] = ATTESTED_READS_RECORD
+
+        # THE SERVER NARROWS; THIS FILE DECIDES. The exclusion clause is a bound
+        # on what travels, never the verdict, so the same Python predicate is
+        # re-applied to the intruder query's own rows and the two paths are
+        # UNIONED. A NOT-clause written wrong can then only over-report - which
+        # raises loudly - and the direction it could under-report in is the one
+        # `_check_canary` refuses.
+        server = tally(intruder_entries, self.permitted_principals,
+                       self.attested)
+        seen = {attestation_key(r) for r in result["intruders"]}
+        only_server = [r for r in server["intruders"]
+                       if attestation_key(r) not in seen]
+        if only_server:
+            result["intruders"] = result["intruders"] + only_server
+            result["found_only_by_intruder_query"] = len(only_server)
+        result["unattested_reads"] = len(result["intruders"])
         self.last_tally = result
 
         if result["intruders"]:
             who = sorted({r["principal"] for r in result["intruders"]})
+            extra = ""
+            if self.attestation_problem:
+                extra = " NOTE: %s" % self.attestation_problem
             raise HoldoutTouchInvalid(
-                "the sealed holdout was READ by %d request(s) from outside the "
-                "permitted set: %s. measurement-spec.md:946 - any read from "
-                "another SA marks the run INVALID. Permitted: %s"
+                "the sealed holdout was READ by %d UNATTESTED request(s) from "
+                "outside the permitted set: %s. measurement-spec.md:946 - any "
+                "read from another SA marks the run INVALID. Permitted: %s. "
+                "Attested and explained in %s: %d read(s).%s"
                 % (len(result["intruders"]), ", ".join(who),
-                   ", ".join(sorted(self.permitted_principals))))
+                   ", ".join(sorted(self.permitted_principals)),
+                   ATTESTED_READS_RECORD, len(result["attested_reads"]), extra))
         return result
 
     def __call__(self):
@@ -596,6 +1007,9 @@ def render_tally(result):
         % (result.get("since"), ATTESTATION_FLOOR_UTC),
         "  command      : %s" % result.get("command", ""),
         "  entries      : %d matched" % result["entries"],
+        "  UNATTESTED   : %d granted read(s) from outside the permitted set "
+        "and not named in %s  <- the assertion"
+        % (len(result.get("intruders") or []), ATTESTED_READS_RECORD),
         "  COUNT        : %d granted object-content reads  <- holdout_touch_count"
         % result["count"],
         "  distinct     : %d distinct principal x object (one `cat` emits two "
@@ -606,9 +1020,28 @@ def render_tally(result):
         % len(result["denied"]),
         "  principals   : %s" % (", ".join(result["principals"]) or "(none)"),
     ]
+    if result.get("intruder_command"):
+        lines.append("  intruder cmd : %s" % result["intruder_command"])
+        lines.append("  intruder qry : %d entries (bounded by UNATTESTED reads, "
+                     "not by all reads)" % result.get("intruder_entries", 0))
+    lines.append(
+        "  NOT RETRIEVED: %s and %s* entries. `classify` files every one of "
+        "them as ENUMERATION and never counts them; the server now stops "
+        "shipping what this file was going to discard. 624 -> 14 on the "
+        "attestation window, measured 2026-08-25. A GRANTED listing by an "
+        "unpermitted principal is therefore not shown here - G7a's "
+        "impersonation probe tests that boundary directly, every gate call."
+        % (", ".join(NOT_A_TOUCH_METHODS),
+           ", ".join(NOT_A_TOUCH_METHOD_PREFIXES)))
+    if result.get("attestation_problem"):
+        lines.append("  ATTESTATION  : %s" % result["attestation_problem"])
     for r in result["reads"]:
         lines.append("    READ   %s  %s  %s"
                      % (r["timestamp"], r["principal"], r["resource"]))
+    for r in result.get("attested_reads") or []:
+        lines.append("    ATTESTED %s  %s  %s"
+                     % (r["timestamp"], r["principal"], r["resource"]))
+        lines.append("             why: %s" % r.get("attested_why", ""))
     for r in result["denied"]:
         lines.append("    DENIED %s  %s  %s"
                      % (r["timestamp"], r["principal"], r["resource"]))
@@ -620,9 +1053,11 @@ def render_tally(result):
 
 
 __all__ = [
-    "ATTESTATION_FLOOR_UTC", "CONTENT_READ", "ENUMERATION", "OTHER",
-    "DEFAULT_CAP", "HoldoutTouchCounter", "HoldoutTouchError",
-    "HoldoutTouchInvalid", "HoldoutTouchUnevaluable", "bucket_name",
-    "build_filter", "classify", "gcloud_log_read", "is_granted",
-    "render_tally", "storage_data_read_enabled", "tally",
+    "ATTESTATION_FLOOR_UTC", "ATTESTED_READS_RECORD", "CANARY_CAP",
+    "CONTENT_READ", "ENUMERATION", "OTHER",
+    "DEFAULT_CAP", "NOT_A_TOUCH_METHODS", "NOT_A_TOUCH_METHOD_PREFIXES",
+    "HoldoutTouchCounter", "HoldoutTouchError",
+    "HoldoutTouchInvalid", "HoldoutTouchUnevaluable", "attestation_key",
+    "bucket_name", "build_filter", "classify", "gcloud_log_read", "is_granted",
+    "load_attested_reads", "render_tally", "storage_data_read_enabled", "tally",
 ]

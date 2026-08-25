@@ -106,7 +106,7 @@ FETCH_ATTEMPTS = 3
 FETCH_BACKOFF = (0.5, 2.0)
 
 
-def gcloud_json(args, what):
+def gcloud_json(args, what, runner=None, sleep=None):
     """Fetch and parse. A failed fetch is a FAILED CHECK, never an empty result.
 
     RETRIED, BOUNDED, AND IT CANNOT LAUNDER A REAL DENIAL. Run 10 of the
@@ -127,15 +127,26 @@ def gcloud_json(args, what):
     that reports nothing is a diagnostic dead end, which is the same defect as a
     check that cannot fail wearing different clothes. The return code and a
     slice of stdout travel with it now.
+
+    `runner` and `sleep` are injected so the retry can be DRIVEN by a test
+    without a network. It shipped in `57f4e94` with none: `grep -rn
+    FETCH_ATTEMPTS tests/` returned nothing, and a retry nothing exercises is a
+    check that cannot fail wearing different clothes - the same sentence that
+    commit message used about the error text. `tests/test_fetch_retry.py`.
     """
     global GCLOUD
-    if GCLOUD is None:
-        GCLOUD = _gcloud_exe()
-    if args and args[0] == "gcloud":
-        args = [GCLOUD] + list(args[1:])
+    if runner is None:
+        if GCLOUD is None:
+            GCLOUD = _gcloud_exe()
+        if args and args[0] == "gcloud":
+            args = [GCLOUD] + list(args[1:])
+
+        def runner(argv_):
+            return subprocess.run(argv_, capture_output=True, text=True)
+    sleep = sleep or time.sleep
     last = None
     for attempt in range(1, FETCH_ATTEMPTS + 1):
-        p = subprocess.run(args, capture_output=True, text=True)
+        p = runner(args)
         if p.returncode == 0:
             try:
                 return json.loads(p.stdout)
@@ -147,7 +158,11 @@ def gcloud_json(args, what):
             else "no stderr and no stdout")
         last = "exit %d, %s" % (p.returncode, err)
         if attempt < FETCH_ATTEMPTS:
-            time.sleep(FETCH_BACKOFF[attempt - 1])
+            # Indexed defensively: raising FETCH_ATTEMPTS past the length of
+            # FETCH_BACKOFF must not turn a transient fetch into an IndexError,
+            # which is a different failure reported in a way nobody would trace
+            # back to gcloud.
+            sleep(FETCH_BACKOFF[min(attempt - 1, len(FETCH_BACKOFF) - 1)])
     raise RuntimeError("could not fetch %s after %d attempts: %s"
                        % (what, FETCH_ATTEMPTS, last))
 

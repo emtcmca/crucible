@@ -140,18 +140,35 @@ LIVE_POLICY = {"auditConfigs": LIVE_AUDIT_CONFIGS, "bindings": []}
 
 
 def counter(entries=None, policy=None, **over):
-    """A counter with both cloud calls injected. `entries` is what the RUN
-    window query returns; the canary query returns the same list unless
-    `canary_entries` overrides it."""
+    """A counter with both cloud calls injected.
+
+    THREE queries now run, and the stub dispatches the way a reader would:
+
+      canary    `cap == ht.CANARY_CAP`, and its filter excludes the SENTINEL
+      intruder  carries a principal-exclusion clause, `cap == self.cap`
+      count     no exclusion clause
+
+    The stub deliberately does NOT apply either server-side narrowing. That is
+    the honest shape for a double: it returns a SUPERSET, which is what an
+    under-broad filter would do live, and it forces the counter's own Python
+    predicate to be the thing that decides. If the counter ever started trusting
+    the server filter as the verdict, every happy-path test here would go red
+    because the stub hands the intruder query the permitted principal's reads
+    as well.
+    """
     entries = LIVE_ENTRIES if entries is None else entries
     canary = over.pop("canary_entries", entries)
 
     calls = []
+    EXCLUSION = "NOT protoPayload.authenticationInfo.principalEmail"
 
     def log_read(project, filter_text, cap):
-        calls.append({"project": project, "filter": filter_text, "cap": cap})
-        if cap == 1:                       # the canary query asks for one
-            return list(canary)[:1]
+        kind = ("canary" if cap == ht.CANARY_CAP
+                else "intruder" if EXCLUSION in filter_text else "count")
+        calls.append({"project": project, "filter": filter_text, "cap": cap,
+                      "kind": kind})
+        if kind == "canary":
+            return list(canary)[:ht.CANARY_CAP]
         return list(entries)
 
     kwargs = dict(env=ENV, since=AFTER_FLOOR,
@@ -449,8 +466,8 @@ def test_the_human_operator_is_not_exempt_from_the_permitted_set():
 def test_the_canary_query_uses_the_floor_and_the_run_query_uses_since():
     c = counter(since=AFTER_FLOOR)
     c()
-    canary_call = [x for x in c.calls if x["cap"] == 1][0]
-    run_call = [x for x in c.calls if x["cap"] != 1][0]
+    canary_call = [x for x in c.calls if x["kind"] == "canary"][0]
+    run_call = [x for x in c.calls if x["kind"] == "count"][0]
     assert FLOOR in canary_call["filter"]
     assert AFTER_FLOOR in run_call["filter"]
 
@@ -537,3 +554,289 @@ def test_the_gate_still_reports_G7c_absent_when_nothing_is_injected():
     f = gate._holdout_finding()                              # noqa: SLF001
     assert f["status"] == rg.UNEVALUABLE
     assert "no holdout_touch counter was injected" in f["detail"]
+
+
+# ===========================================================================
+# THE CAP HAD A COUNTDOWN ON IT (2026-08-25).
+#
+# Measured live that day, window = ATTESTATION_FLOOR_UTC: the base filter
+# matched 624 entries against a cap of 1000, and `compute()` raises UNEVALUABLE
+# AT the cap. Roughly four entries per gate call is about ninety gate calls of
+# headroom, so one more batch the size of the 2026-08-25 one and G7c goes dark.
+#
+# The population that grows is NOT reads. 606 of the 624 were
+# `storage.objects.list` - the G7a probe's own four arms firing every gate call
+# - and `classify` already refuses to count every one of them. The narrowing
+# pushes that existing rule to the server. 624 -> 14, measured.
+#
+# The tests below hold the two halves of the fix together: the narrowing must
+# match what `classify` discards, and the exclusion must never become the
+# verdict.
+# ===========================================================================
+
+def test_the_count_query_drops_the_methods_classify_already_discards():
+    c = counter()
+    f = c.filter_text()
+    assert 'NOT protoPayload.methodName="storage.objects.list"' in f
+    assert 'NOT protoPayload.methodName:"storage.buckets."' in f
+    # And it does NOT exclude any principal: holdout_touch_count is a count of
+    # READS, and the permitted evaluator's reads are what the expected value is
+    # about.
+    assert "NOT protoPayload.authenticationInfo.principalEmail" not in f
+
+
+def test_the_pushed_down_methods_are_exactly_what_classify_calls_ENUMERATION():
+    """THE COUPLING, ASSERTED RATHER THAN TRUSTED. If `classify` ever starts
+    counting one of these as a touch, the server would already have thrown it
+    away and the count would silently drop. Two files, one rule."""
+    for method in ht.NOT_A_TOUCH_METHODS:
+        row = ht.classify(entry(method, BUCKET_RES, EVAL_SA))
+        assert row["kind"] == ht.ENUMERATION, method
+    for prefix in ht.NOT_A_TOUCH_METHOD_PREFIXES:
+        row = ht.classify(entry(prefix + "getStorageLayout", BUCKET_RES, EVAL_SA))
+        assert row["kind"] == ht.ENUMERATION, prefix
+    # The inverse: a content read must NOT be in the dropped set, or the
+    # narrowing would delete the only thing that counts.
+    assert ht.classify(entry("storage.objects.get", OBJ, EVAL_SA))["kind"] \
+        == ht.CONTENT_READ
+    for method in ht.NOT_A_TOUCH_METHODS:
+        assert method != "storage.objects.get"
+
+
+def test_an_unrecognised_method_is_still_retrieved_by_the_narrowed_filter():
+    """The narrowing is written as NOT-a-touch exclusions on purpose. An
+    `methodName="storage.objects.get"` inclusion would have been shorter and
+    would have silently deleted `classify`'s OTHER branch, whose whole reason
+    for existing is that a method this module has never seen is not evidence of
+    nothing."""
+    f = counter().filter_text()
+    assert "storage.objects.get" not in f
+
+
+def test_the_intruder_query_excludes_the_permitted_set_in_the_filter():
+    """The bound. Its population is unattested reads, not all reads."""
+    c = counter()
+    f = c.intruder_filter_text()
+    assert 'NOT protoPayload.authenticationInfo.principalEmail=("%s")' % EVAL_SA in f
+    assert 'NOT protoPayload.methodName="storage.objects.list"' in f
+
+
+def test_the_canary_excludes_a_SENTINEL_and_never_the_permitted_set():
+    """THE CONTROL ON THE NEW CLAUSE. A filter that asks the server for only the
+    bad entries returns zero when the filter is wrong, and zero looks exactly
+    like a clean seal. So the canary runs the SAME construction, NOT-clause
+    included, against a principal that cannot exist - the known-present read has
+    to survive the whole compiled filter. Excluding the permitted set here would
+    remove the very entry the control looks for and the control would fail
+    always; excluding nothing would test the clauses AROUND the new one."""
+    c = counter()
+    c()
+    canary = [x for x in c.calls if x["kind"] == "canary"][0]
+    assert c.canary_sentinel in canary["filter"]
+    assert EVAL_SA not in canary["filter"]
+    assert 'NOT protoPayload.authenticationInfo.principalEmail' in canary["filter"]
+    assert 'NOT protoPayload.methodName="storage.objects.list"' in canary["filter"]
+
+
+def test_a_canary_that_sees_entries_but_no_GRANTED_READ_is_UNEVALUABLE():
+    """The earliest entry in the real attestable window is a `granted: true` /
+    `status.code: 5` prefix probe, which `is_granted` correctly refuses. "At
+    least one entry" is therefore satisfiable by a shape that can never produce
+    a non-zero count, and a counter that can only ever answer 0 is a check that
+    cannot fail."""
+    dead = [entry("storage.objects.get", PREFIX, EVAL_SA, granted=True, code=5)]
+    c = counter(entries=[], canary_entries=dead)
+    with pytest.raises(ht.HoldoutTouchUnevaluable) as ei:
+        c()
+    assert "NOT ONE OF THEM IS A GRANTED CONTENT READ" in str(ei.value)
+
+
+def test_the_intruder_query_at_its_own_cap_is_UNEVALUABLE():
+    """A truncated list of unattested reads is not a shorter list of unattested
+    reads. Raising the cap silently would be the same defect wearing a bigger
+    number."""
+    rogue = [entry("storage.objects.get", OBJ, ARMORER_SA, granted=True,
+                   ts="2026-08-22T20:0%d:00.000000000Z" % i) for i in range(5)]
+
+    def log_read(project, filt, cap):
+        if cap == ht.CANARY_CAP:
+            return list(LIVE_ENTRIES)
+        if "NOT protoPayload.authenticationInfo.principalEmail" in filt:
+            return list(rogue)
+        return []          # count query is empty; only the intruder query fills
+
+    c = counter(log_read=log_read, cap=5)
+    with pytest.raises(ht.HoldoutTouchUnevaluable) as ei:
+        c()
+    assert "INTRUDER query" in str(ei.value)
+
+
+def test_an_intruder_seen_only_by_the_intruder_query_is_still_caught():
+    """THE SERVER NARROWS; THIS FILE DECIDES. The two paths are unioned, so a
+    read that reaches only one of them still raises. A filter cannot become the
+    verdict by being the only thing that saw something."""
+    rogue = entry("storage.objects.get", OBJ, ARMORER_SA, granted=True,
+                  ts="2026-08-22T20:30:00.000000000Z")
+
+    def log_read(project, filt, cap):
+        if cap == ht.CANARY_CAP:
+            return list(LIVE_ENTRIES)
+        if "NOT protoPayload.authenticationInfo.principalEmail" in filt:
+            return [rogue]
+        return list(LIVE_ENTRIES)      # count query does NOT see it
+
+    c = counter(log_read=log_read)
+    with pytest.raises(ht.HoldoutTouchInvalid) as ei:
+        c()
+    assert ARMORER_SA in str(ei.value)
+    assert c.last_tally["found_only_by_intruder_query"] == 1
+
+
+# ===========================================================================
+# ATTESTATION. Named reads that are ACCOUNTED FOR - never a principal exemption.
+#
+# `scripts/probe-g7-g8.py` defaults its window to the attestation floor, which
+# permanently contains seven operator reads from 2026-08-22 that Cloud Logging
+# cannot delete. The artifact's G7c line was red forever for an intact boundary.
+# Moving the window forward would have HIDDEN them, and a control that stops
+# looking is not a control that passed.
+# ===========================================================================
+
+ATTESTED, ATTESTED_PROBLEM = ht.load_attested_reads()
+
+
+def _one_attested_entry():
+    """A log entry whose key matches a row in the real record on disk."""
+    ts, principal, method, resource = sorted(ATTESTED)[0]
+    return entry(method, resource, principal, granted=True, ts=ts)
+
+
+def test_the_record_on_disk_parses_and_names_the_seven_operator_reads():
+    """Measured against the live log 2026-08-25: eight `storage.objects.get`
+    entries by the operator in the attestation window, of which SEVEN are
+    granted content reads. The eighth carries `status.code: 5` (NOT_FOUND on the
+    copy destination) - authorization passed, no byte moved - so `is_granted`
+    never counts it and it is deliberately NOT in the record."""
+    assert ATTESTED_PROBLEM is None, ATTESTED_PROBLEM
+    assert len(ATTESTED) == 7
+    assert {k[1] for k in ATTESTED} == {"eric@erictetzlaff.com"}
+    assert {k[2] for k in ATTESTED} == {"storage.objects.get"}
+    assert all(why.strip() for why in ATTESTED.values())
+    # The entry that is NOT a read must not have been swept in with the rest.
+    assert not any(k[0] == "2026-08-22T20:18:02.046086366Z" for k in ATTESTED)
+
+
+def test_an_attested_read_is_COUNTED_AND_SHOWN_and_does_not_raise():
+    """Counted and shown, never excluded. Hiding it would remove the only
+    record that the trust root touched the seal, which is the record's entire
+    value."""
+    e = _one_attested_entry()
+    rows = LIVE_ENTRIES + [e]
+    c = counter(entries=rows, canary_entries=rows)
+    assert c() == 3                                   # 2 permitted + 1 attested
+    t = c.last_tally
+    assert t["intruders"] == []
+    assert len(t["attested_reads"]) == 1
+    assert t["attested_reads"][0]["attested_why"]
+    assert t["unattested_reads"] == 0
+    assert "ATTESTED" in ht.render_tally(t)
+
+
+def test_the_SAME_principal_at_a_DIFFERENT_instant_is_NOT_attested():
+    """THE NEGATIVE CONTROL ON THE WHOLE RECORD. An attestation key is an
+    INSTANT, not a principal. Attesting a principal would hand the trust root a
+    permanent hole in the one control that records what it did. A read that has
+    not happened yet carries a timestamp no row names, so it is unexplained by
+    construction."""
+    ts, principal, method, resource = sorted(ATTESTED)[0]
+    later = entry(method, resource, principal, granted=True,
+                  ts="2026-08-30T00:00:00.000000000Z")
+    rows = LIVE_ENTRIES + [later]
+    c = counter(entries=rows, canary_entries=rows)
+    with pytest.raises(ht.HoldoutTouchInvalid) as ei:
+        c()
+    assert principal in str(ei.value)
+    assert "UNATTESTED" in str(ei.value)
+
+
+def test_a_different_object_at_an_attested_instant_is_NOT_attested():
+    """All four fields key the attestation. Timestamp alone would forgive
+    anything that happened in the same nanosecond."""
+    ts, principal, method, _resource = sorted(ATTESTED)[0]
+    other = entry(method,
+                  "projects/_/buckets/crucible-sealed-x7/objects/families/f4/"
+                  "instance-001.json", principal, granted=True, ts=ts)
+    rows = LIVE_ENTRIES + [other]
+    c = counter(entries=rows, canary_entries=rows)
+    with pytest.raises(ht.HoldoutTouchInvalid):
+        c()
+
+
+def test_a_MISSING_record_attests_nothing_and_says_so():
+    """Fails SAFE. Every operator read stays unexplained and G7c stays red. A
+    file that is not there must never widen what is forgiven."""
+    attested, problem = ht.load_attested_reads(
+        str(REPO / "docs" / "proof" / "no-such-attestation-record.md"))
+    assert attested == {}
+    assert problem and "IS MISSING" in problem
+
+
+def test_an_UNPARSEABLE_record_RAISES_rather_than_forgiving_nothing_quietly(tmp_path):
+    """Different direction from missing, on purpose. The file exists and the
+    control is broken; attesting nothing would be safe and also silent, and a
+    broken instrument is exactly what UNEVALUABLE is for."""
+    bad = tmp_path / "rec.md"
+    bad.write_text("# record\n\nFENCEjson\n{not json at all,,,}\nFENCE\n"
+                   .replace("FENCE", "`" * 3), encoding="utf-8")
+    with pytest.raises(ht.HoldoutTouchUnevaluable):
+        ht.load_attested_reads(str(bad))
+    nofence = tmp_path / "rec2.md"
+    nofence.write_text("# record with prose and no block\n", encoding="utf-8")
+    with pytest.raises(ht.HoldoutTouchUnevaluable):
+        ht.load_attested_reads(str(nofence))
+
+
+def test_an_attested_read_with_no_REASON_is_refused(tmp_path):
+    """A read attested without a reason is an exemption with better manners."""
+    bad = tmp_path / "rec.md"
+    body = ('{"attested_reads": [{"timestamp": "2026-08-22T20:18:01.984616894Z",'
+            ' "principal": "eric@erictetzlaff.com", "method": '
+            '"storage.objects.get", "resource": "x"}]}')
+    bad.write_text("# r\n\n%sjson\n%s\n%s\n" % ("`" * 3, body, "`" * 3),
+                   encoding="utf-8")
+    with pytest.raises(ht.HoldoutTouchUnevaluable) as ei:
+        ht.load_attested_reads(str(bad))
+    assert "why" in str(ei.value)
+
+
+def test_a_canary_whose_SENTINEL_went_empty_is_refused_as_a_control():
+    """FOUND BY RUNNING THE NEGATIVE CONTROL AGAINST THE LIVE PROJECT,
+    2026-08-25, not by reading the code. `build_filter` drops empty principals,
+    so a `canary_sentinel` of None or "" compiles to a filter with NO exclusion
+    clause: the canary would then pass on the clauses AROUND the new one, look
+    green, and test nothing. A control that can be silently switched off is a
+    check that cannot fail."""
+    for dud in (None, ""):
+        c = counter()
+        c.canary_sentinel = dud
+        with pytest.raises(ht.HoldoutTouchUnevaluable) as ei:
+            c()
+        assert "WITHOUT its exclusion clause" in str(ei.value)
+
+
+def test_an_exclusion_clause_that_blanks_the_query_is_caught_by_the_canary():
+    """THE FAILURE THE SENTINEL EXISTS FOR. An over-broad NOT-clause returns
+    zero, and zero looks exactly like a clean seal. The canary's known-present
+    read has to survive the whole compiled filter, so a clause that removes
+    everything removes the control's own evidence and raises."""
+
+    def log_read(project, filt, cap):
+        if cap == ht.CANARY_CAP:
+            return []          # what an over-broad exclusion returns live
+        return list(LIVE_ENTRIES)
+
+    c = counter(log_read=log_read)
+    with pytest.raises(ht.HoldoutTouchUnevaluable) as ei:
+        c()
+    assert "CANARY QUERY RETURNED NOTHING" in str(ei.value)
+    assert "over-broad" in str(ei.value)
