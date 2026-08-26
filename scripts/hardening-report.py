@@ -1513,6 +1513,9 @@ code,pre{font-family:ui-monospace,Consolas,"DejaVu Sans Mono",monospace;
 font-variant-ligatures:none;}
 code{background:var(--code);padding:.08em .35em;border-radius:3px;font-size:.86em;
 overflow-wrap:anywhere;}
+/* An identifier broken mid-token reads as two identifiers. In a table the
+   container already scrolls, so let the cell push wide instead. */
+td code,th code{overflow-wrap:normal;white-space:nowrap;}
 pre{background:var(--code);padding:.75rem .9rem;border-radius:4px;overflow-x:auto;
 font-size:.82rem;margin:.4rem 0;}
 pre code{background:none;padding:0;}
@@ -1524,6 +1527,17 @@ summary{cursor:pointer;color:var(--mut);}
 .warn{color:var(--warn);font-weight:600;}
 .mut{color:var(--mut);font-size:.88rem;}
 ul.tight li{margin:.15rem 0;}
+/* The verdict strip is the one block on the page NOT inside a .scroll
+   container, because it is prose and prose must reflow rather than scroll. On a
+   narrow viewport its fixed-width tag column is what would push the BODY wide,
+   so the row stacks instead. Wide content - tables, DSL, arguments - scrolls
+   inside its own container everywhere else. */
+@media (max-width:38rem){
+.verdict div{flex-direction:column;gap:.2rem;}
+.tag{flex:none;}
+body{padding:1.2rem .8rem 4rem;}
+h1{font-size:1.5rem;}
+}
 """
 
 
