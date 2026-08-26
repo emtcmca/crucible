@@ -160,7 +160,8 @@ The report catching its own doctored input is the control working twice.
   this run is the policy it started with. Nothing on this page describes a
   change, because there was none.
 - **INCOMPLETE** - 5 of 5 recorded breach paths STILL REACH their invariant
-  under policy@vFinal.
+  under policy@vFinal. The loop did not close them and this report will not
+  round that off.
 ```
 
 `HARDENED` is absent from the strip, and the selftest asserts that it is.
