@@ -29,6 +29,21 @@ N="${2:-60}"
 # this batch has to be re-runnable by a stranger. Each run records its own
 # red_seed in the run manifest, so the walk is recoverable per run.
 SEED_BASE="${3:-1729}"
+
+# G4 RECORD-ONLY, opt-in via env, added 2026-08-26.
+#
+# G4 ATTACK REDUCTION defaults to ENFORCING and that default is deliberate: a
+# REJECT criterion that is off unless asked for is how G4 sat ABSENT for the
+# whole project while contracts/gate_rule.v1.yaml said it was binding.
+#
+# Set G4_RECORD_ONLY to a REASON STRING to score b and c without enforcing them.
+# The reason is required by the flag itself, not by politeness - a suppression
+# nobody can name is the thing being guarded against. The banner shouts when it
+# is on and the bundle records the mode beside every b/c figure.
+G4_FLAG=""
+if [ -n "${G4_RECORD_ONLY:-}" ]; then
+  G4_FLAG="--g4-record-only"
+fi
 mkdir -p "$OUT"
 LOCK="$OUT/RUNNER.lock"
 
@@ -50,6 +65,7 @@ for i in $(seq 1 "$N"); do
     python -m crucible.conductor.campaign \
       --live --attack-mode hybrid --usd-cap 2.00 --holdout-expected 0 \
       --red-seed "$((SEED_BASE + i))" \
+      ${G4_FLAG:+"$G4_FLAG" "$G4_RECORD_ONLY"} \
       --out "$OUT/run-$n.json" > "$OUT/run-$n.console.txt" 2>&1
   echo $? > "$OUT/run-$n.exitcode"
 done
