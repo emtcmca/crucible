@@ -100,10 +100,27 @@ GATES = {
            "denominator, and a census that reports the wrong target is the "
            "unevaluable-gate failure it exists to detect. A suite of the wrong "
            "size is ROUND_INVALID, never a lower score." % BENIGN_ON_DISK),
-    "G4": (ABSENT, [],
-           "Attack reduction (newly_blocked_b >= 3, newly_breached_c == 0) is "
-           "paired against policy@vN on a training slice. Needs the L5 "
-           "conductor AND the training corpus. Nothing computes b or c."),
+    "G4": (WIRED, ["crucible.conductor.g4:paired_scores",
+                   "crucible.conductor.g4:decide",
+                   "crucible.conductor.real_gate:RealGate"],
+           "Attack reduction (newly_blocked_b >= 3, newly_breached_c == 0), "
+           "paired against policy@vN by replaying the run's recorded attack "
+           "episodes through both policies. **THIS ROW READ `ABSENT / Nothing "
+           "computes b or c` UNTIL 2026-08-26**, and it was correct for as long "
+           "as it stood: a criterion whose failure_mode is REJECT had never "
+           "once been evaluated. `docs/design/gate-noop-measurement-2026-08-25."
+           "md` measured what that cost - 18 of 31 promoted rules do not close "
+           "the breach they answer. WHAT THIS ROW DOES NOT SAY: the paired "
+           "slice is the episodes THE RUN RECORDED, not the 50-instance corpus "
+           "training slice the `b >= 3` threshold was calibrated against - "
+           "`corpus/training/*.json` carries an authored trace, not a scoreable "
+           "episode. `scripts/g4-backtest.py` measures the difference that "
+           "makes to the promotion rate. **WIRED IS NOT THE SAME AS ENFORCING**: "
+           "the criterion has two modes, ENFORCING (the default) and "
+           "RECORD_ONLY, and a run started with `--g4-record-only` SCORES b and "
+           "c without gating on them. Which mode a given run used is in that "
+           "run's banner and in `criteria.attack_reduction.mode`, never here - "
+           "this census resolves the code, not any run's result."),
     "G5": (PARTIAL, ["crucible.dsl:validate_policy_document",
                      "crucible.dsl:Validator"],
            "Verb, capability-binding and cap:UNCLASSIFIED assertions are in the "

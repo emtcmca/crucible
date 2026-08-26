@@ -265,6 +265,41 @@ class RoundRecord:
     # path, so this list is the REASON and that ledger is the DENOMINATOR.
     refusals_reverted: List[dict] = field(default_factory=list)
 
+    # G4, ATTACK REDUCTION. `contracts/gate_rule.v1.yaml`:129-137, which had no
+    # implementation until 2026-08-26. THE GATE COMPUTES THESE; the conductor
+    # only carries what it was told and hands them to the bundle, so the number
+    # in the evidence and the number the decision was made on are one value and
+    # not two derivations of it (ruling 46's principle, one level down from a
+    # hash: a figure has exactly one owner).
+    #
+    # `None` on all four means G4 WAS NOT EVALUATED, which is a different
+    # statement from b = 0. A round whose gate never ran - the benign floor
+    # never held, the ARMORER was exhausted - has no G4 measurement, and
+    # defaulting it to zero would print a rejection reason for a check that
+    # never looked.
+    newly_blocked_b: Optional[int] = None
+    newly_breached_c: Optional[int] = None
+    g4_paired_n: Optional[int] = None
+    g4_unpairable: Optional[int] = None
+
+    # WHICH MODE PRODUCED b AND c. `ENFORCING` means the criterion gated this
+    # promotion; `RECORD_ONLY` means it was scored and the promotion happened
+    # anyway. The two are NOT distinguishable from b and c themselves, and a
+    # reader who cannot tell them apart cannot tell "this run's promotions
+    # survived G4" from "this run predates G4 being binding". `None` means the
+    # gate never scored G4 in this round at all.
+    g4_mode: Optional[str] = None
+    g4_record_only_reason: str = ""
+
+    # THE TWO INPUTS G4 PAIRS OVER, set by `_round` before the gate is called.
+    # PUBLIC, deliberately: `record._candidate` is private and holds the policy
+    # in force until a promotion overwrites it, which makes it exactly the wrong
+    # field for a gate to read - a gate reading a field whose meaning changes
+    # underneath it is the shape this repo keeps finding. These two say what
+    # they are and never change meaning.
+    policy_in_force: Optional[dict] = None
+    training_slice: Optional[List[dict]] = None
+
     # -- the denominator ---------------------------------------------------
     @property
     def attempted(self) -> int:
@@ -404,6 +439,19 @@ class Conductor:
         self.seeds = list(seeds)
         self.run_id = run_id
         self.attacks_per_round = attacks_per_round
+        # G4's PAIRED SLICE, accumulated across the run. Every scorable attack
+        # episode this campaign has recorded, in order.
+        #
+        # IT ACCUMULATES BECAUSE `c` IS THE POINT. G4 forbids an attack that was
+        # blocked from becoming breachable again; a slice holding only the
+        # current round could never see that happen to a round-1 attack, so the
+        # half of G4 whose failure text is "no attack that was blocked may
+        # become breachable" would be structurally unable to fire. The conductor
+        # owns it rather than the gate, because the gate is not called in every
+        # round - a round that never reaches a candidate would silently drop its
+        # episodes out of the slice, and the denominator would then depend on
+        # which rounds happened to promote.
+        self._training_slice = []
         # OVERRIDABLE PER CONDUCTOR, defaulted from the module constant. A test
         # that wants the old one-shot behaviour passes 1 rather than patching a
         # module global, which would leak into every other test in the process.
@@ -519,6 +567,15 @@ class Conductor:
                 record.refusals_reverted.append(reverted)
             verdict["_episode"] = episode
             record.verdicts.append(verdict)
+
+        # THE SLICE GROWS HERE, AFTER THE ROUND'S VERDICTS ARE IN AND BEFORE
+        # ANY GATE SEES IT. `scorable` is the conductor's own property
+        # (TARGET_FAULT and INVALID removed once, ruling 33.4) - G4 does not
+        # get its own opinion about which episodes count, for the same reason
+        # it does not get its own opinion about what a breach is.
+        self._training_slice.extend(v["_episode"] for v in record.scorable)
+        record.policy_in_force = policy
+        record.training_slice = list(self._training_slice)
 
         # THE THREE OUTCOMES, IN PRECEDENCE ORDER, AND THE ORDER IS THE ARGUMENT.
         #

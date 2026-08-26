@@ -127,6 +127,7 @@ from .bundle import (
 )
 from .conductor import Conductor
 from .hashlocks import LOCK_FIELDS, load_hash_locks
+from .real_gate import RECORDED
 from .real_gate import (
     UNEVALUABLE,
     GateHalt,
@@ -136,6 +137,7 @@ from .real_gate import (
     gcp_env,
     local_blob_io,
 )
+from . import g4 as g4mod
 from .real_gate import render as render_findings
 from .real_target import build_real_target
 from .real_tripwire import real_tripwire, resolve_objective_set
@@ -586,7 +588,8 @@ EXIT_BUNDLE_INVALID = 4
 
 
 def build_gate(run_id, locks, live, store_root, holdout_expected=None,
-               holdout_since=None, holdout_settle=45.0, repo_root=_REPO):
+               holdout_since=None, holdout_settle=45.0, repo_root=_REPO,
+               g4_mode=None, g4_record_only_reason=""):
     """Build the callable the conductor's `promote` hook calls, and describe it.
 
     Returns `(gate, info)`. `info` is what the banner prints and what the bundle
@@ -655,6 +658,15 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
         "ledger": os.path.join(store_root, "ledger.sqlite3"),
     }
 
+    # G4'S MODE IS RESOLVED HERE, BEFORE EITHER BRANCH, so a bad mode or an
+    # unexplained RECORD_ONLY fails before a single gcloud call is made or a
+    # single model token is spent.
+    g4_mode, g4_reason = g4mod.resolve_mode(g4_mode, g4_record_only_reason)
+    info["g4"] = {"mode": g4_mode,
+                  "enforced": g4_mode == g4mod.ENFORCING,
+                  "record_only_reason": g4_reason or None,
+                  "thresholds": "b >= %d, c == %d" % (g4mod.B_MIN, g4mod.C_MAX)}
+
     if live:
         # Bucket name SOURCED, never retyped. G7/G8 grep these literals, so a
         # typo does not fail loudly - it yields an unevaluable gate, and an
@@ -667,7 +679,8 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
             ledger=ledger, run_id=run_id,
             blob_writer=blobs.writer, blob_reader=blobs.reader,
             repo_root=repo_root, holdout_touch=counter,
-            holdout_expected=holdout_expected, skip_cloud=False)
+            holdout_expected=holdout_expected, skip_cloud=False,
+            g4_mode=g4_mode, g4_record_only_reason=g4_reason)
         info.update({
             "cloud_assertions": "LIVE",
             "policy_store": "%s via GcsBlobIO" % env["CRUCIBLE_POLICIES_BUCKET"],
@@ -695,7 +708,8 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
             # NOT a counter. Offline there is nothing to count and no log to
             # read, and `holdout_touch` has no default precisely so that
             # "nothing computed this" cannot be mistaken for "the count was 0".
-            holdout_touch=None, skip_cloud=True)
+            holdout_touch=None, skip_cloud=True,
+            g4_mode=g4_mode, g4_record_only_reason=g4_reason)
         info.update({
             "cloud_assertions": "SKIPPED_OFFLINE",
             "policy_store": "local files at %s" % policies,
@@ -725,7 +739,54 @@ def gate_summary(gate, info):
         seal and not gate.skip_cloud
         and any(f["status"] != UNEVALUABLE for f in seal))
     out["reports"] = gate.reports
+    # DERIVED FROM WHAT THE GATE DID, not from the flag - the same discipline
+    # `g7_g8_exercised` is built on one line up. A run that halted before the
+    # first candidate enforced G4 exactly as little as a RECORD_ONLY run did,
+    # and `g4_enforced_at_least_once` is the field that says so.
+    g4 = [f for f in findings if f["gate"] == "G4"]
+    # `None` means THIS GATE DOES NOT REPORT A G4 MODE - a stand-in or a stub,
+    # never "enforcing". `g4_enforced_at_least_once` below is derived from the
+    # findings and stays honest whatever this says.
+    out["g4_mode"] = getattr(gate, "g4_mode", None)
+    out["g4_scored_calls"] = len(g4)
+    out["g4_enforced_at_least_once"] = any(
+        f["status"] != RECORDED for f in g4)
+    out["g4_would_have_rejected"] = sum(
+        1 for f in g4 if f.get("would_have") in ("FAIL", "UNEVALUABLE"))
     return out
+
+
+def _g4_banner_line(info):
+    """G4's line in the banner.
+
+    IT IS IN THE BANNER BECAUSE THE BANNER'S WHOLE JOB IS SAYING WHAT IS REAL
+    AND WHAT IS A STAND-IN. A criterion that is scored and not enforced is
+    neither - it is a third thing, and it is the one most easily mistaken for
+    the first. `g7_g8_exercised` exists because "the gate ran" and "the gate
+    was consulted" had to be told apart; this is the same distinction one
+    criterion down.
+    """
+    g4 = info.get("g4")
+    if g4 is None:
+        # NEITHER CLAIM. A banner handed no G4 mode does not get to say
+        # "ENFORCING" - that would be a claim about enforcement invented by the
+        # renderer - and it does not get to say "NOT ENFORCED" either. Every
+        # real run goes through `build_gate`, which always sets `info["g4"]`, so
+        # this branch means a caller assembled `info` by hand.
+        return ("  G4           : MODE NOT SUPPLIED TO THE BANNER. This caller "
+                "built `info` by hand and did not pass `g4`, so nothing here "
+                "may say whether attack reduction was enforced. Read "
+                "`summary.gate.g4_mode`, which is derived from the gate.")
+    if g4["enforced"]:
+        return ("  G4           : ENFORCING. Attack reduction (%s) is paired "
+                "against policy@vN and A FAILING CANDIDATE IS REJECTED."
+                % g4["thresholds"])
+    return ("  G4           : >>> SCORED, NOT ENFORCED. RECORD_ONLY: %s. b and "
+            "c are measured on every candidate and written to "
+            "criteria.attack_reduction, and A FAILING CANDIDATE IS PROMOTED "
+            "ANYWAY. NO PROMOTION IN THIS RUN WAS GATED ON ATTACK REDUCTION - "
+            "do not read one as having survived %s."
+            % (g4["record_only_reason"], g4["thresholds"]))
 
 
 def gate_banner_lines(live, info):
@@ -753,12 +814,18 @@ def gate_banner_lines(live, info):
             "this run is their first execution. `promote`'s "
             "recompute-from-bytes read-back is what stands behind them: a "
             "write that cannot be read back and rehashed HALTS.",
+            _g4_banner_line(info),
         ]
+    # THE G4 LINE IS APPENDED, NOT PREPENDED. `tests/test_readme_claims.py`
+    # pins the README's pasted transcript to `gate_banner_lines(False, ...)[0]`,
+    # and that coupling is by POSITION. Inserting a line at the front silently
+    # re-points a test that exists to catch a stale README at a different row.
     return [
         "  gate         : REAL CODE, NOT EXERCISED. RealGate with "
         "skip_cloud=True - no gcloud call is made, so G7/G8 NOT EXERCISED. Any "
         "candidate reaching this gate is RUN INVALID, never a promotion. "
         "Policy store: %s." % info["policy_store"],
+        _g4_banner_line(info),
     ]
 
 
@@ -804,6 +871,15 @@ def run(argv=None):
                     help="corpus | generated | hybrid. REQUIRED with --live. "
                          "Offline defaults to `corpus` and the default is "
                          "RECORDED like any other choice.")
+    ap.add_argument("--g4-record-only", metavar="REASON", default="",
+                    help="SCORE G4 AND DO NOT ENFORCE IT. b and c are still "
+                         "computed on every candidate and still written to the "
+                         "bundle; a failing candidate is promoted anyway. "
+                         "REQUIRES A REASON, which is recorded in the evidence "
+                         "bundle and printed in the banner. Omit this flag and "
+                         "G4 ENFORCES - that is the default, because forgetting "
+                         "the flag halts a run loudly while forgetting to "
+                         "REMOVE it disables a REJECT criterion silently.")
     ap.add_argument("--holdout-settle", type=float, default=45.0,
                     help="seconds to wait for Cloud Logging ingestion before "
                          "counting. MEASURED, not guessed: a probe that "
@@ -921,7 +997,9 @@ def run(argv=None):
         store_root=os.path.join(out_dir, "%s-gate" % run_id),
         holdout_expected=args.holdout_expected,
         holdout_since=args.holdout_since or started_at,
-        holdout_settle=args.holdout_settle)
+        holdout_settle=args.holdout_settle,
+        g4_mode=(g4mod.RECORD_ONLY if args.g4_record_only else None),
+        g4_record_only_reason=args.g4_record_only)
 
     base_manifest = RunManifest(
         policy_version=(policy.get("lineage") or {}).get("version", 0),
