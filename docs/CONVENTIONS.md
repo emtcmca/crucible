@@ -11,7 +11,43 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 25` · last changed 2026-08-25
+`SPINE_VERSION: 26` · last changed 2026-08-25
+
+> **SPINE_VERSION 26 — ruling 57, 2026-08-25. `CONVERGED` IS A GATE DECISION. THE C6 CONTRACT
+> WAS INCOMPLETE, NOT THE CODE. Eric's ruling, on the evidence below.**
+>
+> `contracts/evidence_bundle.schema.json` allowed `decision` to be `PROMOTE`, `REJECT` or `HALT`.
+> The conductor emits a fourth value, `CONVERGED`, when the ARMORER proposes a policy that hashes
+> identically to the head — a breach was found and the policy already covers it.
+> `conductor.py:110-128` keeps that distinct from `DRY_ROUNDS` on purpose, and its own note says
+> **"folding them into one word would be `E_NO_EVENTS` in a new place."** It is right.
+>
+> **Contracts outrank code, and the contract still lost.** That is the second time: C10's
+> annotations argument was won on the page and lost at the artifact. The rule is not "the contract
+> is always correct." It is **"the disagreement is resolved deliberately and in writing, and the
+> loser is preserved."** A contract that cannot express a state the system genuinely reaches is
+> not a stricter contract. It is an incomplete one, and it converts the system's most complete
+> outcome into an unreadable file.
+>
+> **THE SAME FAILURE, ONE LAYER DOWN, AND IT HIT THE SAME RUN NUMBER TWICE.** The comment at
+> `conductor.py:114` exists because run 08 of the 2026-08-24 batch "promoted a policy to GCS and
+> DIED proving it had converged, so the one bundle that would have documented a fixpoint is the
+> one bundle that does not exist." That fix let the run finish. **The bundle it produced still
+> could not be read**, and it was run 08 of the pilot that found it.
+>
+> **WHY NOTHING CAUGHT IT FOR SIXTY RUNS: the path never fired.** Gate decisions across
+> `evidence/batch-night-2026-08-25/` are 95 `PROMOTE` and 1 `REJECT`, zero `CONVERGED`. The
+> twelve-run pilot produced one on a varied corpus walk. **A branch that never executes is
+> indistinguishable from a branch that works**, and sixty runs at a fixed seed did not execute it.
+>
+> **WHAT THIS INVALIDATES: nothing measured, and one bundle is recovered.** The enum widens, so
+> every bundle that validated before still validates — this cannot retroactively refuse anything.
+> `evidence/pilot-2026-08-25/run-08.c6.json` becomes readable evidence rather than a failed run.
+>
+> **WHAT IT COSTS: the C6 contract hash moves.** `contracts/MANIFEST.json` is re-taken and the
+> superseded record is kept beside it, same as every prior lock break. Any document quoting the
+> old C6 hash is stale as of this ruling — read the value off the manifest at use time, never
+> from prose. Ruling 46.
 
 > **SPINE_VERSION 25 — ruling 56, 2026-08-25. A DEGENERACY DETERMINATION PINS TO THE INSTANCE IT
 > IS ABOUT, NOT TO THE WHOLE CORPUS. Eric's ruling.**

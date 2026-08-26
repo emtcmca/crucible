@@ -183,6 +183,22 @@ SEEDS = CORPUS.attack_seeds()
 # records it: a generated corpus is only as reproducible as the thing that
 # generated it, and a seed buried in a constructor call is a seed the bundle
 # cannot report without retyping it.
+#
+# THE DEFAULT ONLY. Overridable with `--red-seed` since 2026-08-25, and the
+# reason is a measurement defect rather than a preference.
+#
+# This was a module constant, so every run in a batch drew the same walk. Counted
+# over the 60 bundles of evidence/batch-night-2026-08-25/: 26 of the 50 training
+# instances were EVER drawn, 24 were never attempted at all, and 15 of those 24
+# are money attacks - including the in-band ones the target could plausibly have
+# been argued into. Sixty runs was one corpus walk repeated sixty times, and it
+# read as sixty samples in every figure computed from it.
+#
+# A fixed seed buys reproducibility, which is worth keeping, so the fix is not
+# randomness - a random seed would trade one defect for a worse one. The batch
+# runner passes a DETERMINISTIC per-run seed and `red_seed` is recorded in the
+# run manifest, so a batch stays reproducible end to end while each run walks
+# somewhere different.
 RED_SEED = 1729
 
 # The seeded world `real_target` drives every episode against. Named here only
@@ -756,6 +772,11 @@ def run(argv=None):
                     help="fire real models, INCLUDING THE TARGET'S. Without it "
                          "every model role degrades and the bundle SAYS SO.")
     ap.add_argument("--usd-cap", type=float, default=5.00)
+    ap.add_argument("--red-seed", type=int, default=RED_SEED,
+                    help="RED_STRATEGIST shuffle seed, default %d. Pass a distinct "
+                         "seed per run to walk a different part of the corpus. It is "
+                         "recorded in the run manifest, so varying it costs no "
+                         "reproducibility." % RED_SEED)
     ap.add_argument("--out", default="")
     # G7c. `contracts/gate_rule.v1.yaml:205` is `holdout_touch_count ==
     # expected_for_this_phase`, and the PHASE decides the number - which is why
@@ -933,7 +954,7 @@ def run(argv=None):
     # nothing - and it would have had to defeat
     # `tests/test_campaign_gate_wiring.py`'s `isinstance(promote, RealGate)`
     # guard, which is the check that would have caught the `lambda c, r: True`.
-    red = RoundClock(RedStrategist(metered, seed=RED_SEED, governor=governor,
+    red = RoundClock(RedStrategist(metered, seed=args.red_seed, governor=governor,
                                    attack_mode=attack_mode))
     # `objective_set` IS THE ONE IN FORCE, resolved at line ~853 and the same
     # object the tripwire scores with. Handing the ARMORER a different copy would
@@ -1102,7 +1123,7 @@ def run(argv=None):
             objective_set=objective_set, seed_policy=policy, live=args.live,
             gate_summary=gate_summary(gate, gate_info), recorders=recorders,
             wall_clock_ms=(time.monotonic_ns() - started_ns) // 1_000_000,
-            red_seed=RED_SEED,
+            red_seed=args.red_seed,
             # THE SAME VALUE THE STRATEGIST WAS BUILT WITH, not `args.attack_mode`
             # - offline defaults to `corpus` and the run of record must carry the
             # EFFECTIVE mode rather than the flag that was typed.

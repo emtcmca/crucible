@@ -15,6 +15,20 @@
 # existence of a file, so a crashed run does not wedge the directory forever.
 OUT="${1:-evidence/batch-night-2026-08-25}"
 N="${2:-60}"
+
+# PER-RUN RED SEED, added 2026-08-25, and it is a measurement fix not a tuning.
+#
+# RED_SEED was a module constant, so every run in a batch drew the same walk.
+# Counted over the 60 bundles of evidence/batch-night-2026-08-25/: 26 of the 50
+# training instances were EVER drawn and 24 were never attempted once, 15 of
+# those being money attacks. Sixty runs was ONE CORPUS WALK REPEATED SIXTY
+# TIMES, and every figure computed from it read as sixty samples.
+#
+# SEED_BASE + run index, deterministically. NOT $RANDOM and not the clock: a
+# random seed would trade a coverage defect for a reproducibility defect, and
+# this batch has to be re-runnable by a stranger. Each run records its own
+# red_seed in the run manifest, so the walk is recoverable per run.
+SEED_BASE="${3:-1729}"
 mkdir -p "$OUT"
 LOCK="$OUT/RUNNER.lock"
 
@@ -35,6 +49,7 @@ for i in $(seq 1 "$N"); do
   GOOGLE_GENAI_USE_VERTEXAI=1 GOOGLE_CLOUD_PROJECT=crucible-hack-2026 \
     python -m crucible.conductor.campaign \
       --live --attack-mode hybrid --usd-cap 2.00 --holdout-expected 0 \
+      --red-seed "$((SEED_BASE + i))" \
       --out "$OUT/run-$n.json" > "$OUT/run-$n.console.txt" 2>&1
   echo $? > "$OUT/run-$n.exitcode"
 done
