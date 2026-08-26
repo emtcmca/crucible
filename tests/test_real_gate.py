@@ -59,6 +59,7 @@ import pytest
 from crucible import gate as gate_pkg
 from crucible.conductor import real_gate as rg
 from crucible.ledger import Ledger
+from tests import g4_fixtures as F
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 RUN = "run_20260822_120000_abc123"
@@ -72,24 +73,61 @@ LOCKS = {"manifest_hash": "m" * 16, "objective_set_hash": "o" * 16,
 # ---------------------------------------------------------------------------
 
 class FakeRecord:
-    """The two attributes `RealGate` reads off a `conductor.RoundRecord`."""
+    """The attributes `RealGate` reads off a `conductor.RoundRecord`.
 
-    def __init__(self, round_index=1, hashes=None):
+    `policy_in_force` and `training_slice` were added 2026-08-26 with G4. THIS
+    FILE'S SUBJECT IS THE PROMOTION WRITE PATH AND THE CLOUD BOUNDARIES, NOT G4
+    - so the defaults here are a slice G4 passes on, and every assertion about
+    what G4 does with a slice lives in `tests/test_g4.py`. Two files asserting
+    the same criterion is how one of them goes stale without failing.
+
+    They are NOT optional and they are NOT defaulted inside the gate: a record
+    that carries neither makes G4 UNEVALUABLE, which REJECTS. That is asserted
+    below rather than worked around.
+    """
+
+    def __init__(self, round_index=1, hashes=None, policy_in_force=F.EMPTY_POLICY,
+                 training_slice=None):
         self.round_index = round_index
         self.hashes = dict(hashes if hashes is not None else LOCKS)
+        self.policy_in_force = policy_in_force
+        self.training_slice = (F.slice_of() if training_slice is None
+                               else training_slice)
+        self.newly_blocked_b = None
+        self.newly_breached_c = None
+        self.g4_paired_n = None
+        self.g4_unpairable = None
+
+
+class RecordWithoutG4Inputs(FakeRecord):
+    """A record that predates G4 - no slice, no policy in force."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.policy_in_force = None
+        self.training_slice = None
 
 
 def candidate(threshold=50000, n_rules=1):
+    """RULES BUILT THROUGH THE REAL PARSER, not hand-written dicts.
+
+    This used to emit `{"cap_selector": ..., "when": [...]}`, which is not the
+    compiled shape (`{"match": {"capability_class": ..., "arg_conditions":
+    [...]}}`) and therefore fired on nothing. That was invisible while the only
+    subject was the write path - `promote` hashes bytes and does not care what
+    they mean - and became visible the moment G4 started asking whether the
+    candidate stops anything. A fixture whose rules cannot fire is a fixture
+    that cannot distinguish a working policy from an empty one.
+    """
     return {
         "envelope_version": 1,
         "hashed_payload": {
             "policy_schema_version": 1,
             "target_manifest_hash": LOCKS["manifest_hash"],
-            "rules": [{"rule_id": "r_%012d" % i, "verb": "deny",
-                       "cap_selector": "CAP_MOVES_MONEY",
-                       "when": [{"path": "amount_minor", "op": "gt",
-                                 "value": threshold + i}]}
-                      for i in range(n_rules)],
+            "rules": [F.rule_from_dsl(
+                "rule r_000000000000: cap:CAP_MOVES_MONEY when amount_minor > "
+                "%d => deny origin seed" % (threshold + i))
+                for i in range(n_rules)],
         },
         "lineage": {"version": 1, "parent_hash": "0" * 16,
                     "lineage_hash": "0" * 16},
@@ -283,7 +321,7 @@ def test_the_gate_records_a_findings_report_per_call(led, tmp_path):
     assert report["round_index"] == 3
     assert report["decision"] == "PROMOTE"
     gates = {f["gate"] for f in report["findings"]}
-    assert gates >= {"G7a", "G7b", "G7b2/G8", "G7c", "G8"}
+    assert gates >= {"G7a", "G7b", "G7b2/G8", "G7c", "G8", "G4"}
     assert all(f["status"] == rg.PASS for f in report["findings"])
 
 

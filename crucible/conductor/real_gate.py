@@ -61,16 +61,50 @@ EVALUATED HERE:
   G8   the Armorer<->Gate separation on the policies bucket, objectCreator-only
        on the promoter, retention present and UNLOCKED, versioning ON
   G2   policy read-back - `crucible.gate.promote`'s recompute-from-bytes
+  G4   attack reduction - `crucible.conductor.g4`, paired replay of the run's
+       recorded attack episodes at policy@vN and at the candidate. ADDED
+       2026-08-26; see the block below for what its absence had been costing.
 
 NOT EVALUATED HERE, and each already has an owner:
   G1   calibration + oracle freeze -> `crucible.warden.run_known_bad_suite`,
        `crucible.tripwire.known_bad`. Evaluated at round start, not at the gate.
   G3   benign floor -> the `benign_gate` hook. `Conductor.run_round` already
        computes `passed` from it and only calls this function when it holds.
-  G4   attack reduction -> the conductor's paired scoring across rounds.
   G5   rule hygiene -> `crucible.dsl.validator`, before a candidate exists.
   G6   provenance -> the Armorer's citation of this round's autopsy.
 Bolting any of them on here would put a second evaluator behind the same bool.
+
+G4 IS THE ONE THAT MOVED, AND WHY IT BELONGS HERE RATHER THAN IN THE CONDUCTOR
+------------------------------------------------------------------
+This list used to read "G4 attack reduction -> the conductor's paired scoring
+across rounds". No such scoring existed. `scripts/gate-census.py`:103-106 has
+filed G4 as ABSENT with the words "Nothing computes b or c" for as long as the
+census has run, and a grep for `newly_blocked` returned that census line and
+nothing else. **A criterion whose `failure_mode` is REJECT had never been
+evaluated once**, so `contracts/gate_rule.v1.yaml`'s promotion rule and the
+running promotion rule were two different rules.
+
+WHAT THAT COST, MEASURED, NOT ARGUED. `docs/design/gate-noop-measurement-
+2026-08-25.md` section 4: of 31 promoted rules across the 14 bundles the
+shipped offline reader accepts, **18 do not close the breach they were written
+for**. A rule that fires on nothing cannot fail a benign floor - it is the
+EASIEST candidate to promote - so the loop's only gradient pointed straight at
+it. G4 is the check that asks the other question.
+
+It goes here and not in the conductor because it is a PROMOTION CONDITION. The
+conductor's job is to hand the gate a candidate and read a decision; a
+promotion condition evaluated in the caller is a condition the gate cannot be
+said to have applied. `crucible.conductor.g4` holds the arithmetic and this
+file holds the decision, the same split as `infra.verify_iam` and the IAM
+findings above.
+
+G4 UNEVALUABLE REJECTS. IT DOES NOT INVALIDATE THE RUN, AND IT DOES NOT PASS.
+The route is read off the contract rather than invented: G7 declares
+`absent_or_unevaluable: RUN_INVALID` explicitly and G4 declares no such key,
+declaring only `failure_mode: REJECT`. So a candidate whose attack reduction
+could not be measured is not promoted and the run stays valid. Letting it pass
+is the one option that is definitely wrong - that is a check that cannot fail
+(`measurement-spec.md`:813), which is what G4 already was.
 
 G7c IS INJECTED, AND WITHOUT IT THE RUN IS INVALID. THAT IS NOT A BUG.
 ------------------------------------------------------------------
@@ -127,6 +161,7 @@ two are separated and labelled rather than blended into one "storage backend"
 that tests green and has never been called.
 """
 
+import os
 import subprocess
 import time
 
@@ -134,6 +169,8 @@ from infra import holdout_touch as ht
 from infra import verify_iam
 from ..canon import canonicalize
 from ..gate import PromotionError, object_name, promote
+from ..tripwire.objective_set import load_objective_set
+from . import g4 as g4mod
 
 # --------------------------------------------------------------------------
 # Outcomes. Two of the three cannot travel through the conductor's bool.
@@ -179,9 +216,17 @@ G8_FAILURE_TEXT = "the separation was never real"
 
 
 def finding(gate, check, status, detail="", invalidates=False,
-            failure_text=""):
+            failure_text="", rejects_if_unevaluable=False):
     """`invalidates` is carried EXPLICITLY, per finding, and is never inferred
     from the gate id.
+
+    `rejects_if_unevaluable` is the same discipline applied to the OTHER
+    default. UNEVALUABLE routes to RUN INVALID here because G7 says so in
+    `absent_or_unevaluable: RUN_INVALID`; G4 declares no such key and only
+    `failure_mode: REJECT`, so an unmeasurable G4 is a rejection rather than a
+    voided run. Carrying that as a per-finding field keeps the decision where
+    the contract can be read beside it, instead of teaching `__call__` a second
+    list of gate ids.
 
     The first version of this file decided RUN INVALID by testing whether the
     gate id started with "G8". That is prefix-matching on an identifier to
@@ -202,7 +247,8 @@ def finding(gate, check, status, detail="", invalidates=False,
     this is the same shape one level up, so the semantic is a field.
     """
     return {"gate": gate, "check": check, "status": status, "detail": detail,
-            "invalidates": bool(invalidates), "failure_text": failure_text}
+            "invalidates": bool(invalidates), "failure_text": failure_text,
+            "rejects_if_unevaluable": bool(rejects_if_unevaluable)}
 
 
 def _from_predicate(gate, check, problem, invalidates=False, failure_text=""):
@@ -685,7 +731,8 @@ class RealGate:
 
     def __init__(self, ledger, run_id, blob_writer, blob_reader, repo_root,
                  holdout_touch=None, holdout_expected=2, iam_fetch=None,
-                 probe_run=None, clock=None, sleep=None, skip_cloud=False):
+                 probe_run=None, clock=None, sleep=None, skip_cloud=False,
+                 objective_set_path=None):
         """`holdout_touch` is a zero-arg callable returning the current
         `holdout_touch_count`. There is NO DEFAULT: see the module docstring.
 
@@ -706,6 +753,17 @@ class RealGate:
         self.sleep = sleep or time.sleep
         self.skip_cloud = skip_cloud
         self.reports = []
+        # G4. The path is a parameter so a test can point it at a different
+        # Objective Set - a criterion whose subject cannot be varied cannot be
+        # shown to fail, which is the same argument `refusal_licence` is a
+        # parameter for one file over.
+        self.objective_set_path = (
+            objective_set_path
+            or os.path.join(self.repo_root, "contracts", "objective_set.v1.json"))
+        self._objective_set = None
+        # Every G4 measurement this gate made, in order, so the bundle can carry
+        # b and c without recomputing them.
+        self.g4_scores = []
         # Fail at CONSTRUCTION, not at the first write. A gate built with the
         # wrong promoter is not a gate that rejects later; it is a gate that
         # should never have been built.
@@ -760,8 +818,67 @@ class RealGate:
 
     # -- the call ----------------------------------------------------------
 
+    def objective_set(self):
+        """The Objective Set G4 scores through, loaded ONCE per gate.
+
+        One load, for the same reason `real_warden` caches the benign suite and
+        `campaign` builds `local_blob_io` exactly once: two loads of the same
+        artifact agree today and are a place for them to disagree later.
+        """
+        if self._objective_set is None:
+            self._objective_set = load_objective_set(self.objective_set_path)
+        return self._objective_set
+
+    def g4_finding(self, candidate, record):
+        """G4, ATTACK REDUCTION. `contracts/gate_rule.v1.yaml`:129-137.
+
+        The arithmetic is `crucible.conductor.g4`; what this method owns is the
+        finding and, through it, the route. `scores` is stashed on the record so
+        the bundle can print b and c beside the decision rather than recompute
+        them - ruling 37.1's lesson, one criterion over: a number with no
+        producer is a number nobody can audit afterwards.
+        """
+        check = "newly_blocked_b >= %d and newly_breached_c == %d" % (
+            g4mod.B_MIN, g4mod.C_MAX)
+        try:
+            scores = g4mod.paired_scores(
+                getattr(record, "training_slice", None),
+                getattr(record, "policy_in_force", None),
+                candidate, self.objective_set())
+        except g4mod.G4Unevaluable as exc:
+            return finding("G4", check, UNEVALUABLE, str(exc),
+                           rejects_if_unevaluable=True)
+        passes, detail = g4mod.decide(scores)
+        record.newly_blocked_b = scores["newly_blocked_b"]
+        record.newly_breached_c = scores["newly_breached_c"]
+        record.g4_paired_n = scores["n"]
+        record.g4_unpairable = len(scores["unpairable"])
+        self.g4_scores.append(dict(scores,
+                                   round_index=getattr(record, "round_index", None)))
+        return finding("G4", check, PASS if passes else FAIL, detail)
+
     def __call__(self, candidate, record):
+        # THE ENVELOPE IS CHECKED BEFORE ANY CRITERION READS IT, and the check
+        # HALTS rather than rejecting.
+        #
+        # This used to live inside `_promote_with_assertion`, at the end. That
+        # was safe while every criterion above it was about the cloud
+        # boundaries and ignored the candidate entirely; G4 reads the
+        # candidate's rules, and a candidate with no `hashed_payload` looks to
+        # it exactly like a policy with no rules - so a MALFORMED candidate came
+        # back as an ordinary G4 rejection. That is the downgrade this file's
+        # header names: "try again next round" standing in for a structural
+        # fault. A malformed candidate is a HALT no matter which criterion
+        # happens to notice it first, so it is decided once, here, before
+        # anything downstream can mistake it for a measurement.
+        if candidate is None or candidate.get("hashed_payload") is None:
+            raise GateHalt("PROMOTION_ASSERT_FAILED",
+                           "the candidate carries no hashed_payload")
         findings = self.preflight()
+        # G4 IS CANDIDATE-DEPENDENT, so it cannot live in `preflight`, which is
+        # a statement about the cloud boundaries and is the same answer for
+        # every candidate in the round.
+        findings = findings + [self.g4_finding(candidate, record)]
         report = {"round_index": getattr(record, "round_index", None),
                   "findings": findings}
         self.reports.append(report)
@@ -772,7 +889,9 @@ class RealGate:
         # finding carrying `invalidates` - which is decided where the assertion
         # is built, never inferred from the gate id here.
         invalidating = [f for f in bad
-                        if f["status"] == UNEVALUABLE or f["invalidates"]]
+                        if (f["status"] == UNEVALUABLE
+                            and not f.get("rejects_if_unevaluable"))
+                        or f["invalidates"]]
         if invalidating:
             report["decision"] = "RUN_INVALID"
             texts = [f["failure_text"] for f in invalidating if f["failure_text"]]
@@ -794,6 +913,11 @@ class RealGate:
         Retrying is safe because `promote` appends to the ledger only after the
         assertion holds - there is no partial state to clean up.
         """
+        # `__call__` already refused a candidate with no `hashed_payload`, and
+        # it must stay refused HERE TOO: this method is reachable from a test
+        # or a future caller that does not go through `__call__`, and a guard
+        # that only exists at one entry point is a guard that a second entry
+        # point silently removes.
         payload = candidate.get("hashed_payload")
         if payload is None:
             raise GateHalt("PROMOTION_ASSERT_FAILED",
