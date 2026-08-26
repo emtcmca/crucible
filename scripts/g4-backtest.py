@@ -42,7 +42,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from crucible.conductor.g4 import (                             # noqa: E402
-    G4Unevaluable, decide, paired_scores)
+    G4BaselineUnavailable, G4Unevaluable, decide, load_baseline, paired_scores)
 from crucible.dsl.parser import parse_rule                      # noqa: E402
 from crucible.dsl.serialize import (                            # noqa: E402
     assign_rule_id, compile_rule, rule_body, sort_rules)
@@ -124,7 +124,7 @@ def scorable_episodes(bundle):
     return out
 
 
-def backtest_bundle(path, objective_set):
+def backtest_bundle(path, objective_set, baseline=None):
     path = pathlib.Path(path)
     bundle, accepted = open_bundle(path)
     out = {"bundle": str(path),
@@ -182,11 +182,20 @@ def backtest_bundle(path, objective_set):
         # this round alone, because "does the slice accumulate" is the one
         # design choice in the wiring and a reader should not have to take it
         # on trust.
+        #
+        # AND, WHEN IT IS ON DISK, THE FROZEN v0 BASELINE - the 50-instance
+        # training slice `measurement-spec.md`:1151 states `b = 30, c = 0`
+        # against. THE THRESHOLD IS IDENTICAL IN ALL THREE ARMS; it is read out
+        # of the hash-locked contract by `crucible.conductor.g4` and is not
+        # spelled here. ONLY THE DENOMINATOR MOVES, which is the entire
+        # experiment. Anything else differing between arms would be a defect.
         cumulative = [e for e in episodes
                       if (e.get("round_index") or 0) <= rnd]
         this_round = [e for e in episodes if e.get("round_index") == rnd]
-        for label, slice_ in (("cumulative", cumulative),
-                              ("round_only", this_round)):
+        arms = [("cumulative", cumulative), ("round_only", this_round)]
+        if baseline is not None:
+            arms.append(("baseline", baseline))
+        for label, slice_ in arms:
             try:
                 sc = paired_scores(slice_, policies[prior_v],
                                    policies[new_v], objective_set)
@@ -199,7 +208,59 @@ def backtest_bundle(path, objective_set):
                           "unpairable": len(sc["unpairable"]),
                           "g4_passes": passes, "detail": detail}
         out["rows"].append(row)
+
+    # WOULD THIS RUN HAVE HALTED. `contracts/gate_rule.v1.yaml` halts on two
+    # consecutive rejections, and that is the figure a person deciding whether
+    # to turn G4 on actually needs: a rejection costs a round, a HALT costs the
+    # run and a human's attention at 2am.
+    #
+    # ROUND ORDER, NOT `patch_proposals` ORDER. The rows above are appended in
+    # the order the bundle lists proposals; a streak counted in that order would
+    # be a streak of something other than consecutive rounds.
+    #
+    # THE SAME CAVEAT AS EVERY OTHER FIGURE HERE, AND IT BITES HARDEST ON THIS
+    # ONE: once G4 rejects, the real run DIVERGES. This counts rejections in the
+    # recorded history, which is an upper bound on agreement with that history,
+    # not a forecast of what a re-run would do.
+    halt_after = _halt_after()
+    for label in ("cumulative", "round_only", "baseline"):
+        streak, halted_at = 0, None
+        for row in sorted(out["rows"], key=lambda r: (r["round_index"] or 0)):
+            s = row.get(label)
+            if not s or "unevaluable" in s:
+                continue
+            if s["g4_passes"]:
+                streak = 0
+                continue
+            streak += 1
+            if streak >= halt_after:
+                halted_at = row["round_index"]
+                break
+        out.setdefault("halt", {})[label] = halted_at
     return out
+
+
+def _halt_after(path=None):
+    """How many consecutive rejections HALT a run, READ off the contract.
+
+    `on:` IS A YAML 1.1 BOOLEAN. PyYAML parses the bare key `on` as `True`, so
+    `halt.get("on")` is None - and a None falling through to a default would
+    give this backtest a halt rule the contract never stated. Both spellings are
+    read; the contract file is hash-locked and is not edited to suit a parser.
+    """
+    import yaml
+    doc = yaml.safe_load(
+        pathlib.Path(path or (REPO / "contracts" / "gate_rule.v1.yaml"))
+        .read_text(encoding="utf-8"))
+    halt = (doc or {}).get("halt") or {}
+    on = halt.get("on", halt.get(True))
+    known = {"two_consecutive_rejections": 2}
+    if on not in known:
+        raise SystemExit(
+            "E_G4_CONTRACT_UNREADABLE: gate_rule.v1.yaml declares halt.on = %r, "
+            "which this script has no reading for. It will not guess how many "
+            "rejections stop a run." % (on,))
+    return known[on]
 
 
 # ---------------------------------------------------------------------------
@@ -207,19 +268,38 @@ def backtest_bundle(path, objective_set):
 # ---------------------------------------------------------------------------
 
 def totals(results):
+    def _pop():
+        return {"promotions": 0, "cumulative_pass": 0, "round_only_pass": 0,
+                "c_gt_0": 0, "b_lt_3": 0, "b_zero": 0, "unclassified": 0,
+                # THE BASELINE ARM. `baseline_seen` is counted separately from
+                # `promotions` on purpose: a run without the baseline on disk
+                # must report "not measured" rather than a pass rate computed
+                # over a denominator of zero.
+                "baseline_seen": 0, "baseline_pass": 0, "baseline_b_zero": 0,
+                "baseline_b_hist": {},
+                # RUNS, not promotions. A rejection costs a round; two in a row
+                # cost the run.
+                "runs": 0, "halt_cumulative": 0, "halt_round_only": 0,
+                "halt_baseline": 0, "halt_baseline_measurable": 0}
     acc = {"bundles": 0, "refused_reconstruction": 0,
-           "accepted_pop": {"promotions": 0, "cumulative_pass": 0,
-                            "round_only_pass": 0, "c_gt_0": 0, "b_lt_3": 0,
-                            "b_zero": 0, "unclassified": 0},
-           "refused_pop": {"promotions": 0, "cumulative_pass": 0,
-                           "round_only_pass": 0, "c_gt_0": 0, "b_lt_3": 0,
-                           "b_zero": 0, "unclassified": 0}}
+           "accepted_pop": _pop(), "refused_pop": _pop()}
     for res in results:
         acc["bundles"] += 1
         if res["refusal"]:
             acc["refused_reconstruction"] += 1
             continue
         pop = acc["accepted_pop"] if res["offline_reader_accepts"] else acc["refused_pop"]
+        halt = res.get("halt") or {}
+        if res["rows"]:
+            pop["runs"] += 1
+            if halt.get("cumulative") is not None:
+                pop["halt_cumulative"] += 1
+            if halt.get("round_only") is not None:
+                pop["halt_round_only"] += 1
+            if any(r.get("baseline") for r in res["rows"]):
+                pop["halt_baseline_measurable"] += 1
+                if halt.get("baseline") is not None:
+                    pop["halt_baseline"] += 1
         for row in res["rows"]:
             pop["promotions"] += 1
             cum = row.get("cumulative")
@@ -237,6 +317,21 @@ def totals(results):
             ro = row.get("round_only") or {}
             if ro.get("g4_passes"):
                 pop["round_only_pass"] += 1
+            bl = row.get("baseline")
+            if bl and "unevaluable" not in bl:
+                pop["baseline_seen"] += 1
+                if bl["g4_passes"]:
+                    pop["baseline_pass"] += 1
+                if bl["b"] == 0:
+                    pop["baseline_b_zero"] += 1
+                # THE HISTOGRAM IS THE FINDING, NOT THE RATE. Over the frozen
+                # fifty the b distribution is bimodal with almost nothing
+                # between - a patch closes nothing or closes the whole PII
+                # cluster at once - which is why a rejection here is a patch
+                # that did nothing rather than a threshold set too high. A pass
+                # rate alone hides that completely.
+                pop["baseline_b_hist"][bl["b"]] = (
+                    pop["baseline_b_hist"].get(bl["b"], 0) + 1)
     return acc
 
 
@@ -254,11 +349,14 @@ def print_report(res):
             print("  r%-2s %-46s %s" % (row["round_index"],
                                         row["proposal_id"], row["code"]))
             continue
-        cum, ro = row.get("cumulative") or {}, row.get("round_only") or {}
         print("  r%-2s %-46s v%s->v%s" % (row["round_index"], row["proposal_id"],
                                           row["prior_policy_version"],
                                           row["promoted_policy_version"]))
-        for label, s in (("cumulative", cum), ("round_only", ro)):
+        arms = [("cumulative", row.get("cumulative") or {}),
+                ("round_only", row.get("round_only") or {})]
+        if row.get("baseline"):
+            arms.append(("baseline", row["baseline"]))
+        for label, s in arms:
             if "unevaluable" in s:
                 print("       %-11s UNEVALUABLE %s" % (label, s["unevaluable"][:70]))
                 continue
@@ -288,14 +386,44 @@ def print_totals(acc):
         print("    not classified                           %5d" % p["unclassified"])
         print("    [reference] G4 would PASS on a ROUND-ONLY slice %5d"
               % p["round_only_pass"])
+        print("    --- HALT: two consecutive rejections stop the run ---")
+        print("    runs with a promotion                    %5d" % p["runs"])
+        print("    would HALT (cumulative slice)            %5d" % p["halt_cumulative"])
+        print("    would HALT (round-only slice)            %5d" % p["halt_round_only"])
+        if p["halt_baseline_measurable"]:
+            print("    would HALT (baseline slice)              %5d of %5d"
+                  % (p["halt_baseline"], p["halt_baseline_measurable"]))
+        if not p["baseline_seen"]:
+            print("    [baseline slice] NOT MEASURED - no frozen v0 baseline "
+                  "was loaded. Not a zero.")
+            continue
+        print("    --- THE SAME THRESHOLD OVER THE FROZEN v0 SLICE ---")
+        print("    G4 would PASS   (baseline slice)         %5d of %5d"
+              % (p["baseline_pass"], p["baseline_seen"]))
+        print("    G4 would REJECT (baseline slice)         %5d"
+              % (p["baseline_seen"] - p["baseline_pass"]))
+        print("      of which b == 0 (closed NOTHING)       %5d"
+              % p["baseline_b_zero"])
+        print("    b histogram over the baseline            %s"
+              % dict(sorted(p["baseline_b_hist"].items())))
+        print("      READ THE HISTOGRAM, NOT THE RATE. It is bimodal with "
+              "almost nothing between:")
+        print("      a patch closes NOTHING or closes the whole PII cluster at "
+              "once, so almost")
+        print("      every rejection is a patch that did nothing rather than a "
+              "threshold set too high.")
     print("\n" + "=" * 74)
+    print("THE THRESHOLD IS IDENTICAL IN EVERY ARM - it is read out of the "
+          "hash-locked\ncontract by crucible.conductor.g4. ONLY THE DENOMINATOR "
+          "MOVES.")
+    print("REPLAY, NOT RE-ATTACK. Single-sample, k=1, no stability estimate.")
 
 
 # ---------------------------------------------------------------------------
 # the selftest. A backtest that cannot report a rejection is not measuring.
 # ---------------------------------------------------------------------------
 
-def selftest(path, objective_set):
+def selftest(path, objective_set, baseline=None):
     """Four checks, each naming a change the harness must notice.
 
     The point is the same as `gate-noop-measurement.py --selftest`: a reader
@@ -347,12 +475,48 @@ def selftest(path, objective_set):
           same["newly_blocked_b"] == 0 and same["newly_breached_c"] == 0
           and not passes)
 
-    # 5. a real promotion in this bundle PASSES, so PASS is reachable too.
+    # 5. PASS IS REACHABLE. A suite that can only ever report REJECT has not
+    #    measured anything, and this is the check that says otherwise.
+    #
+    #    IT USED TO ASK ONLY WHETHER THIS BUNDLE'S OWN v_lo -> v_hi CHAIN
+    #    PASSES, AND THAT MADE IT BUNDLE-DEPENDENT: on
+    #    evidence/batch-night-2026-08-25/run-05.c6.json the whole chain scores
+    #    b = 2 over its own slice and the check FAILED - verified against main's
+    #    copy of this script on 2026-08-26, so it is not a regression from the
+    #    baseline work. A control whose result depends on which argument you
+    #    hand it can be made to pass by choosing the input, which is a weaker
+    #    control than it looks.
+    #
+    #    So both pairs available in every bundle are tried and the check passes
+    #    if EITHER reaches PASS. `decide` returning True is the property under
+    #    test; which recorded chain happens to get there is not. The pair that
+    #    succeeded is named in the row, because "PASS is reachable" and "this
+    #    run's promotions would have survived" are different claims and only the
+    #    first is being made here.
+    tried = []
+    reachable = False
     real = paired_scores(episodes, policies[lo], policies[hi], objective_set)
-    passes, _ = decide(real)
-    check("the run's own v%d -> v%d chain PASSES G4 (b=%d c=%d), so PASS is "
-          "reachable" % (lo, hi, real["newly_blocked_b"],
-                         real["newly_breached_c"]), passes)
+    ok, _ = decide(real)
+    reachable = reachable or ok
+    tried.append("own-chain v%d->v%d b=%d %s"
+                 % (lo, hi, real["newly_blocked_b"], "PASS" if ok else "reject"))
+    ok, _ = decide(forward)
+    reachable = reachable or ok
+    tried.append("empty->v%d b=%d %s"
+                 % (hi, forward["newly_blocked_b"], "PASS" if ok else "reject"))
+    if baseline:
+        # THE BASELINE ARM IS WHERE PASS IS ACTUALLY DEMONSTRABLE ON REAL DATA,
+        # AND THE REASON IS ITSELF THE FINDING: over a run's own six-to-thirty
+        # episodes no recorded chain in these bundles reaches b >= 3 at all.
+        # Over the frozen fifty the same final policy closes the whole
+        # PII cluster at once.
+        bl = paired_scores(baseline, empty, policies[hi], objective_set)
+        ok, _ = decide(bl)
+        reachable = reachable or ok
+        tried.append("baseline empty->v%d b=%d %s"
+                     % (hi, bl["newly_blocked_b"], "PASS" if ok else "reject"))
+    check("PASS is reachable on real recorded data (%s)" % "; ".join(tried),
+          reachable)
 
     # 6. a missing slice is UNEVALUABLE, not b = 0.
     try:
@@ -375,12 +539,28 @@ def main(argv=None):
     ap.add_argument("targets", nargs="+")
     ap.add_argument("--json")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--no-baseline", action="store_true",
+                    help="skip the frozen v0 baseline arm even if it is on "
+                         "disk. For reproducing a report taken before the "
+                         "baseline existed.")
     args = ap.parse_args(argv)
 
     objective_set = load_objective_set(OBJECTIVE_SET)
 
+    # THE THIRD ARM, AND ITS ABSENCE IS SAID OUT LOUD RATHER THAN DEFAULTED.
+    # A backtest that quietly dropped the baseline arm would print a two-arm
+    # report indistinguishable from one where the baseline scored badly.
+    baseline = None
+    if not args.no_baseline:
+        try:
+            baseline = load_baseline(objective_set=objective_set).slice()
+            print("baseline arm: %d frozen v0 episodes, "
+                  "docs/proof/v0-attack-baseline-freeze.json" % len(baseline))
+        except G4BaselineUnavailable as exc:
+            print("baseline arm: NOT MEASURED. %s" % exc)
+
     if args.selftest:
-        checks = selftest(args.targets[0], objective_set)
+        checks = selftest(args.targets[0], objective_set, baseline)
         failed = 0
         for name, ok in checks:
             print("  %s %s" % ("PASS" if ok else "FAIL", name))
@@ -391,7 +571,7 @@ def main(argv=None):
     results = []
     for target in args.targets:
         for path in collect(target):
-            res = backtest_bundle(path, objective_set)
+            res = backtest_bundle(path, objective_set, baseline)
             results.append(res)
             print_report(res)
     print_totals(totals(results))

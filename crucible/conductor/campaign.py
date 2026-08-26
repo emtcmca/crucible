@@ -589,7 +589,7 @@ EXIT_BUNDLE_INVALID = 4
 
 def build_gate(run_id, locks, live, store_root, holdout_expected=None,
                holdout_since=None, holdout_settle=45.0, repo_root=_REPO,
-               g4_mode=None, g4_record_only_reason=""):
+               g4_mode=None, g4_record_only_reason="", g4_slice=None):
     """Build the callable the conductor's `promote` hook calls, and describe it.
 
     Returns `(gate, info)`. `info` is what the banner prints and what the bundle
@@ -662,10 +662,30 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
     # unexplained RECORD_ONLY fails before a single gcloud call is made or a
     # single model token is spent.
     g4_mode, g4_reason = g4mod.resolve_mode(g4_mode, g4_record_only_reason)
+    # THE SLICE IS RESOLVED HERE TOO, AND FOR THE SAME REASON: `--g4-slice
+    # baseline` with no baseline on disk must fail before a token is spent, not
+    # in round three. `RealGate.__init__` loads it, so this only has to name it.
+    g4_slice = g4mod.DEFAULT_SLICE if g4_slice is None else str(g4_slice)
+    if g4_slice not in g4mod.SLICES:
+        raise g4mod.G4SliceError(
+            "%r is not a G4 slice. The slices are %s."
+            % (g4_slice, ", ".join(g4mod.SLICES)))
     info["g4"] = {"mode": g4_mode,
                   "enforced": g4_mode == g4mod.ENFORCING,
                   "record_only_reason": g4_reason or None,
-                  "thresholds": "b >= %d, c == %d" % (g4mod.B_MIN, g4mod.C_MAX)}
+                  # OPERATORS FROM THE CONTRACT, not spelled here. `b >= %d`
+                  # hardcoded would be a third copy of a threshold whose owner
+                  # is a frozen file.
+                  "thresholds": "b %s %d, c %s %d" % (
+                      {"gte": ">=", "gt": ">"}.get(g4mod.B_OP, g4mod.B_OP),
+                      g4mod.B_MIN,
+                      {"eq": "==", "lte": "<="}.get(g4mod.C_OP, g4mod.C_OP),
+                      g4mod.C_MAX),
+                  # WHICH EPISODES b AND c WERE PAIRED OVER. In the banner and
+                  # in the bundle, always: `b >= 3` over a run's six episodes
+                  # and over the frozen fifty are different demands, and a
+                  # denominator without its provenance is not auditable.
+                  "slice": g4_slice}
 
     if live:
         # Bucket name SOURCED, never retyped. G7/G8 grep these literals, so a
@@ -680,7 +700,8 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
             blob_writer=blobs.writer, blob_reader=blobs.reader,
             repo_root=repo_root, holdout_touch=counter,
             holdout_expected=holdout_expected, skip_cloud=False,
-            g4_mode=g4_mode, g4_record_only_reason=g4_reason)
+            g4_mode=g4_mode, g4_record_only_reason=g4_reason,
+            g4_slice=g4_slice)
         info.update({
             "cloud_assertions": "LIVE",
             "policy_store": "%s via GcsBlobIO" % env["CRUCIBLE_POLICIES_BUCKET"],
@@ -709,7 +730,8 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
             # read, and `holdout_touch` has no default precisely so that
             # "nothing computed this" cannot be mistaken for "the count was 0".
             holdout_touch=None, skip_cloud=True,
-            g4_mode=g4_mode, g4_record_only_reason=g4_reason)
+            g4_mode=g4_mode, g4_record_only_reason=g4_reason,
+            g4_slice=g4_slice)
         info.update({
             "cloud_assertions": "SKIPPED_OFFLINE",
             "policy_store": "local files at %s" % policies,
@@ -777,16 +799,36 @@ def _g4_banner_line(info):
                 "built `info` by hand and did not pass `g4`, so nothing here "
                 "may say whether attack reduction was enforced. Read "
                 "`summary.gate.g4_mode`, which is derived from the gate.")
+    # THE SLICE IS PART OF THE CLAIM, NOT A DETAIL. `b >= 3` over a run's own
+    # six-to-thirty episodes and `b >= 3` over the frozen fifty are different
+    # demands - measured on the bundles on disk, 29 of 32 recorded promotions
+    # rejected against 21 of 32. A banner that printed the threshold and not the
+    # denominator would let two runs report the same criterion having enforced
+    # two different things.
+    slice_note = {
+        "run": "the RUN'S OWN accumulated attack episodes. n GROWS every "
+               "round, so the threshold is a different demand in round 1 than "
+               "in round 6. It is the only slice that can see a RED-GENERATED "
+               "attack.",
+        "baseline": "the FROZEN v0 training slice, "
+                    "docs/proof/v0-attack-baseline-freeze.json. n is fixed for "
+                    "the whole run and covers every corpus instance from round "
+                    "1. IT IS BLIND TO RED-GENERATED ATTACKS - say so beside "
+                    "any b figure from this run.",
+    }.get(g4.get("slice"), "UNSTATED. A b figure whose denominator has no "
+                           "provenance is not auditable.")
     if g4["enforced"]:
         return ("  G4           : ENFORCING. Attack reduction (%s) is paired "
-                "against policy@vN and A FAILING CANDIDATE IS REJECTED."
-                % g4["thresholds"])
+                "against policy@vN and A FAILING CANDIDATE IS REJECTED. "
+                "SLICE=%s - %s"
+                % (g4["thresholds"], g4.get("slice"), slice_note))
     return ("  G4           : >>> SCORED, NOT ENFORCED. RECORD_ONLY: %s. b and "
             "c are measured on every candidate and written to "
             "criteria.attack_reduction, and A FAILING CANDIDATE IS PROMOTED "
             "ANYWAY. NO PROMOTION IN THIS RUN WAS GATED ON ATTACK REDUCTION - "
-            "do not read one as having survived %s."
-            % (g4["record_only_reason"], g4["thresholds"]))
+            "do not read one as having survived %s. SLICE=%s - %s"
+            % (g4["record_only_reason"], g4["thresholds"], g4.get("slice"),
+               slice_note))
 
 
 def gate_banner_lines(live, info):
@@ -880,6 +922,21 @@ def run(argv=None):
                          "G4 ENFORCES - that is the default, because forgetting "
                          "the flag halts a run loudly while forgetting to "
                          "REMOVE it disables a REJECT criterion silently.")
+    ap.add_argument("--g4-slice", choices=list(g4mod.SLICES),
+                    default=g4mod.DEFAULT_SLICE,
+                    help="WHICH EPISODES b AND c ARE PAIRED OVER. `run` (the "
+                         "default) is this run's own accumulated scorable "
+                         "attack episodes - the only source for RED-generated "
+                         "attacks, and a denominator that grows every round, so "
+                         "the threshold is a different demand in round 1 than "
+                         "in round 6. `baseline` is the frozen fifty of "
+                         "docs/proof/v0-attack-baseline-freeze.json: the "
+                         "training slice the threshold was calibrated against, "
+                         "fixed for the whole run, covering every corpus "
+                         "instance from round 1, and BLIND TO GENERATED "
+                         "ATTACKS. Neither is a superset of the other. "
+                         "Whichever is used is printed in the banner and "
+                         "written into the bundle beside every b and c.")
     ap.add_argument("--holdout-settle", type=float, default=45.0,
                     help="seconds to wait for Cloud Logging ingestion before "
                          "counting. MEASURED, not guessed: a probe that "
@@ -999,7 +1056,8 @@ def run(argv=None):
         holdout_since=args.holdout_since or started_at,
         holdout_settle=args.holdout_settle,
         g4_mode=(g4mod.RECORD_ONLY if args.g4_record_only else None),
-        g4_record_only_reason=args.g4_record_only)
+        g4_record_only_reason=args.g4_record_only,
+        g4_slice=args.g4_slice)
 
     base_manifest = RunManifest(
         policy_version=(policy.get("lineage") or {}).get("version", 0),

@@ -753,7 +753,8 @@ class RealGate:
     def __init__(self, ledger, run_id, blob_writer, blob_reader, repo_root,
                  holdout_touch=None, holdout_expected=2, iam_fetch=None,
                  probe_run=None, clock=None, sleep=None, skip_cloud=False,
-                 objective_set_path=None, g4_mode=None, g4_record_only_reason=""):
+                 objective_set_path=None, g4_mode=None, g4_record_only_reason="",
+                 g4_slice=None):
         """`holdout_touch` is a zero-arg callable returning the current
         `holdout_touch_count`. There is NO DEFAULT: see the module docstring.
 
@@ -792,6 +793,26 @@ class RealGate:
         # `promoted_by`, which is resolved two lines up for the same reason.
         self.g4_mode, self.g4_record_only_reason = g4mod.resolve_mode(
             g4_mode, g4_record_only_reason)
+        # WHICH SLICE b AND c ARE PAIRED OVER. `run` is the default and is the
+        # behaviour that shipped: the conductor's accumulated scorable attack
+        # episodes. `baseline` is the frozen fifty of
+        # `docs/proof/v0-attack-baseline-freeze.json`.
+        #
+        # RESOLVED AT CONSTRUCTION FOR THE SAME REASON THE MODE IS. A gate built
+        # with `baseline` when no baseline exists is not a gate that rejects in
+        # round three - it is a gate that should never have been built, and
+        # finding that out after six rounds of model spend is finding it out too
+        # late. `load_baseline` runs here, once, and every refusal it can raise
+        # propagates out of the constructor.
+        self.g4_slice = g4mod.DEFAULT_SLICE if g4_slice is None else str(g4_slice)
+        if self.g4_slice not in g4mod.SLICES:
+            raise g4mod.G4SliceError(
+                "%r is not a G4 slice. The slices are %s."
+                % (self.g4_slice, ", ".join(g4mod.SLICES)))
+        self._g4_baseline = None
+        if self.g4_slice == g4mod.SLICE_BASELINE:
+            self._g4_baseline = g4mod.load_baseline(
+                objective_set=self.objective_set())
         # Fail at CONSTRUCTION, not at the first write. A gate built with the
         # wrong promoter is not a gate that rejects later; it is a gate that
         # should never have been built.
@@ -866,27 +887,43 @@ class RealGate:
         them - ruling 37.1's lesson, one criterion over: a number with no
         producer is a number nobody can audit afterwards.
         """
-        check = "newly_blocked_b >= %d and newly_breached_c == %d" % (
-            g4mod.B_MIN, g4mod.C_MAX)
+        ops = {"gte": ">=", "gt": ">", "eq": "==", "lte": "<=", "lt": "<"}
+        check = ("newly_blocked_b %s %d and newly_breached_c %s %d "
+                 "over the %s slice"
+                 % (ops.get(g4mod.B_OP, g4mod.B_OP), g4mod.B_MIN,
+                    ops.get(g4mod.C_OP, g4mod.C_OP), g4mod.C_MAX,
+                    self.g4_slice))
         # THE MODE IS STAMPED ON THE RECORD BEFORE ANYTHING IS SCORED, so a
         # round that raises mid-measurement still says which mode was in force.
         record.g4_mode = self.g4_mode
         record.g4_record_only_reason = self.g4_record_only_reason
+        # THE SLICE IS STAMPED FOR THE SAME REASON, AND IT TRAVELS WITH b AND c
+        # EVERYWHERE THEY GO. `b >= 3` over the run's six episodes and `b >= 3`
+        # over the frozen fifty are different demands, and two runs reporting
+        # b = 5 measured the same thing only if both slices were the same slice.
+        # A denominator whose PROVENANCE is not recorded is the same defect as a
+        # threshold printed without its denominator, one level out.
+        record.g4_slice = self.g4_slice
+        episodes = (self._g4_baseline.slice()
+                    if self._g4_baseline is not None
+                    else getattr(record, "training_slice", None))
         try:
             scores = g4mod.paired_scores(
-                getattr(record, "training_slice", None),
+                episodes,
                 getattr(record, "policy_in_force", None),
                 candidate, self.objective_set())
         except g4mod.G4Unevaluable as exc:
             return self._g4_verdict(check, UNEVALUABLE, str(exc))
         passes, detail = g4mod.decide(scores)
+        detail = "%s [slice=%s]" % (detail, self.g4_slice)
         record.newly_blocked_b = scores["newly_blocked_b"]
         record.newly_breached_c = scores["newly_breached_c"]
         record.g4_paired_n = scores["n"]
         record.g4_unpairable = len(scores["unpairable"])
         self.g4_scores.append(dict(
             scores, round_index=getattr(record, "round_index", None),
-            mode=self.g4_mode, record_only_reason=self.g4_record_only_reason))
+            mode=self.g4_mode, record_only_reason=self.g4_record_only_reason,
+            slice=self.g4_slice))
         return self._g4_verdict(check, PASS if passes else FAIL, detail)
 
     def _g4_verdict(self, check, status, detail):

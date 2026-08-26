@@ -1133,8 +1133,24 @@ def _gate_decisions(rounds, gate, run_id):
             "newly_breached_c": record.newly_breached_c,
             "paired_n": record.g4_paired_n,
             "unpairable": record.g4_unpairable,
-            "gate": "G4, `b >= 3 and c == 0`, paired against policy@vN over the "
-                    "run's recorded attack episodes",
+            "gate": "G4, attack reduction, paired against policy@vN. The "
+                    "thresholds are read from contracts/gate_rule.v1.yaml and "
+                    "are not restated here.",
+            # WHICH EPISODES b AND c WERE PAIRED OVER. `run` is the episodes
+            # this run recorded; `baseline` is the frozen fifty of
+            # docs/proof/v0-attack-baseline-freeze.json.
+            #
+            # IT IS IN THE BUNDLE FOR THE SAME REASON `paired_n` IS. A threshold
+            # without its denominator is not auditable, and a denominator
+            # without its PROVENANCE is the same defect one level out: two runs
+            # reporting b = 5 over n = 50 measured the same thing only if both
+            # fifty were the same fifty. `None` on an older bundle means the
+            # run predates the choice existing, when the slice was always the
+            # run's own episodes.
+            "slice": getattr(record, "g4_slice", None),
+            "slice_is_blind_to": (
+                "RED-GENERATED attacks, which exist nowhere in the corpus"
+                if getattr(record, "g4_slice", None) == "baseline" else None),
             "evaluated": record.newly_blocked_b is not None,
             # WHICH MODE PRODUCED THE TWO NUMBERS ABOVE. Without it a reader
             # holding this bundle cannot tell a promotion that SURVIVED G4 from
