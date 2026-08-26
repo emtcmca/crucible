@@ -158,6 +158,55 @@ def test_the_validator_REJECTS_a_bundle_with_a_hole_in_it(offline_run, mutate,
     assert B.validate_bundle(damaged), why
 
 
+def test_a_CONVERGED_gate_decision_VALIDATES_and_an_invented_one_still_does_not():
+    """CONVENTIONS ruling 57, SPINE_VERSION 26. Added 2026-08-25, after the
+    thing it tests had already cost a run.
+
+    THE GAP, AND IT IS THIS FILE'S OWN THEME ONE LEVEL FURTHER IN.
+    `tests/test_converged_fixpoint.py` covers the conductor EMITTING CONVERGED:
+    that the fixpoint is caught, that it is not a gate rejection, that the two
+    convergence signals stay distinct values. Five tests, all green, all about
+    the code. **Not one of them asked whether the bundle that comes out the far
+    end still validates.** It did not. C6's `decision` enum allowed PROMOTE,
+    REJECT and HALT, so the run that succeeds most completely - a breach found
+    and already covered by the standing policy - wrote a file nothing could
+    open, and exited 4.
+
+    It survived sixty live runs at a fixed RED_SEED because the branch never
+    executed: gate decisions across evidence/batch-night-2026-08-25/ are 95
+    PROMOTE and 1 REJECT, zero CONVERGED. **A branch that never executes is
+    indistinguishable from a branch that works.** The twelve-run pilot on a
+    varied corpus walk produced one on its eighth run and caught it.
+
+    ON THE GOLDEN FIXTURE, NOT ON `offline_run`, AND THAT IS DELIBERATE.
+    The first version of this test mutated `offline_run["bundle"]` and SKIPPED,
+    because an offline campaign records no gate decision to re-label. A skipped
+    test is a test that cannot fail, which is the thing this file exists to
+    complain about. `C6-evidence_bundle.valid.json` is committed, carries a real
+    `gate_decisions` entry, and is the artifact `contract-check` already
+    validates - so the mutation lands on something that is checked in.
+
+    THE SECOND HALF IS THE HALF THAT MATTERS. Asserting only that CONVERGED now
+    passes would be satisfied by deleting the enum, which would then accept
+    every typo the enum exists to catch. So the invented value must still be
+    refused, on the same bundle, one line apart.
+    """
+    golden = pathlib.Path(__file__).resolve().parents[1] / "contracts" /         "golden" / "C6-evidence_bundle.valid.json"
+    bundle = json.loads(golden.read_text(encoding="utf-8"))
+    assert bundle["gate_decisions"], "the golden fixture lost its gate decision"
+    assert B.validate_bundle(bundle) == [], "the golden fixture must start clean"
+
+    bundle["gate_decisions"][0]["decision"] = "CONVERGED"
+    assert B.validate_bundle(bundle) == [], (
+        "CONVERGED is a gate decision the conductor genuinely emits "
+        "(conductor.py:110-128) and C6 must be able to carry it")
+
+    bundle["gate_decisions"][0]["decision"] = "CONVERGEDD"
+    assert B.validate_bundle(bundle), (
+        "the enum still has to refuse a value that is not a decision, or "
+        "widening it bought nothing but a hole")
+
+
 # ---------------------------------------------------------------------------
 # 3. WHAT WAS TESTED. The attack text, which the campaign used to strip.
 # ---------------------------------------------------------------------------

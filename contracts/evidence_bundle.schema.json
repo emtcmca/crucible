@@ -430,10 +430,12 @@
             "maximum": 6
           },
           "decision": {
+            "$comment": "CONVERGED added 2026-08-25, CONVENTIONS ruling 57, SPINE_VERSION 26. The conductor emits it when the ARMORER proposes a policy hashing identically to the head - a breach was found and the policy already covers it. conductor.py:110-128 keeps that distinct from DRY_ROUNDS deliberately: DRY_ROUNDS means no breach was found, POLICY_FIXPOINT means one was and is already covered. Without this value the run that succeeds most completely is the only one that cannot report it, which is exactly what happened to run 08 of the 2026-08-24 batch and then again to run 08 of the 2026-08-25 pilot.",
             "enum": [
               "PROMOTE",
               "REJECT",
-              "HALT"
+              "HALT",
+              "CONVERGED"
             ]
           },
           "criteria": {
