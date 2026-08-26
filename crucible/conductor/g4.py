@@ -117,6 +117,19 @@ SO THE SLICE IS NOW A CHOICE, AND THE DEFAULT IS DELIBERATELY UNCHANGED.
                 from round 1 rather than only the ones the walk happened to
                 draw.
 
+**b IS BOUNDED ABOVE BY THE NUMBER OF INSTANCES THAT BREACHED AT v0, AND ON THE
+RECORDED BASELINE THAT NUMBER IS FAR BELOW THE DESIGN TARGET.**
+`measurement-spec.md`:1151 states `b = 30, c = 0` over n = 50, which presumes a
+v0 ASR near 70 percent. The recorded seed policy does not leave that many. Read
+the count off `docs/proof/v0-attack-baseline-freeze.json` at use time - it is a
+measurement and this file is not its owner (ruling 46) - and **state it beside
+any use of the 30**, because the two are not comparable and quoting the target
+next to a b figure from this slice implies they are.
+
+The same record shows WHICH invariants breached at v0, and the money invariants
+are not among them. **A b figure from this slice therefore says nothing about
+money attacks**, and that limitation travels with the number.
+
 **WHY THE DEFAULT DID NOT MOVE HERE.** Changing which slice gates changes what
 the loop promotes, and the lane that produced the baseline is not the lane that
 should silently re-point the criterion at its own artifact. The evidence for
