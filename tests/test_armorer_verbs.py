@@ -219,6 +219,103 @@ def test_rejection_feedback_points_at_the_verb():
 
 
 # ---------------------------------------------------------------------------
+# 2026-08-26. THE REJECTION GUIDANCE STATES A SECOND CONDITION, AND THE FOUR
+# PROPERTIES BELOW ARE PINNED BECAUSE EACH ONE IS A DEFECT THE TEMPLATE HELD.
+#
+# Every assertion is paired with the retired paragraph, and the pairing is the
+# point: `test_the_retired_guidance_fails_every_one_of_these_checks` runs the
+# same four predicates over the text that was replaced and requires all four to
+# FAIL. Without that, four `assert "x" in text` lines would pass against any
+# sufficiently wordy paragraph and would be measuring nothing.
+# ---------------------------------------------------------------------------
+
+# The guidance in force from 2026-08-24 to 2026-08-26, quoted so the checks
+# below can be shown to discriminate. Do NOT restore it: sentence two is false
+# about this language - a legitimate call that no longer satisfies a narrowed
+# `when` IS no longer blocked by it.
+RETIRED_GUIDANCE = """\
+Reconsider the verb before you touch the `when`. A narrower `when` on the same
+deny is rarely the repair here: it can only shrink the set of calls you block,
+never restore a route for the legitimate ones. Where a legitimate above-band
+path exists, require_approval bounded by a `when` closes the breach without
+removing the capability, and it is the only verb that leaves that path open.
+
+Narrow the `when` instead only if you can name the condition that separates the
+breach from the legitimate calls in that class. And do not require approval for
+a whole capability class unconditionally: that routes every call in the class
+through an approver and repairs nothing.
+"""
+
+
+def _requires_the_breach_to_still_match(text):
+    """Is the model told the patch must still act on the breach it was shown?
+
+    Nothing between the ARMORER and the policy store asks this: the promotion
+    test is the benign floor plus the near-miss floor, and G4 is specified but
+    absent from that path. The model is the only component positioned to check
+    it, so it has to be asked to.
+    """
+    low = text.lower()
+    return ("must still satisfy your `when`" in low
+            and "fires on nothing" in low)
+
+
+def _offers_narrowing_as_a_real_option(text):
+    """Both repairs present, and narrowing not written off in advance."""
+    low = text.lower()
+    return ("narrow the `when`" in low
+            and "no longer satisfies your `when` is no longer blocked" in low)
+
+
+def _makes_the_choice_conditional(text):
+    """A test the model can apply, rather than an order to pull one lever."""
+    low = text.lower()
+    return ("can you name a condition" in low
+            and "if no such condition exists" in low)
+
+
+def _names_the_null_patch(text):
+    low = text.lower()
+    return "retracting" in low and "leaves the policy unchanged" in low
+
+
+_CHECKS = (_requires_the_breach_to_still_match,
+           _offers_narrowing_as_a_real_option,
+           _makes_the_choice_conditional,
+           _names_the_null_patch)
+
+
+def test_the_rejection_guidance_holds_all_four_properties():
+    text = prompt_mod.build_rejection_feedback(4, ["CAP_MOVES_MONEY"])
+    missing = [c.__name__ for c in _CHECKS if not c(text)]
+    assert not missing, "rejection guidance lost: %s\n%s" % (missing, text)
+
+
+def test_the_retired_guidance_fails_every_one_of_these_checks():
+    """THE PROOF THE FOUR CHECKS DISCRIMINATE.
+
+    If any of them passed against the paragraph that was replaced, it is not
+    measuring the change - it is a substring that happened to be there. All
+    four must fail on the old text and pass on the new one.
+    """
+    passing = [c.__name__ for c in _CHECKS if c(RETIRED_GUIDANCE)]
+    assert not passing, (
+        "these checks pass against the RETIRED guidance and therefore do not "
+        "measure what replaced it: %s" % passing)
+
+
+def test_the_false_claim_about_narrowing_is_gone_and_stays_gone():
+    """`PolicyEngine._when` returning FALSE drops the rule from consideration
+    and the call resolves to the implicit allow. So a narrower `when` restores
+    the route for exactly the legitimate calls that fail the added condition,
+    and the retired sentence said it never could. A model reads the mechanism,
+    not the case the author had in mind."""
+    text = prompt_mod.build_rejection_feedback(4, ["CAP_MOVES_MONEY"])
+    assert "never restore a route" not in text
+    assert "can only shrink the set of calls you block" not in text
+
+
+# ---------------------------------------------------------------------------
 # THE BOUNDARY. Nothing above may have widened the channel. These assert the
 # same two things `test_conductor_loop.py` asserts, from this lane's side, so a
 # change to prompt.py that loosened the gate fails in the file that made it.
