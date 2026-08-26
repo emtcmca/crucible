@@ -115,7 +115,12 @@ GATES = {
            "training slice the `b >= 3` threshold was calibrated against - "
            "`corpus/training/*.json` carries an authored trace, not a scoreable "
            "episode. `scripts/g4-backtest.py` measures the difference that "
-           "makes to the promotion rate."),
+           "makes to the promotion rate. **WIRED IS NOT THE SAME AS ENFORCING**: "
+           "the criterion has two modes, ENFORCING (the default) and "
+           "RECORD_ONLY, and a run started with `--g4-record-only` SCORES b and "
+           "c without gating on them. Which mode a given run used is in that "
+           "run's banner and in `criteria.attack_reduction.mode`, never here - "
+           "this census resolves the code, not any run's result."),
     "G5": (PARTIAL, ["crucible.dsl:validate_policy_document",
                      "crucible.dsl:Validator"],
            "Verb, capability-binding and cap:UNCLASSIFIED assertions are in the "

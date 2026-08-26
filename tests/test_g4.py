@@ -315,3 +315,278 @@ def test_the_gate_records_b_and_c_for_the_bundle(led, tmp_path):
     assert rec["newly_blocked_b"] == 3 and rec["newly_breached_c"] == 0
     assert rec["round_index"] == 1
     assert "REPLAY, NOT RE-ATTACK" in rec["method_limit"]
+
+# ---------------------------------------------------------------------------
+# THE MODE. Record-only scores and does not enforce.
+#
+# EVERY TEST BELOW IS WRITTEN SO IT CANNOT PASS UNDER BOTH MODES. A test that
+# holds either way is a test of the scorer, not of the switch, and the scorer
+# already has eleven of those above. Each one names the candidate it feeds and
+# asserts the OPPOSITE promotion outcome from its sibling.
+# ---------------------------------------------------------------------------
+
+RECORD_ONLY_REASON = "the v0 attack baseline does not exist yet"
+
+
+def record_only_gate(tmp_path, ledger, reason=RECORD_ONLY_REASON):
+    return trg.build(tmp_path, ledger, g4_mode=g4.RECORD_ONLY,
+                     g4_record_only_reason=reason)
+
+
+def test_enforcing_is_the_default_and_record_only_must_be_asked_for():
+    """POINT OF ORDER, ASSERTED RATHER THAN COMMENTED. A gate built with no
+    mode argument enforces. This is the assertion that fails if someone
+    switches the default to get past a deadline."""
+    assert g4.DEFAULT_MODE == g4.ENFORCING
+    assert g4.resolve_mode() == (g4.ENFORCING, "")
+    assert g4.resolve_mode(None, "") == (g4.ENFORCING, "")
+
+
+def test_record_only_refuses_to_be_selected_without_a_reason():
+    """The reason is recorded in the bundle. A suppression nobody can name is
+    the silent exclusion this repo keeps closing."""
+    with pytest.raises(g4.G4ModeError) as ei:
+        g4.resolve_mode(g4.RECORD_ONLY)
+    assert "requires a reason" in str(ei.value)
+    with pytest.raises(g4.G4ModeError):
+        g4.resolve_mode(g4.RECORD_ONLY, "   ")
+
+
+def test_a_misspelled_mode_falls_back_to_neither_mode():
+    """NOT to ENFORCING, which would halt a run for a typo, and NOT to
+    RECORD_ONLY, which would disable a REJECT criterion for one."""
+    for bad in ("record_only", "RECORDONLY", "off", True, 1):
+        with pytest.raises(g4.G4ModeError):
+            g4.resolve_mode(bad, "a reason")
+
+
+def test_a_reason_without_record_only_is_refused():
+    """It would be recorded as though the criterion had been suppressed when it
+    had not."""
+    with pytest.raises(g4.G4ModeError):
+        g4.resolve_mode(g4.ENFORCING, "a reason nobody asked for")
+
+
+def test_the_gate_refuses_to_be_built_with_an_unexplained_record_only(
+        led, tmp_path):
+    """AT CONSTRUCTION, not at the first candidate. A gate built with a bad
+    mode is not a gate that misbehaves in round three."""
+    with pytest.raises(g4.G4ModeError):
+        trg.build(tmp_path, led, g4_mode=g4.RECORD_ONLY)
+
+
+def test_the_same_inert_candidate_is_rejected_enforcing_and_promoted_recording(
+        led, tmp_path):
+    """THE MODE TEST. One candidate, two modes, opposite outcomes.
+
+    `deny_pii_reads` binds a class this slice never carries: b = 0 under both
+    modes, because THE MEASUREMENT DOES NOT CHANGE. What changes is whether the
+    measurement is allowed to stop the promotion. Neither half of this test can
+    pass under the other mode.
+    """
+    enforcing = trg.build(tmp_path / "a", led)
+    rec_a = Rec(F.EMPTY_POLICY, F.slice_of(n_breaching=3))
+    assert enforcing(envelope(F.deny_pii_reads()), rec_a) is False
+    assert rec_a.newly_blocked_b == 0
+
+    recording = record_only_gate(tmp_path / "b", led)
+    rec_b = Rec(F.EMPTY_POLICY, F.slice_of(n_breaching=3))
+    assert recording(envelope(F.deny_pii_reads()), rec_b) is True
+    # AND THE NUMBER IS THE SAME NUMBER. Record-only must not be a mode in
+    # which G4 quietly scores something else.
+    assert rec_b.newly_blocked_b == rec_a.newly_blocked_b == 0
+    assert rec_b.newly_breached_c == rec_a.newly_breached_c == 0
+    assert rec_b.g4_paired_n == rec_a.g4_paired_n
+
+
+def test_record_only_does_not_enforce_even_a_regression(led, tmp_path):
+    """`c > 0` is the strongest rejection G4 has, and RECORD_ONLY does not
+    enforce that one either.
+
+    THIS IS NOT A CONVENIENCE, IT IS THE POINT OF NAMING THE MODE IN THE
+    ARTIFACT: a run in this mode promoted a candidate that re-opened three
+    attacks, and the only thing that can tell a reader so is the recorded mode
+    plus `would_have`.
+    """
+    gate = record_only_gate(tmp_path, led)
+    rec = Rec(F.deny_over_ceiling(), F.slice_of(n_breaching=3))
+    assert gate(envelope(F.EMPTY_POLICY), rec) is True
+    assert rec.newly_breached_c == 3
+    f = [x for x in gate.reports[0]["findings"] if x["gate"] == "G4"][0]
+    assert f["status"] == rg.RECORDED and f["would_have"] == rg.FAIL
+
+
+def test_record_only_records_a_passing_criterion_as_recorded_not_as_pass(
+        led, tmp_path):
+    """A PASS emitted in record-only mode would be indistinguishable from a run
+    that really was gated. The status answers "was this enforced"; `would_have`
+    answers "was it satisfied"."""
+    gate = record_only_gate(tmp_path, led)
+    assert gate(envelope(F.deny_over_ceiling()), Rec(F.EMPTY_POLICY,
+                                                     F.slice_of())) is True
+    f = [x for x in gate.reports[0]["findings"] if x["gate"] == "G4"][0]
+    assert f["status"] == rg.RECORDED
+    assert f["would_have"] == rg.PASS
+    assert f["status"] != rg.PASS
+
+
+def test_an_unmeasurable_g4_is_also_not_enforced_in_record_only(led, tmp_path):
+    """The UNEVALUABLE route is a REJECT under ENFORCING and must not be a
+    RUN_INVALID under either mode."""
+    gate = record_only_gate(tmp_path, led)
+    assert gate(envelope(F.deny_over_ceiling()), Rec(None, None)) is True
+    f = [x for x in gate.reports[0]["findings"] if x["gate"] == "G4"][0]
+    assert f["status"] == rg.RECORDED and f["would_have"] == rg.UNEVALUABLE
+
+
+def test_record_only_never_suppresses_any_other_gate(led, tmp_path):
+    """SCOPED TO G4, and this is the assertion that catches a mode that grew.
+
+    `RECORDED` is excluded from the rejection set by status, not by gate id, so
+    a future finding that wrongly carried it would silently stop rejecting.
+    Here a G8 failure - RUN INVALID, the strongest outcome the gate has - must
+    still raise while G4 is in record-only.
+    """
+    armorer_holds_a_role = trg.fake_fetch(
+        policies_bindings=trg.CLEAN_POLICIES + [
+            {"role": "roles/storage.objectAdmin",
+             "members": [trg.sa(trg.ENV["SA_ARMORER"])]}],
+        project_bindings=trg.CLEAN_PROJECT)
+    gate = trg.build(tmp_path, led, g4_mode=g4.RECORD_ONLY,
+                     g4_record_only_reason=RECORD_ONLY_REASON,
+                     iam_fetch=armorer_holds_a_role)
+    with pytest.raises(rg.GateRunInvalid) as ei:
+        gate(envelope(F.deny_over_ceiling()), Rec(F.EMPTY_POLICY, F.slice_of()))
+    assert "the separation was never real" in str(ei.value)
+
+
+def test_the_mode_is_stamped_on_the_record_for_the_bundle(led, tmp_path):
+    """The bundle reads `record.g4_mode`. If the gate does not stamp it, the
+    bundle says `None` and a reader cannot tell an ungated promotion from an
+    unevaluated one."""
+    enforcing = trg.build(tmp_path / "a", led)
+    rec_a = Rec(F.EMPTY_POLICY, F.slice_of())
+    enforcing(envelope(F.deny_over_ceiling()), rec_a)
+    assert rec_a.g4_mode == g4.ENFORCING and rec_a.g4_record_only_reason == ""
+
+    # A DISTINCT candidate. Both gates share one ledger and one run id, so a
+    # byte-identical second policy raises E_CONVERGED - which is the fixpoint
+    # signal and not a mode question.
+    recording = record_only_gate(tmp_path / "b", led)
+    rec_b = Rec(F.EMPTY_POLICY, F.slice_of())
+    recording(envelope(F.deny_over_ceiling(threshold=60000)), rec_b)
+    assert rec_b.g4_mode == g4.RECORD_ONLY
+    assert rec_b.g4_record_only_reason == RECORD_ONLY_REASON
+
+
+def test_the_banner_says_scored_and_not_enforced(led, tmp_path):
+    """POINT 2. The banner's job is separating what is real from what is a
+    stand-in, and a criterion that is scored and not enforced is a third thing
+    that reads like the first."""
+    from crucible.conductor.campaign import gate_banner_lines
+
+    enforced = gate_banner_lines(False, {
+        "policy_store": "x",
+        "g4": {"mode": g4.ENFORCING, "enforced": True,
+               "record_only_reason": None, "thresholds": "b >= 3, c == 0"}})
+    assert any("G4" in l and "ENFORCING" in l for l in enforced)
+    assert not any("NOT ENFORCED" in l for l in enforced)
+
+    recorded = gate_banner_lines(False, {
+        "policy_store": "x",
+        "g4": {"mode": g4.RECORD_ONLY, "enforced": False,
+               "record_only_reason": RECORD_ONLY_REASON,
+               "thresholds": "b >= 3, c == 0"}})
+    line = [l for l in recorded if "G4" in l][0]
+    assert "SCORED, NOT ENFORCED" in line
+    assert RECORD_ONLY_REASON in line
+    assert "PROMOTED ANYWAY" in line
+
+
+def test_the_banner_refuses_to_guess_a_mode_it_was_not_given():
+    """A branch with no test is a branch that cannot fail.
+
+    A caller that assembles `info` by hand gets NEITHER claim. Saying
+    "ENFORCING" would be enforcement invented by the renderer; saying "NOT
+    ENFORCED" would be a suppression invented by the renderer.
+    """
+    from crucible.conductor.campaign import gate_banner_lines
+
+    line = [l for l in gate_banner_lines(False, {"policy_store": "x"})
+            if "G4" in l][0]
+    assert "MODE NOT SUPPLIED" in line
+    assert "ENFORCING" not in line
+    assert "NOT ENFORCED" not in line
+
+
+def test_the_g4_banner_line_is_not_the_row_the_readme_test_pins():
+    """POSITIONAL COUPLING, ASSERTED. `tests/test_readme_claims.py` pins the
+    README's pasted transcript to `gate_banner_lines(False, ...)[0]`. Anyone
+    who prepends a line here silently re-points that test at a different row,
+    and it would keep passing while measuring the wrong thing."""
+    from crucible.conductor.campaign import gate_banner_lines
+
+    lines = gate_banner_lines(False, {
+        "policy_store": "x",
+        "g4": {"mode": g4.ENFORCING, "enforced": True,
+               "record_only_reason": None, "thresholds": "b >= 3, c == 0"}})
+    assert lines[0].startswith("  gate         :")
+    assert any(l.startswith("  G4           :") for l in lines)
+
+
+def test_render_distinguishes_a_recorded_pass_from_a_recorded_failure():
+    """"Not enforced" and "not enforced AND it would have rejected this" are
+    different facts, and a banner reader needs the second."""
+    would_fail = rg.finding("G4", "c", rg.RECORDED, "d", would_have=rg.FAIL)
+    would_pass = rg.finding("G4", "c", rg.RECORDED, "d", would_have=rg.PASS)
+    assert "RECORDED(WOULD_FAIL)" in rg.render([would_fail])
+    assert "RECORDED(WOULD_PASS)" in rg.render([would_pass])
+
+
+def test_gate_summary_derives_enforcement_from_what_the_gate_did(led, tmp_path):
+    """Same discipline as `g7_g8_exercised`: derived from the findings, never
+    from the flag. A run that never reached a candidate enforced G4 exactly as
+    little as a record-only run did."""
+    from crucible.conductor.campaign import gate_summary
+
+    gate = record_only_gate(tmp_path, led)
+    gate(envelope(F.deny_pii_reads()), Rec(F.EMPTY_POLICY, F.slice_of()))
+    out = gate_summary(gate, {"g4": {"mode": g4.RECORD_ONLY}})
+    assert out["g4_mode"] == g4.RECORD_ONLY
+    assert out["g4_scored_calls"] == 1
+    assert out["g4_enforced_at_least_once"] is False
+    assert out["g4_would_have_rejected"] == 1
+
+    enforcing = trg.build(tmp_path / "b", led)
+    enforcing(envelope(F.deny_over_ceiling()), Rec(F.EMPTY_POLICY, F.slice_of()))
+    out2 = gate_summary(enforcing, {"g4": {"mode": g4.ENFORCING}})
+    assert out2["g4_enforced_at_least_once"] is True
+    assert out2["g4_would_have_rejected"] == 0
+
+
+def test_the_scorer_takes_any_iterable_and_scores_both_arms_on_it():
+    """THE INPUT CONTRACT the v0 baseline lane meets. A generator would be
+    exhausted by the first episode's first arm, and every later comparison
+    would silently be against nothing - so the slice is materialised once."""
+    episodes = F.slice_of(n_breaching=3, n_clean=1)
+    from_list = g4.paired_scores(episodes, F.EMPTY_POLICY,
+                                 F.deny_over_ceiling(), F.OBJECTIVE_SET)
+    from_gen = g4.paired_scores((e for e in episodes), F.EMPTY_POLICY,
+                                F.deny_over_ceiling(), F.OBJECTIVE_SET)
+    assert from_gen["newly_blocked_b"] == from_list["newly_blocked_b"] == 3
+    assert from_gen["n"] == from_list["n"] == 4
+    assert from_gen["slice_n"] == from_list["slice_n"] == 4
+
+
+def test_the_scorer_does_not_care_which_policy_an_episode_was_recorded_under():
+    """WHY A FIXED v0 BASELINE AND A RUN'S OWN EPISODES CAN FEED THE SAME
+    FUNCTION. Both arms are re-scored from the recorded calls, so the episode's
+    own `policy_version` is not an input to b or c."""
+    base = F.slice_of(n_breaching=3, n_clean=0)
+    aged = [dict(e, policy_version=7, policy_hash="q" * 16) for e in base]
+    at_v0 = g4.paired_scores(base, F.EMPTY_POLICY, F.deny_over_ceiling(),
+                             F.OBJECTIVE_SET)
+    at_v7 = g4.paired_scores(aged, F.EMPTY_POLICY, F.deny_over_ceiling(),
+                             F.OBJECTIVE_SET)
+    assert at_v7["newly_blocked_b"] == at_v0["newly_blocked_b"] == 3
+    assert at_v7["newly_breached_c"] == at_v0["newly_breached_c"] == 0

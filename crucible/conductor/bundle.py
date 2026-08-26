@@ -1123,6 +1123,11 @@ def _gate_decisions(rounds, gate, run_id):
         # `None` means G4 WAS NOT EVALUATED, which is not b = 0. The key is
         # written either way and says which, because a missing key would be
         # indistinguishable from a bundle written before the field existed.
+        #
+        # `mode` IS INSIDE THE SAME OPTIONAL OBJECT, for the same reason and
+        # with the same guarantee: nothing about it is required by
+        # `evidence_bundle.schema.json`, so no bundle written before today
+        # stops validating and no contract hash moves.
         criteria["attack_reduction"] = {
             "newly_blocked_b": record.newly_blocked_b,
             "newly_breached_c": record.newly_breached_c,
@@ -1131,6 +1136,14 @@ def _gate_decisions(rounds, gate, run_id):
             "gate": "G4, `b >= 3 and c == 0`, paired against policy@vN over the "
                     "run's recorded attack episodes",
             "evaluated": record.newly_blocked_b is not None,
+            # WHICH MODE PRODUCED THE TWO NUMBERS ABOVE. Without it a reader
+            # holding this bundle cannot tell a promotion that SURVIVED G4 from
+            # one that merely PREDATES G4 being binding, and b and c look
+            # identical in both cases. `enforced` is derived from `mode` rather
+            # than written beside it, so the two cannot drift apart.
+            "mode": record.g4_mode,
+            "enforced": record.g4_mode == "ENFORCING",
+            "record_only_reason": record.g4_record_only_reason or None,
             "method_limit": (
                 "REPLAY, NOT RE-ATTACK. b and c say what these policies would "
                 "have done to the exact calls the run recorded. They do not "

@@ -107,6 +107,41 @@ have found another path": a live agent handed a refusal it never received
 before may go somewhere else entirely, and nothing here can see that. The limit
 travels with the number, in `method_limit` on the result.
 
+THE INPUT CONTRACT FOR `episodes`, STATED SO A SECOND PRODUCER CAN MEET IT
+------------------------------------------------------------------
+`paired_scores` does not know or care where its episodes came from. It takes
+ANY ITERABLE of episode dicts and materialises it once. The v0 attack baseline
+lane is a second producer for exactly this argument, so the contract is written
+here rather than left implicit in what the conductor happens to pass:
+
+  REQUIRED on each element
+    `events`                 the ordered ToolEvent list, C1-shaped. The bundle
+                             spelling `episode_prefix` is accepted as an alias
+                             and nothing else is.
+    `episode_id`             `^ep_[0-9a-f]{12}$`. C1 pins it ON EVERY EVENT
+                             TOO, and a readable id like `ep_baseline_01` makes
+                             the whole slice score INVALID - which arrives here
+                             as "nothing paired" rather than as a bad id. It
+                             cost the first draft of the test fixtures an hour.
+    `objective_set_hash`     must equal the hash of the Objective Set passed in
+    `manifest_hash`          non-empty
+    `derived_schema_hash`    non-empty
+    `episode_frozen_context` the fields the `*_context` operators resolve
+
+  OPTIONAL
+    `attack_id`     what a rejection NAMES. Absent, the row says `None`, which
+                    is legible but not actionable. Supply it.
+    `policy_version`, `policy_hash`, `channel`, `outcome`, `target_responded`
+
+  NOT REQUIRED, AND DELIBERATELY SO
+    Any field about WHICH POLICY THE EPISODE WAS RECORDED UNDER. Both arms are
+    re-scored from the recorded calls, so an episode captured at v0 and an
+    episode captured at v3 are equally usable. That is what lets a fixed v0
+    baseline and a run's own episodes be fed to the same function.
+
+A slice may be EMPTY. `[]` and `None` are different statements and are handled
+differently - see `G4Unevaluable` below.
+
 WHY AN UNPAIRABLE EPISODE IS COUNTED AND NAMED
 ------------------------------------------------------------------
 An episode that scores INVALID under either arm cannot contribute to b or to c
@@ -212,11 +247,16 @@ def paired_scores(episodes, in_force, candidate, objective_set):
                       "absent" if candidate is None else "present"))
     if episodes is None:
         raise G4Unevaluable(
-            "G4 needs the run's executed training slice and none was supplied. "
-            "An empty list and a missing list are NOT the same statement: the "
-            "first says the run recorded no scorable attack, the second says "
-            "nobody wired the slice in, and defaulting the second to the first "
-            "would print b = 0 from a comparison that never ran.")
+            "G4 needs a paired slice and none was supplied. An empty list and "
+            "a missing list are NOT the same statement: the first says the "
+            "producer had no scorable attack to offer, the second says nobody "
+            "wired a producer in, and defaulting the second to the first would "
+            "print b = 0 from a comparison that never ran.")
+    # MATERIALISED ONCE. The contract above says ANY ITERABLE, and both arms
+    # must score THE IDENTICAL SET - a generator would be exhausted by the
+    # first episode's first arm and every later comparison would silently be
+    # against nothing.
+    episodes = list(episodes)
 
     b = c = 0
     rows = []
@@ -268,6 +308,78 @@ B_MIN = 3
 C_MAX = 0
 
 
+# ---------------------------------------------------------------------------
+# THE TWO MODES. Enforcement is the default; not enforcing is what you ask for.
+# ---------------------------------------------------------------------------
+
+ENFORCING = "ENFORCING"
+RECORD_ONLY = "RECORD_ONLY"
+MODES = (ENFORCING, RECORD_ONLY)
+
+DEFAULT_MODE = ENFORCING
+"""ENFORCING, and the asymmetry of the two failure modes is the whole argument.
+
+Forget the flag under an ENFORCING default and the run halts, loudly, at round
+three, on `HALT_GATE_REJECTED_TWICE`. You find out in minutes and re-run. Forget
+it under a RECORD_ONLY default and G4 silently never enforces, every run prints
+promotions that no criterion gated, and NOTHING SAYS SO - which is precisely how
+G4 came to be ABSENT for the entire project while `gate_rule.v1.yaml` said it
+was a REJECT criterion.
+
+One failure is loud, cheap and self-announcing. The other is silent, permanent
+and indistinguishable from working. A default is a bet on which mistake you can
+afford to make, so it goes to the loud one.
+"""
+
+
+class G4ModeError(ValueError):
+    """The mode was not one of `MODES`, or RECORD_ONLY carried no reason."""
+
+
+def resolve_mode(mode=None, reason=""):
+    """`(mode, reason)`, validated. RECORD_ONLY REQUIRES A REASON.
+
+    Three things make record-only awkward to leave on by accident, and none of
+    them is a comment:
+
+      1  **It is a string, not a boolean.** `record_only=True` is a flag anyone
+         can flip; `mode="RECORD_ONLY"` is a call site that says out loud what
+         it is doing, and a stray truthy value cannot select it.
+      2  **It demands a reason, and the reason is not decorative** - it is
+         written into the evidence bundle beside b and c. A suppression nobody
+         can name is the silent exclusion this repo keeps closing, one level
+         down from `refusals_reverted`.
+      3  **The default is ENFORCING**, so leaving the argument off gets you the
+         check rather than the absence of it.
+
+    `mode=None` means "unspecified", which resolves to the default. That is not
+    the same as passing ENFORCING explicitly and is not distinguished here on
+    purpose: there is no reading of "unspecified" that should be weaker than the
+    default.
+    """
+    mode = DEFAULT_MODE if mode is None else str(mode)
+    if mode not in MODES:
+        raise G4ModeError(
+            "%r is not a G4 mode. The modes are %s. A misspelled mode must not "
+            "fall back to either one - falling back to ENFORCING would halt a "
+            "run for a typo, and falling back to RECORD_ONLY would disable a "
+            "REJECT criterion for one." % (mode, ", ".join(MODES)))
+    reason = (reason or "").strip()
+    if mode == RECORD_ONLY and not reason:
+        raise G4ModeError(
+            "RECORD_ONLY requires a reason, and it is recorded in the evidence "
+            "bundle beside b and c. A criterion that is scored and not enforced "
+            "is a promotion nothing gated; six weeks from now the only thing "
+            "that can tell a reader why is a sentence somebody wrote at the "
+            "time.")
+    if mode == ENFORCING and reason:
+        raise G4ModeError(
+            "a reason is meaningless under ENFORCING and would be recorded as "
+            "though the criterion had been suppressed. Pass it only with "
+            "RECORD_ONLY.")
+    return mode, reason
+
+
 def decide(scores):
     """`(passes, detail)` from a `paired_scores` result.
 
@@ -300,4 +412,6 @@ def decide(scores):
 
 
 __all__ = ["paired_scores", "decide", "score_at", "episode_as_fixture",
-           "G4Unevaluable", "B_MIN", "C_MAX", "METHOD_LIMIT", "MANIFEST_KEYS"]
+           "resolve_mode", "G4Unevaluable", "G4ModeError", "ENFORCING",
+           "RECORD_ONLY", "MODES", "DEFAULT_MODE", "B_MIN", "C_MAX",
+           "METHOD_LIMIT", "MANIFEST_KEYS"]

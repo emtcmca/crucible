@@ -211,12 +211,26 @@ class GateHalt(RuntimeError):
 
 PASS, FAIL, UNEVALUABLE = "PASS", "FAIL", "UNEVALUABLE"
 
+RECORDED = "RECORDED"
+"""THE CRITERION WAS SCORED AND WAS NOT ENFORCED. A fourth status, and the only
+one that is neither a pass nor a rejection.
+
+It exists because the alternative is to spell "scored but not binding" as PASS,
+and a PASS that is not a pass is exactly the conflation that produced
+`ALLOW`/`allow` and `outcome`/`target_fault`. A reader of a findings list - or
+of the banner, or of the bundle six weeks from now - must be able to see that
+enforcement did not happen without knowing which flags the run was started with.
+
+A RECORDED finding carries `would_have`, the status the same measurement would
+have produced under ENFORCING. So the counterfactual is in the artifact, not
+recoverable only by re-running."""
+
 # `contracts/gate_rule.v1.yaml` G8 `failure_text`, quoted exactly once.
 G8_FAILURE_TEXT = "the separation was never real"
 
 
 def finding(gate, check, status, detail="", invalidates=False,
-            failure_text="", rejects_if_unevaluable=False):
+            failure_text="", rejects_if_unevaluable=False, would_have=None):
     """`invalidates` is carried EXPLICITLY, per finding, and is never inferred
     from the gate id.
 
@@ -246,9 +260,16 @@ def finding(gate, check, status, detail="", invalidates=False,
     value is how `ALLOW`/`allow` and `outcome`/`target_fault` both happened;
     this is the same shape one level up, so the semantic is a field.
     """
-    return {"gate": gate, "check": check, "status": status, "detail": detail,
-            "invalidates": bool(invalidates), "failure_text": failure_text,
-            "rejects_if_unevaluable": bool(rejects_if_unevaluable)}
+    out = {"gate": gate, "check": check, "status": status, "detail": detail,
+           "invalidates": bool(invalidates), "failure_text": failure_text,
+           "rejects_if_unevaluable": bool(rejects_if_unevaluable)}
+    if would_have is not None:
+        # ONLY ON A `RECORDED` FINDING. Writing it unconditionally would put a
+        # "what enforcement would have said" field on findings that WERE
+        # enforced, where it is either a tautology or a second, drifting copy of
+        # `status`.
+        out["would_have"] = would_have
+    return out
 
 
 def _from_predicate(gate, check, problem, invalidates=False, failure_text=""):
@@ -732,7 +753,7 @@ class RealGate:
     def __init__(self, ledger, run_id, blob_writer, blob_reader, repo_root,
                  holdout_touch=None, holdout_expected=2, iam_fetch=None,
                  probe_run=None, clock=None, sleep=None, skip_cloud=False,
-                 objective_set_path=None):
+                 objective_set_path=None, g4_mode=None, g4_record_only_reason=""):
         """`holdout_touch` is a zero-arg callable returning the current
         `holdout_touch_count`. There is NO DEFAULT: see the module docstring.
 
@@ -764,6 +785,13 @@ class RealGate:
         # Every G4 measurement this gate made, in order, so the bundle can carry
         # b and c without recomputing them.
         self.g4_scores = []
+        # THE MODE IS RESOLVED AT CONSTRUCTION, NOT AT THE FIRST CANDIDATE. A
+        # gate built with a misspelled mode, or with an unexplained
+        # RECORD_ONLY, is not a gate that misbehaves in round three; it is a
+        # gate that should never have been built. Same argument as
+        # `promoted_by`, which is resolved two lines up for the same reason.
+        self.g4_mode, self.g4_record_only_reason = g4mod.resolve_mode(
+            g4_mode, g4_record_only_reason)
         # Fail at CONSTRUCTION, not at the first write. A gate built with the
         # wrong promoter is not a gate that rejects later; it is a gate that
         # should never have been built.
@@ -840,22 +868,52 @@ class RealGate:
         """
         check = "newly_blocked_b >= %d and newly_breached_c == %d" % (
             g4mod.B_MIN, g4mod.C_MAX)
+        # THE MODE IS STAMPED ON THE RECORD BEFORE ANYTHING IS SCORED, so a
+        # round that raises mid-measurement still says which mode was in force.
+        record.g4_mode = self.g4_mode
+        record.g4_record_only_reason = self.g4_record_only_reason
         try:
             scores = g4mod.paired_scores(
                 getattr(record, "training_slice", None),
                 getattr(record, "policy_in_force", None),
                 candidate, self.objective_set())
         except g4mod.G4Unevaluable as exc:
-            return finding("G4", check, UNEVALUABLE, str(exc),
-                           rejects_if_unevaluable=True)
+            return self._g4_verdict(check, UNEVALUABLE, str(exc))
         passes, detail = g4mod.decide(scores)
         record.newly_blocked_b = scores["newly_blocked_b"]
         record.newly_breached_c = scores["newly_breached_c"]
         record.g4_paired_n = scores["n"]
         record.g4_unpairable = len(scores["unpairable"])
-        self.g4_scores.append(dict(scores,
-                                   round_index=getattr(record, "round_index", None)))
-        return finding("G4", check, PASS if passes else FAIL, detail)
+        self.g4_scores.append(dict(
+            scores, round_index=getattr(record, "round_index", None),
+            mode=self.g4_mode, record_only_reason=self.g4_record_only_reason))
+        return self._g4_verdict(check, PASS if passes else FAIL, detail)
+
+    def _g4_verdict(self, check, status, detail):
+        """The ONE place the mode turns a measurement into a finding.
+
+        THE MEASUREMENT IS IDENTICAL IN BOTH MODES and is already finished by
+        the time this is called: `paired_scores` has no opinion about
+        enforcement, and `decide` reads the contract's thresholds and nothing
+        else. The mode changes exactly one thing - whether the verdict is
+        allowed to stop a promotion. That is why the switch lives here and is
+        not threaded through the scorer, where it would become a second way of
+        computing b and c and the two would eventually disagree.
+        """
+        if self.g4_mode == g4mod.ENFORCING:
+            return finding("G4", check, status, detail,
+                           rejects_if_unevaluable=(status == UNEVALUABLE))
+        # RECORD_ONLY. `RECORDED` EVEN WHEN THE CRITERION PASSED - the status
+        # answers "was this enforced", not "was it satisfied", and `would_have`
+        # answers the second. A PASS emitted here would be indistinguishable
+        # from a run that really was gated, which is the one thing a reader six
+        # weeks out must never have to guess about.
+        return finding("G4", check, RECORDED,
+                       "%s [RECORD_ONLY: %s. NOT ENFORCED - this criterion did "
+                       "not gate the promotion. Under ENFORCING it would have "
+                       "been %s.]"
+                       % (detail, self.g4_record_only_reason, status),
+                       would_have=status)
 
     def __call__(self, candidate, record):
         # THE ENVELOPE IS CHECKED BEFORE ANY CRITERION READS IT, and the check
@@ -883,7 +941,12 @@ class RealGate:
                   "findings": findings}
         self.reports.append(report)
 
-        bad = [f for f in findings if f["status"] != PASS]
+        # `RECORDED` IS EXCLUDED HERE AND NOWHERE ELSE, and it is named rather
+        # than expressed as a scattered `!= PASS and != RECORDED`. It is the
+        # only status that is neither a pass nor a rejection; every other
+        # non-PASS status still stops the promotion, including a G4 that was
+        # measured and failed under ENFORCING.
+        bad = [f for f in findings if f["status"] not in (PASS, RECORDED)]
         # G7's contract: `failure_mode: REJECT`, `absent_or_unevaluable:
         # RUN_INVALID`. So an UNEVALUABLE anything voids the run, as does any
         # finding carrying `invalidates` - which is decided where the assertion
@@ -971,14 +1034,26 @@ def build_real_gate(**kwargs):
 
 
 def render(findings):
-    """One line per assertion, for the campaign banner and the evidence bundle."""
+    """One line per assertion, for the campaign banner and the evidence bundle.
+
+    A RECORDED row prints as `RECORDED(WOULD_FAIL)`, not as a bare `RECORDED`.
+    "This criterion was not enforced" and "this criterion was not enforced AND
+    it would have rejected this candidate" are different facts, and the second
+    is the one a reader scanning a banner needs to see without opening a bundle.
+    """
+    def status_of(f):
+        if f["status"] == RECORDED and f.get("would_have"):
+            return "%s(WOULD_%s)" % (RECORDED, f["would_have"])
+        return f["status"]
+
     return "\n".join(
-        "  %-11s %-5s %s%s" % (f["status"], f["gate"], f["check"],
+        "  %-11s %-5s %s%s" % (status_of(f), f["gate"], f["check"],
                                ("\n              " + f["detail"]) if f["detail"] else "")
         for f in findings)
 
 
 __all__ = ["RealGate", "build_real_gate", "GateRunInvalid", "GateHalt",
+           "RECORDED",
            "GcsBlobIO", "local_blob_io", "iam_findings", "seal_probe_findings",
            "classify_probe", "promoter_identity", "gcp_env", "render",
            "object_name", "PASS", "FAIL", "UNEVALUABLE", "finding"]

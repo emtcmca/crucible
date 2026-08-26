@@ -282,6 +282,15 @@ class RoundRecord:
     g4_paired_n: Optional[int] = None
     g4_unpairable: Optional[int] = None
 
+    # WHICH MODE PRODUCED b AND c. `ENFORCING` means the criterion gated this
+    # promotion; `RECORD_ONLY` means it was scored and the promotion happened
+    # anyway. The two are NOT distinguishable from b and c themselves, and a
+    # reader who cannot tell them apart cannot tell "this run's promotions
+    # survived G4" from "this run predates G4 being binding". `None` means the
+    # gate never scored G4 in this round at all.
+    g4_mode: Optional[str] = None
+    g4_record_only_reason: str = ""
+
     # THE TWO INPUTS G4 PAIRS OVER, set by `_round` before the gate is called.
     # PUBLIC, deliberately: `record._candidate` is private and holds the policy
     # in force until a promotion overwrites it, which makes it exactly the wrong
