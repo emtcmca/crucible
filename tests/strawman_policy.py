@@ -113,7 +113,13 @@ def _sum_excludes_pending_engine_factory():
         salami-slicing family is the one call that matters.
         """
 
-        def episode_sum(self, arg_path, visible_prefix, pending_args):
+        def episode_sum(self, arg_path, visible_prefix, pending_args,
+                        group_path=None):
+            # GX2 added the keyword. It is accepted and IGNORED here on
+            # purpose: this strawman's defect is "excludes the pending call",
+            # and a strawman that raised a TypeError would be BROKEN rather
+            # than WRONG - it would fail for a reason that has nothing to do
+            # with the defect it exists to demonstrate.
             return self._sum_over(arg_path, visible_prefix)
 
     return lambda pol: SumExcludesPendingEngine(pol)

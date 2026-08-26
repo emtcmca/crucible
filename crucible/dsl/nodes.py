@@ -85,6 +85,11 @@ class Clause:
     values: Optional[Tuple[str, ...]] = None   # enum_list members
     cap_class: Optional[str] = None     # preceded_by
     context_field: Optional[str] = None  # arg_vs_episode_context
+    # GX2, 2026-08-26. episode_sum ONLY, and OPTIONAL. `None` here means the
+    # fold is ungrouped, and the serializer emits NO KEY AT ALL in that case -
+    # an absent key rather than a null one, which is what lets every rule
+    # written before this field existed hash to the id it already earned.
+    group_path: Optional[str] = None
 
 
 @dataclass(frozen=True)

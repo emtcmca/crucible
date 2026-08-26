@@ -77,7 +77,7 @@ clause        = arg_path cmp_op literal
               | arg_path "is" "absent"
               | arg_path "is" "present"
               | "preceded_by" "(" cap_class ")"
-              | "episode_sum" "(" arg_path ")" cmp_op INTEGER
+              | "episode_sum" "(" arg_path [ "group_by" arg_path ] ")" cmp_op INTEGER
               | arg_path cmp_op "episode" "." context_field ;
 
 (* GX5 - `is present` ADDED 2026-08-21 BY RULING 42.  Grammar grew by ONE
@@ -124,6 +124,68 @@ clause        = arg_path cmp_op literal
    all along.  The parser refused it in as many words.  Contracts outrank the
    architecture spec, so the parser was correct on precedence and the spec was
    correct about what the language needed.                                   *)
+
+(* GX2 - the OPTIONAL `group_by` key on episode_sum, ADDED 2026-08-26.
+   Grammar grew by one OPTIONAL element inside an existing production.  No new
+   alternative, no new keyword position, no lexer change: `group_by` is already
+   a WORD under parser.py's _WORD_RE, and `=` is deliberately still not a token
+   (parser.py, the comment on _OPERATORS), which is why this is a bare keyword
+   between two arg_paths rather than a keyword argument.
+
+   WHY.  The Objective Set's aggregate clauses GROUP and the language did not.
+   objective_set.py::_fire_aggregate buckets executed events by
+   clause["group_by"] and sums clause["sum_path"] within a bucket;
+   `episode_sum(path)` folded over every visible call with no bucketing.  So a
+   clause the RULER states as "n of these on ONE subject" could only be written
+   as "n of these ANYWHERE in the episode", which is a different quantity.  The
+   ARMORER is handed `group_by` and `value` in its projection
+   (armorer/adapter.py, INVARIANT_FIELDS) and had no way to say either back.
+
+   THE EVIDENCE THIS WAS TAKEN ON, and it is three documents rather than an
+   argument:
+     docs/design/gate-noop-measurement-2026-08-25.md  - every promoted rule
+       written against the ONE aggregate clause was a no-op on the breach it
+       answered; every rule written against a per_event clause closed its own.
+     docs/design/dsl-grouping-gap-scope-2026-08-25.md - the change, built once
+       in a throwaway tree and measured: no hash-lock field moves, the corpus,
+       the target and the Objective Set are untouched, and every rule written
+       before it still canonicalises to the id it already earned.
+     docs/proof/armorer-grouping-probe-2026-08-26.md  - thirty live ARMORER
+       calls.  With the production the model writes the grouped rule and spells
+       it correctly every time it appears; without it, its whole reachable
+       output on that clause is a rule that over-blocks or a patch that leaves
+       the policy byte-identical.
+
+   THE ONE SEMANTIC DECISION, AND IT IS NOT COSMETIC.  What does a grouped sum
+   mean when the PENDING CALL CARRIES NO GROUP KEY?  A capability class holds
+   tools that do not share an argument, so this is the ordinary case and not the
+   corner.  THE ANSWER IS TAKEN FROM THE RULER: objective_set.py::_fire_aggregate
+   skips any event whose group key resolves ABSENT, so a call carrying no key is
+   in no bucket and contributes to no total.  The engine does the same - the
+   pending call's own bucket is empty, the sum is 0, and the clause is FALSE
+   rather than UNEVALUABLE.  It is also the doctrine engine.py already states
+   for an absent SUM path: a call with no `amount_minor` is not a money movement
+   and must not be swept in.
+     The alternative - UNEVALUABLE, and therefore RETAINED fail-closed - was
+   built and measured too, and it reproduces the r_new6 defect one production
+   down: the rule fires on every call in its class while validating cleanly.
+   An engine that disagreed with the ruler about which calls are in the bucket
+   would be a second definition of the quantity being scored.
+
+   THE ENGINE SUMS ONLY THE PENDING CALL'S OWN BUCKET, never every bucket.  The
+   TRIPWIRE scans all buckets because it judges a FINISHED EPISODE; the engine
+   judges ONE CALL, and denying a call for a total it did not contribute to is
+   a different rule from the one the clause states.
+
+   PURITY IS UNAFFECTED.  Bucketing is a partition of the same finite recorded
+   prefix the ungrouped fold already walked.  No new lookup, no clock, no state
+   outliving the episode.  Still total and still terminating.
+
+   BACKWARD COMPATIBILITY IS A HASH PROPERTY HERE, not a courtesy.  The stored
+   form omits the key ENTIRELY when it is unused - an absent key, never a null
+   (canonicalization restriction 5) - so a rule written before this production
+   existed hashes to the rule_id it already earned and every bundle that records
+   one stays readable.                                                       *)
 
 (* The three episode-scoped forms above are the last three alternatives.
      preceded_by                     - makes F5 expressible
@@ -295,6 +357,14 @@ origin        = "seed" | "armorer" ":" INTEGER ;
        terminal nothing enforced, because PART A CARRIED NO ARG SCHEMA TO
        ENFORCE IT AGAINST.  Same shape ruling 25 found in role_name, one
        terminal over.
+       A GROUPING KEY IS A PLAIN arg_path AND IS COVERED HERE.  GX2 put an
+       arg_path in a second position inside `episode_sum`, and V10 says EVERY
+       plain one.  validator.py::_paths yields the grouping key for exactly
+       that reason: a grouped clause keyed on an argument no tool declares
+       would bucket every call under ABSENT, which is to say into no bucket at
+       all, and the clause would then be permanently false instead of loudly
+       refused - inert rather than fail-closed, but still a check that cannot
+       fire.
        WHAT THE GAP COST, MEASURED: a clause naming an argument the call does
        not carry is UNEVALUABLE, an unevaluable clause is RETAINED FAIL-CLOSED,
        so such a rule does not sit inert - IT FIRES ON EVERY CALL IN ITS CLASS

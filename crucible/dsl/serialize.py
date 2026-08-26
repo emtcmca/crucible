@@ -87,8 +87,18 @@ def _predicate(clause):
     if clause.form == CLAUSE_PRECEDED_BY:
         return {"form": CLAUSE_PRECEDED_BY, "value": clause.cap_class}
     if clause.form == CLAUSE_EPISODE_SUM:
-        return {"form": CLAUSE_EPISODE_SUM, "arg_path": clause.path,
-                "op": CMP_OPS[clause.op], "value": clause.value}
+        out = {"form": CLAUSE_EPISODE_SUM, "arg_path": clause.path,
+               "op": CMP_OPS[clause.op], "value": clause.value}
+        # GX2. THE KEY IS ABSENT WHEN UNUSED, NEVER NULL. Canonicalization
+        # restriction 5 forbids a null in a hashed payload, and here that rule
+        # is doing more than tidiness: `if clause.group_path` is the entire
+        # reason a rule written before this production existed still hashes to
+        # the rule_id already recorded beside it in every bundle. Emitting
+        # `"group_by": null` on an ungrouped fold would re-id every such rule
+        # and make the offline reader refuse the bundles that carry them.
+        if clause.group_path:
+            out["group_by"] = clause.group_path
+        return out
     if clause.form == CLAUSE_ARG_VS_EPISODE_CONTEXT:
         return {"form": CLAUSE_ARG_VS_EPISODE_CONTEXT, "arg_path": clause.path,
                 "op": CMP_OPS[clause.op], "context_field": clause.context_field}
@@ -97,8 +107,14 @@ def _predicate(clause):
 
 def _predicate_sort_key(p):
     """Stated, so it is auditable rather than incidental. Convention 3."""
+    # `group_by` is appended LAST rather than inserted beside `arg_path`.
+    # Appending leaves the key of every predicate that carries no grouping key
+    # exactly as it was, so the sort of an existing rule's `predicates` array
+    # cannot move - and predicate order is inside the hashed body, so a moved
+    # sort is a moved rule_id. GX2.
     return (p.get("form", ""), p.get("arg_path", ""), p.get("op", ""),
-            p.get("context_field", ""), str(p.get("value", "")))
+            p.get("context_field", ""), str(p.get("value", "")),
+            p.get("group_by", ""))
 
 
 def rule_body(parsed: ParsedRule) -> dict:

@@ -133,9 +133,29 @@ def _predicate_holds(pred, event, prefix):
         # which is why it does not break the "total and terminating" rule. The
         # PENDING call is included: a prefix summing to 99,999 against a 100,000
         # ceiling must deny the pending 500, or the ceiling is off by one call.
-        total = 0
-        for e in list(prefix.events) + [event]:
-            if e is event or e.is_executed:
+        #
+        # GX2. THE GROUPING KEY IS HANDLED HERE RATHER THAN IGNORED, and that
+        # is the whole point of touching this file. This engine implements only
+        # what the fixtures exercise, so the tempting move was to leave it
+        # alone - but an unread `group_by` does not fail, it FOLDS UNGROUPED,
+        # which is a silently different number that agrees with the real engine
+        # on every episode touching one bucket and disagrees on exactly the
+        # episodes the form exists for. The bucketing rule is the TRIPWIRE's
+        # (`objective_set.py::_fire_aggregate`): a call whose key is ABSENT is
+        # in no bucket, and the fold is over the PENDING CALL'S OWN bucket.
+        # `tests/test_dsl_grouping.py` runs both engines over the same events
+        # and requires them to agree.
+        group_by = pred.get("group_by")
+        key = _resolve(event.args, group_by) if group_by else None
+        if group_by and key is _ABSENT:
+            total = 0
+        else:
+            total = 0
+            for e in list(prefix.events) + [event]:
+                if e is not event and not e.is_executed:
+                    continue
+                if group_by and _resolve(e.args, group_by) != key:
+                    continue
                 v = _resolve(e.args, pred["arg_path"])
                 if type(v) is int:
                     total += v

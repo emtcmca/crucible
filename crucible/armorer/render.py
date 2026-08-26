@@ -66,8 +66,15 @@ def _clause_texts(match):
         if form == "preceded_by":
             out.append("preceded_by(%s)" % pred["value"])
         elif form == "episode_sum":
+            # GX2. The grouping key round-trips only when it is present; an
+            # ungrouped predicate renders exactly the text it always did, which
+            # is what keeps `render_current` stable for every policy written
+            # before the production existed.
+            inner = pred["arg_path"]
+            if pred.get("group_by"):
+                inner = "%s group_by %s" % (inner, pred["group_by"])
             out.append("episode_sum(%s) %s %s"
-                       % (pred["arg_path"], _OP_TEXT[pred["op"]], pred["value"]))
+                       % (inner, _OP_TEXT[pred["op"]], pred["value"]))
         elif form == "arg_vs_episode_context":
             out.append("%s %s episode.%s"
                        % (pred["arg_path"], _OP_TEXT[pred["op"]],

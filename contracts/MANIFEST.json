@@ -69,12 +69,12 @@
     "C4": {
       "files": {
         "policy.ebnf": {
-          "sha256": "367408ed32a39edf3d26a2b7afbc4f8fbac39466d126dc4f17446fdc30d538fa",
-          "bytes": 19896
+          "sha256": "f43e75ad6fea1ccb3fe874d5c6b503d39a6f12f0e799cb7dec90c7293d233c39",
+          "bytes": 24504
         },
         "policy_document.schema.json": {
-          "sha256": "cb7a133b9768cc9362a93342ea8f491b99ce2fb1411d0cad7ca3ea0fe71d6681",
-          "bytes": 11418
+          "sha256": "ab6b0b97f8d96ad50c52fdfa74b83b366bff89dbae3c38cee2ae5f7c54faaa2a",
+          "bytes": 12392
         }
       },
       "produced_by": "L1/L3",

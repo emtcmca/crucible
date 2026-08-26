@@ -225,7 +225,8 @@ class PolicyEngine:
                 total += value
         return total
 
-    def episode_sum(self, arg_path, visible_prefix, pending_args):
+    def episode_sum(self, arg_path, visible_prefix, pending_args,
+                    group_path=None):
         """Prefix PLUS the pending call. Returns None when unevaluable.
 
         Absent on the pending call contributes zero - a call with no
@@ -233,13 +234,74 @@ class PolicyEngine:
         but not an integer is UNEVALUABLE and therefore fails closed, because a
         string where a minor-unit integer belongs is a call we cannot reason
         about, not a call worth zero.
+
+        `group_path` is GX2 and delegates to `_sum_grouped`. It is a keyword
+        with a default so every existing caller and every subclass override of
+        this method keeps working unchanged.
         """
+        if group_path:
+            return self._sum_grouped(arg_path, group_path, visible_prefix,
+                                     pending_args)
         total = self._sum_over(arg_path, visible_prefix)
         found, value = _lookup(pending_args or {}, arg_path)
         if found:
             if not _is_int(value):
                 return None
             total += value
+        return total
+
+    def _sum_grouped(self, arg_path, group_path, visible_prefix, pending_args):
+        """GX2. The fold restricted to THE PENDING CALL'S OWN BUCKET.
+
+        THE BUCKETING RULE IS THE TRIPWIRE'S, DELIBERATELY, AND THIS IS THE ONE
+        DESIGN DECISION IN THE WHOLE PRODUCTION.
+        `crucible/tripwire/objective_set.py::_fire_aggregate` resolves each
+        executed event's `group_by` path and SKIPS the event when it is absent:
+        a call carrying no key is in NO bucket. This engine does the same, and
+        it does it for the reason the ruler does - not because absence is
+        conveniently false. The two must agree about which calls are in the
+        bucket, or the policy is being evaluated against a different quantity
+        from the one the Objective Set scores, and a rule could then close a
+        breach by arithmetic the ruler does not recognise.
+
+        SO A PENDING CALL WITH NO GROUP KEY SUMS TO ZERO, NOT TO UNEVALUABLE.
+        The alternative was built and measured (`docs/design/
+        dsl-grouping-gap-scope-2026-08-25.md` section 2.3): unevaluable clauses
+        are RETAINED fail-closed, so a grouped rule keyed on an argument only
+        some tools in the class declare would fire on every call in the class
+        that does not carry it. That is `r_new6` one production down - the rule
+        validates cleanly and blocks the work. It is also the doctrine
+        `episode_sum` already states above for an absent SUM path.
+
+        WHY ONLY THE PENDING CALL'S BUCKET. The TRIPWIRE scans every bucket
+        because it judges a FINISHED episode and asks whether ANY subject was
+        mutated too often. The engine judges ONE CALL and asks whether THIS call
+        is the one over the line. Denying a call for a total accumulated on a
+        subject it never touched is a different rule from the one the clause
+        states, and it would deny an unrelated first call in an episode that
+        already tripped elsewhere.
+        """
+        found, key = _lookup(pending_args or {}, group_path)
+        if not found:
+            # In no bucket. Its own total is zero, which is a value and not an
+            # absence of one, so the comparison is TOTAL and never UNEVALUABLE.
+            return 0
+        total = 0
+        for ev in visible_prefix:
+            ev_args = ev.get("args") or {}
+            ev_found, ev_key = _lookup(ev_args, group_path)
+            if not ev_found or ev_key != key:
+                continue
+            amt_found, amt = _lookup(ev_args, arg_path)
+            if amt_found and _is_int(amt):
+                total += amt
+        p_found, p_value = _lookup(pending_args or {}, arg_path)
+        if p_found:
+            if not _is_int(p_value):
+                # Same rule as the ungrouped fold: a string where a minor-unit
+                # integer belongs is a call we cannot reason about.
+                return None
+            total += p_value
         return total
 
     # -- STEP 2 ------------------------------------------------------------
@@ -253,7 +315,8 @@ class PolicyEngine:
                         return TRUE
                 return FALSE
             if form == "episode_sum":
-                total = self.episode_sum(cond.get("arg_path"), visible, args)
+                total = self.episode_sum(cond.get("arg_path"), visible, args,
+                                         group_path=cond.get("group_by"))
                 if total is None:
                     return UNEVALUABLE
                 return _compare(total, cond.get("op"), cond.get("value"))
