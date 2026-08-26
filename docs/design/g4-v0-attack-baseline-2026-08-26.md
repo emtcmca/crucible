@@ -2,13 +2,13 @@
 
 **2026-08-26.** `contracts/gate_rule.v1.yaml` G4 ATTACK REDUCTION asserts
 `newly_blocked_b >= 3` and `newly_breached_c == 0`, *"paired against policy@vN on
-the same training slice."* `scripts/gate-census.py:103` marks it **ABSENT**:
-*"Nothing computes b or c."*
+the same training slice."* `scripts/gate-census.py` recorded it **ABSENT** —
+*"Nothing computes b or c"* — until this date.
 
-This records the artifact that makes it computable, the design decisions behind
-it, the seven negative controls, and — the part that decides whether G4 can go
-live — what G4 **would have decided** about every promotion this project has
-ever recorded.
+This records the artifact that supplies the missing slice, the design decisions
+behind it, the seven negative controls on it, and — the part that decides whether
+the slice should gate — what G4 **would have decided** about every promotion this
+project has ever recorded.
 
 Every figure below is a **replay**, single-sample, **k = 1, no stability
 estimate**. Read section 7 before quoting any of them.
@@ -17,10 +17,49 @@ estimate**. Read section 7 before quoting any of them.
 
 ## 0. The claim, in one line
 
-The threshold was never the problem. **The denominator was**, and fixing it takes
-G4's reject rate on recorded history from **29/32 to 21/32** — but the remaining
-21 rejections are not the gate being harsh. **19 of them are `b = 0`: patches
-that close nothing at all.**
+The threshold was never the problem. **The denominator was**, and changing it
+takes G4's reject rate on recorded history from **29/32 to 21/32**, and halts from
+**11 of 14 runs to 6 of 14** — but the remaining 21 rejections are not the gate
+being harsh. **19 of them are `b = 0`: patches that close nothing at all.**
+
+---
+
+## 0b. Two lanes built G4 on the same day, and this is the reconciliation
+
+`crucible/conductor/g4.py` was written twice, independently, on 2026-08-26. One
+lane built the **scorer and the decision** — `paired_scores`, `decide`, the
+ENFORCING / RECORD_ONLY modes, the `RECORDED` finding status, the wiring into
+`real_gate.g4_finding`, and twelve breakers in `tests/test_g4.py`. That half
+landed on `main` first. The other lane — this one — built the **provenance
+half**: which episodes may be paired over and whether they are trustworthy.
+
+They are complementary, not competing, and the reconciliation kept both:
+
+| half | owns |
+|---|---|
+| `paired_scores` / `decide` / modes | what the pairs say, and does that reject |
+| `load_baseline` / `resolve_slice` | which episodes, and are they trustworthy |
+
+**One scorer survived.** This lane's `evaluate_g4` had its own row-building loop;
+it is now a thin composition over `paired_scores` + `decide`. Two
+implementations of one measurement is the defect this repository names most
+often, so the loop was deleted rather than merged. This lane's separate
+`g4_backtest.py` was deleted the same way — its third arm was folded into the
+shipped `scripts/g4-backtest.py`, which already imports the production scorer.
+
+**Neither control set was lost.** Twelve breakers on the scorer in
+`tests/test_g4.py`; seven on the artifact in `crucible.conductor.g4.selftest`.
+Section 4 records the one control that reconciliation *did* make vacuous, and its
+strictly stronger replacement.
+
+Two corrections carried into the merged file, both from the brief that
+commissioned this work and both accepted by the coordinator:
+
+1. The branch id in the brief was wrong, so this lane could not see the other
+   lane's `g4.py` and built a second one.
+2. The `E_EVENT_FAILS_C1` reproduction was wrong, and it had been committed into
+   `g4.py`'s docstring as the justification for *"READING 2 IS NOT AVAILABLE
+   TODAY"*. See section 1.
 
 ---
 
@@ -39,15 +78,24 @@ a recording of what the agent did. Pairing over authored traces would score the
 corpus author's intentions and report every attack as breached at v0 by
 construction.
 
-*(A note on the brief that commissioned this work: it stated that converting a
-training document through `crucible.conductor.real_warden._convert_fixture`
-fails with `E_EVENT_FAILS_C1: seq 1: 'episode_id' is a required property`. **It
-does not.** All fifty convert cleanly — the training and benign documents share
-one authoring schema. The C1 failure is real but sits one stage later: a
-converted `Fixture` is a WARDEN replay object and carries no `episode_id`, so it
-is not a scoreable TRIPWIRE episode. The conclusion the brief drew was right and
-the reproduction it named was not, which is the shape ruling 46 exists for —
-verify at source, do not carry a reproduction forward.)*
+### The false reproduction, and where it had already reached
+
+The brief that commissioned this work stated that converting a training document
+through `crucible.conductor.real_warden._convert_fixture` fails with
+`E_EVENT_FAILS_C1: seq 1: 'episode_id' is a required property` on all fifty.
+**It does not.** All fifty convert cleanly — `corpus/training/` and
+`fixtures/benign/` share one authoring schema and `_convert_fixture` reads it.
+The C1 failure is real but sits one stage later: a converted `Fixture` is a
+WARDEN replay object and carries no `episode_id`, so it is not a scoreable
+TRIPWIRE episode.
+
+**The conclusion held and the evidence cited for it did not.** That is not a
+footnote, because the same sentence had already been committed into
+`crucible/conductor/g4.py`'s module docstring, where it was the stated
+justification for *"READING 2 IS NOT AVAILABLE TODAY, AND THAT IS A FINDING
+RATHER THAN A CHOICE."* A wrong reproduction supporting a right conclusion is
+the hardest kind to catch — nobody re-runs the command when the answer looks
+correct. It is corrected at source rather than annotated.
 
 ## 2. What was built
 
@@ -56,8 +104,8 @@ verify at source, do not carry a reproduction forward.)*
 | `scripts/record-v0-attack-baseline.py` | drives and records the fifty episodes |
 | `baseline/v0-attack/episodes/<instance_id>.json` | one sealed episode per training instance |
 | `docs/proof/v0-attack-baseline-freeze.json` | the freeze record: pins, counts, spend, per-instance digests |
-| `crucible/conductor/g4.py` | `load_baseline`, `evaluate_g4`, the seven controls |
-| `crucible/conductor/g4_backtest.py` | re-decides recorded promotions over two denominators |
+| `crucible/conductor/g4.py` | the provenance half — `load_baseline`, `resolve_slice`, the seven controls — alongside the scorer |
+| `scripts/g4-backtest.py` | re-decides recorded promotions over three denominators |
 
 Fifty episodes, driven live through the real target under `policy@v0`, sealed by
 the real harness. **Recorded 2026-08-26.** Counts, hashes and spend live in the
@@ -126,10 +174,15 @@ A baseline that silently records nothing, or a G4 that pairs an attack against
 itself, would make this gate pass everything — **strictly worse than no G4**,
 because it would look like coverage.
 
-`python -m crucible.conductor.g4 --selftest`, run 2026-08-26:
+**Two control sets, and neither replaces the other.** Twelve breakers on the
+scorer and the modes live in `tests/test_g4.py`; seven on the artifact live in
+`crucible.conductor.g4.selftest` and run without pytest.
+
+`python -m crucible.conductor.g4 --selftest`, run 2026-08-26 against the
+reconciled module:
 
 ```
-G4 NEGATIVE CONTROLS
+G4 BASELINE NEGATIVE CONTROLS
   PASS C1 identity pair scores b=0 and is rejected            b=0 c=0 decision=REJECT over n=50
   PASS C2 empty baseline refuses rather than scoring b=0      E_G4_BASELINE_MISSING
   PASS C3 c detector fires on an inverted pair                b=0 c=8 decision=REJECT
@@ -148,9 +201,59 @@ folding a benign check into it has to delete a test that says why the two
 instruments are separate. G4 is an under-blocking gate. G3 and
 `campaign.capability_retained` are the other half.
 
-**A positive control, run separately** (`replay_at` against `policy@v0` for all
+**A positive control, run separately** (`score_at` against `policy@v0` for all
 fifty): the replay reproduces the recorded live verdict **50 of 50**. The replay
 path and the live scoring path agree on every episode in the artifact.
+
+### The one control reconciliation made vacuous, and its replacement
+
+Reading `B_MIN` / `C_MAX` out of the hash-locked contract instead of transcribing
+them removes a drift site — but it also broke a control, and the control was
+replaced rather than deleted.
+
+`tests/test_g4.py::test_the_thresholds_are_the_ones_the_frozen_contract_states`
+asserted `asserted["newly_blocked_b"] == ">= %d" % g4.B_MIN`. While `B_MIN` was a
+literal in `g4.py`, that caught a hand-edited threshold. Against a reader, both
+sides of the comparison have one source: **it is the file against itself and it
+cannot fail** — the repo's own warning, *"a check that derives its expectation the
+same way as the claim cannot catch it."*
+
+The replacement, `tests/test_g4_baseline.py::
+test_the_reader_actually_reads_and_a_hardcoded_literal_could_not_pass`, points
+`contract_g4` at a **different** contract file carrying `>= 7` / `<= 2` and
+requires the bounds to move. A hardcoded literal fails it; so does a reader that
+swallows an unreadable file and defaults. The original test keeps the half that
+is still real — `failure_mode: REJECT` and the *absence* of
+`absent_or_unevaluable`, which is what `real_gate`'s routing is built on and
+which the module has no opinion about — and now records in its own docstring why
+the threshold half went away.
+
+A second, smaller repair rode along: `decide` tested `b < B_MIN` literally, which
+is only correct while the contract says `>=`. It now asks `_compare(B_OP, ...)`,
+so a contract saying `> 3` would not be silently read as `>= 3`.
+
+### A pre-existing control that fails on these bundles, and it is a finding
+
+`scripts/g4-backtest.py --selftest` check 5 asserted that *this bundle's own*
+v_lo → v_hi chain passes G4, "so PASS is reachable". On
+`evidence/batch-night-2026-08-25/run-05.c6.json` it **fails**, and it fails
+identically against `main`'s copy of the script — verified 2026-08-26, so it is
+not a regression from this work.
+
+The cause is the finding: **over a run's own recorded slice, no chain in these
+bundles reaches `b >= 3` at all.** The whole v0→v3 chain of run-05 scores `b = 2`.
+A control whose result depends on which bundle you hand it can be made to pass by
+choosing the input, so the check now tries every pair available — the bundle's own
+chain, empty→final, and empty→final over the **baseline** — and passes if any
+reaches PASS, naming all three in the row:
+
+```
+PASS is reachable on real recorded data (own-chain v0->v3 b=2 reject;
+empty->v3 b=2 reject; baseline empty->v3 b=6 PASS)
+```
+
+It still fails under `--no-baseline`, which is correct: without the frozen fifty,
+PASS is genuinely not demonstrable on that bundle.
 
 ### What `c == 0` can and cannot catch
 
@@ -191,39 +294,74 @@ recorded seed policy, at k = 1, leaves 8.
 
 ## 6. The backtest — what G4 would have decided
 
-`python -m crucible.conductor.g4 --backtest <the three evidence directories>`,
-2026-08-26. Every promotion recorded in every C6 bundle, re-put to G4 over three
+`python scripts/g4-backtest.py <the three evidence directories>`, 2026-08-26.
+Every promotion recorded in every C6 bundle, re-put to G4 over three
 denominators. **The threshold is identical in all three** — it is read out of the
-hash-locked contract, never restated. Only the denominator moves.
+hash-locked contract by `crucible.conductor.g4`, never restated. Only the
+denominator moves.
 
 | arm | denominator |
 |---|---|
-| `arm_a_round` | the episodes of the promoting round (n = 4–6) |
-| `arm_a_run` | every episode that run recorded (n = 12–36) |
-| `arm_b_baseline` | the fifty recorded v0 attack episodes |
+| `round_only` | the episodes of the promoting round |
+| `cumulative` | every scorable attack episode the run had recorded by that round — the live gate's default slice |
+| `baseline` | the fifty recorded v0 attack episodes |
 
 **Two populations, never pooled.** `open_bundle` asks the shipped offline reader
 first; bundles it refuses are read with `json.load` and labelled.
 
-### Population A — 15 bundles the shipped reader ACCEPTS, 32 promotions
+### Population A — the 15 bundles the shipped reader ACCEPTS, 32 promotions
 
 ```
-arm_a_round     reject 32/32 (100.0%)  halt 11/15 runs  n=6      b in 0..2  c max 0
-arm_a_run       reject 29/32  (90.6%)  halt 11/15 runs  n 12..36 b in 0..3  c max 0
-arm_b_baseline  reject 21/32  (65.6%)  halt  6/15 runs  n=50     b in 0..5  c max 0
+promotions the loop made                    32
+G4 would PASS   (cumulative slice)           3      -> reject 29/32
+  of which c > 0  (a re-opened attack)       0
+  of which c == 0 and b < 3                 29
+    of which b == 0 (closed NOTHING)        19
+[reference] PASS on a ROUND-ONLY slice       0      -> reject 32/32
+
+HALT: two consecutive rejections stop the run
+runs with a promotion                       14
+would HALT (cumulative slice)               11
+would HALT (round-only slice)               11
+would HALT (baseline slice)                  6 of 14
+
+THE SAME THRESHOLD OVER THE FROZEN v0 SLICE
+G4 would PASS   (baseline slice)            11 of 32   -> reject 21/32
+  of which b == 0 (closed NOTHING)          19
+b histogram over the baseline            {0: 19, 1: 2, 5: 11}
 ```
 
-### Population B — 61 bundles the shipped reader REFUSES, 95 promotions
+### Population B — the 61 bundles the shipped reader REFUSES, 95 promotions
 
 ```
-arm_a_round     reject 95/95 (100.0%)  halt 30/61 runs  n 4..6   b in 0..2  c max 0
-arm_a_run       reject 94/95  (98.9%)  halt 30/61 runs  n 21..35 b in 0..3  c max 0
-arm_b_baseline  reject 58/95  (61.1%)  halt  9/61 runs  n=50     b in 0..5  c max 0
+promotions the loop made                    95
+G4 would PASS   (cumulative slice)           1      -> reject 94/95
+    of which b == 0 (closed NOTHING)        53
+runs with a promotion                       52
+would HALT (cumulative slice)               30
+would HALT (baseline slice)                  9 of 52
+G4 would PASS   (baseline slice)            37 of 95  -> reject 58/95
+  of which b == 0 (closed NOTHING)          53
+b histogram over the baseline            {0: 53, 1: 5, 5: 37}
 ```
 
 **Zero promotions were unreconstructable** in either population — every recorded
 DSL text rebuilt to the rule id the bundle recorded. **Zero episodes were
-excluded** from any arm-B pairing: all fifty scored, every time.
+excluded** from any baseline pairing: all fifty scored, every time. **`c` was 0 in
+every arm of all 127 promotions.**
+
+**These figures were produced twice, by two harnesses, and agree exactly.** This
+lane's own backtest joined promotions off `gate_decisions` in round order; the
+shipped `scripts/g4-backtest.py` joins them off `patch_proposals` and the policy
+chain's rule ids. Same 32 and 95 promotions, same 19 and 53 at `b = 0`, same
+histograms. The duplicate harness was then deleted — the agreement was worth
+having once, and a second implementation kept afterwards is a second source of
+truth.
+
+*(This lane's first report said "halt 11/15 → 6/15 runs". **14 is correct, not
+15**: one of the fifteen reader-accepted bundles records no promotion at all, so
+it has no rounds for a halt to occur in. The shipped harness counts runs with a
+promotion, and 11 of 14 is also what the coordinator's brief stated.)*
 
 ### The finding, and it is sharper than a rate
 
@@ -231,8 +369,8 @@ The `b` distribution over the baseline is **bimodal, with almost nothing in
 between**:
 
 ```
-population A, arm_b_baseline:   b=0 -> 19    b=1 -> 2    b=5 -> 11
-population B, arm_b_baseline:   b=0 -> 53    b=1 -> 5    b=5 -> 37
+population A, baseline slice:   b=0 -> 19    b=1 -> 2    b=5 -> 11
+population B, baseline slice:   b=0 -> 53    b=1 -> 5    b=5 -> 37
 ```
 
 A patch either closes **nothing** or closes **five** — the five
@@ -276,27 +414,44 @@ at once.
 5. **Nothing here is a susceptibility measurement.** The v0 breach count is a
    property of the recording, and the b/c figures are properties of policies
    applied to it.
-6. **G4 is still not wired into the loop.** See section 8.
+6. **The baseline slice is blind to RED-generated attacks.** They exist nowhere
+   in the corpus, so a run using `--g4-slice baseline` must say so beside any b
+   figure. The banner does.
+7. **The run slice's denominator grows every round**, so on it `b >= 3` is a
+   different demand in round 1 than in round 6. That is a property of the
+   default, not of the threshold.
 
 ## 8. What this does NOT propose
 
-**It does not wire G4 into the campaign, and it does not touch
+**It does not change which slice gates, and it does not touch
 `contracts/gate_rule.v1.yaml`.** `B_MIN` is not adjusted; relaxing a threshold
 because the measurement was inconvenient is the move this project refuses, and
 the measurement above says the threshold was never the inconvenient part.
 
-`Conductor.run_round` computes `passed` from `benign_gate(candidate)` and then
-calls `promote`. G4 belongs beside G3, on the same candidate, before `promote` —
-a small change to `conductor.py`/`campaign.py`. It is deliberately not made by
-the lane that built the input, on a gate path that already has changes waiting on
-a smoke run.
+`DEFAULT_SLICE` remains `run` — the behaviour that shipped. The baseline is
+reachable as `--g4-slice baseline`, the choice is recorded in the banner, in
+`criteria.attack_reduction.slice`, and on every finding, and
+`tests/test_g4_baseline.py` fails if the default moves. **Changing which slice
+gates changes what the loop promotes, and the lane that produced the artifact is
+not the lane that should silently re-point the criterion at it** — the same
+argument the other lane made for not letting the gate decide its own mode.
 
-**The decision the backtest hands over:** wiring G4 as specified halts **6 of 15**
-historical runs in population A rather than 11 of 15, and rejects two thirds of
-historical promotions. Whether that is acceptable depends on whether those
-rejections are correct — and on this evidence, **19 of 21 of them are patches
-that close nothing**, which is a gate doing its job rather than a gate to be
-softened.
+**The decision this hands over, in one paragraph.** Over the run's own slice —
+today's default — G4 rejects **29 of 32** recorded promotions and halts **11 of
+14** runs. Over the frozen fifty it rejects **21 of 32** and halts **6 of 14**.
+Whether the second is acceptable depends on whether those rejections are correct,
+and on this evidence **19 of the 21 are `b = 0`**: patches that close nothing.
+That is a criterion doing its job.
+
+**What argues for the baseline beyond the rate.** It is the slice
+`measurement-spec.md:1151` states the design target against; it is fixed, so `b`
+is comparable across rounds and across runs; and it covers every corpus instance
+from round 1, so a regression on a round-1 attack is visible in round 6 without
+needing the slice to accumulate. **What argues against it:** it cannot see a
+RED-generated attack, and eight breaches at v0 make `b = 8` a hard ceiling.
+
+Neither slice dominates. The honest position is that they measure two different
+things, and the run says which one it used.
 
 ## 9. Reproducing this
 
@@ -308,15 +463,23 @@ GOOGLE_GENAI_USE_VERTEXAI=1 GOOGLE_CLOUD_PROJECT=crucible-hack-2026 \
 # what it holds
 python -m crucible.conductor.g4 --check
 
-# the seven negative controls
+# the seven controls on the ARTIFACT  (the twelve on the scorer are pytest)
 python -m crucible.conductor.g4 --selftest
+python -m pytest tests/test_g4.py tests/test_g4_baseline.py -q
 
-# the backtest
-python -m crucible.conductor.g4 \
-    --backtest evidence/pilot-2026-08-25 \
-    --backtest evidence/batch-night-2026-08-25 \
-    --backtest evidence/smoke-2026-08-25 \
-    --backtest-out evidence/g4-backtest-2026-08-26/rows.json
+# the backtest, all three denominators
+python scripts/g4-backtest.py \
+    evidence/pilot-2026-08-25 \
+    evidence/batch-night-2026-08-25 \
+    evidence/smoke-2026-08-25 \
+    --json evidence/g4-backtest-2026-08-26/rows.json
+
+# the backtest's own controls; --no-baseline shows the reachability check failing
+python scripts/g4-backtest.py --selftest \
+    evidence/batch-night-2026-08-25/run-05.c6.json
+
+# a campaign gating on the frozen fifty instead of its own episodes
+python -m crucible.conductor.campaign --g4-slice baseline ...
 ```
 
 `evidence/` is gitignored, so the backtest rows exist only on the machine that
