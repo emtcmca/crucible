@@ -674,7 +674,6 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
             % (g4_slice, ", ".join(g4mod.SLICES)))
     info["g4"] = {"mode": g4_mode,
                   "enforced": g4_mode == g4mod.ENFORCING,
-                  "record_only_reason": g4_reason or None,
                   # OPERATORS FROM THE CONTRACT, not spelled here. `b >= %d`
                   # hardcoded would be a third copy of a threshold whose owner
                   # is a frozen file.
@@ -688,6 +687,15 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
                   # and over the frozen fifty are different demands, and a
                   # denominator without its provenance is not auditable.
                   "slice": g4_slice}
+    # THE KEY IS OMITTED IN ENFORCING MODE, NOT SET TO `null`. Restriction 5 -
+    # an absent fact is an absent key - and `bundle.py::_present` says what a
+    # `null` here cost on 2026-08-27. This dict is the run summary rather than
+    # the canonicalized bundle, so it was not the batch's defect; it is the
+    # same SHAPE, and the shape is what has to stop. `gate_banner_line` reads
+    # this key only inside its `if g4["enforced"]` else-branch (:865), which is
+    # the branch where it is present.
+    if g4_reason:
+        info["g4"]["record_only_reason"] = g4_reason
 
     # CLOSURE'S MODE IS RESOLVED HERE TOO, AND SEPARATELY FROM G4'S. Two
     # criteria, two switches: a run that wants to observe attack reduction
@@ -699,7 +707,6 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
     info["closure"] = {
         "mode": closure_mode,
         "enforced": closure_mode == closuremod.ENFORCING,
-        "record_only_reason": closure_reason or None,
         "criterion": "the originating clause no longer fires on the recorded "
                      "trace of the breach this patch answers",
         "distinct_from_g4": "G4 asks whether the candidate blocks >= 3 attacks "
@@ -708,6 +715,9 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
                             "histogram is bimodal, so neither implies the "
                             "other.",
     }
+    # Omitted rather than nulled, for the reason given on G4's copy above.
+    if closure_reason:
+        info["closure"]["record_only_reason"] = closure_reason
 
     if live:
         # Bucket name SOURCED, never retyped. G7/G8 grep these literals, so a
