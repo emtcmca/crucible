@@ -157,40 +157,43 @@ ending 08-31. **G8 asserts the policy exists, not that it is locked.**
 exit 2. Do not route around it.
 
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
-**Updated:** 2026-08-25 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-`main` @ `cb19e58`, pushed. pytest 0, contract-check 0, **`--selftest` 0** (all six passes
-now prove they can fail; FRESH had no breaker for 12 hours).
+**Updated:** 2026-08-27 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**THREE SPINE RULINGS TODAY. SPINE_VERSION 25.**
-- **54** - "hash-lock" was never a unit. FIVE `REQUIRED_HASHES` / SIX `LOCK_FIELDS` / five
-  freeze RECORDS are all true. **Six is canonical for FIELDS.**
-- **55** - a refusal is a defense. `E_NO_EVENTS_TEXT_ONLY` scores CLEAN, guarded.
-- **56** - a determination pins to the INSTANCE (`instance_id`), not `corpus_hash`.
+`main` @ `27bcee3`. pytest ~2154, contract-check **SEVEN** passes, `--selftest` 0.
+**SPINE_VERSION 28.**
 
-**THE PARAPHRASE RESULT IS WITHDRAWN.** 729 pairs / zero discordant DOES NOT REPRODUCE; it is
-1,949 / 70. Caught before publication. It survived review because it arrived as the
-CORRECTION to a 2.2x artifact - **a null result gets less scrutiny than the finding it kills.**
+**THE FIRST EFFICACY NUMBERS EXIST.** ASR on the frozen 50-episode baseline: **8 at an empty
+policy, median 2.5 across ten runs.** Generalization: **44 -> 12 on attacks a run drew,
+36 -> 16 on attacks it NEVER drew.** Cross-FAMILY is **not measurable** - the strategist
+round-robins all six families, so **F4 is the only unseen family.**
 
-**F5-05 REPAIRED, D5 RE-FROZEN** from `crucible-wt-SEAL`. `corpus_hash` moved, so the 60
-bundles of the 08-25 batch measured a corpus that no longer exists.
-**NO HASH VALUE IN THIS BLOCK - ruling 46.**
+**CRUCIBLE GOVERNED GOOGLE'S UNMODIFIED ADK SAMPLE.** Its own Gemini approved a 40% discount
+with no policy; **DENIED** under a policy learned on a different agent, by a rule that
+**names no tool**. Not a breach - the sample obeyed its own prompt. **"Tricked the agent"
+stays DEAD VOCABULARY.**
+
+**THE 20-RUN GATED BATCH IS INVALID.** All exit 0, **all 20 refused by the reader**:
+`record_only_reason` is `null` in ENFORCING mode and restriction 5 refuses nulls. Fix in
+flight, re-run goes to a NEW directory. **No figure from it is quotable.**
+
+**Rulings 58 (grouping key) and 59 (two-hook short-circuit). Outcome E added to the F4
+pre-registration BEFORE the unseal.** No hash value in this block - ruling 46.
 
 **Open threads**
-- **Ruling 56 implementation IN FLIGHT.** Its open question: does a policy DENY record an
-  event? If a denied call leaves the list EMPTY, the policy version MUST be in the pin.
-- **THE SMOKE RUN, 3 to 5.** ~630 changed lines on the gate path no campaign has run. Expect
-  `E_DEGENERACY_CENSUS_MISSING`; that is the guard working, not a fault.
-- Update 7 owes the **1,614** correction (posted update 6 says 1,616).
-- Somebody must **OPEN** the Cloud Shell URL. Recording a fix is not opening it.
-- Held-out unseal **08-28** · code freeze **08-28** · submit **08-30**.
+- **Re-run the gated batch** after the null fix. Unseal **08-28**, record **08-29**, submit **08-30**.
+- Update 8 = the Google agent, **postable now**. Update 9 = numbers, after the re-run.
+- Corpus re-authoring **STOPPED**: the destination is the barrier, not the amount.
+- `BUILD-LIST` has no §8.2 row. The foreign manifest is **UNRATIFIED**.
 
 **Watch out for**
-- **A CHECK THAT DERIVES ITS EXPECTATION THE SAME WAY AS THE CLAIM CANNOT CATCH IT.**
-- **CRLF**: LF in HEAD, CRLF on disk, hidden by git's stat cache. Python `write_text`
-  translates newlines and rewrites the whole file. Three hits in one day.
-- **`convert` is the Windows FAT-to-NTFS utility**, not ImageMagick. Use headless Chrome.
-- **Two agents in one working directory** produced 34 phantom failures. Use worktrees.
-- **A REPORTED STATUS IS NOT EVIDENCE, and it cuts both ways** - the coordinator called G7
-  UNEVALUABLE on 60 runs from one corrupted console. It is 1,520/1,520 PASS.
+- **A BRANCH THAT NEVER EXECUTES IS INDISTINGUISHABLE FROM ONE THAT WORKS.** Three times in
+  one session: the CONVERGED enum, G4 itself, the ENFORCING null.
+- **Every ARMORER attempt is a FRESH call, no history.** A 519-char rejection block on a 15KB
+  message takes grouped emissions **9/19 -> 0/24**, and REMOVING the guidance changes nothing.
+- **An out-of-band probe and a live run compute the same assertion against DIFFERENT expected
+  values.** Quote the file, the date and the phase.
+- **Python `/tmp` is not Git Bash `/tmp`. Backticks in `git commit -m` get substituted** -
+  write the message to a file.
+- **Four of the coordinator's claims were corrected by lanes this session.**
 <!-- VAULT:SESSION-STATE end -->
