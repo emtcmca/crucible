@@ -221,6 +221,21 @@ cases it was conflating have opposite repairs:
 | exit 0, `"exit_class": "MEASUREMENT"` | the bundle reads correctly and reports a run whose figures may not be quoted | **the instrument working.** Re-run, re-author, or write a determination — do not touch the producer |
 | non-zero, `"exit_class": "STRUCTURAL"` | we emitted a bundle nobody can read | fix the producer. There is no measurement in here to salvage |
 
+**`"verdict": "REJECTS"` BESIDE EXIT 0 IS NOW CORRECT, AND IT USED TO BE THE BUG.** The two
+fields answer different questions and the middle row is where they disagree on purpose:
+
+- **`verdict`** is `ACCEPTS` only when the bundle has **zero** defects. Anything else is
+  `REJECTS`. It answers *may I quote a figure from this run.*
+- **`exit_class`** answers *whose fault is it*, and only `STRUCTURAL` is ours.
+
+So `ACCEPTS` and `CLEAN` are the same set, and `REJECTS` covers **both** MEASUREMENT and
+STRUCTURAL. A MEASUREMENT run is a correct document truthfully reporting a run you may not
+quote — the producer did its job, so it exits 0, and the reader still refuses the figures.
+
+**Do not re-diagnose this as the old defect.** `OFFLINE READER: REJECTS` printed beside exit 0
+is what ruling 60 was written to fix — *when the class was STRUCTURAL.* Check `exit_class`
+before concluding anything, every time.
+
 **Assert the artifact, never the status.** Concretely, before reading any aggregate:
 
 ```bash

@@ -515,6 +515,59 @@ deliverable that does not exist. Still no owner.
 
 ---
 
+### T2-9 · A foreign agent, governed · **added 2026-08-27** · **[40] [30A] [30D]**
+
+**This row did not exist while the work was being done, which is the defect
+`CONTEST.md` §2 names in the other direction.** The beat shipped on 2026-08-26
+and the list that says which gaps are fatal never carried it.
+
+**What exists.** `scripts/foreign-agent-enforcement-probe.py`, and its capture at
+`docs/proof/foreign-agent-enforcement-probe-2026-08-26.txt`. Google's ADK
+customer-service sample, unmodified — its own code, model, tools and callbacks —
+with CRUCIBLE's `BasePlugin` attached. With no policy, the sample's own Gemini
+routed a 40% discount to `sync_ask_for_approval` and it executed. Under a policy
+**learned on a different agent**, the same call was DENIED, **by a rule that
+names no tool**: it binds a capability class, and the class was assigned by the
+Cartographer reading the tool's own description.
+
+**Why it scores.** It is the strongest available evidence for the claim the
+project actually makes — a policy is portable across agents — and it is the
+only artifact in the tree produced on an agent we did not write. **[40]** for
+the transfer, **[30A]** because it demonstrates the enforcement layer really is
+an ADK plugin rather than a fork of one agent, **[30D]** because it is one
+command a judge can run.
+
+**THE THREE THINGS THAT MUST TRAVEL WITH IT, and two are refusals.**
+
+1. **It is NOT a breach, and the write-up says so first.** The sample's own
+   prompt describes that tool as asking a manager and never states a cap, so
+   routing a large discount there is **obedience**. *"CRUCIBLE tricked the
+   agent"* is **DEAD VOCABULARY**. The gap is that the escalation destination
+   has no manager in it.
+2. **It is not a vulnerability report against Google's code**, and no claim here
+   is about their sample's quality.
+3. **One run per arm. No rate.** Nothing here measures attack success, and no
+   such figure appears on the artifact.
+
+**What it also found, in us.** ADK runs a tool's after-callback even when the
+call was refused before it ran; the sample's callback reads a status field a
+refusal does not carry, and raised. Fixed — `after_tool` now returns the refusal
+payload (**ruling 59**, and the widening is a NARROWING: hook two adds no
+enforcement power). The finding worth keeping is that **the same callback breaks
+on three responses ADK itself produces, with CRUCIBLE nowhere in the picture.**
+The sample's callback is fragile against its own framework and attaching
+CRUCIBLE surfaced it.
+
+**STILL OPEN, AND IT BLOCKS QUOTING THE MANIFEST.** The foreign capability
+manifest is **UNRATIFIED** — `ratify.py` requires a named human and has not had
+one. Until it does, the manifest is an input nobody has signed for. The probe
+result does not depend on it; a manifest figure would.
+
+**Devpost:** `docs/devpost/DRAFT-update-8-a-google-agent-it-had-never-seen.md`,
+477 words, passes `check-devpost-format.py`, **unposted and gated on nothing.**
+
+---
+
 ## Tier 3 — refused, and worth saying why
 
 Refusing these deliberately is itself a **[30A]** point, and one README paragraph
