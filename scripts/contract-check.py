@@ -433,9 +433,14 @@ CLAIM = {
         r"|\bcover(?:s|ed|ing)?\s+the\s+(?:whole|entire|full)\s+corpus\b"
         r"|\bevery\s+(?:attack\s+|corpus\s+)?instance\s+(?:was|is|has\s+been)\s+"
         r"(?:run|attempted|exercised|attacked|reached)\b"),
+    # ASSERTION GRAMMAR, not proximity. The first alternative used to be
+    # `repla\w+ [^.]{0,50} re-?attack`, which fired on the honest sentence
+    # "a REPLAY of recorded calls, not a re-attack" and on this repository's own
+    # description of this pattern. Naming the two words near each other is what
+    # DRAWING the distinction looks like; only a copula asserts it.
     "replay-is-reattack": (
-        r"\brepla\w+[^.]{0,50}?\bre-?attack"
-        r"|\brepla\w+\s+(?:the\s+)?attacks?\s+(?:against|at|on)\s+"
+        r"\brepla\w+\s+(?:is|was|are|were|acts?\s+as)\s+(?:a\s+)?re-?attack"
+        r"|\brepla\w+\s+(?:the\s+|each\s+|every\s+)?attacks?\s+(?:against|at|on)\s+"
         r"(?:the\s+)?(?:target|agent)\b"
         r"|\b(?:warden|replay)\w*\s+(?:re-?)?attacks?\s+the\s+(?:target|agent)\b"),
     "fixture-is-evidence": (
