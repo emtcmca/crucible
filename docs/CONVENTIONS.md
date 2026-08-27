@@ -11,7 +11,52 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 28` · last changed 2026-08-27
+`SPINE_VERSION: 29` · last changed 2026-08-27
+
+> **SPINE_VERSION 29 — ruling 60, 2026-08-27. A BUNDLE NOBODY CAN READ IS A PRODUCER
+> FAILURE. A BUNDLE THAT READS FINE AND REPORTS A BAD RUN IS THE INSTRUMENT WORKING. THEY
+> GET DIFFERENT EXIT CODES. Eric's ruling.**
+>
+> **What happened.** `write_bundle` computes the offline reader's verdict, PRINTS
+> `OFFLINE READER: REJECTS`, and returns only the SCHEMA errors. `campaign.py` then exits 0.
+> **Thirty-one bundles across three batches were unreadable and every one exited 0.** The
+> comment at `campaign.py:1389` already states the intent — *"a campaign that produced a
+> bundle nothing can read has not finished its job, and exit 0 would tell a wrapper script
+> that it had"* — and **the code implements half of its own comment.** A check whose verdict
+> is computed and discarded.
+>
+> **THE SPLIT, and it is the whole ruling.**
+>
+> | class | examples | exit |
+> |---|---|---|
+> | **STRUCTURAL** — the bundle cannot be read at all | `E_NOT_CANONICALIZABLE`, `E_NULL`, schema errors | **NON-ZERO.** We emitted garbage; the campaign did not finish its job |
+> | **MEASUREMENT** — the bundle reads correctly and reports an invalid run | `E_EXCLUSION_CEILING_RUN`, `E_AUTOPSY_MISSING_FOR_BREACH` | **0.** A correct record of a bad run IS the job done, and a batch of legitimately excluded runs must not look like a crash |
+>
+> **The split resolves the ripple rather than fighting it.** `tests/test_c6_producer.py`'s
+> `KNOWN_GAP` deliberately keeps a reader-rejected bundle green; its defect is
+> `E_AUTOPSY_MISSING_FOR_BREACH`, a CONTENT gap, which falls on the measurement side. **That
+> test survives unchanged**, which is evidence the line is drawn in the right place.
+>
+> **THE EXIT CODE IS THE SMALLER HALF.** The coordinator read `run-NN.exitcode` as a batch's
+> health signal and computed a published headline from ten runs the reader refuses — on a
+> project whose own `docs/HOW-TO-READ-A-RUN.md` §7 says the exit code is not evidence, in a
+> section the coordinator wrote. **Twenty files saying `0` were enough.**
+>
+> **So the reader's verdict becomes a FIRST-CLASS PER-RUN ARTIFACT**, written every run
+> beside the exit code, carrying ACCEPTS/REJECTS and the defect codes. Reading a batch
+> without consulting it then requires **ignoring a file sitting right there**, rather than
+> knowing to go look. That is the difference between a rule and a guardrail.
+>
+> **AND EVERY AGGREGATE OVER A BATCH MUST REPORT ACCEPTANCE BESIDE ANY FIGURE.** Not
+> "median 2.5 across ten runs" but **"median 2.5 across ten runs, of which the reader
+> accepts four."** Had that been forced, this defect would have been caught before it
+> reached a headline instead of after.
+>
+> **WHAT THIS INVALIDATES.** Nothing measured, because the null never touched a policy or an
+> episode — but it MASKED real defects. Strip the nulls and only **9 of 20** of
+> `batch-gated-2026-08-27` pass, and only **4 of 10** of `batch-grammar-2026-08-26`. The ASR
+> headline is **8 → 3.0 across four reader-accepted runs**, not 8 → 2.5 across ten. Both
+> batches are kept as the record and neither is re-run in place.
 
 > **SPINE_VERSION 27 — ruling 58, 2026-08-26. `episode_sum` TAKES AN OPTIONAL GROUPING KEY. THE
 > RULER GROUPED AND THE LANGUAGE COULD NOT. Eric's ruling, on measured evidence.**
