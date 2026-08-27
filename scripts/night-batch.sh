@@ -44,6 +44,17 @@ G4_FLAG=""
 if [ -n "${G4_RECORD_ONLY:-}" ]; then
   G4_FLAG="--g4-record-only"
 fi
+
+# G4_SLICE picks the denominator b and c are paired over. Default is the
+# campaign's own default (`run`, this run's accumulated episodes). Set it to
+# `baseline` to pair against the frozen 50-episode v0 recording, which is the
+# only denominator constant across rounds AND across runs - inside a single run
+# `n` climbs from 6 to 33, so an early-round candidate and a late one face a
+# materially different bar for the same `b >= 3` threshold.
+SLICE_FLAG=""
+if [ -n "${G4_SLICE:-}" ]; then
+  SLICE_FLAG="--g4-slice"
+fi
 mkdir -p "$OUT"
 LOCK="$OUT/RUNNER.lock"
 
@@ -66,6 +77,7 @@ for i in $(seq 1 "$N"); do
       --live --attack-mode hybrid --usd-cap 2.00 --holdout-expected 0 \
       --red-seed "$((SEED_BASE + i))" \
       ${G4_FLAG:+"$G4_FLAG" "$G4_RECORD_ONLY"} \
+      ${SLICE_FLAG:+"$SLICE_FLAG" "$G4_SLICE"} \
       --out "$OUT/run-$n.json" > "$OUT/run-$n.console.txt" 2>&1
   echo $? > "$OUT/run-$n.exitcode"
 done
