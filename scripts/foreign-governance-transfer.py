@@ -114,6 +114,7 @@ from crucible.cartographer.extract import load_frozen_target      # noqa: E402
 from crucible.manifest import UNCLASSIFIED, capability_set, load_part_a  # noqa: E402
 from crucible.manifest.load import CAPABILITY_CLASSES             # noqa: E402
 from crucible.policy.engine import FALSE, TRUE, UNEVALUABLE, PolicyEngine  # noqa: E402
+from crucible.replay import verdict as _verdict                   # noqa: E402
 
 DEFAULT_FIXTURE = "adk_customer_service"
 DEFAULT_STABILITY = "docs/proof/cartographer-stability-2026-08-24.json"
@@ -602,6 +603,14 @@ def main(argv=None):
     print()
 
     # -- 5. aggregate across every policy, then what may be said ----------
+    # Ruling 60 part 3. The input here is `run-*.json` campaign records; the
+    # reader's verdict sits beside the matching `run-*.c6.json` bundle, so the
+    # suffix is swapped to name it. A figure printed without its acceptance
+    # count is the failure mode returning.
+    _verdict.print_batch_banner(
+        [p["file"][:-len(".json")] + ".c6.json" for p in policies],
+        label="policy")
+    print()
     print("-" * 78)
     print("5. ACROSS ALL %d POLICIES" % len(per_policy))
     print("-" * 78)

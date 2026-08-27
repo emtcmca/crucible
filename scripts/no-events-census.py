@@ -84,6 +84,7 @@ import sys
 REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
+from crucible.replay import verdict as _verdict  # noqa: E402
 from crucible.replay.degeneracy import (  # noqa: E402
     DEGENERATE_RATE,
     FLAG_DEGENERATE,
@@ -573,9 +574,29 @@ def main(argv=None):
 
     rows, discrepancies, episodes = census(bundles)
 
+    # RULING 60 PART 3. This census reports a per-instance no-event RATE over a
+    # batch, and a rate over runs the offline reader refuses is a rate over
+    # bundles that are not evidence. `load_bundles` hands back names, so the
+    # paths are rebuilt here rather than carried: the directory is the same one
+    # it globbed. A figure printed without its acceptance count is the failure
+    # mode returning.
+    bundle_paths = [pathlib.Path(a.directory) / name for name, _ in bundles]
+
     if a.json:
-        print(json.dumps(as_json(rows, discrepancies, episodes, bundles, a), indent=2))
+        payload = as_json(rows, discrepancies, episodes, bundles, a)
+        # INTO THE DOCUMENT, not onto stderr. A JSON consumer never sees a
+        # banner, and the whole point of the ruling is that reading the figure
+        # without the acceptance count should require ignoring something sitting
+        # right there.
+        text, counts = _verdict.batch_banner(bundle_paths, "bundle")
+        payload["acceptance"] = {
+            "accepted": counts.accepted, "rejected": counts.rejected,
+            "unknown": counts.unknown, "total": counts.total,
+            "complete": counts.complete, "statement": text.splitlines()[0],
+        }
+        print(json.dumps(payload, indent=2))
     else:
+        _verdict.print_batch_banner(bundle_paths, "bundle")
         print(render(rows, discrepancies, episodes, bundles, a))
 
     if a.record:

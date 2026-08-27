@@ -1379,7 +1379,7 @@ def run(argv=None):
     _write_campaign_record(summary, result, out)
     # THE RUN OF RECORD. Everything above this line was already being written;
     # NONE of it is C6, and until 2026-08-22 nothing else was either.
-    errors, _path = write_bundle(_c6(result), c6_path(out))
+    structural, _path = write_bundle(_c6(result), c6_path(out))
     # SIX FIELDS. `REQUIRED_HASHES` is the five the conductor refuses to start
     # without; a BUNDLE needs the sixth, `corpus_hash`, or it cannot say which
     # suite its rates were measured against. This line said "five" and checked
@@ -1390,7 +1390,15 @@ def run(argv=None):
     # job, and exit 0 would tell a wrapper script that it had. This is NOT one
     # of the two voided-run codes - the loop ran and its measurements stand -
     # so it gets its own.
-    return 0 if not errors else EXIT_BUNDLE_INVALID
+    #
+    # RULING 60 LANDED IN `write_bundle`, NOT HERE, and that is deliberate. This
+    # line already said the right thing; what it received was only half of what
+    # made a bundle unreadable, so `write_bundle` now returns the STRUCTURAL
+    # reasons - schema errors AND the offline reader's structural defects - and
+    # withholds the MEASUREMENT ones. A bundle that reads correctly and reports
+    # an invalid run still exits 0: that is the instrument working, and it is
+    # why a batch of legitimately excluded runs does not look like a crash.
+    return 0 if not structural else EXIT_BUNDLE_INVALID
 
 
 def _disclaimer(live, locks, handle_overlap, baseline, gate):

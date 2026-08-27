@@ -59,6 +59,7 @@ from crucible.conductor import closure as cl                    # noqa: E402
 from crucible.conductor.g4 import G4Unevaluable                 # noqa: E402
 from crucible.conductor.g4 import decide as g4_decide           # noqa: E402
 from crucible.conductor.g4 import paired_scores                 # noqa: E402
+from crucible.replay import verdict as _verdict                 # noqa: E402
 from crucible.tripwire.objective_set import load_objective_set  # noqa: E402
 
 OBJECTIVE_SET = REPO / "contracts" / "objective_set.v1.json"
@@ -470,6 +471,13 @@ def main(argv=None):
     results = [backtest_bundle(p, objective_set) for p in paths]
     if not args.quiet:
         print_report(results)
+    # RULING 60 PART 3. Every figure over a batch prints its acceptance beside
+    # it. This script already splits accepted from refused bundles by verifying
+    # each one LIVE, which is the stronger instrument; the banner adds the third
+    # population that split cannot see - a bundle with no reader verdict on disk
+    # at all. A figure printed without its acceptance count is the failure mode
+    # returning.
+    _verdict.print_batch_banner(paths, "bundle")
     print_totals(totals(results))
     if args.json:
         out = pathlib.Path(args.json)

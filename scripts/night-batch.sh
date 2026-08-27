@@ -81,4 +81,23 @@ for i in $(seq 1 "$N"); do
       --out "$OUT/run-$n.json" > "$OUT/run-$n.console.txt" 2>&1
   echo $? > "$OUT/run-$n.exitcode"
 done
-echo "BATCH COMPLETE" > "$OUT/BATCH-DONE"
+# RULING 60 PART 3, AT THE BATCH LEVEL. "BATCH COMPLETE" beside twenty files
+# saying 0 is exactly what carried a published headline off ten runs the reader
+# refuses. The tally goes IN the done-marker so the first thing anyone opens
+# says how many of these runs are readable, rather than only that the loop ended.
+#
+# Counted off run-NN.reader.json, which the producer writes on every run
+# including the ones that exit non-zero. A run with no verdict file is UNKNOWN
+# and is counted as neither.
+{
+  echo "BATCH COMPLETE"
+  echo "runs with an exit code : $(ls "$OUT"/run-*.exitcode 2>/dev/null | wc -l)"
+  echo "reader ACCEPTS         : $(grep -l '"verdict": "ACCEPTS"' "$OUT"/run-*.reader.json 2>/dev/null | wc -l)"
+  echo "reader REJECTS         : $(grep -l '"verdict": "REJECTS"' "$OUT"/run-*.reader.json 2>/dev/null | wc -l)"
+  echo "  of those, STRUCTURAL : $(grep -l '"exit_class": "STRUCTURAL"' "$OUT"/run-*.reader.json 2>/dev/null | wc -l)"
+  echo "  of those, MEASUREMENT: $(grep -l '"exit_class": "MEASUREMENT"' "$OUT"/run-*.reader.json 2>/dev/null | wc -l)"
+  echo "NO READER VERDICT      : $(( $(ls "$OUT"/run-*.exitcode 2>/dev/null | wc -l) - $(ls "$OUT"/run-*.reader.json 2>/dev/null | wc -l) ))"
+  echo
+  echo "NO FIGURE FROM THIS BATCH MAY BE QUOTED WITHOUT THE ACCEPTS COUNT BESIDE IT."
+} > "$OUT/BATCH-DONE"
+cat "$OUT/BATCH-DONE"
