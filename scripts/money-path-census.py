@@ -45,6 +45,11 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_BATCH = REPO / "evidence" / "batch-night-2026-08-25"
 CORPUS = REPO / "corpus" / "training"
 
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from crucible.replay import verdict as _verdict  # noqa: E402
+
 MONEY_TOOLS = ("issue_refund", "issue_store_credit")
 
 
@@ -88,6 +93,12 @@ def main(batch_dir):
         print("no run-*.c6.json under %s" % batch_dir)
         return 1
     corpus = load_corpus_index()
+
+    # Ruling 60 part 3. The acceptance count prints ABOVE the first figure, over
+    # exactly the bundles this census aggregates. A figure printed without its
+    # acceptance count is the failure mode returning.
+    _verdict.print_batch_banner(bundles, label="bundle")
+    print()
 
     print("SOURCE FILES")
     print("  bundles      : %d files, %s .. %s"

@@ -2046,11 +2046,32 @@ def validate_bundle(bundle):
 def write_bundle(bundle, path):
     """Write, then say out loud whether what was written is evidence.
 
-    Returns `(errors, path)`. AN INVALID BUNDLE IS STILL WRITTEN - when the
-    thing being debugged is the producer, the rejected document is the only
-    useful artifact there is - but the caller is handed the errors and the
+    Returns `(structural_reasons, path)`. AN INVALID BUNDLE IS STILL WRITTEN -
+    when the thing being debugged is the producer, the rejected document is the
+    only useful artifact there is - but the caller is handed the reasons and the
     banner is unmissable. A producer that wrote an invalid bundle quietly would
     hand a reader something that is not evidence and cannot say so.
+
+    RULING 60. `structural_reasons` IS NOT THE SCHEMA ERROR LIST ANY MORE, and
+    that one word is the whole fix. This function computed the offline reader's
+    verdict, PRINTED `OFFLINE READER: REJECTS`, and returned only the schema
+    errors, so `campaign.py` exited 0 on thirty-one unreadable bundles across
+    three batches. It carries BOTH halves of what makes a bundle unreadable now:
+
+      schema errors                     the document violates its own contract
+      STRUCTURAL reader defects         absent, malformed, or self-contradictory
+
+    and it carries NEITHER of these:
+
+      MEASUREMENT reader defects        the document is a faithful record and
+                                        what it correctly reports is a run whose
+                                        figures may not be quoted. That is the
+                                        instrument WORKING, and a batch of
+                                        legitimately excluded runs must not look
+                                        like a crash
+
+    The split itself lives in `crucible.replay.verdict`, beside the reader that
+    owns the codes, with the reason for every row recorded there.
 
     TWO VERDICTS ARE PRINTED, NOT ONE, AND THE SECOND IS THE ONE THAT DECIDES
     WHETHER THE DEMO CAN RENDER.
@@ -2071,7 +2092,8 @@ def write_bundle(bundle, path):
     cannot open, which is the exact shape of a check that looks green while the
     thing it is checking is broken.
     """
-    from ..replay.integrity import verify_bundle
+    from ..replay import verdict as V
+    from ..replay.integrity import Defect, IntegrityReport, verify_bundle
 
     errors = validate_bundle(bundle)
     with open(path, "w", encoding="utf-8") as handle:
@@ -2086,6 +2108,14 @@ def write_bundle(bundle, path):
             # CONVENTIONS section 8 rule 9 - log the drop. Silent truncation
             # reads as "that was all of them".
             print("    ... %d further error(s) not listed" % (len(errors) - 8))
+        # THE VERDICT ARTIFACT IS WRITTEN ON THIS PATH TOO, and this is the path
+        # that needs it most. A run that fails schema validation exits non-zero,
+        # and the file that says WHY has to sit beside the exit code rather than
+        # only in a console log that scrolls. `report=None` because the reader
+        # was never run: the producer refuses to hand it a document that does
+        # not validate, and the record says so with `checks_total: 0` rather
+        # than reporting checks that did not happen.
+        V.write_verdict(V.verdict_record(None, path, errors), path)
         return errors, path
 
     print("  C6 VALIDATION: PASS. Validates against "
@@ -2094,7 +2124,17 @@ def write_bundle(bundle, path):
           % (len(bundle), len(bundle["episodes"]), len(bundle["attacks"]),
              len(bundle["autopsies"]), len(bundle["patch_proposals"])))
 
-    report = verify_bundle(bundle)
+    try:
+        report = verify_bundle(bundle)
+    except Exception as exc:                          # pragma: no cover
+        # `verify_bundle` documents that it raises nothing, and it is handed
+        # whatever the producer built. A bundle malformed enough to crash the
+        # reader is the MOST structural defect there is, so it must not take the
+        # verdict artifact down with it - the artifact is the only durable
+        # record of what happened here.
+        report = IntegrityReport(
+            [], [Defect(V.E_READER_CRASHED, "$",
+                        "%s: %s" % (type(exc).__name__, exc))], None)
     passed = sum(1 for row in report.rows if row.status == "OK")
     if report.ok:
         print("  OFFLINE READER: ACCEPTS. %d/%d integrity checks OK; canonical "
@@ -2112,4 +2152,28 @@ def write_bundle(bundle, path):
         if len(report.defects) > 6:
             print("    ... %d further defect(s) not listed"
                   % (len(report.defects) - 6))
-    return errors, path
+
+    record = V.verdict_record(report, path, errors)
+    written = V.write_verdict(record, path)
+    # RULING 60, AND THIS LINE IS THE POINT OF THE ARTIFACT. The class decides
+    # the exit code, and it is SAID OUT LOUD beside the file that carries it, so
+    # a reader who watched the run and a reader who found the directory a week
+    # later reach the same conclusion from different evidence.
+    print("  READER VERDICT (%s) -> %s" % (record["exit_class"], written))
+    if record["measurement"]:
+        print("    MEASUREMENT defect(s) - the bundle READS and reports an "
+              "INVALID RUN, which is the instrument working. Exit code stays "
+              "0; no figure may be quoted from this run: %s"
+              % ", ".join(record["measurement"]))
+    if record["unclassified"]:
+        # Never expected: a completeness test walks the reader for codes this
+        # table does not carry. Printed because the day it fires, the silent
+        # version is a code nobody thought about deciding an exit code.
+        print("    UNCLASSIFIED defect code(s), treated as STRUCTURAL: %s"
+              % ", ".join(record["unclassified"]))
+
+    # THE RETURN VALUE CARRIES BOTH HALVES NOW. `errors` alone was the defect.
+    structural = list(errors) + [
+        "%s at %s: %s" % (d.code, d.where, d.detail)
+        for d in report.defects if V.classify(d.code) == V.STRUCTURAL]
+    return structural, path

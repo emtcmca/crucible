@@ -67,6 +67,7 @@ _REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from crucible.replay import verdict as _verdict                     # noqa: E402
 from crucible.tripwire import load_objective_set                    # noqa: E402
 from crucible.tripwire.evaluator import evaluate_episode            # noqa: E402
 from crucible.tripwire.model import Episode                         # noqa: E402
@@ -425,6 +426,12 @@ def main():
         sum(1 for c in objective_set.clauses if c.get("capability_class") == MONEY_CLASS),
         MONEY_CLASS))
     print("bundle dir    : %s" % args.bundle_dir)
+
+    # Ruling 60 part 3. The census below is an aggregate over a batch, so its
+    # acceptance count prints above it, over the same files `census` reads. A
+    # figure printed without its acceptance count is the failure mode returning.
+    print("")
+    _verdict.print_batch_banner(_bundle_files(args.bundle_dir), label="bundle")
 
     counts = census(args.bundle_dir)
     print("")

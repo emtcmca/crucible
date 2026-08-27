@@ -8,14 +8,21 @@ The point of this document: **you should be able to open a run and disagree with
 
 ---
 
-## 1. A run produces four artifacts, and they are not interchangeable
+## 1. A run produces five artifacts, and they are not interchangeable
 
 | file | what it is | trust it for |
 |---|---|---|
 | `run-NN.console.txt` | the human-readable report, printed as the run happened | orientation, and nothing else |
 | `run-NN.json` | the campaign record | the loop's own account of itself |
 | `run-NN.c6.json` | **the evidence bundle, the run of record** | everything. This is the artifact |
+| `run-NN.reader.json` | **the offline reader's verdict on that bundle** | whether the bundle above is readable at all. Read this BEFORE the bundle |
 | `run-NN.exitcode` | the shell exit code | almost nothing. See section 7 |
+
+**`run-NN.reader.json` is new as of ruling 60 and it is the file section 7 was written
+without.** One line of JSON, sorted keys, LF: `verdict` is `ACCEPTS` or `REJECTS`, and
+`exit_class` is `CLEAN`, `MEASUREMENT`, or `STRUCTURAL`. Batches from before 2026-08-27 do
+not carry it, and a run whose verdict file is absent is a run whose acceptance **nobody
+knows** — that is not the same as a rejection and no aggregate may treat it as one.
 
 **The console is a report. The bundle is the evidence.** When the two disagree, the bundle
 wins, and the disagreement is a defect worth chasing. This has already happened here: a
@@ -205,6 +212,15 @@ and the run is still not usable. That gap is the entire reason there are two che
 valid. A run can exit 0 and be `RUN_INVALID`. A batch can print `BATCH COMPLETE` and contain
 a run from the previous night that the resumable runner correctly skipped.
 
+**And an exit code of 0 no longer means one thing.** Ruling 60 split it, because the two
+cases it was conflating have opposite repairs:
+
+| you see | it means | what to do |
+|---|---|---|
+| exit 0, `"verdict": "ACCEPTS"` | the bundle reads and the run stands | read the bundle |
+| exit 0, `"exit_class": "MEASUREMENT"` | the bundle reads correctly and reports a run whose figures may not be quoted | **the instrument working.** Re-run, re-author, or write a determination — do not touch the producer |
+| non-zero, `"exit_class": "STRUCTURAL"` | we emitted a bundle nobody can read | fix the producer. There is no measurement in here to salvage |
+
 **Assert the artifact, never the status.** Concretely, before reading any aggregate:
 
 ```bash
@@ -214,12 +230,27 @@ grep -h "L5 CAMPAIGN" evidence/<batch>/run-*.console.txt
 # every exit code
 cat evidence/<batch>/run-*.exitcode | sort | uniq -c
 
-# who accepted and who refused
-grep -h "OFFLINE READER" evidence/<batch>/run-*.console.txt | sort | uniq -c
+# WHO THE READER ACCEPTS, off the artifact rather than off a console log
+cat evidence/<batch>/run-*.reader.json
+
+# the same question, counted
+grep -ho '"verdict": "[A-Z]*"' evidence/<batch>/run-*.reader.json | sort | uniq -c
+
+# and which defects refused them
+grep -ho '"structural": \[[^]]*\]' evidence/<batch>/run-*.reader.json | sort | uniq -c
 ```
 
 If the run ids are not all from the window you expect, stop and find out why before
-computing anything.
+computing anything. **If the `.reader.json` count is lower than the `.exitcode` count, the
+missing runs are UNKNOWN, not accepted** — this is the case for every batch written before
+2026-08-27.
+
+**This section is why the split exists, and it did not save us.** The coordinator read
+`run-NN.exitcode` as a batch's health signal and computed a published headline from ten runs
+the reader refuses, on a project whose own documentation says here that the exit code is not
+evidence — in a section the coordinator wrote. Twenty files saying `0` were enough. That is
+what the per-run verdict artifact is for: reading a batch without consulting it now requires
+ignoring a file sitting right there, rather than knowing to go look.
 
 ---
 

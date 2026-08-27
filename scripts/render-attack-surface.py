@@ -81,6 +81,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from crucible.manifest import CAPABILITY_CLASSES, UNCLASSIFIED, load_part_a  # noqa: E402
+from crucible.replay import verdict as _verdict  # noqa: E402
 
 DEFAULT_MANIFEST = "target/refund_agent/capability_manifest.json"
 DEFAULT_FREEZE = "docs/proof/d5-corpus-freeze.json"
@@ -863,6 +864,11 @@ def main(argv=None):
         print("wrote %s" % args.json)
     if not (args.out_svg or args.out_html or args.json):
         sys.stdout.write(svg + "\n")
+
+    # Ruling 60 part 3. The summary below aggregates every bundle the graph was
+    # built from, so its acceptance count prints first, over those same paths. A
+    # figure printed without its acceptance count is the failure mode returning.
+    _verdict.print_batch_banner([p for p, _b in bundles], label="bundle")
 
     stale = "" if g["corpus_is_current"] else "  [corpus is NOT the current freeze]"
     print(

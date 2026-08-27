@@ -72,6 +72,7 @@ from crucible.conductor.real_warden import real_warden            # noqa: E402
 from crucible.dsl.parser import parse_rule                        # noqa: E402
 from crucible.dsl.serialize import (                              # noqa: E402
     assign_rule_id, compile_rule, rule_body, sort_rules)
+from crucible.replay import verdict as _verdict                   # noqa: E402
 from crucible.replay.bundle import read_bundle                    # noqa: E402
 from crucible.replay.integrity import BundleRejected              # noqa: E402
 from crucible.tripwire.evaluator import evaluate_episode          # noqa: E402
@@ -845,6 +846,13 @@ def main(argv=None):
         raise SystemExit("E_NO_BUNDLES: %s matched no *.c6.json" % args.path)
     measurements = [measure_bundle(p, objective_set, clauses) for p in paths]
     print_report(measurements)
+    # RULING 60 PART 3. This script already splits ACCEPTS from REFUSES by
+    # verifying each bundle live, which is the stronger instrument. The banner
+    # adds the population that split cannot see - a bundle with no reader
+    # verdict on disk at all - and states the count in one sentence above the
+    # totals rather than only per row. A figure printed without its acceptance
+    # count is the failure mode returning.
+    _verdict.print_batch_banner(paths, "bundle")
     print_totals(totals(measurements))
 
     if args.rejected:

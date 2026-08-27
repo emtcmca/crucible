@@ -67,6 +67,7 @@ sys.path.insert(0, str(REPO))
 
 from crucible.replay.bundle import read_bundle                    # noqa: E402
 from crucible.replay.integrity import BundleRejected              # noqa: E402
+from crucible.replay import verdict as _verdict                   # noqa: E402
 
 OBJECTIVE_SET = REPO / "contracts" / "objective_set.v1.json"
 SEVERITY_TABLE = REPO / "docs" / "finding-cards" / "severity-floors.json"
@@ -1312,6 +1313,10 @@ def main(argv=None):
     total = sum(len(s["cards"]) for s in sheets)
     print("wrote %s and %s" % (out / ("cards-%s.md" % name),
                                out / ("cards-%s.html" % name)))
+    # Ruling 60 part 3. `paths` is the post --only/--limit pool the totals below
+    # are computed over, so acceptance is counted over that same pool. A figure
+    # printed without its acceptance count is the failure mode returning.
+    _verdict.print_batch_banner(paths, label="bundle")
     print("  %d bundle(s), %d card(s), severity table %s" % (
         len(sheets), total, table.get("table_version")))
     failed = [k for k, v in repro.items() if not v["ok"]]

@@ -46,6 +46,7 @@ from crucible.conductor.g4 import (                             # noqa: E402
 from crucible.dsl.parser import parse_rule                      # noqa: E402
 from crucible.dsl.serialize import (                            # noqa: E402
     assign_rule_id, compile_rule, rule_body, sort_rules)
+from crucible.replay import verdict as _verdict                 # noqa: E402
 from crucible.replay.bundle import read_bundle                  # noqa: E402
 from crucible.replay.integrity import BundleRejected            # noqa: E402
 from crucible.tripwire.objective_set import load_objective_set  # noqa: E402
@@ -569,11 +570,19 @@ def main(argv=None):
         return 1 if failed else 0
 
     results = []
+    aggregated = []
     for target in args.targets:
         for path in collect(target):
             res = backtest_bundle(path, objective_set, baseline)
             results.append(res)
+            aggregated.append(path)
             print_report(res)
+    # RULING 60 PART 3. `offline_reader_accepts` is already carried per row and
+    # the totals are already split by it; what was missing is the count stated
+    # ONCE, above the figures, including the runs that carry no reader verdict
+    # at all. A figure printed without its acceptance count is the failure mode
+    # returning.
+    _verdict.print_batch_banner(aggregated, "bundle")
     print_totals(totals(results))
     print("\nREPLAY, NOT RE-ATTACK, AND NOT A COUNTERFACTUAL RUN. See this "
           "file's docstring:\nthese are the decisions G4 would have made at "
