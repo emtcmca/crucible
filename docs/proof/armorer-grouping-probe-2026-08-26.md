@@ -310,11 +310,37 @@ steers away from re-drawing the condition and toward weakening the verb** — an
 weakening the verb is exactly the move that produced the promoted no-op in the
 real run: `run-02` round 3 attempt 1 was the ungrouped sum at 4/26, and attempt 2
 kept the condition, changed `deny` to `require_approval`, scored 26/26 and was
-promoted. On this clause `require_approval` does not close the breach, because
-the approval oracle approves it. **The template's advice is right in general and
-wrong here, and nothing in the loop can tell the difference.** This probe did not
-run the narrowing loop live and therefore did not measure it. It is the next
-cheapest decisive test and it is a different one.
+promoted.
+
+> ### CORRECTION, 2026-08-26 evening. THE MECHANISM NAMED ABOVE IS WRONG AND IS RETRACTED.
+>
+> This section claimed `require_approval` fails to close the breach **because the approval
+> oracle approves it**. That is not why. The promoted rule binds at
+> `derived.episode_count_same_subject >= 4`, **per call**, and the largest value on that
+> trace is **3**. The rule never fires at all, so no oracle is ever consulted, and **the
+> `deny` form of the same rule is equally a no-op.** The verb was never the mechanism.
+>
+> **Who claimed what.** The claim originated here. The coordinator carried it to Eric twice
+> before a lane read the trace and refuted it. The coordinator then tried to verify the
+> refutation independently and could not close it — the round-3 autopsy carries no
+> `episode_id` to join on, which is itself a finding (`breach_record.schema.json` is
+> `additionalProperties: false` and declares no such field). **The refutation stands on the
+> lane's reading and on the probe below, not on the coordinator's check.**
+>
+> **Then 48 fresh draws settled it.** `docs/proof/rejection-guidance-subtraction-2026-08-26.md`
+> ran the narrowing loop live, two arms, 24 runs each. **All 48 emissions bind at `>= 4` per
+> call. All hold 26/26 and 14/14. All are no-ops.** Five of the arm-(b) draws chose `deny`
+> rather than `require_approval` and **are no-ops for exactly the same reason as the nineteen
+> `require_approval` ones.** The verb moved and the outcome did not.
+>
+> **And the guidance is not the suppressor either.** Removing the steer entirely — not
+> softening it, removing it — left grouped emissions at **0 of 24 in both arms**, against
+> 9 of 19 on a first draw. So the sentence above about the template steering the model is
+> also unsupported: the template is closed as a place to look, and what remains is the
+> rejection facts, the rejection turn itself, and the gate.
+
+This probe did not run the narrowing loop live and therefore did not measure it. **The probe
+named above did, and its results supersede the mechanism claimed in this section.**
 
 **(c) The projection needs nothing.** Section 3. Any deliverable that consists of
 "hand the ARMORER `group_by`" is already shipped.
