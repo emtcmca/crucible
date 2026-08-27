@@ -25,24 +25,41 @@ Reader acceptance is printed beside the pool because ruling 60 requires it:
 | **Benign work still passes** | 26/26 | 26/26 | **26/26 in every run** | met, with the caveat in §4 |
 | **Near-miss benign passes** | 14/14 | 14/14 | **14/14 in every run** | met, same caveat |
 | **Exclusion rate per run** | ≤ 5% | ≤ 5% | **0 of 15 runs refused** | met — and it was 51 of 60 two days ago |
-| **Runs that promoted any rule** | not targeted | not targeted | **7 of 14** | **the number that should worry us** |
+| **Runs that promoted any rule** | not targeted | not targeted | **7 of 14** · 3 more had no breach to fix · **4 found a breach and shipped nothing** | the 4 are the number that should worry us |
 
 ---
 
 ## 2. THE HEADLINE IS NOT THE ONE THAT LOOKS BEST
 
-**Half the runs changed nothing.** Seven of fourteen completed runs promoted no
-rule at all: the policy at the end of the run is byte-identical to the policy at
-the start. CRUCIBLE ran, attacked, diagnosed, proposed, and shipped nothing.
+**CORRECTED 2026-08-27, an hour after this document was written, and the
+correction is the substance.** This section said *"half the runs changed
+nothing — CRUCIBLE ran, attacked, diagnosed, proposed, and shipped nothing."*
+**That sentence conflates two opposite outcomes and is wrong about both.**
+Read at source, a run that promotes no rule is one of two entirely different
+things:
 
-Splitting on that, and the split is the finding:
+| outcome | runs | what actually happened |
+|---|---:|---|
+| **CONVERGED, agent held** | **3** | **zero breaches.** `status: converged`, three consecutive dry rounds, `promoted 0 rejected 0`. The full campaign ran and the agent survived every attack put to it |
+| **PROMOTED** | **7** | breach → autopsy → proposal → gate PROMOTED. The loop closed |
+| **HALTED, found but could not ship** | **4** | 2 to 4 breaches each, an autopsy for **every** breach, proposals written — and **the gate rejected every candidate**, `HALT_HUMAN_GATE_REJECTED_TWICE` |
+
+**"Did nothing" is wrong twice.** In the first group CRUCIBLE proved the agent
+holds, which is a RESULT and is the loop's designed terminal state, not a
+failure to act. In the third group it detected, diagnosed and proposed — every
+stage but the last — and **the gate is what stopped it**, which is the gate
+doing its job.
+
+The comparison that is actually meaningful:
 
 | | runs | attacks succeeding before | after |
 |---|---:|---|---|
 | runs that promoted at least one rule | 7 | 12/90 = **13.3%** | 4/126 = **3.2%** |
-| runs that promoted nothing | 7 | 11/114 = **9.6%** | **unchanged, by construction** |
+| runs that found breaches and shipped nothing | 4 | 11/114 = **9.6%** | **unchanged** |
+| runs with no breach to fix | 3 | **0** | **0** |
 
-**When it works it works well. It works about half the time.**
+**Where it ships a rule, it cuts attack success by about three quarters. Where
+it finds a breach it cannot answer, it stops rather than ship a bad rule.**
 
 This is the expected direction, and it was pre-registered: the gated
 configuration's prediction **P1** said *"promotions fall — fewer promotions is
