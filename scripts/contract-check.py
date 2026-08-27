@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """contract-check.py - the W0 gate on the contract set.
 
-Five passes. Every one of them is designed so that IT CAN FAIL, because
+Seven passes. Every one of them is designed so that IT CAN FAIL, because
 CONVENTIONS.md section 8 rule 2 says a check that cannot fail is not measuring
 anything - and this repository has already produced two checks that could not:
 a sweep that reported CLEAN on hard-wrapped prose, and a negative test that
@@ -11,12 +11,20 @@ appended a newline the normalization exists to absorb.
   2  FIXTURES  every golden positive VALIDATES and every known-bad FAILS
   3  SWEEP     no dead value is ASSERTED anywhere (strike context exempt)
   4  STATUS    no undated present-tense existence claim   (section 8 rule 12)
-  5  TERMS     no contract redefines a bound term         (section 8 rule 11)
+  5  CLAIM     no overclaim SHAPE is asserted anywhere    (section 7)
+  6  TERMS     no contract redefines a bound term         (section 8 rule 11)
+  7  FRESH     README.md's Status anchor is not stale
+
+SWEEP and CLAIM are different jobs and both are needed. SWEEP catches a value
+that USED TO BE TRUE - a number that moved. CLAIM catches a sentence that was
+NEVER TRUE - a shape the evidence cannot support at any value. A dead-value
+sweep would never have caught "writes its own attacks", because no version of
+that sentence was ever correct.
 
 Run:  python scripts/contract-check.py
       python scripts/contract-check.py --selftest   # prove each pass can fail
 
-`--selftest` runs ALL FIVE against a throwaway copy of the repository, once
+`--selftest` runs ALL SEVEN against a throwaway copy of the repository, once
 clean and once with a defect authored for that pass, and asserts the pass is
 green on the first and names the defect on the second. Until 2026-08-23 it
 printed the same promise while covering three of the five and never calling a
@@ -72,7 +80,14 @@ def swept_markdown():
     for p in sorted(DOCS.rglob("*.md")):
         seen.add(p)
         yield p
-    for name in ("README.md", "CLAUDE.md"):
+    # The judge-facing set. README.md was split on 2026-08-26 into four
+    # top-level documents so the first screen could answer a judge's five
+    # questions; every one of them is named here in the same breath, because
+    # the whole reason README.md rotted is that it lived outside this walk.
+    # A split that moved the rigor out of the checked file and into unchecked
+    # ones would have made the coverage hole four times bigger.
+    for name in ("README.md", "CLAUDE.md",
+                 "AUDIT.md", "MEASUREMENT.md", "ARCHITECTURE.md", "RESULTS.md"):
         p = REPO / name
         if p.exists() and p not in seen:
             yield p
@@ -324,6 +339,208 @@ def pass_status():
     return (not hits), hits
 
 
+# -----------------------------------------------------------------------------
+# Pass 6 - CLAIM. Overclaim SHAPES, not dead values.
+#
+# SWEEP catches a value that used to be true. This catches a sentence that was
+# never true. Every pattern below is a mistake THIS PROJECT MADE in the week
+# before it was written, which is the only justification for a prose lint: a
+# generic marketing-adjective filter is theatre, and it gets switched off the
+# first time it fires on something harmless.
+#
+# The eight shapes, and where each came from:
+#
+#   red-authors-attacks   RED discovery is a DESIGN. Nothing in the tree authors
+#                         an attack; `vary()` preserves the seed's attack_id.
+#                         "CRUCIBLE writes its own attacks" is the single most
+#                         attractive false sentence available to this project.
+#   zero-regressions      The benign floor is a BOUND. 26/26 bounds the
+#                         unobserved regression rate at ~11.5% by the rule of
+#                         three. "Zero regressions" is the phrasing CONVENTIONS
+#                         section 7 forbids by name.
+#   vendor-adjectives     "Production-ready" / "enterprise-grade". Eleven days,
+#                         one person, one target agent. CONVENTIONS section 7.
+#   promotion-is-fix      A promotion is a gate outcome, not a remediation. A
+#                         rule can promote and close nothing at all, and this
+#                         repository has measured exactly that.
+#   unexercised-defence   A clause that has never fired defends nothing yet. The
+#                         money invariants are the live instance: they exist, and
+#                         "protected by five money invariants" would be a claim
+#                         about a capability no run has exercised.
+#   seeded-batch-coverage A fixed-seed batch samples. A batch that sampled part
+#                         of the corpus is not "full coverage", and the gap
+#                         between instances-existing and instances-reached is
+#                         exactly what a coverage word hides.
+#   replay-is-reattack    The Warden REPLAYS recorded traces against a candidate
+#                         policy. It does not attack anything: nothing is
+#                         persuaded, no model is called, no target runs.
+#   fixture-is-evidence   `contracts/golden/` holds hand-authored instances with
+#                         synthetic run ids. They exercise the schema and the
+#                         viewer. They are not runs and prove nothing about one.
+#
+# HOW A LEGITIMATE MENTION ESCAPES. Exactly the way it does in SWEEP, through
+# `_exempt`: a strike (`~~...~~`), a correction marker (CORRECTED, NEVER, "do
+# not write", DEAD...), or the explicit, auditable `<!-- sweep-ok: why -->`
+# comment on the line above. That handling is REUSED rather than reinvented so
+# there is one exemption rule in this file, not two that can drift apart. It is
+# why CONVENTIONS section 7's own "Never say this" list does not report itself,
+# and why a LANDMINES table quoting a dead phrase to retire it stays clean - the
+# defect a previous version of this gate shipped.
+#
+# The patterns themselves live HERE, in Python, and `swept_markdown()` walks
+# markdown only, so this list cannot flag itself. That is structure, not luck,
+# and it is the reason the list is not restated in a doc.
+# -----------------------------------------------------------------------------
+CLAIM = {
+    "red-authors-attacks": (
+        r"(?:writes?|authors?|generates?|invents?|discovers?|synthesi[sz]es?)\s+"
+        r"(?:its|their|our|his|her)\s+own\s+(?:novel\s+|new\s+)?attacks?"
+        r"|autonomous\w*\s+(?:\w+\s+){0,2}?"
+        r"(?:writ\w+|author\w+|generat\w+|discover\w+|invent\w+)\s+"
+        r"(?:new\s+|novel\s+|its\s+own\s+)?attacks?"
+        r"|attack\s+discovery\s+is\s+(?:shipped|built|working|live|implemented)"),
+    # The harness context is IN the pattern, both orders, because "no
+    # regression suite" is a description of the problem this project exists
+    # inside and "zero regressions" about a test-count migration is a different
+    # sentence about a different thing. Only a regression claim about the
+    # POLICY or the BENIGN floor is the claim CONVENTIONS section 7 forbids.
+    "zero-regressions": (
+        r"\b(?:zero|no)\s+regressions?\b(?![-\s]*(?:suite|test|harness|floor))"
+        r"[^.]{0,80}?\b(?:polic|benign|fixture|promot|rule|capabilit|agent)"
+        r"|\b(?:polic\w+|benign|fixtures?|promot\w+|rules?)\b[^.]{0,80}?"
+        r"\b(?:zero|no)\s+regressions?\b(?![-\s]*(?:suite|test|harness|floor))"
+        r"|\bregression[-\s]free\b"
+        r"|\bwithout\s+(?:any\s+|a\s+single\s+)?regressions?\b"),
+    "vendor-adjectives": r"\benterprise[-\s]grade\b|\bproduction[-\s]ready\b",
+    "promotion-is-fix": (
+        r"\bpromot\w+\s+(?:rules?|polic\w+|patch\w*)[^.]{0,80}?"
+        r"\b(?:closed|fixed|remediat\w+|eliminat\w+)\b"
+        r"|\bpromotion\b[^.]{0,50}?\b(?:proves|means|shows|demonstrates|"
+        r"is\s+evidence)\b[^.]{0,50}?\b(?:fix\w*|remediat\w+|closed|hardened)\b"
+        r"|\b\d+\s+(?:rules?|patches)\s+(?:were\s+)?promoted[^.]{0,60}?"
+        r"\b(?:so|therefore|hence|which\s+means)\b[^.]{0,60}?"
+        r"\b(?:fixed|closed|safe|hardened|remediat\w+)\b"),
+    "unexercised-defence": (
+        r"\bmoney\s+(?:invariants?|clauses?)\b[^.]{0,60}?"
+        r"\b(?:defend|protect|prevent|block|stop)\w*"
+        r"|\b(?:defended|protected|guarded|covered)\s+by\s+"
+        r"(?:five|\d+)\s+(?:money\s+)?(?:invariants?|clauses?)"
+        r"|\b(?:all\s+)?(?:five|\d+)\s+money\s+(?:invariants?|clauses?)\s+"
+        r"(?:hold|are\s+enforced|are\s+in\s+force|protect\w*)"),
+    "seeded-batch-coverage": (
+        r"\b(?:full|complete|exhaustive|comprehensive|broad|total)\s+"
+        r"(?:corpus\s+|attack\s+|instance\s+)?coverage\b"
+        r"|\bcover(?:s|ed|ing)?\s+the\s+(?:whole|entire|full)\s+corpus\b"
+        r"|\bevery\s+(?:attack\s+|corpus\s+)?instance\s+(?:was|is|has\s+been)\s+"
+        r"(?:run|attempted|exercised|attacked|reached)\b"),
+    "replay-is-reattack": (
+        r"\brepla\w+[^.]{0,50}?\bre-?attack"
+        r"|\brepla\w+\s+(?:the\s+)?attacks?\s+(?:against|at|on)\s+"
+        r"(?:the\s+)?(?:target|agent)\b"
+        r"|\b(?:warden|replay)\w*\s+(?:re-?)?attacks?\s+the\s+(?:target|agent)\b"),
+    "fixture-is-evidence": (
+        r"\bgolden\s+(?:\w+\s+){0,2}?fixtures?\b[^.]{0,60}?"
+        r"\bis\s+(?:a\s+)?(?:real\s+)?(?:run|result|measurement|evidence)\b"
+        r"|\b(?:evidence|proof|results?)\s+from\s+(?:the\s+|a\s+)?golden\s+"
+        r"(?:\w+\s+){0,2}?fixtures?\b"
+        r"|\bC6-evidence_bundle\.valid\.json\b[^.]{0,60}?"
+        r"\b(?:is|was)\s+(?:a\s+)?(?:real\s+)?run\b"),
+}
+
+
+# PER-PATTERN GUARDS. A guard is not a general exemption. It names the ONE
+# neighbouring construction that turns this particular shape from an assertion
+# into a denial, a distinction, or a mention, and it is written per label
+# rather than widened into the shared EXEMPT regex - because a widening that
+# helps one pattern and blinds the other seven is how a check stops being able
+# to fail at all.
+#
+# The disclaimer case is not hypothetical. `docs/devpost/findings-and-learnings.md`
+# records the ancestor of this pass failing on exactly it: "When the README grew
+# a section stating, correctly, 'Not production-ready. Not enterprise-grade,'
+# all three sentences tripped the same gate built to ban those phrases, because
+# it was matching the words, not the assertion." A quoted phrase and a negated
+# phrase are both MENTIONS. Only an assertion is a claim.
+CLAIM_GUARD = {
+    "vendor-adjectives": re.compile(
+        r"\bnot\s+(?:production|enterprise)"
+        r"|\bban(?:s|ned)?\b|\bwarns?\s+against\b|\btripp?ed\b"
+        r"|[\"'`\u201c\u201d]\s*(?:production[-\s]ready|enterprise[-\s]grade)", re.I),
+    "zero-regressions": re.compile(
+        r"\bregressions?\s+(?:suite|test|harness|floor)\b"
+        r"|\bupper\s+bound\b|\brule\s+of\s+three\b|\bbounds?\s+the\b", re.I),
+    "replay-is-reattack": re.compile(
+        r"\b(?:not|never)\s+(?:a\s+)?re-?attack"
+        r"|\brather\s+than\s+(?:a\s+)?(?:re-?attack|attacking)", re.I),
+    "fixture-is-evidence": re.compile(
+        r"\b(?:not|never)\s+(?:a\s+)?(?:run|result|measurement|evidence)\b", re.I),
+    "promotion-is-fix": re.compile(
+        r"\bclosed\s+nothing\b|\bno-?ops?\b|\bdid\s+not\s+close\b"
+        # "USD per breach closed" NAMES A RATIO. `closed` there is part of the
+        # metric's name, not a predicate asserting that anything was closed.
+        r"|\bper\s+(?:breach|attack|rule)\s+(?:closed|fixed|remediated)\b", re.I),
+}
+
+
+# CLAIM'S ONE DEVIATION FROM THE SHARED EXEMPTION VOCABULARY, and it is a
+# deviation of CASE rather than of vocabulary.
+#
+# EXEMPT is case-insensitive, and for SWEEP it must be: "was wrong", "stale" and
+# "previously" mark a correction in ordinary lowercase prose. But two of its
+# tokens are SHOUTED MARKERS in this repository - `CLOSED`, `RESOLVED` - and in
+# lowercase they are ordinary English verbs. "the promoted rules closed the
+# breaches" is the exact sentence `promotion-is-fix` exists to catch, and
+# EXEMPT's case-insensitive `CLOSED` silences it. A guard that silences a
+# pattern on every sentence it was written for is not a guard.
+#
+# So CLAIM reuses EXEMPT WHOLESALE - the strike, the `<!-- sweep-ok -->` escape,
+# the whole correction vocabulary - and re-imposes case on exactly those two.
+# Subtracting two named tokens is auditable and shows up in a diff. Writing a
+# second exemption vocabulary would be two rules that drift apart, which is the
+# thing this repository has a ruling about.
+_AMBIGUOUS_MARKERS = re.compile(r"\b(?:closed|resolved)\b", re.I)
+_AMBIGUOUS_SHOUTED = re.compile(r"\b(?:CLOSED|RESOLVED)\b")
+
+
+def _claim_exempt(norm, i, src_lines, line_no):
+    """`_exempt`, with the two ambiguous markers re-cased. Same two views."""
+    lo, hi = max(0, line_no - 2), min(len(src_lines), line_no + 1)
+    block = " ".join(src_lines[lo:hi])
+    if SWEEP_OK.search(block):
+        return True
+    for text in (_window(norm, i), block):
+        if _AMBIGUOUS_SHOUTED.search(text):
+            return True
+        if EXEMPT.search(_AMBIGUOUS_MARKERS.sub(" ", text)):
+            return True
+    return False
+
+
+def pass_claim():
+    """A sentence that was NEVER true, as opposed to one that stopped being true.
+
+    Reported with the pattern label AND the matched text, because "overclaim in
+    README.md:412" without the sentence sends the reader hunting, and a finding
+    that is expensive to act on is a finding that gets ignored.
+    """
+    hits = []
+    for p in sorted(swept_markdown()):
+        raw = p.read_text(encoding="utf-8", errors="replace")
+        src_lines = raw.split("\n")
+        norm, lmap = normalize(raw)
+        for label, pat in CLAIM.items():
+            guard = CLAIM_GUARD.get(label)
+            for m in re.finditer(pat, norm, re.I):
+                if guard and guard.search(_window(norm, m.start(), 110)):
+                    continue
+                if _claim_exempt(norm, m.start(), src_lines, lmap[m.start()]):
+                    continue
+                hits.append("%s:%d overclaim [%s]: %r" % (
+                    p.relative_to(REPO).as_posix(), lmap[m.start()], label,
+                    norm[m.start():m.start() + 70].strip()))
+    return (not hits), hits
+
+
 def pass_terms():
     manifest = json.loads((CONTRACTS / "MANIFEST.json").read_text(encoding="utf-8"))
     bindings = manifest.get("term_bindings", {})
@@ -390,7 +607,7 @@ def pass_freshness():
 
 
 PASSES = [("HASH", pass_hash), ("FIXTURES", pass_fixtures), ("SWEEP", pass_sweep),
-          ("STATUS", pass_status), ("TERMS", pass_terms),
+          ("STATUS", pass_status), ("CLAIM", pass_claim), ("TERMS", pass_terms),
           ("FRESH", pass_freshness)]
 
 
@@ -484,6 +701,21 @@ def _break_status(tmp):
         encoding="utf-8")
 
 
+def _break_claim(tmp):
+    """A sentence that was never true, asserted with no strike or correction.
+
+    Deliberately a NOVELTY claim rather than a banned adjective. An adjective
+    breaker would prove only that a literal string match works, and a literal
+    string match is the one thing about this pass nobody doubts. The novelty
+    shape is the one with a real grammar behind it, so it is the one worth
+    proving fires. The other seven are exercised by the per-pattern matrix in
+    `selftest()`, positive AND negative, so no pattern here is unproven.
+    """
+    (tmp / "docs" / "selftest-claim.md").write_text(
+        "# selftest\n\nCRUCIBLE writes its own attacks, round after round.\n",
+        encoding="utf-8")
+
+
 def _break_terms(tmp):
     """A contract using a term MANIFEST.json binds away from it."""
     p = tmp / "contracts" / "verdict.schema.json"
@@ -513,6 +745,7 @@ BREAKERS = {
     "FIXTURES": (_break_fixtures, "C9-selftest-empty"),
     "SWEEP": (_break_sweep, "four-hash-locks"),
     "STATUS": (_break_status, "selftest-status.md"),
+    "CLAIM": (_break_claim, "red-authors-attacks"),
     "TERMS": (_break_terms, "approver_role"),
     "FRESH": (_break_fresh, "days old"),
 }
@@ -567,6 +800,67 @@ def selftest():
         good = hit == want
         ok &= good
         print("  %-9s %-28s %s" % ("SWEEP", label, "PASS" if good else "FAIL"))
+
+    # EVERY CLAIM PATTERN, BOTH DIRECTIONS. The breaker above proves the pass
+    # can fail; it exercises one pattern of eight, and a pattern nothing
+    # exercises is a pattern that could be a typo'd regex matching nothing
+    # forever - the SWEEP defect of 2026-08-20 with a new label.
+    #
+    # The NEGATIVE half is the one that earns its place. Each row's second
+    # string is a correction note QUOTING THE SAME DEAD PHRASE IN ORDER TO
+    # RETIRE IT, which is what a LANDMINES table and a superseded ADR both look
+    # like. A gate that reports those as findings gets switched off within a
+    # day, and then it is not a gate. Both halves must hold for the row to pass.
+    for label, overclaim, correction in (
+            ("red-authors-attacks",
+             "The red strategist writes its own attacks each round.",
+             "~~writes its own attacks~~ CORRECTED: RED discovery is a design."),
+            ("zero-regressions",
+             "The promoted policy shipped with zero regressions.",
+             "Never write \"zero regressions\": the benign floor is a bound."),
+            ("vendor-adjectives",
+             "An enterprise-grade, production-ready hardening harness.",
+             "\"Production-ready\" is DEAD vocabulary here - eleven days, one person."),
+            ("promotion-is-fix",
+             "The 31 promoted rules closed the breaches they were written for.",
+             "~~promoted rules closed the breaches~~ STRUCK: 18 of 31 closed nothing."),
+            ("unexercised-defence",
+             "The money invariants prevent every unauthorised transfer.",
+             "Do not write that the money invariants prevent anything: none has fired."),
+            ("seeded-batch-coverage",
+             "The batch gave us full corpus coverage.",
+             "\"full corpus coverage\" was wrong: the batch reached part of the corpus."),
+            ("replay-is-reattack",
+             "The warden replays the attacks against the target.",
+             "It is NEVER true that the warden replays the attacks against the target."),
+            ("fixture-is-evidence",
+             "The golden bundle fixture is a real run of the loop.",
+             "~~the golden fixture is a real run~~ CORRECTED: its run_id is synthetic."),
+    ):
+        pat, guard = CLAIM[label], CLAIM_GUARD.get(label)
+
+        def _flags(text):
+            """Exactly what `pass_claim` does to one line, and nothing else.
+
+            Not a re-implementation of the interesting line - that is the
+            defect this whole SELFTEST section replaced. Same pattern, same
+            guard, same `_claim_exempt`.
+            """
+            norm, _ = normalize(text)
+            m = re.search(pat, norm, re.I)
+            if m is None:
+                return False
+            if guard and guard.search(_window(norm, m.start(), 110)):
+                return False
+            return not _claim_exempt(norm, m.start(), [text], 1)
+
+        fires, quiet = _flags(overclaim), not _flags(correction)
+        good = fires and quiet
+        ok &= good
+        print("  %-9s %-24s %s%s" % (
+            "CLAIM", label, "PASS" if good else "FAIL",
+            "" if good else ("   (fires=%s on the overclaim, quiet=%s on the "
+                             "correction note)" % (fires, quiet))))
 
     print("\nSELFTEST %s" % ("PASSED" if ok else "FAILED"))
     return 0 if ok else 1
