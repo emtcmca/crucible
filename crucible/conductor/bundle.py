@@ -1080,6 +1080,37 @@ def _id_slug(text):
     return re.sub(r"[^a-z0-9_]+", "", str(text).lower().replace("-", "_")) or "run"
 
 
+def _present(row):
+    """Restriction 5 applied where the dict is BUILT, not where it is read.
+
+    `contracts/canonicalization.md` restriction 5: *"`null` is forbidden. An
+    absent fact is an absent key."* `crucible/canon/canonical.py`:156-159
+    refuses `None` outright, and `crucible/replay/integrity.py::_check_canonical`
+    canonicalizes the WHOLE bundle - so one `null` anywhere makes the entire
+    document unreadable, and the reader reports only the FIRST one it hits.
+
+    THIS EXISTS BECAUSE IT ALREADY COST A BATCH. On 2026-08-27 twenty live runs
+    exited 0 and wrote twenty bundles no reader can open, because
+    `record_only_reason` was written as `x or None` and in ENFORCING mode there
+    is no reason. Every prior batch ran RECORD_ONLY, where that field always
+    carries a string, so the enforcing branch had never executed end to end -
+    and a branch that never executes is indistinguishable from one that works.
+    Two more nulls were hiding behind that one: `breach_closure.code`, which is
+    `None` on a closure that WAS evaluated, and `slice_is_blind_to`, which is
+    `None` on `g4.DEFAULT_SLICE` - the slice every campaign gets when nobody
+    passes the flag. The batch escaped the third only because it ran
+    `--g4-slice baseline`.
+
+    NOTHING IS LOST BY OMITTING THESE KEYS, and that is the part worth checking
+    before reaching for a sentinel instead. Every optional field here is
+    documented as "`None` means NOT EVALUATED", and each of the two objects
+    carries a companion `evaluated` boolean that says so in a field that can
+    never be null. The absence is still readable AS an absence; it is the
+    `null` that was unreadable.
+    """
+    return {k: v for k, v in row.items() if v is not None}
+
+
 def _gate_decisions(rounds, gate, run_id):
     """One decision per round that reached a decision, with its per-gate results.
 
@@ -1101,9 +1132,13 @@ def _gate_decisions(rounds, gate, run_id):
             continue
         logged = by_round.get(record.round_index)
         criteria = {
-            "benign_floor": {"passed": record.benign_passed,
-                             "total": record.benign_total,
-                             "gate": "G3, `passed == total`"},
+            # `benign_passed` and `benign_total` are `Optional[int]`
+            # (`conductor.py`:290-291) - a round that halted before the WARDEN
+            # ran has neither - so this row goes through `_present` like the
+            # two below it.
+            "benign_floor": _present({"passed": record.benign_passed,
+                                      "total": record.benign_total,
+                                      "gate": "G3, `passed == total`"}),
             "gate_reached": bool(logged),
         }
         # G4, ATTACK REDUCTION. RECORDED SO THE NUMBER IS AUDITABLE AFTER THE
@@ -1128,7 +1163,15 @@ def _gate_decisions(rounds, gate, run_id):
         # with the same guarantee: nothing about it is required by
         # `evidence_bundle.schema.json`, so no bundle written before today
         # stops validating and no contract hash moves.
-        criteria["attack_reduction"] = {
+        #
+        # EVERY OPTIONAL KEY IN HERE GOES THROUGH `_present`. Nine of the
+        # fields read below are declared `Optional` on `RoundRecord`
+        # (`conductor.py`:280-338) and `null` is not representable in a
+        # canonicalized document - see `_present`, and see the twenty bundles
+        # of `evidence/batch-gated-2026-08-27/` for what happens when one gets
+        # through. `evaluated` carries the "not measured" statement instead,
+        # and it is a bool that can never be null.
+        criteria["attack_reduction"] = _present({
             "newly_blocked_b": record.newly_blocked_b,
             "newly_breached_c": record.newly_breached_c,
             "paired_n": record.g4_paired_n,
@@ -1158,14 +1201,19 @@ def _gate_decisions(rounds, gate, run_id):
             # identical in both cases. `enforced` is derived from `mode` rather
             # than written beside it, so the two cannot drift apart.
             "mode": record.g4_mode,
-            "enforced": record.g4_mode == "ENFORCING",
+            # DERIVED FROM `mode`, AND ABSENT WHEN `mode` IS. `enforced: false`
+            # beside a missing mode would read as "G4 ran and did not gate",
+            # which is a different statement from "G4 never scored this round".
+            # The two travel together or neither is written.
+            "enforced": (record.g4_mode == "ENFORCING"
+                         if record.g4_mode else None),
             "record_only_reason": record.g4_record_only_reason or None,
             "method_limit": (
                 "REPLAY, NOT RE-ATTACK. b and c say what these policies would "
                 "have done to the exact calls the run recorded. They do not "
                 "say what a live agent would have done when handed a refusal "
                 "it had never received before."),
-        }
+        })
         # ORIGINATING-BREACH CLOSURE. Same optional-key-in-an-open-object
         # guarantee as `attack_reduction` above, and for the same reason: a
         # REQUIRED field is what made all 60 bundles of the 08-25 batch
@@ -1178,7 +1226,7 @@ def _gate_decisions(rounds, gate, run_id):
         # of the four unevaluable causes. It is not `closed: false`, and a
         # bundle that could not tell them apart would read every unwired
         # producer as a patch that closed nothing.
-        criteria["breach_closure"] = {
+        criteria["breach_closure"] = _present({
             "closed": record.closure_closed,
             "code": record.closure_code,
             "originating_clause_id": record.closure_clause_id,
@@ -1200,14 +1248,16 @@ def _gate_decisions(rounds, gate, run_id):
             # identical in every other field. `enforced` is derived from `mode`
             # rather than written beside it, so the two cannot drift apart.
             "mode": record.closure_mode,
-            "enforced": record.closure_mode == "ENFORCING",
+            # Absent when `mode` is, for the reason given on G4's copy above.
+            "enforced": (record.closure_mode == "ENFORCING"
+                         if record.closure_mode else None),
             "record_only_reason": record.closure_record_only_reason or None,
             "method_limit": (
                 "REPLAY, NOT RE-ATTACK. Closure says what the candidate policy "
                 "would have done to the exact calls the originating episode "
                 "recorded. It does not say whether the agent could have found "
                 "another path."),
-        }
+        })
         if logged:
             criteria["findings"] = [f for report in logged
                                     for f in report.get("findings", ())]
