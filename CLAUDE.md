@@ -160,8 +160,10 @@ exit 2. Do not route around it.
 
 **Updated:** 2026-08-27 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-`main` @ `27bcee3`. pytest ~2154, contract-check **SEVEN** passes, `--selftest` 0.
-**SPINE_VERSION 28.**
+pytest **2183 passed, 1 skipped**; contract-check **SEVEN** passes OK; `--selftest` PASSED.
+**SPINE_VERSION 29.** *(No commit SHA here on purpose: a hand-maintained block cannot track a
+moving ref, and the one that used to sit on this line went stale within the hour. Read it with
+`git log --oneline -1`.)*
 
 **THE FIRST EFFICACY NUMBERS EXIST, AND MY FIRST FIGURE WAS WRONG.** ASR on the frozen
 50-episode baseline: **8 at an empty policy, 3.0 across the FOUR runs the reader ACCEPTS** -
@@ -176,17 +178,34 @@ with no policy; **DENIED** under a policy learned on a different agent, by a rul
 stays DEAD VOCABULARY.**
 
 **THE 20-RUN GATED BATCH IS INVALID.** All exit 0, **all 20 refused by the reader**:
-`record_only_reason` is `null` in ENFORCING mode and restriction 5 refuses nulls. Fix in
-flight, re-run goes to a NEW directory. **No figure from it is quotable.**
+`record_only_reason` is `null` in ENFORCING mode and restriction 5 refuses nulls. **Fixed and
+MERGED**; re-run goes to a NEW directory. **No figure from it is quotable.**
 
-**Rulings 58 (grouping key) and 59 (two-hook short-circuit). Outcome E added to the F4
-pre-registration BEFORE the unseal.** No hash value in this block - ruling 46.
+**RULING 60 IS MERGED, AND ITS FIRST SWEEP CORRECTED A HAND-VERIFIED PUBLISHED FIGURE.** All
+123 bundles on disk: **101 STRUCTURAL, 4 MEASUREMENT, 18 CLEAN, 0 unclassified** - every one
+of which exited 0 before today. **C13: the gate-noop figure is 19 of 32, not 18 of 31.**
+`pilot-2026-08-25/run-08` was mid-write at the 08-25 snapshot and has since completed. The
+other 14 bundles are unchanged, so no ruling-58 confound. **58.1% -> 59.4%: the negative
+finding about our own gate got WORSE.**
+
+**`verdict` and `exit_class` ARE DIFFERENT QUESTIONS.** `ACCEPTS` == `CLEAN` == zero defects
+== quotable. `REJECTS` covers **both** MEASUREMENT and STRUCTURAL. **`REJECTS` beside exit 0
+is now CORRECT** for MEASUREMENT and it is the exact string ruling 60 removed for STRUCTURAL -
+check `exit_class` before re-diagnosing a fixed bug.
+
+**Rulings 58 (grouping key), 59 (two-hook short-circuit), 60 (structural vs measurement in the
+exit code). Outcome E added to the F4 pre-registration BEFORE the unseal.** No hash value in
+this block - ruling 46.
 
 **Open threads**
-- **Re-run the gated batch** after the null fix. Unseal **08-28**, record **08-29**, submit **08-30**.
+- **3-run live smoke in flight** (`evidence/smoke-reader-2026-08-27`, gated config, seed base
+  8001) to assert `run-NN.reader.json` actually lands. Then the gated re-run to a NEW dir,
+  then recompute ASR **with the acceptance count printed beside it**.
+- Unseal **08-28**, record **08-29**, submit **08-30**. **The video still does not exist.**
 - Update 8 = the Google agent, **postable now**. Update 9 = numbers, after the re-run.
 - Corpus re-authoring **STOPPED**: the destination is the barrier, not the amount.
-- `BUILD-LIST` has no §8.2 row. The foreign manifest is **UNRATIFIED**.
+- `BUILD-LIST` **T2-9 added 2026-08-27**. The foreign manifest is still **UNRATIFIED** -
+  `ratify.py` needs a named human, and until then no manifest figure is quotable.
 
 **Watch out for**
 - **A BRANCH THAT NEVER EXECUTES IS INDISTINGUISHABLE FROM ONE THAT WORKS.** Three times in
@@ -197,5 +216,10 @@ pre-registration BEFORE the unseal.** No hash value in this block - ruling 46.
   values.** Quote the file, the date and the phase.
 - **Python `/tmp` is not Git Bash `/tmp`. Backticks in `git commit -m` get substituted** -
   write the message to a file.
+- **A DATED SNAPSHOT THAT NAMES ITS OWN CONDITION CAN BE RE-TAKEN.** C13 was findable only
+  because the 08-25 doc said "the batch was still writing". **Correct a live claim; strike and
+  amend a dated snapshot or a pre-registration - never rewrite one.**
+- **The CLAIM lint exemption is a +/-140 CHARACTER WINDOW.** Inserting text above a line can
+  un-exempt it.
 - **Four of the coordinator's claims were corrected by lanes this session.**
 <!-- VAULT:SESSION-STATE end -->
