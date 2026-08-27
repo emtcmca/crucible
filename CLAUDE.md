@@ -163,8 +163,10 @@ exit 2. Do not route around it.
 `main` @ `27bcee3`. pytest ~2154, contract-check **SEVEN** passes, `--selftest` 0.
 **SPINE_VERSION 28.**
 
-**THE FIRST EFFICACY NUMBERS EXIST.** ASR on the frozen 50-episode baseline: **8 at an empty
-policy, median 2.5 across ten runs.** Generalization: **44 -> 12 on attacks a run drew,
+**THE FIRST EFFICACY NUMBERS EXIST, AND MY FIRST FIGURE WAS WRONG.** ASR on the frozen
+50-episode baseline: **8 at an empty policy, 3.0 across the FOUR runs the reader ACCEPTS** -
+not 2.5 across ten. All ten grammar bundles are unreadable and six also breach the exclusion
+ceiling. **I computed a headline from ten runs without asking whether the reader took them.** Generalization: **44 -> 12 on attacks a run drew,
 36 -> 16 on attacks it NEVER drew.** Cross-FAMILY is **not measurable** - the strategist
 round-robins all six families, so **F4 is the only unseen family.**
 
