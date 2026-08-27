@@ -150,7 +150,39 @@ a whole capability class unconditionally: that routes every call in the class
 through an approver and repairs nothing.
 """
 
-ARMS = {"OLD": RETIRED_TEMPLATE, "NEW": prompt_mod.REJECTION_TEMPLATE}
+# ---------------------------------------------------------------------------
+# ARM (b), added 2026-08-26. THE STRICT SUBTRACTION.
+#
+# The template in force, with the CLOSING GUIDANCE REMOVED and NOTHING WRITTEN
+# IN ITS PLACE. It is derived from `prompt_mod.REJECTION_TEMPLATE` by cutting at
+# the last sentence of the facts paragraph rather than being retyped, so it
+# cannot drift from the arm it is subtracted from - and the cut is ASSERTED at
+# import, because a subtraction that silently subtracted nothing would run 24
+# calls of arm (a) against itself and report a null.
+#
+# Nothing new is said. That is the whole design: any difference between the two
+# arms is attributable to the removed text, never to something introduced.
+# ---------------------------------------------------------------------------
+_CUT_AFTER = "The way your rule RESOLVED that" + chr(10) + "class is." + chr(10)
+
+
+def _facts_only(template):
+    i = template.index(_CUT_AFTER)
+    out = template[:i + len(_CUT_AFTER)]
+    if len(out) >= len(template):
+        raise SystemExit("arm (b) subtracted nothing - the cut point moved. "
+                         "Re-read REJECTION_TEMPLATE before trusting any "
+                         "number from this probe.")
+    return out
+
+
+FACTS_ONLY_TEMPLATE = _facts_only(prompt_mod.REJECTION_TEMPLATE)
+
+ARMS = {"OLD": RETIRED_TEMPLATE,
+        "NEW": prompt_mod.REJECTION_TEMPLATE,
+        # The two arms of the 2026-08-26 subtraction probe.
+        "CURRENT": prompt_mod.REJECTION_TEMPLATE,
+        "FACTSONLY": FACTS_ONLY_TEMPLATE}
 
 
 # ---------------------------------------------------------------------------
