@@ -44,6 +44,34 @@ the value.
 in the script — that alternate is itself a swappable chunk, which is the chunking design
 already anticipating the outcome it cannot predict.
 
+### RE-VERIFIED AT SOURCE 2026-08-27, before the tonight recording
+
+The table's figures carried a 2026-08-24 stamp and counts drift in this repo, so
+every N4/N5 assertion was re-read from source on the day of the take:
+
+| asserted | source | 2026-08-27 |
+|---|---|---|
+| 8 tools | `target/refund_agent/tools.py::TOOL_FUNCTIONS` | **8** |
+| 11 clauses | `contracts/objective_set.v1.json` | **11** |
+| 26 benign | `fixtures/benign/*.json` | **26** |
+| 14 near-miss | the `near_miss` key in those same files | **14, and they are a SUBSET of the 26, not 26 plus 14** |
+| 9 known-bad | `crucible/tripwire/known_bad.py::KNOWN_BAD_IDS` | **9** |
+| three verbs | `crucible/dsl/nodes.py::VERBS` | **3** — `constrain_arg`, `require_approval`, `deny` |
+| N5 "five locks" | `crucible/conductor/hashlocks.py:131` | **five locks occupying six fields.** The wording fix stands |
+
+**ONE NEW AMBIGUITY, INTRODUCED TODAY.** There are now **two** nine-fixture
+known-bad suites: `crucible/tripwire/known_bad.py` (the Tripwire, Warden and
+policy linter — the judge of RUNS, G1-gated) and `crucible/replay/known_bad.py`
+(the offline reader — the judge of EVIDENCE, added 2026-08-27). Both hold nine.
+N4's "nine known-bad" is still true and still cites the Tripwire suite.
+
+**Do not add the second suite to N4** — the beat is already dense at 45 seconds,
+which is the same reason the narrowing loop was pushed to N8. If a spoken
+disambiguation is wanted, N4 says **"nine known-bad fixtures the tripwire must
+always fail"**, which is unambiguous at no extra length.
+
+---
+
 ### N4 carries a gap the script predates
 
 The script's architecture beat does not mention the **narrowing loop** — the ARMORER
