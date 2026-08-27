@@ -504,3 +504,66 @@ def test_the_sweep_can_fail(tmp_path, monkeypatch):
         "the sweep failed for the wrong reason - this is the vacuity floor "
         "firing, not the offender check: %s" % message[:200])
     assert "wired-00.py" not in message, "a wired script was reported as an offender"
+
+
+# ---------------------------------------------------------------------------
+# A RUN THAT PRODUCED NO MEASUREMENT IS NOT A RUN WHOSE FIGURES MAY BE QUOTED.
+#
+# FOUND LIVE, 2026-08-27, evidence/smoke-reader-2026-08-27/run-03. The gate
+# halted the campaign before the first episode: gcloud could not launch (exit
+# 0xC0000142, STATUS_DLL_INIT_FAILED), so G7/G8 were UNEVALUABLE and the run
+# was RUN_INVALID. The campaign was honest about it - it printed "no number
+# from this run may be reported, INCLUDING THE ONES THAT LOOK GOOD" and exited
+# 2.
+#
+# THE OFFLINE READER SAID **ACCEPTS, 18/18 CHECKS OK**, and the batch marker
+# counted it as an accepted run beside an exit code of 2.
+#
+# Nothing was wrong with any check. An empty run has no exclusions, so the
+# ceiling cannot fire; no breaches, so no autopsy can be missing; no episodes,
+# so every per-episode check is vacuously satisfied. THIS IS THE SAME SHAPE AS
+# THE CONVERGED ENUM, G4 ITSELF, AND THE ENFORCING NULL: a check that cannot
+# fail on empty input is not measuring anything.
+#
+# CLASS IS MEASUREMENT, NOT STRUCTURAL, AND THE DISCRIMINANT DECIDES IT: the
+# producer wrote a faithful document. The fix is a re-run - and, separately, a
+# C6 contract that can say RUN_INVALID at all, which today it cannot.
+# ---------------------------------------------------------------------------
+
+def _empty_live_run(golden):
+    """The golden bundle with its episodes removed and nothing else touched.
+
+    Deliberately NOT hand-built: starting from the golden and emptying one
+    array is what proves the emptiness is the defect rather than some other
+    difference between a real bundle and a fixture.
+    """
+    out = copy.deepcopy(golden)
+    out["episodes"] = []
+    out["round_census"] = []
+    out["excluded"] = []
+    out["autopsies"] = []
+    out["patch_proposals"] = []
+    out["execution_provenance"]["mode"] = "live"
+    return out
+
+
+def test_a_live_run_with_no_episodes_is_refused_and_classed_measurement(golden):
+    bundle = _empty_live_run(golden)
+    record = V.verdict_record(I.verify_bundle(bundle))
+
+    assert record["verdict"] == V.REJECTS, (
+        "an empty live run was ACCEPTED. Every per-episode check passes "
+        "vacuously on zero episodes, which is exactly why this needs its own "
+        "check rather than being caught by one of the others.")
+    assert record["exit_class"] == V.MEASUREMENT
+    assert "E_NO_MEASUREMENT_IN_RUN" in record["measurement"]
+    assert record["structural"] == [], (
+        "the producer wrote a faithful document; the RUN is what is invalid")
+    assert record["unclassified"] == []
+
+
+def test_the_check_can_pass_so_it_is_not_always_failing(golden):
+    """The control. Without it the assertion above passes on a broken check."""
+    record = V.verdict_record(I.verify_bundle(golden))
+    assert "E_NO_MEASUREMENT_IN_RUN" not in record["codes"], (
+        "the golden bundle has episodes and must not trip the empty-run check")

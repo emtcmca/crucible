@@ -716,7 +716,13 @@ def test_the_bundle_passes_every_check_the_offline_READER_makes_but_one(
     unexpected = [d for d in report.defects if d.code != KNOWN_GAP]
     assert unexpected == [], "\n".join(
         "%s %s: %s" % (d.code, d.where, d.detail) for d in unexpected)
-    failing = {row.check for row in report.rows if row.status != "OK"}
+    # A CHECK THAT DOES NOT APPLY IS NOT A CHECK THAT FAILED. This read
+    # `!= "OK"` until 2026-08-27, when the first check to return "N/A" -
+    # RUN PRODUCED A MEASUREMENT, which is answerable only on a live run -
+    # made an offline bundle look defective. The legal set is asserted too,
+    # so widening FAIL to N/A does not let an unexpected status through.
+    assert {row.status for row in report.rows} <= {"OK", "FAIL", "N/A"}
+    failing = {row.check for row in report.rows if row.status == "FAIL"}
     assert failing <= {"AUTOPSIES"}, failing
 
 

@@ -98,6 +98,30 @@ done
   echo "  of those, MEASUREMENT: $(grep -l '"exit_class": "MEASUREMENT"' "$OUT"/run-*.reader.json 2>/dev/null | wc -l)"
   echo "NO READER VERDICT      : $(( $(ls "$OUT"/run-*.exitcode 2>/dev/null | wc -l) - $(ls "$OUT"/run-*.reader.json 2>/dev/null | wc -l) ))"
   echo
+  # A NON-ZERO EXIT BESIDE AN ACCEPTING READER IS A CONTRADICTION, AND IT HAS
+  # ALREADY HAPPENED. 2026-08-27, smoke run-03: the gate could not launch
+  # gcloud, the campaign declared RUN_INVALID and exited 2, and the reader said
+  # ACCEPTS with 18 of 18 checks OK - because the run held zero episodes and
+  # every per-episode check passed VACUOUSLY.
+  #
+  # `E_NO_MEASUREMENT_IN_RUN` now catches the empty case. It does NOT catch a
+  # run that halts RUN_INVALID *after* some episodes, because C6 HAS NO FIELD
+  # FOR RUN_INVALID - the halt reason lives in the console and the campaign
+  # record, and never reaches the bundle. Until that contract gap is closed,
+  # this line is the guard: disagreement between the two signals is shouted.
+  disagree=0
+  for ec in "$OUT"/run-*.exitcode; do
+    [ -f "$ec" ] || continue
+    rv="${ec%.exitcode}.reader.json"
+    code=$(tr -d '
+' < "$ec")
+    if [ "$code" != "0" ] && [ -f "$rv" ] && grep -q '"verdict": "ACCEPTS"' "$rv"; then
+      echo "  CONTRADICTION: $(basename "$ec" .exitcode) exited $code and the reader ACCEPTS it"
+      disagree=$((disagree + 1))
+    fi
+  done
+  echo "exit/verdict contradictions : $disagree"
+  echo
   echo "NO FIGURE FROM THIS BATCH MAY BE QUOTED WITHOUT THE ACCEPTS COUNT BESIDE IT."
 } > "$OUT/BATCH-DONE"
 cat "$OUT/BATCH-DONE"

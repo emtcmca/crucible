@@ -217,6 +217,13 @@ _MEASUREMENT_REASONS = {
     "E_DEGENERATE_INSTANCE_RUN": (
         "the check says it in words - THE RUN IS INVALID: no rate may be "
         "quoted from it. Ruling 56"),
+    "E_NO_MEASUREMENT_IN_RUN": (
+        "FOUND LIVE 2026-08-27. A live run recorded zero episodes, so every "
+        "per-episode check passed VACUOUSLY and the reader said ACCEPTS beside "
+        "an exit code of 2. MEASUREMENT by the discriminant: the producer "
+        "wrote a faithful document and the RUN is what is invalid. The fix is "
+        "a re-run - and separately a C6 field for RUN_INVALID, which does not "
+        "exist"),
     "E_DEGENERACY_CENSUS_MISSING": (
         "THE RUN IS INVALID, and the remedy the check itself prints is to "
         "write a determination or re-run on a build that applies the licence. "

@@ -11,7 +11,55 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 29` · last changed 2026-08-27
+`SPINE_VERSION: 30` · last changed 2026-08-27
+
+> **SPINE_VERSION 30 — ruling 61, 2026-08-27. A CHECK THAT CANNOT FAIL ON EMPTY INPUT IS
+> NOT MEASURING ANYTHING. EVERY CHECK MUST BE ASKED WHAT IT DOES ON NOTHING.**
+>
+> **What happened.** `evidence/smoke-reader-2026-08-27/run-03`. The gate could not launch
+> gcloud (exit `0xC0000142`), G7/G8 came back UNEVALUABLE, and the campaign halted before
+> the first episode. It was honest about it: `status: RUN INVALID`, the words *"no number
+> from this run may be reported, INCLUDING THE ONES THAT LOOK GOOD"*, and **exit 2**.
+>
+> **The offline reader said `ACCEPTS`, 18 of 18 checks OK, `exit_class: CLEAN`** — and the
+> batch marker counted it as the one accepted run in the batch, beside an exit code of 2.
+>
+> **NO CHECK WAS BROKEN, AND THAT IS THE RULING.** A run with zero episodes has no
+> exclusions, so the ceiling cannot fire. No breaches, so no autopsy can be missing. No
+> episodes, so every per-episode check is satisfied by having nothing to object to.
+> **Eighteen checks passed and not one of them ran.**
+>
+> **THIS IS THE FOURTH TIME IN ONE WEEK**, and the first three were each treated as their own
+> bug: the `CONVERGED` enum (ruling 57), G4 sitting ABSENT while the contract said binding,
+> and the ENFORCING `null` that voided a twenty-run batch. It is one defect wearing four
+> costumes. **An empty population and a passing check are indistinguishable from outside.**
+>
+> **THE RULE.** Every check is asked, in writing, **what it returns on empty input**, and if
+> the answer is "passes", it gets a floor. A count assertion gets a minimum. A sweep that
+> finds no offenders proves nothing unless it also proves it can find one — the ruling 60
+> lane's own `_MIN_AGGREGATES` floor caught a regex matching nothing on its first run, which
+> is the pattern working. **`offenders == []` is satisfied just as well by looking nowhere.**
+>
+> **What shipped.** `_check_run_produced_a_measurement` in `crucible/replay/integrity.py`:
+> a **live** bundle with zero episodes is `E_NO_MEASUREMENT_IN_RUN`. Scoped to live mode,
+> because an offline bundle may legally hold none. Classified **MEASUREMENT** under ruling
+> 60 and the discriminant decides it: the producer wrote a faithful document, and the RUN is
+> what is invalid. Failing-first test plus a control that proves the check can pass.
+>
+> **THE CONTRACT GAP THIS DOES NOT CLOSE, STATED SO IT IS NOT MISTAKEN FOR CLOSED. C6 HAS
+> NOWHERE TO RECORD `RUN_INVALID`.** The halt reason lives in the console and the campaign
+> record and never reaches the evidence bundle, so a reader holding only the RUN OF RECORD
+> cannot learn the single most important fact about that run. Emptiness is the strongest
+> signal the bundle actually carries, so it is what the check reads — **a proxy, not the
+> thing.** A run that halts INVALID *after* some episodes still reads clean. Until a C6 field
+> exists, `scripts/night-batch.sh` shouts any run whose exit code and reader verdict
+> disagree. **Closing it properly is a contract bump and is owed.**
+>
+> **Also found, and it is the same shape one level down:** the assertion that would have
+> named the offending row read `r.name`, and `Row` has no `.name`. It is evaluated only when
+> the assert fails, so **the failure message would itself have raised.** Fixed. And two tests
+> read `status != "OK"`, which counted a check that does not APPLY as a check that FAILED;
+> both now name the legal set and test for `FAIL`.
 
 > **SPINE_VERSION 29 — ruling 60, 2026-08-27. A BUNDLE NOBODY CAN READ IS A PRODUCER
 > FAILURE. A BUNDLE THAT READS FINE AND REPORTS A BAD RUN IS THE INSTRUMENT WORKING. THEY

@@ -211,8 +211,16 @@ def test_the_two_arms_agree_on_a_real_bundle(run):
 def test_a_real_bundle_still_passes_every_integrity_check(run):
     report = verify_bundle(run["bundle"])
     assert report.defects == [], "\n".join(str(d) for d in report.defects)
-    assert all(r.status == "OK" for r in report.rows), \
-        [r.name for r in report.rows if r.status != "OK"]
+    # "N/A" IS NOT A FAILURE - see the note in test_c6_producer.py. The
+    # legal-set assertion below is what keeps this from going slack.
+    #
+    # The line this replaces also read `r.name`, and Row has no `.name`.
+    # That expression is only evaluated when the assert FAILS, so the
+    # failure message would have raised AttributeError instead of naming
+    # the offending row. A branch that never executes, again.
+    assert {r.status for r in report.rows} <= {"OK", "FAIL", "N/A"}
+    bad = [r.check for r in report.rows if r.status == "FAIL"]
+    assert not bad, bad
 
 
 @adk_only

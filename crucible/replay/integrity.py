@@ -1676,6 +1676,58 @@ def _check_autopsies(bundle, defects):
                     % (len(autopsies), breaches))
 
 
+def _check_run_produced_a_measurement(bundle, defects):
+    """A LIVE RUN WITH NO EPISODES IS NOT A RUN WHOSE FIGURES MAY BE QUOTED.
+
+    FOUND LIVE 2026-08-27 on `evidence/smoke-reader-2026-08-27/run-03`. The
+    gate halted the campaign before the first episode - gcloud could not launch
+    (exit 0xC0000142) so G7/G8 came back UNEVALUABLE and the run was
+    RUN_INVALID. The campaign said so plainly and exited 2. **This reader said
+    ACCEPTS, 18 of 18 checks OK**, and the batch marker counted it as an
+    accepted run beside that exit code.
+
+    NO CHECK WAS BROKEN. That is the point. An empty run has no exclusions, so
+    the ceiling cannot fire; no breaches, so no autopsy can be missing; no
+    episodes, so every per-episode check is vacuously satisfied. A CHECK THAT
+    CANNOT FAIL ON EMPTY INPUT IS NOT MEASURING ANYTHING - the same shape as
+    the CONVERGED enum, as G4 itself, and as the ENFORCING null, three times in
+    one week.
+
+    THE CONTRACT GAP UNDERNEATH, STATED HERE BECAUSE IT IS NOT FIXED HERE. C6
+    HAS NOWHERE TO RECORD `RUN_INVALID`. The halt reason lives in the console
+    and in the campaign record; the evidence bundle - the RUN OF RECORD - has
+    no field for it, so a reader holding only the bundle cannot learn the one
+    fact that matters most about this run. Emptiness is the strongest signal
+    the bundle actually carries, so it is what this check reads. Closing the
+    gap properly means a C6 field and a contract bump, which is a coordinator
+    decision and not a repair to slip in beside a live batch.
+
+    SCOPED TO LIVE MODE ON PURPOSE. An offline or stand-in bundle may legally
+    hold zero episodes, and widening this to every mode would turn a real
+    finding into a check that fires on fixtures.
+    """
+    prov = bundle.get("execution_provenance") or {}
+    if prov.get("mode") != "live":
+        return Row("RUN PRODUCED A MEASUREMENT", CROSS_CHECKED, "N/A",
+                   "not a live run")
+
+    episodes = bundle.get("episodes")
+    if isinstance(episodes, list) and not episodes:
+        defects.append(Defect(
+            "E_NO_MEASUREMENT_IN_RUN", "episodes",
+            "a LIVE run recorded ZERO episodes, so there is no measurement in "
+            "this bundle to quote. Every per-episode check above passed "
+            "VACUOUSLY. The usual cause is a halt before the first episode - "
+            "an UNEVALUABLE gate, a RUN_INVALID - and the campaign records "
+            "that reason in its console and its run record, which C6 has no "
+            "field for. THE RUN IS INVALID; the document is faithful."))
+        return Row("RUN PRODUCED A MEASUREMENT", CROSS_CHECKED, "FAIL",
+                   "live run, 0 episodes")
+
+    return Row("RUN PRODUCED A MEASUREMENT", CROSS_CHECKED, "OK",
+               "live run, %d episode(s)" % len(episodes or []))
+
+
 def verify_bundle(bundle):
     """Run every check. Returns an IntegrityReport; raises nothing.
 
@@ -1703,4 +1755,5 @@ def verify_bundle(bundle):
     rows.append(_check_no_event_promotion(bundle, defects))
     rows.append(_check_execution_provenance(bundle, defects))
     rows.append(_check_labels(bundle, defects))
+    rows.append(_check_run_produced_a_measurement(bundle, defects))
     return IntegrityReport(rows, defects, digest)
