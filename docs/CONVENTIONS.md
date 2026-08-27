@@ -11,7 +11,7 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 27` · last changed 2026-08-26
+`SPINE_VERSION: 28` · last changed 2026-08-27
 
 > **SPINE_VERSION 27 — ruling 58, 2026-08-26. `episode_sum` TAKES AN OPTIONAL GROUPING KEY. THE
 > RULER GROUPED AND THE LANGUAGE COULD NOT. Eric's ruling, on measured evidence.**
@@ -2667,6 +2667,22 @@ file.
 family (no GCS/BigQuery role at all) · the TRIPWIRE's and WARDEN's inability to call a model (no
 `aiplatform.user`) · policy-version immutability (`objectCreator`-only plus retention) · the
 plugin short-circuit.
+
+> **WIDENED 2026-08-27, ruling 59, and the widening is a NARROWING of what may be claimed.**
+> "The plugin short-circuit" now spans **two** ADK hooks, not one. `before_tool` takes the
+> decision and refuses the call. `after_tool` then returns the refusal payload, which under
+> `google/adk/flows/llm_flows/functions.py:604` stops the host agent's own after-tool
+> callbacks from running on a call that never executed.
+>
+> **The second hook is structural in the same sense as the first** — it is ADK's documented
+> control flow, not a convention we honour — but it is **reachable only after a policy verb
+> has fired**, so it adds no enforcement power and must never be counted as a separate
+> control. Ratified in `docs/architecture-spec.md` §3.2.
+>
+> **And the thing that must travel with it:** on a refusal the host's after-tool callbacks
+> do not run. **A host that audits from that hook loses its record for blocked calls.** That
+> is a cost of attaching CRUCIBLE and it belongs in any integration guide, stated before
+> someone deploys rather than after.
 
 **These are convention plus a code check, and must be described as such:** "only the Gate writes
 `gate_decisions`" and every other per-collection claim, **because Firestore IAM has no

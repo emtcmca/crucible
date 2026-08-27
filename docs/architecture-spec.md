@@ -398,6 +398,49 @@ its own `before_tool_callback`.
 | `after_run_callback` | observe | Seal the episode, flush the event buffer, write the terminal marker and the episode hash. | No. |
 | `on_event_callback` | **not used** | — | Would rewrite the target's outbound event stream. Declined on principle: CRUCIBLE may alter what the product does **only** through the three policy verbs, never by editing its output. |
 
+> ### RATIFIED 2026-08-27 by Eric. THE SENTENCE ABOVE STANDS, AND ONE CONSEQUENCE OF A REFUSAL IS NAMED AS AN EXCEPTION RATHER THAN ABSORBED.
+>
+> **What changed.** `after_tool_callback` now returns CRUCIBLE's own refusal payload on a
+> call `before_tool` already refused. ADK guards the host agent's own after-tool callbacks
+> with `if altered_function_response is None`
+> (`google/adk/flows/llm_flows/functions.py:604`, and the identical pair at `:853` on the
+> live path), so a non-`None` return means **the host's callbacks do not run for that call**.
+> That is a change to what the product does, and the rule above says only three verbs may
+> do that.
+>
+> **Why it is ratified rather than treated as a fourth lever.** It is **downstream of a
+> `deny` or `require_approval` that has already fired**. It cannot occur on an allowed call,
+> it cannot be reached without one of the three verbs deciding first, and it adds no new way
+> to change behaviour — a policy author gets no new instrument. The alternative is not
+> "leave the product untouched": it is **`KeyError` out of `runner.run_async`**, which
+> alters the product far more, and unrecoverably.
+>
+> **THE DEFECT IS NOT OURS, AND THAT IS WHY THE PAYLOAD WAS NOT THE FIX.**
+> `FunctionTool.run_async` returns a bare `{'error': str}` for a missing mandatory argument,
+> an unconfirmed call and a rejected call (`google/adk/tools/function_tool.py:242,266,272`).
+> **Every one of those crashes the same host callback with no CRUCIBLE in the picture.** The
+> sample's callback is fragile against its own framework and CRUCIBLE surfaced it. Our
+> refusal payload already matches ADK's own in-band refusal shape: top-level `error`, no
+> success fields.
+>
+> **THE REPAIR THAT WAS REFUSED, on purpose.** The only key that satisfies that host is
+> `status` — the **success** field. A refusal carrying a `status` the host reads is a
+> refusal that reads as a **completed call**, and the agent would report a discount approved
+> that never executed. That is worse than a crash by a wide margin.
+> `tests/test_host_after_tool_survival.py` walks the complete blocking space and proves the
+> detector catches `{"status": "approved"}` verbatim and the near-miss
+> `{"error": ..., "status": "denied"}` — a standing guard against "add a `status` key and go
+> home".
+>
+> **THE COST, STATED RATHER THAN DISCOVERED.** On a refusal, the host's after-tool callbacks
+> do not run, and neither do a later plugin's. **A host that audits from that hook loses its
+> record for blocked calls.** It keeps its process, and CRUCIBLE keeps the `TOOL_ATTEMPT`.
+> **Any integration guide must say this out loud**; a host relying on that hook for its own
+> audit trail needs to know before it deploys, not after.
+>
+> **Scope.** `on_event_callback` remains **not used** and the principle it was declined on
+> is unchanged. This exception is one hook, reachable only after a policy verb has fired.
+
 #### 3.2.1 Surviving a host agent's own after-tool callback
 
 Found by pointing CRUCIBLE at somebody else's agent, which is the only way it could have been
