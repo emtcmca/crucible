@@ -219,100 +219,90 @@ def test_rejection_feedback_points_at_the_verb():
 
 
 # ---------------------------------------------------------------------------
-# 2026-08-26. THE REJECTION GUIDANCE STATES A SECOND CONDITION, AND THE FOUR
-# PROPERTIES BELOW ARE PINNED BECAUSE EACH ONE IS A DEFECT THE TEMPLATE HELD.
+# 2026-08-26. ONE CLAUSE OF THE REJECTION GUIDANCE IS PINNED, AND THREE OTHER
+# PINS WERE DELETED THE SAME DAY. THE DELETION IS RECORDED RATHER THAN QUIET.
 #
-# Every assertion is paired with the retired paragraph, and the pairing is the
-# point: `test_the_retired_guidance_fails_every_one_of_these_checks` runs the
-# same four predicates over the text that was replaced and requires all four to
-# FAIL. Without that, four `assert "x" in text` lines would pass against any
-# sufficiently wordy paragraph and would be measuring nothing.
+# WHAT HAPPENED. `REJECTION_TEMPLATE` was rewritten on 2026-08-26 to add three
+# things - a name-the-discriminating-condition framing, a G4-shaped first
+# condition ("the breach must still satisfy your `when`"), and a null-patch
+# warning - and four predicates were pinned here, one per property. The rewrite
+# was then measured live against the paragraph it replaced:
+# `docs/proof/narrowing-loop-live-2026-08-26.md` section 3. **64 paired runs,
+# three rejection situations, both arms handed byte-identical rejection facts:
+# every scenario returned the same verdict in both arms, 32 against 32.**
+#
+# Eric reverted everything except the false clause. So THREE OF THE FOUR
+# PREDICATES BELOW WERE DELETED, and they were deleted because the text they
+# pinned is gone, not because they stopped working. Naming them so a reader of
+# this file's history is not left wondering what shrank:
+#   _requires_the_breach_to_still_match   - the G4-shaped first condition
+#   _makes_the_choice_conditional         - the can-you-name-a-condition test
+#   _names_the_null_patch                 - the retract-and-re-add warning
+# Each was a real property of a real paragraph. Each measured nothing. The
+# findings that motivated them survive in section 4 of that document, which is
+# where a finding with no measured effect belongs.
+#
+# THE ONE THAT SURVIVES IS NOT A TASTE JUDGEMENT. The retired sentence was
+# FALSE about this language, and reverting it would have put an untrue statement
+# back in front of the model. That is why it is the exception.
+#
+# AND IT IS STILL PROVED TO DISCRIMINATE. `test_the_check_discriminates` runs
+# the same predicate over the paragraph that was replaced and requires it to
+# FAIL. A pair of `assert "x" not in text` lines would otherwise pass against
+# almost any text and would be measuring nothing.
 # ---------------------------------------------------------------------------
 
-# The guidance in force from 2026-08-24 to 2026-08-26, quoted so the checks
-# below can be shown to discriminate. Do NOT restore it: sentence two is false
-# about this language - a legitimate call that no longer satisfies a narrowed
-# `when` IS no longer blocked by it.
-RETIRED_GUIDANCE = """\
+# The exact clause in force from 2026-08-24 to 2026-08-26, quoted so the check
+# below can be shown to discriminate. DO NOT RESTORE IT: `PolicyEngine._when`
+# returning FALSE drops the rule from consideration and the call resolves to the
+# implicit allow, so a narrower `when` restores the route for exactly the
+# legitimate calls that fail the added condition - and this sentence says it
+# never can. The instruction was right about a real case and wrong about the
+# mechanism, and a model reads the mechanism.
+RETIRED_NARROWING_CLAUSE = """\
 Reconsider the verb before you touch the `when`. A narrower `when` on the same
 deny is rarely the repair here: it can only shrink the set of calls you block,
 never restore a route for the legitimate ones. Where a legitimate above-band
 path exists, require_approval bounded by a `when` closes the breach without
 removing the capability, and it is the only verb that leaves that path open.
-
-Narrow the `when` instead only if you can name the condition that separates the
-breach from the legitimate calls in that class. And do not require approval for
-a whole capability class unconditionally: that routes every call in the class
-through an approver and repairs nothing.
 """
 
 
-def _requires_the_breach_to_still_match(text):
-    """Is the model told the patch must still act on the breach it was shown?
+def _states_narrowing_truthfully(text):
+    """The false claim is absent AND the true one is present.
 
-    Nothing between the ARMORER and the policy store asks this: the promotion
-    test is the benign floor plus the near-miss floor, and G4 is specified but
-    absent from that path. The model is the only component positioned to check
-    it, so it has to be asked to.
+    Both halves are needed. Absence alone would pass against a template that
+    had simply deleted the sentence and said nothing about narrowing at all,
+    which is a different template from the one in force.
     """
-    low = text.lower()
-    return ("must still satisfy your `when`" in low
-            and "fires on nothing" in low)
+    return ("can only shrink the set of calls you block" not in text
+            and "never restore a route" not in text
+            and "restores a route only for the legitimate" in text)
 
 
-def _offers_narrowing_as_a_real_option(text):
-    """Both repairs present, and narrowing not written off in advance."""
-    low = text.lower()
-    return ("narrow the `when`" in low
-            and "no longer satisfies your `when` is no longer blocked" in low)
+def test_the_rejection_guidance_states_narrowing_truthfully():
+    assert _states_narrowing_truthfully(
+        prompt_mod.build_rejection_feedback(4, ["CAP_MOVES_MONEY"]))
 
 
-def _makes_the_choice_conditional(text):
-    """A test the model can apply, rather than an order to pull one lever."""
-    low = text.lower()
-    return ("can you name a condition" in low
-            and "if no such condition exists" in low)
+def test_the_check_discriminates():
+    """THE PROOF THE CHECK MEASURES SOMETHING.
 
-
-def _names_the_null_patch(text):
-    low = text.lower()
-    return "retracting" in low and "leaves the policy unchanged" in low
-
-
-_CHECKS = (_requires_the_breach_to_still_match,
-           _offers_narrowing_as_a_real_option,
-           _makes_the_choice_conditional,
-           _names_the_null_patch)
-
-
-def test_the_rejection_guidance_holds_all_four_properties():
-    text = prompt_mod.build_rejection_feedback(4, ["CAP_MOVES_MONEY"])
-    missing = [c.__name__ for c in _CHECKS if not c(text)]
-    assert not missing, "rejection guidance lost: %s\n%s" % (missing, text)
-
-
-def test_the_retired_guidance_fails_every_one_of_these_checks():
-    """THE PROOF THE FOUR CHECKS DISCRIMINATE.
-
-    If any of them passed against the paragraph that was replaced, it is not
-    measuring the change - it is a substring that happened to be there. All
-    four must fail on the old text and pass on the new one.
+    If it passed against the clause it replaced, it is a substring that happens
+    to be there rather than a pin on the repair.
     """
-    passing = [c.__name__ for c in _CHECKS if c(RETIRED_GUIDANCE)]
-    assert not passing, (
-        "these checks pass against the RETIRED guidance and therefore do not "
-        "measure what replaced it: %s" % passing)
+    assert not _states_narrowing_truthfully(RETIRED_NARROWING_CLAUSE)
 
 
-def test_the_false_claim_about_narrowing_is_gone_and_stays_gone():
-    """`PolicyEngine._when` returning FALSE drops the rule from consideration
-    and the call resolves to the implicit allow. So a narrower `when` restores
-    the route for exactly the legitimate calls that fail the added condition,
-    and the retired sentence said it never could. A model reads the mechanism,
-    not the case the author had in mind."""
+def test_the_verb_first_ordering_was_KEPT_and_is_not_an_oversight():
+    """The rewrite replaced this ordering with a test the model applies itself.
+    That rewrite measured nothing over 64 paired runs and was reverted, so the
+    ordering is back ON PURPOSE. A future reader finding the argument against it
+    in `narrowing-loop-live-2026-08-26.md` section 4 should find this test
+    first: the argument is sound and it is not sufficient.
+    """
     text = prompt_mod.build_rejection_feedback(4, ["CAP_MOVES_MONEY"])
-    assert "never restore a route" not in text
-    assert "can only shrink the set of calls you block" not in text
+    assert "Reconsider the verb before you touch the `when`" in text
 
 
 # ---------------------------------------------------------------------------

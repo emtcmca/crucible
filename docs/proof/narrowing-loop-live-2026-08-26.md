@@ -10,10 +10,17 @@ separate claims:
 1. **`contracts/policy.ebnf`** grew one optional element - `episode_sum(path
    group_by key)` - and the parser, engine, serializer, validator, renderer and
    both evaluators grew with it.
-2. **`crucible/armorer/prompt.py::REJECTION_TEMPLATE`** was rewritten.
+2. **`crucible/armorer/prompt.py::REJECTION_TEMPLATE`** was rewritten - **and
+   then reverted the same day on the measurement in section 3, keeping one
+   clause.** What is in force now is the paragraph as it stood on 2026-08-24
+   with a single false clause repaired: two lines differ, and nothing else.
 
 **They did not both work, and this document is written that way round on
-purpose.**
+purpose.** The grammar change is measured in section 2 and stays. The template
+change is measured in section 3, bought nothing, and is gone - the findings that
+motivated it are in section 4.3 rather than in the prompt. **Section 5 is the
+result that came out of testing the change that did nothing, and it outlives
+it.**
 
 ---
 
@@ -32,8 +39,14 @@ a patch that leaves the policy unchanged. Section 2.
 runs across three genuinely different rejection situations, both arms handed
 byte-identical rejection facts, differing only in the guidance paragraph:
 **every scenario returned the same verdict in both arms, 32 runs against 32.**
-Section 3. The change is defended in section 4 on grounds that do not reference
-this result, which is the only reason it stays.
+Section 3.
+
+**SO IT WAS REVERTED, THE SAME DAY, ON THIS MEASUREMENT.** Eric's ruling: *a
+change with no measurable effect does not stay on the strength of the argument
+behind it.* One clause survives, and only because it was **false about the
+language** rather than because it was unhelpful - reverting that clause would put
+an untrue statement back in front of the model. The rest of the rewrite came out
+of the prompt and stays here as findings. Section 4.
 
 **The two findings are connected, and the connection is the uncomfortable part.**
 The grouped rule appears in **9 of 19** first draws and in **0 of 68** draws made
@@ -154,13 +167,22 @@ is nothing to group, and the widened grammar left the round's behaviour where it
 was: the model over-blocks or it adds the `is present` guard, exactly as the real
 run did. A change that had leaked into unrelated clauses would show here.
 
-### 2.2 A CORRECTION THIS DOCUMENT OWES ITS PREDECESSOR
+### 2.2 A RETRACTION, AND IT IS THE COORDINATOR'S CLAIM THAT IS BEING RETRACTED
 
-`docs/proof/armorer-grouping-probe-2026-08-26.md` §7(b) says of the promoted
-no-op in run-02 round 3: *"On this clause `require_approval` does not close the
-breach, because the approval oracle approves it."* **The conclusion is right and
-the mechanism named for it is wrong, and the mechanism is the part that matters
-for the template.** Scored offline here, no model call -
+**Who said what, because a correction without attribution is not a correction.**
+
+- **`docs/proof/armorer-grouping-probe-2026-08-26.md` §7(b)** says of the
+  promoted no-op in run-02 round 3: *"On this clause `require_approval` does not
+  close the breach, because the approval oracle approves it."*
+- **The coordinator carried that to Eric twice**, as verb-weakening plus the
+  approval oracle, and states it could not close the question from where it sat
+  because the round-3 autopsy carries no `episode_id` to join on.
+- **This lane's reading, measured below, stands. The coordinator's is
+  RETRACTED**, by the coordinator, 2026-08-26.
+
+**The conclusion was right and the mechanism named for it was wrong, and the
+mechanism is the part that decides what to fix.** Scored offline here, no model
+call -
 `python scripts/probes/narrowing-loop-probe.py --score --scenarios A-aggregate`
 reproduces every row:
 
@@ -179,11 +201,30 @@ consulted, and the `deny` version of the same rule is equally a no-op - the row
 above it stops nothing either. **The promoted patch was a no-op because of its
 CONDITION, not because of its verb.**
 
-That matters for section 4: it removes the strongest-sounding argument for the
-template change (*"the guidance steers toward a verb that does not enforce"*) and
-leaves the four in section 4, which are about the text and the system rather
-than about this episode. It is recorded here rather than corrected in the sibling
-document, which is that lane's to amend.
+**Why it matters and not only who was right.** It removes the
+strongest-sounding argument for changing the guidance at all - *"the template
+steers toward a verb that does not enforce"* - because on this episode the verb
+was irrelevant. Had that argument survived, the rewrite would have had one
+motivation with a live mechanism behind it, and section 3's null result would
+have been harder to read. It did not survive, and section 3's result is
+therefore the whole story.
+
+**THE SIBLING DOCUMENT IS NOT CORRECTED BY THIS LANE AND CANNOT BE.**
+`armorer-grouping-probe-2026-08-26.md` exists only on branch
+`worktree-agent-a81df2f7d942bf6b4`, which is checked out in another worktree.
+Editing it here is not possible and merging is out of scope. **The correction is
+owed to that branch and was not applied there as of 2026-08-26.** The text it needs, ready to
+paste over §7(b)'s second sentence:
+
+> *`require_approval` did not close the breach here, and the reason is the
+> CONDITION rather than the verb. The trace's largest
+> `derived.episode_count_same_subject` is 3, so a per-call rule bound at `>= 4`
+> never fires; the approval oracle is never consulted, and the `deny` form of the
+> same rule is equally a no-op. Measured in
+> `docs/proof/narrowing-loop-live-2026-08-26.md` §2.2.*
+
+Until that lands, **§7(b) as published states a mechanism this repository has
+since disproved**, and anyone quoting it should quote this section instead.
 
 ### 2.3 What did not move, checked rather than assumed
 
@@ -283,71 +324,130 @@ the one worth keeping and it is a negative in the other direction: the retired
 text's verb-first ordering did **not** stop the model narrowing correctly, 10
 times out of 10. The steer the ordering was feared to produce did not appear.
 
-**And it does not license reverting.** Section 4.
+**AND IT DID LICENSE REVERTING, which is the opposite of what this section said
+when it was written, and the change is recorded rather than edited over.** The
+sentence here read *"And it does not license reverting"*, on the argument that
+the four defects in section 4 stand without reference to any score. **Eric ruled
+against that on 2026-08-26 and the ruling is the stronger reading:** a change
+with no measurable effect does not stay on the strength of the argument behind
+it, because that is the standard every other claim in this repository is held to
+and prompt guidance does not get an exemption for being well reasoned. Section 4
+now records what came out, what stayed, and why the one survivor is not an
+exception to the rule but a consequence of a different one.
 
 ---
 
-## 4. Why the template change stays, stated without reference to any of the above
+## 4. What was reverted, what survived, and why the survivor is not an exception
 
-The four defects are properties of the text and of this system. Each stands
-whether the numbers moved or not, and none of them is argued from a score.
+**The rewrite is gone. One clause of it stayed.** `crucible/armorer/prompt.py`'s
+`REJECTION_TEMPLATE` is now byte-identical to the paragraph in force from
+2026-08-24 **except for two lines**, verified by diffing it against
+`git show <the commit before the rewrite>:crucible/armorer/prompt.py`.
 
-1. **The reason it gave was false about this language.** It read: a narrower
-   `when` *"can only shrink the set of calls you block, never restore a route for
-   the legitimate ones."* Shrinking the blocked set is exactly how the route comes
-   back - `PolicyEngine._when` returns FALSE, the rule contributes no effect, and
-   the call resolves to the implicit allow. The sentence was right about a real
-   case and wrong about the mechanism, and a model reads the mechanism.
+### 4.1 The one clause that survived, and the rule it survived under
 
-2. **It was an ordering, not a test.** *"Reconsider the verb before you touch the
-   `when`"* resolves every rejection the same way. The two cases are genuinely
-   different and the discriminator is answerable from what the model already
-   holds: is there a condition the breach satisfies that ordinary calls of that
-   capability do not. **Ruling 49 is the recorded case where the answer is NO** -
-   two benign fixtures sitting inside the attack's bounding box on every
-   dimension of an enumerated predicate space, so no conjunction of literals
-   separates them. That is the case the verb is for, and it is a case rather than
-   a default.
+The retired text said a narrower `when` *"can only shrink the set of calls you
+block, never restore a route for the legitimate ones."* **Shrinking the blocked
+set is exactly how the route comes back:** `PolicyEngine._when` returns FALSE,
+the rule contributes no effect, and the call resolves to the implicit allow. The
+instruction was right about a real case - the one where the legitimate calls
+satisfy the same condition the breach does - and **wrong about the mechanism**,
+and the mechanism is the sentence a model reads.
 
-3. **The objective it stated was one-sided.** The only thing reported back is
-   benign failures, and the promotion test is the benign floor plus the near-miss
-   floor. G4 - ATTACK REDUCTION - is specified in `contracts/gate_rule.v1.yaml`
-   and is not on that path; `scripts/gate-census.py` marks it ABSENT. Nothing
-   between the ARMORER and the policy store asks whether the patch still acts on
-   the breach, so the shortest path to zero benign failures is a rule that fires
-   on nothing. The model is the only component positioned to check it, and now it
-   is asked to.
+It now reads *"it restores a route only for the legitimate calls that fail the
+condition you add."* The conditional it used to smuggle into the mechanism is
+handed to the paragraph below, which already carried it. **The verb-first
+ordering is unchanged and that is deliberate.**
 
-4. **It told the model to edit something it cannot see.** `Armorer.propose`
-   rebuilds the user message from the projection on every attempt and appends the
-   rejection; the rejected patch text appears nowhere in it. The guidance is now
-   stated as properties the NEW patch must hold.
+**This is not an exception to the measure-it rule, it is a consequence of a
+different one.** The clause did not stay because it was well argued. It stayed
+because **reverting it would put a false statement about the language back in
+front of the model**, and a repository whose entire product is a claim about
+measurement cannot ship a prompt that misstates its own semantics. That test is
+"is it true", not "did it help".
 
-It also names the **null patch**, which is a fact about this system rather than
-about model behaviour: rules are content-addressed, so a `retract` plus an add of
-the same body leaves the rule set byte-identical. Such a patch cannot fail a
-benign floor and is therefore the cheapest way out of the rejection - and section
-2 shows the model reaching for it unprompted. Nothing else in the prompt said it
-is not a repair.
+Pinned by `tests/test_armorer_verbs.py::test_the_rejection_guidance_states_
+narrowing_truthfully`, and the pin is proved to discriminate by
+`test_the_check_discriminates`, which runs the same predicate over the clause it
+replaced and requires it to fail.
 
-**The leak boundary did not move.** Counts and classes,
-`build_rejection_feedback` still the only door, its six-class membership test
-untouched, and the no-ids assertion still holds over the new prose. The channel
-was **deliberately not widened** to carry the model's previous patch: it leaks
-nothing, but the guard is a membership test over six constants and *"the model
-wrote it"* is a property of the caller rather than of the string.
+### 4.2 What came out, and it was measured before it was argued
 
-**The four properties are pinned, and the pins are proved to discriminate.**
-`tests/test_armorer_verbs.py::test_the_retired_guidance_fails_every_one_of_these_checks`
-runs the same four predicates over the paragraph that was replaced and requires
-all four to fail. Four `assert "x" in text` lines would otherwise pass against any
-sufficiently wordy paragraph and measure nothing.
+The rewrite also added a reordering, a name-the-discriminating-condition
+framing, a G4-shaped first condition, and a null-patch warning. **Section 3
+measured them at 32 runs against 32, identical in every scenario.**
+
+**Eric's ruling, 2026-08-26:** *a change with no measurable effect does not stay
+on the strength of the argument behind it. That is the standard we hold every
+other claim to and the guidance does not get an exemption for being well
+reasoned.*
+
+That is the right call and the earlier draft of this document had it wrong. It
+argued that four defects "stand whether the numbers moved or not". Three of them
+do stand - as **findings**, below - and standing is not the same as earning a
+place in a prompt that is part of the instrument.
+
+**Three pins were deleted with the text they pinned**, and they are named in
+`tests/test_armorer_verbs.py` rather than quietly removed:
+`_requires_the_breach_to_still_match`, `_makes_the_choice_conditional`,
+`_names_the_null_patch`.
+
+### 4.3 The three findings, which survive here and not in the prompt
+
+1. **The guidance is an ordering, not a test.** *"Reconsider the verb before you
+   touch the `when`"* resolves every rejection the same way, and nothing in it
+   tells the model which case it is in. The two cases are genuinely different.
+   **Ruling 49 is the recorded case where narrowing does NOT dominate** - two
+   benign fixtures sitting inside the attack's bounding box on every dimension of
+   an enumerated predicate space, so no conjunction of literals separates them,
+   and the verb is the only remaining lever. The finding is real. The instruction
+   built on it moved nothing.
+
+2. **The objective reported back to the model is one-sided.** The only thing that
+   crosses is benign failures, and the promotion test is the benign floor plus
+   the near-miss floor. **G4 - ATTACK REDUCTION - is specified in
+   `contracts/gate_rule.v1.yaml` and is not on the promotion path**;
+   `scripts/gate-census.py` marks it ABSENT. So nothing between the ARMORER and
+   the policy store asks whether the patch still acts on the breach, and the
+   shortest path to zero benign failures is a rule that fires on nothing.
+   **Telling the model about it did not fix it. That is evidence the fix belongs
+   in the GATE rather than in the prompt** - which is what G4 was for, and it is
+   the reading this null result supports.
+
+3. **The message tells the model to edit a patch it is not shown.**
+   `Armorer.propose` rebuilds the user message from the projection on every
+   attempt and appends the rejection; the rejected patch text appears nowhere in
+   it. **The incoherence is real and it has two fixes, not one** - show it the
+   patch, or stop telling it to edit - and section 5 is evidence that the
+   post-rejection context is already the problem, so which fix is right is an
+   open question rather than a foregone one. Section 8 scopes the probe.
+
+Also removed: the **null-patch** line. The underlying fact stands and is worth
+keeping in view - rules are content-addressed, so `retract` plus an add of the
+same body leaves the rule set byte-identical, cannot fail a benign floor, and is
+therefore the cheapest way out of a rejection. Section 2 shows the model reaching
+for it unprompted in 2 of 19 first draws. **Nothing in the prompt says it is not
+a repair, and after this revert nothing does. That is a gap, and the measurement
+says the prompt is not where to close it.**
+
+### 4.4 What never moved
+
+**The leak boundary.** Counts and classes, `build_rejection_feedback` still the
+only door, its six-class membership test untouched, and the no-ids assertion
+still holding over the prose - before the rewrite, during it, and after the
+revert. The channel was **never widened** to carry the model's previous patch:
+it leaks nothing, but the guard is a membership test over six constants and *"the
+model wrote it"* is a property of the caller rather than of the string. That is
+now section 8's question rather than this lane's decision.
 
 ---
 
 ## 5. The finding neither change was looking for
 
-**The grouped rule appears in 7 of 11 first draws and in 0 of 68 draws made after
+**THIS SECTION IS THE MOST VALUABLE THING IN THE DOCUMENT AND IT WAS PRODUCED
+WHILE TESTING A CHANGE THAT WAS THEN REVERTED. It does not go with the revert.**
+
+**The grouped rule appears in 9 of 19 first draws and in 0 of 68 draws made after
 a rejection, in either arm.**
 
 That is the sharpest number in this document and it was not the question. The
@@ -368,9 +468,11 @@ what went wrong. Both arms then produce the per-call form.
 **THIS IS A HYPOTHESIS AND IT WAS NOT TESTED.** It is stated because it is the
 next cheap decisive test and because the alternative explanations are equally
 untested: the rejection message may simply anchor the model on the previous
-shape, or the extra 1.5 KB of guidance in both arms may crowd the grammar
-section. A third arm - the rejection facts with **no** guidance paragraph at all -
-would separate them, and it was not run.
+shape, or the appended paragraph itself - 1.2 KB in the retired arm, 3.0 KB in
+the rewritten one, and neither of them zero - may pull attention off the grammar
+section. **Both arms carry guidance. Neither is the no-guidance condition**, so
+this experiment could not have separated them and did not try to. A third arm
+carrying the rejection facts and nothing else would. Section 8.
 
 **What it means for the loop today, and it is not comfortable:** GX2's benefit is
 concentrated in the round's first draw. A round that reaches attempt 2 on this
@@ -445,16 +547,185 @@ coordinator's call.**
    it; the evidence and the arithmetic disproof are written into the entry either
    way.
 2. **May `build_rejection_feedback` carry the ARMORER's own previous patch text?**
-   Section 4 declines it in this lane. The model is currently told to reconsider a
-   rule it is not shown. The text leaks nothing - the model wrote it - but the
-   guard is a **membership test over six constants**, and "the model wrote it" is a
-   property of the caller rather than of the string, so admitting free text there
-   changes what the guard is. It is the largest untried lever on the narrowing
-   loop and it is not this lane's to pull.
+   Still open, still not this lane's to pull, and **section 8 argues it should not
+   be the next thing tried.** The text leaks nothing - the model wrote it - but
+   the guard is a **membership test over six constants**, and "the model wrote it"
+   is a property of the caller rather than of the string, so admitting free text
+   changes what the guard is. Section 8.3: it is the only one of the four
+   candidate arms that needs a ruling, section 5 is evidence against it, and it
+   confounds two variables that a cheaper arm separates first.
 
 ---
 
-## 8. Spend
+## 8. Scoping the next probe. NOT RUN
+
+**The question put to this lane:** is a four-arm probe the right instrument -
+(a) current, (b) rejection facts with no guidance, (c) previous patch included,
+(d) both?
+
+**Short answer: no. Two arms settle the question that has to be settled first,
+the previous-patch arm should not be in the first probe at all, and there is a
+discriminator that costs nothing and is reported below because it may reframe
+the question before anything is spent.**
+
+### 8.1 The free discriminator, computed from the transcript already in hand
+
+Thinking tokens are recorded on every call in
+`narrowing-loop-live-2026-08-26.json`. Nobody had looked at them.
+
+| scenario | clause form | first draw, mean tokens | after a rejection, mean tokens |
+|---|---|---:|---:|
+| **A** aggregate | `aggregate` | **16,762** (n=11) | **7,968** (n=24) |
+| **B** aggregate, another round | `aggregate` | **19,876** (n=8) | **7,348** (n=20) |
+| **C** PII | `per_event` | **7,500** (n=7) | **7,911** (n=24) |
+
+*(Grouped first draws alone: A mean 18,040, B mean 21,147.)*
+
+**On the clause where a hard rule exists, the model's thinking collapses to
+between a third and a half after a rejection, in both arms, at the same time as
+its output shape collapses to the per-call form. On the clause where no hard rule
+exists, it does not collapse at all - C is flat, and C carries a rejection
+paragraph of the same size.**
+
+That last row is what makes the table worth something. **It rules out the
+cheapest explanation - that the appended paragraph is simply crowding the
+grammar section by being long.** If length were the mechanism, C would show it
+too. It does not.
+
+**It does not rule out the honest alternative**, which is that a rejection
+message legitimately narrows the search: the model has been told something, so it
+looks less far. That reading and the anchoring reading make the same prediction
+here. **They differ on arm (b)**, which is the argument for running it.
+
+**One more thing that is now known and costs nothing to state:** the grammar
+section is still present in the post-rejection prompt. `Armorer.propose` appends
+the rejection to the full user message; nothing is truncated. So "crowding", if
+it is happening, is about attention and not about the grammar being absent. **Do
+not spend money testing truncation.**
+
+### 8.2 Two arms, not four
+
+**ARM (a) - the guidance in force. ARM (b) - the rejection facts and nothing
+else**: the counts, the classes, the *"that is all the information you get"*
+paragraph, and no closing guidance. That is a strict subtraction, which is what
+makes it readable.
+
+**Primary outcome:** grouped-emission rate on the aggregate clause, post
+rejection. Current value is **0 of 68**, so any recovery is visible immediately.
+**Secondary, free:** thinking tokens, using 8.1 as the baseline.
+
+**It is decisive in both directions, which is the property worth paying for:**
+
+- **If (b) recovers grouped emissions**, the guidance is the suppressor, and the
+  right move is to say LESS rather than to say something better. That is a
+  conclusion the rewrite-and-revert already argued for and did not establish.
+- **If (b) is also zero**, the guidance is not the suppressor and no wording
+  change will fix it. **Every remaining edit to that paragraph is then off the
+  table**, which is worth more than the finding: it closes a whole category of
+  cheap-looking work that has already consumed one rewrite.
+
+**Arm (a) must be re-drawn and cannot be taken from this document.** The 0-of-68
+was measured across two templates, neither of which is the one now in force - the
+retired paragraph plus one repaired clause. Reusing it would compare against a
+template that never shipped.
+
+### 8.3 Why the previous-patch arm is not in the first probe
+
+Three reasons, in the order they matter.
+
+1. **It is the only one of the four that needs a ruling.** `build_rejection_
+   feedback`'s guard is a **membership test over six constants**, and admitting
+   free text changes what the guard is - not what it lets through today, but what
+   kind of thing it is. Spending that decision before knowing whether guidance
+   matters at all is the wrong order.
+2. **Section 5 is evidence against it.** The post-rejection context is already
+   where the grouped form dies. Adding more context to it is the least likely of
+   the four to help and the most expensive to reverse.
+3. **It confounds two variables.** Showing the patch changes what the model knows
+   AND how much it reads. Without (b) as a baseline those cannot be separated,
+   so a (c) run without (b) produces a number nobody can interpret. **(d) is
+   worse:** with no guidance at all, a patch shown as bare text has no stated
+   role, and the arm measures whatever the model decides that means.
+
+**And there are two fixes to the incoherence, not one.** The message tells the
+model to reconsider a patch it is not shown. That can be closed by showing it, or
+by not telling it to edit. **The second costs nothing and needs no ruling**, and
+arm (b) tests it as a side effect, since a template with no closing guidance does
+not tell the model to edit anything.
+
+### 8.4 If arm (b) is also zero, the second probe is a subtraction, not an addition
+
+The candidate suppressor section 5 names is one sentence, and it is in the part
+both arms shared:
+
+> *So the capability is not the problem and the class you bound to is not the
+> problem. **The way your rule RESOLVED that class is.***
+
+On the aggregate scenarios the rejected patch **was** the aggregate-shaped rule,
+so a model told that the way its rule resolved the class is the defect - and not
+shown the rule - has been handed a true sentence whose available reading is *the
+aggregate shape is what went wrong*. **Removing that sentence is a subtraction of
+one line from a template, it needs no ruling, and it is testable on the same
+instrument.** It is the right second probe, and it is only worth running if (b)
+comes back zero.
+
+### 8.5 Size and cost, against the rates measured here
+
+**Two arms, aggregate clause only.** C is excluded: it already returned a clean
+null in both arms and it has nothing to group.
+
+| | arm (a) | arm (b) | calls |
+|---|---:|---:|---:|
+| scenario A | 14 | 14 | 28 |
+| scenario B | 10 | 10 | 20 |
+| **total** | | | **48** |
+
+**48 model calls, one per run** - the probe seeds from a recorded rejection, so
+each run is a single post-rejection draw.
+
+**Rates measured in this document, not recalled.** Post-rejection calls: n=68,
+**mean $0.0136, median $0.0128, range $0.0079-$0.0306.** First draws that emitted
+the grouped rule: **mean $0.0556**, and the widest single call seen anywhere in
+this work was about **$0.11**. The spread is entirely thinking tokens, which bill
+at the output rate - so **a call that starts finding the grouped rule costs
+roughly four times one that does not**, and arm (b) succeeding is the expensive
+outcome.
+
+| outcome | assumed per-call | 48 calls |
+|---|---:|---:|
+| arm (b) behaves like today's post-rejection calls | $0.014 | **$0.65** |
+| arm (b) thinks like a first draw | $0.056 | **$1.53** worst realistic |
+| every call at the widest observed | $0.11 | **$5.28** - not plausible, stated as the bound |
+
+**Recommended ceiling: $1.80**, checked before each call, which the existing
+probe already does. **Expected $0.65-$1.30.** If arm (b) is running hot the
+ceiling stops it with most of the design complete, and a partial arm (b) that is
+already producing grouped rules has answered the question anyway.
+
+**Reusable as-is.** `scripts/probes/narrowing-loop-probe.py` needs one new entry
+in its `ARMS` dict - a template with the closing guidance removed - and nothing
+else. No new scenarios, no new scoring, no engine change.
+
+### 8.6 What would make this the wrong design
+
+Stated so it can be argued with rather than accepted.
+
+- **If the coordinator wants the previous-patch question answered on a
+  deadline** and is willing to spend the ruling regardless of (b), then run (b)
+  and (c) as the two arms and drop (a) - reusing 0-of-68 as an informal
+  reference and saying so. It is a worse experiment and it is faster.
+- **If two scenarios is not worth 20 calls**, A alone at k=16 per arm is 32
+  calls, ~$0.45-$0.90, and loses the replication. B is the only evidence the
+  effect is not one autopsy.
+- **k=12-14 per arm is sized against a large effect, not a small one.** Against
+  0-of-24 it detects a rate of roughly 20% or higher comfortably and would
+  miss a real 5% effect. **A 5% recovery is not worth acting on**, which is why
+  the design is sized this way rather than larger, and stating that in advance
+  is what stops a null being read as proof of absence afterwards.
+
+---
+
+## 9. Spend
 
 **$2.041 across 94 model calls**, computed by
 `crucible.armorer.client.estimate_cost` from the returned token counts at the

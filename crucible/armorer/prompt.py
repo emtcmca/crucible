@@ -425,47 +425,16 @@ legitimately needs were resolved against. So the capability is not the problem
 and the class you bound to is not the problem. The way your rule RESOLVED that
 class is.
 
-You are not shown the patch you wrote. Write a new one from the breach record
-above, and hold it to TWO conditions rather than one.
+Reconsider the verb before you touch the `when`. A narrower `when` on the same
+deny is rarely the repair here: it restores a route only for the legitimate
+calls that fail the condition you add. Where a legitimate above-band
+path exists, require_approval bounded by a `when` closes the breach without
+removing the capability, and it is the only verb that leaves that path open.
 
-FIRST, AND IT IS THE ONE NOTHING HERE CHECKS FOR YOU: the breaching call in the
-record above must still satisfy your `when`. Only benign failures are reported
-back to you, so the cheapest way to drive that number to zero is a rule that
-fires on nothing at all - and such a rule is accepted, promoted, and leaves the
-breach exactly where it was. A `when` the breach does not satisfy is not a
-weaker rule. It is no rule.
-
-SECOND, the legitimate calls in that class must come out with a route. There
-are two ways to give them one, and which one is right depends on a question
-only you can answer.
-
-  CAN YOU NAME A CONDITION THAT THE BREACH SATISFIES AND ORDINARY CALLS OF THAT
-  CAPABILITY DO NOT? If you can, narrow the `when` with it. A legitimate call
-  that no longer satisfies your `when` is no longer blocked by it, so narrowing
-  is how the route comes back, and the decision stays inside the policy where
-  it can be read. Take the condition from the invariant: the invariant is the
-  definition of breach, so what it does not describe is legitimate. A frequent
-  cause of this rejection is a boundary placed at the largest value you
-  OBSERVED rather than at the line the invariant states - every legitimate call
-  between the two is then blocked by a rule that was one number away from
-  correct.
-
-  IF NO SUCH CONDITION EXISTS, change the verb to require_approval and keep a
-  `when` the breach still satisfies. When the work legitimately needs that
-  capability under the same conditions the breach used, no narrowing can
-  separate them, because there is nothing left to separate on. Approval
-  separates on something a `when` cannot express - whether an authorised human
-  stands behind the call - so it closes the breach while leaving the legitimate
-  path open. It does not narrow what the rule fires on; it changes what happens
-  when it fires.
-
-Do not require approval for a whole capability class unconditionally: that
-routes every call in the class through an approver and repairs nothing.
-
-And do not hand back a rule the policy above already holds, with or without a
-`retract` in front of it. Rules are identified by their content, so retracting
-one and adding the same body again leaves the policy unchanged. It will pass,
-because it does nothing.
+Narrow the `when` instead only if you can name the condition that separates the
+breach from the legitimate calls in that class. And do not require approval for
+a whole capability class unconditionally: that routes every call in the class
+through an approver and repairs nothing.
 """
 
 # WHY THE CLOSING GUIDANCE CHANGED, AND WHY IT IS NOT A WIDER CHANNEL.
@@ -481,63 +450,57 @@ because it does nothing.
 # of the six.
 #
 # --------------------------------------------------------------------------
-# AND WHY IT CHANGED AGAIN, 2026-08-26. FOUR DEFECTS, EACH STATED WITHOUT
-# REFERENCE TO ANY MEASUREMENT, BECAUSE A GUIDANCE CHANGE THAT CANNOT BE
-# JUSTIFIED WITHOUT POINTING AT A NUMBER IS TUNING.
+# ONE CLAUSE CHANGED 2026-08-26, AND A WHOLE REWRITE WAS REVERTED THE SAME DAY.
+# BOTH HALVES OF THAT ARE THE RECORD.
 #
-# 1. THE REASON IT GAVE FOR PREFERRING THE VERB WAS FALSE ABOUT THIS LANGUAGE.
-#    It read: a narrower `when` "can only shrink the set of calls you block,
-#    never restore a route for the legitimate ones." Shrinking the set of
-#    blocked calls IS how the route comes back - `PolicyEngine._when` returns
-#    FALSE, the rule contributes no effect, and the call resolves to the
-#    implicit allow. The instruction was right about a real case and wrong
-#    about the mechanism, and the sentence a model reads is the mechanism.
+# WHAT CHANGED, AND IT IS ONE CLAUSE. The sentence above read:
 #
-# 2. IT WAS AN ORDERING, NOT A TEST. "Reconsider the verb before you touch the
-#    `when`" resolves every rejection the same way, because nothing in it tells
-#    the model which case it is in. The two cases are genuinely different and
-#    the discriminator is answerable from what the model already holds: is
-#    there a condition the breach satisfies that ordinary calls of that
-#    capability do not. Ruling 49 is the recorded instance where the answer is
-#    NO and no narrowing exists - `ORD-08` and `ORD-11` sit inside the attack
-#    bounding box on every dimension of an enumerated predicate space. That is
-#    the case the verb is for, and it is a case rather than a default.
+#     "A narrower `when` on the same deny is rarely the repair here: it can
+#      only shrink the set of calls you block, never restore a route for the
+#      legitimate ones."
 #
-# 3. THE OBJECTIVE IT STATED WAS ONE-SIDED. The only thing reported back is
-#    benign failures, and the promotion test is `passed == total` plus the
-#    near-miss floor (`conductor.py`, `_promote_or_converge`). G4 - ATTACK
-#    REDUCTION - is specified in `contracts/gate_rule.v1.yaml` and is NOT on
-#    the promotion path; `scripts/gate-census.py` marks it ABSENT. So nothing
-#    between the ARMORER and the policy store asks whether the patch still
-#    acts on the breach, and the shortest path to zero benign failures is a
-#    rule that fires on nothing. The template now states that as the FIRST
-#    condition, because the model is the only component in the loop positioned
-#    to check it.
+# THE SECOND HALF IS FALSE ABOUT THIS LANGUAGE. Shrinking the set of blocked
+# calls is exactly how the route comes back: `PolicyEngine._when` returns FALSE,
+# the rule contributes no effect, and the call resolves to the implicit allow.
+# The instruction was right about a real case - the one where the legitimate
+# calls satisfy the same condition the breach does - and wrong about the
+# mechanism, and the mechanism is the sentence a model reads. The replacement
+# states the true version and hands the conditional to the paragraph below,
+# which already carried it ("only if you can name the condition that
+# separates"). The verb-first steer is UNCHANGED and deliberately so.
 #
-# 4. IT TOLD THE MODEL TO EDIT SOMETHING IT CANNOT SEE. `Armorer.propose`
-#    rebuilds the user message from the projection on every attempt and appends
-#    this block; the patch text from the rejected attempt appears nowhere in
-#    it. "Reconsider the verb" and "narrow the `when`" both read as edits to a
-#    rule that is not in front of the model. The guidance is now stated as
-#    properties the NEW patch must hold, which is a thing a model re-deriving
-#    from the breach record can actually comply with.
+# WHAT WAS REVERTED, AND WHY THE REASONING IS NOT THE POINT. On 2026-08-26 this
+# block was rewritten far past that clause: a reordering, a
+# name-the-discriminating-condition framing, a G4-shaped first condition
+# ("the breach must still satisfy your `when`"), and a null-patch warning. It
+# was then MEASURED, live, against the paragraph it replaced -
+# `docs/proof/narrowing-loop-live-2026-08-26.md` section 3. **64 paired runs,
+# three different rejection situations, both arms handed byte-identical
+# rejection facts and differing in one string: every scenario returned the same
+# verdict in both arms, 32 against 32.**
 #
-# WHAT WAS DELIBERATELY NOT DONE: the channel was not widened to carry the
-# previous patch. It is text the ARMORER itself authored, so it leaks nothing -
-# but the guard below is a MEMBERSHIP TEST over six constants, and "the model
-# wrote it" is a property of the caller rather than of the string. Adding a
-# free-text field would make the guard reason about content, which is the
-# shape it exists to avoid. It is reported to the coordinator as an open
-# question, not decided here.
+# ERIC'S RULING: a change with no measurable effect does not stay on the
+# strength of the argument behind it. That is the standard every other claim in
+# this repository is held to and prompt guidance does not get an exemption for
+# being well reasoned. Only the false clause survived, and it survived because
+# it is FALSE rather than because it is unhelpful - reverting it would put an
+# untrue statement about the language back in front of the model.
 #
-# THE NULL-PATCH LINE IS ABOUT THIS SYSTEM, NOT ABOUT MODEL BEHAVIOUR. Rules
-# are content-addressed (`serialize.assign_rule_id` over the rule body), so
-# `retract r_X` followed by an add of the same body leaves the rule set
-# byte-identical. Such a patch cannot fail a benign floor, and it is therefore
-# the single cheapest way out of this rejection. Nothing else in the prompt
-# says it is not a repair.
+# THE THREE FINDINGS THAT MOTIVATED THE REST ARE REAL AND THEY LIVE IN THE
+# WRITE-UP, NOT HERE. Section 4 of that document: the guidance is an ordering
+# rather than a test and ruling 49 is the recorded case where the ordering is
+# wrong; the objective reported back to the model is one-sided because G4 is
+# specified and absent from the promotion path; and `Armorer.propose` rebuilds
+# the user message every attempt, so the model is told to reconsider a patch it
+# is not shown. None of them earned a place in the prompt on zero measured
+# effect. Do not reintroduce them here in gentler wording.
+#
+# AND THE RESULT THAT MATTERS MOST CAME OUT OF TESTING A CHANGE THAT DID
+# NOTHING. The grouped rule appears in 9 of 19 of the round's FIRST draws and in
+# 0 of 68 draws made after a rejection - IN BOTH ARMS. Guidance is not what
+# suppresses it. Whatever does is in the part of this message both arms share,
+# and that is the next thing to probe. Section 5 of the same document.
 # --------------------------------------------------------------------------
-
 # The six, restated here as a MEMBERSHIP TEST rather than as documentation. A
 # fixture id is not a capability class, so it cannot ride in on this channel.
 _SIX = frozenset((
