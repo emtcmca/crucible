@@ -94,7 +94,7 @@ number claiming otherwise would be made up.**
 We built a check that asks a simple question of every rule: **did it actually stop the
 attack it was written for?**
 
-**18 of 31 did not.**
+**19 of 32 did not.**
 
 The gate had been checking that a rule was well formed and that it did not break
 legitimate work. **It never checked that the rule fixed anything.** A rule that blocks

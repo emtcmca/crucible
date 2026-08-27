@@ -69,8 +69,14 @@ states in writing what prior results the change invalidates.
 > **THE DEFECT THIS CLOSES.** `crucible/tripwire/objective_set.py:682` buckets by
 > `clause["group_by"]`. The DSL had no grouping key and `crucible/policy/engine.py` folded
 > ungrouped. **The ruler grouped; the language the ARMORER writes in could not.** Measured
-> consequence: **every one of the 18** promoted rules against the one aggregate clause **failed to
-> close** the breach it answered, while **13 of 13 did close theirs** on per-event clauses. In the live control arm there was **no
+> consequence: **every one of the 19** promoted rules against the one aggregate clause **failed to
+> close** the breach it answered, while **13 of 13 did close theirs** on per-event clauses.
+> **RECOUNTED 2026-08-27 and this ruling said 18 when it was written.** `pilot-2026-08-25/run-08`
+> was mid-write when the 08-25 snapshot was taken and was refused; it finished, it validates, and it
+> contributes one more NO_OP of the same shape. Population 14 -> **15** bundles, 31 -> **32** rules,
+> CLOSES unchanged at 13. Amendment and the recount table: `docs/design/gate-noop-measurement-2026-08-25.md`.
+>
+> In the live control arm there was **no
 > output that both holds the benign floor and closes the breach** — the only floor-passing
 > emission was a `retract` plus an identical re-add, which canonicalises to the same rule id and
 > leaves the rule set byte-identical.

@@ -44,6 +44,28 @@ found, and the reason twelve rows exist is that this was the first time
 anything checked the claims in `README.md` against their sources rather than
 against each other.
 
+## Correction ledger, 2026-08-27
+
+**One row, and what makes it worth its own section is how it was found: a check
+found it, not a person.** Ruling 60 shipped an acceptance banner on every script
+that aggregates a batch. Its first sweep over all 123 bundles on disk disagreed
+with a figure that had already been hand-verified and published.
+
+| # | The claim said | Verified at source | Where it now stands |
+|---|---|---|---|
+| C13 | ~~"18 of 31 promoted rules closed nothing"~~ | **19 of 32.** `docs/design/gate-noop-measurement-2026-08-25.md` section 4 records that the `pilot-2026-08-25` batch "was still writing when these bundles were copied" — `run-08` was mid-write, was refused by the reader, and was assigned to the refused population. It has since completed and the reader ACCEPTS it. Recounted 2026-08-27 with `scripts/gate-noop-measurement.py`: 15 bundles, 32 rules, **CLOSES 13, NO_OP 19**. The other 14 bundles are unchanged at 13 and 18, so the whole delta is `run-08`, whose single promoted rule is a NO_OP of the same aggregate-clause shape | Corrected in `docs/CONVENTIONS.md` ruling 58 and in `docs/devpost/SCORECARD-DRAFT.md`. The 08-25 measurement document keeps its snapshot figures and carries a dated amendment; the gated-run pre-registration keeps its text and carries an amendment note, because a pre-registration edited after the fact is not one |
+
+**The direction this moved is the reason to trust the row.** 58.1% to 59.4% —
+**the negative finding about our own gate got worse.** A recount that only ever
+ran when the number would improve would not be a check.
+
+**What it also says about the 08-25 document, which was not wrong.** That
+document named its own limitation in the sentence directly above the population
+list, and the recount was possible only because it did. A snapshot that states
+the condition it was taken under can be re-taken. One that does not, cannot.
+
+---
+
 ### The register of things marked UNVERIFIED rather than dropped
 
 - **`pip install -r requirements.txt` into an empty virtualenv has not been

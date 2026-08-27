@@ -5,12 +5,60 @@ Selftest: `python scripts/gate-noop-measurement.py <bundle> --selftest`.
 
 ---
 
+## AMENDMENT, 2026-08-27. THE POPULATION GREW BY ONE AND THE FIGURE IS NOW 19 OF 32.
+
+**The numbers in the body below are a correct 2026-08-25 snapshot and are left
+exactly as they were.** What has changed is the population, and the reason is
+recorded in the body itself: section 4 says *"the `pilot-2026-08-25` batch was
+still writing when these bundles were copied."* `pilot-2026-08-25/run-08` was
+mid-write and was therefore refused by the reader, so it was assigned to
+population B. **It finished writing. It now validates, and the reader ACCEPTS
+it.**
+
+Recounted 2026-08-27 with `scripts/gate-noop-measurement.py` over both
+directories:
+
+| | 2026-08-25 snapshot | 2026-08-27 recount |
+|---|---:|---:|
+| bundles the reader ACCEPTS | 14 | **15** |
+| promoted rules judged | 31 | **32** |
+| CLOSES | 13 | **13** |
+| NO_OP | 18 | **19** |
+| of which `AGGREGATE_CLAUSE_TESTED_PER_CALL` | 18 | **19** |
+| UNCLASSIFIED | 0 | **0** |
+
+**The other 14 bundles are unchanged at 13 and 18**, so the delta is entirely
+`run-08`, which contributes exactly one promoted rule and it is a NO_OP of the
+same aggregate-clause shape. There is no confound from the ruling 58 grouping
+work: had that moved any verdict, the 14 would have moved too.
+
+**The finding got worse, not better** — 58.1% to 59.4% — which is the only
+reason worth recording that a recount was run at all rather than left alone.
+
+**Population B is 61, not 62.** The body's list of it names `run-08` and that
+line is now wrong; it is left in place rather than edited, because the sentence
+beside it explaining WHY those bundles were refused is what makes the whole
+partition legible.
+
+**How this was found.** Ruling 60 shipped an acceptance banner on every
+aggregate script, and the first sweep of all 123 bundles on disk with the new
+reader disagreed with a document that had been hand-verified. **The
+disagreement was the point of the banner.**
+
+---
+
 ## 0. The claim, in one line
 
-**Of 31 promoted rules across the 14 bundles the shipped offline reader accepts,
-13 closed the breach they were written for, 18 were no-ops on that breach, and 0
-could not be classified.** Every one of the 18 no-ops is the same defect shape,
-and it is not a defect in the ARMORER.
+**SUPERSEDED BY THE 2026-08-27 AMENDMENT ABOVE. The current figure is 19 of 32.**
+The 2026-08-25 snapshot read: ~~*Of 31 promoted rules across the 14 bundles the
+shipped offline reader accepts, 13 closed the breach they were written for, 18
+were no-ops on that breach, and 0 could not be classified.*~~ **`run-08` was
+mid-write and has since completed**, so the population is 15 bundles and 32
+rules: **13 CLOSES, 19 NO_OP, 0 UNCLASSIFIED.**
+
+**Every one of the no-ops is the same defect shape, and it is not a defect in the
+ARMORER.** That sentence is what this document is for and the recount did not
+touch it.
 
 ---
 

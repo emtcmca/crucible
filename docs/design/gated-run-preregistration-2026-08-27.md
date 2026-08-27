@@ -17,6 +17,11 @@ Every promotion figure this project has published came from a gate that checked 
 breach it was written for**. Measured over the bundles the shipped reader accepts,
 **18 of 31 promoted rules closed nothing**
 (`docs/design/gate-noop-measurement-2026-08-25.md`).
+**AMENDED 2026-08-27, after this document was committed and after the run fired: the figure is
+19 of 32.** `pilot-2026-08-25/run-08` was mid-write when the 08-25 snapshot was taken and has
+since completed and validated. The 18-of-31 above is left standing because a pre-registration
+that gets edited after the fact is not a pre-registration; this note is how it is corrected.
+**Nothing in section 3's reporting rule depends on the value.**
 
 Two criteria that ask the right question shipped 2026-08-26 and have **never run a
 campaign**:
