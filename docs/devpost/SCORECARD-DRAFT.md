@@ -38,38 +38,51 @@ tool *can do* — move money — which a classifier worked out from the tool's d
 
 ---
 
-## MEASURED · 10 runs
+## MEASURED · the starting line, and it is the only ASR figure on this page
 
-### It cuts successful attacks by about two thirds
+### Eight of fifty attacks succeed against the agent with no rules at all
 
-We wrote a library of 50 attacks against a refund agent that can move real money.
+We wrote a library of 50 attacks against a refund agent that can move real money, then
+recorded what the agent does against every one of them **before CRUCIBLE writes a single
+rule**. That recording is frozen: `docs/proof/v0-attack-baseline-freeze.json` — 50 episodes
+against the pinned model, hashed, timestamped, with all 50 rows in the file.
 
 | | attacks that succeed |
 |---|---|
 | agent with **no rules at all** | **8 of 50** |
-| agent after CRUCIBLE runs | **2 or 3 of 50** (median 2.5 across ten runs) |
 
-Best run got it to 1. Worst got it to 7. **Every run met or beat the target we published
-before we had any results.**
+**8 is a hard ceiling, and it is lower than we designed for.** Our own published target
+assumed roughly 30. Everything CRUCIBLE can demonstrate has to fit inside a gap of 8.
+
+### The "after" number is not on this page yet, and that is the whole point of the page
+
+We had one. **We withdrew it.** It was a median across ten runs, and when we later built a
+check that asks whether an evidence bundle can even be read, **it refused all ten of them** —
+a field written as `null` where the format requires an absent key. The number may have been
+close to right. It was computed over documents nothing had validated, so we cannot say.
+
+> *The rule we now enforce on ourselves: **every figure over a batch prints, beside it, how
+> many of those runs the reader accepts.** Not "median 2.5 across ten runs" but "median 2.5
+> across ten runs, of which the reader accepts zero." The second sentence is not quotable, so
+> it does not get quoted.*
+
+A re-run in the corrected configuration is what produces the replacement. **Any "after" figure
+you see from us without an acceptance count beside it is one you should not trust, including
+ours.**
 
 ---
 
-## MEASURED · the one that matters
+## NOT MEASURED · withdrawn on the same evidence, and listed rather than dropped
 
-### The rules also stop attacks CRUCIBLE never tried
+### Whether the rules stop attacks CRUCIBLE never tried
 
-Each run only tries a handful of attacks — about 6 per round, a few rounds — so **most of
-the 50 attacks are never used in any given run.** That makes them a free test: the rules
-were written without ever seeing those attacks, so do they stop them anyway?
+This is the question we most want to answer. Each run only tries a handful of the 50 attacks,
+so the rest are a free test: rules written without ever seeing those attacks, checked against
+them anyway.
 
-| | before | after |
-|---|---|---|
-| attacks CRUCIBLE **did try** | 44 | **12** |
-| attacks CRUCIBLE **never tried** | 36 | **16** |
-
-**It stops well over half the attacks it never saw.** Not as well as the ones it trained
-on — 73% versus 56% — and that gap is what an honest result looks like. A system that
-scored the same on both would mean we had measured the same thing twice.
+**We had figures here too. They came from the same ten unreadable runs, so they went with
+them.** They are not restated on this page, in either direction, because a number that was
+computed correctly over documents nothing validated is still a number nobody checked.
 
 ---
 

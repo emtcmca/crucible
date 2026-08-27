@@ -141,7 +141,25 @@ separated, quoted for the population of the cell it sits in. That split is rulin
 beside every ASR and BPR figure permanently, and it is the only thing that tells the two apart:
 a suite the oracle separates produces headline numbers identical to one the policy separates.
 `[14]` marks a figure taken from the fourteen bundles the C6 reader accepts, **the only
-population a rate may be quoted from**. `[60]` marks a count over all sixty runs, and a `[60]`
+population a rate may be quoted from**.
+
+> **THAT POPULATION IS NOW FIFTEEN, AND EVERY `[14]` FIGURE BELOW IS PENDING RECOMPUTE OVER
+> IT. Found 2026-08-27, correction C13 in [`AUDIT.md`](AUDIT.md).**
+> `pilot-2026-08-25/run-08` was **mid-write** when this population was fixed, so the reader
+> refused it and it was assigned to the refused set. It finished writing, it validates, and
+> the reader **accepts** it. Recounted on the one measurement already re-run over the corrected
+> population, the gate-noop figure moved from 18 of 31 to **19 of 32** — the finding got
+> **worse**, not better.
+>
+> **What this does and does not mean.** Every `[14]` cell below was computed correctly over
+> the population as it stood; none of them is fabricated and none is being withdrawn. What is
+> owed is one recompute pass over fifteen bundles rather than fourteen. **Until that pass
+> lands, read every `[14]` rate as carrying a denominator one bundle short**, and prefer the
+> `[60]` counts beside it, which are counts and were never population-scoped this way.
+>
+> **The bundle was recovered by a check, not by a person** — the acceptance banner ruling 60
+> put on every aggregate script disagreed with a hand-verified population on its first sweep.
+ `[60]` marks a count over all sixty runs, and a `[60]`
 figure is a count, never a rate. The target agent is `gemini-3.5-flash-lite` at
 `thinking_level=minimal`, the tier frozen at D3; a weaker target is easier to attack and
 flatters the whole curve, so the tier travels with the numbers.
