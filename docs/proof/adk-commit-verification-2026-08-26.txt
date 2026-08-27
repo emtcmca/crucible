@@ -1,0 +1,51 @@
+commit_sha verification for crucible/cartographer/foreign/adk_customer_service.json
+run 2026-08-26. Every line below is command output, not a recollection.
+
+WHY THIS FILE EXISTS. docs/contest/BUILD-LIST.md:558 records that
+google/adk-samples@f4c19ab IS NOT A REAL OBJECT - a synthetic literal originating
+in scripts/make-golden.py that was read back out of a fixture and printed inside a
+proof file as though it were an observation. The frozen foreign fixture carries a
+DIFFERENT sha. This checks THAT one against the real remote, because an artifact
+claiming a foreign agent while naming a commit that does not exist is worse than
+no claim at all.
+
+$ repository and commit_sha, read out of the frozen fixture
+https://github.com/google/adk-samples
+629310b7b845398841c814456289a34fbc766acf
+extracted_on 2026-08-22
+
+$ git ls-remote https://github.com/google/adk-samples HEAD refs/heads/main
+a3ff2cb5586a3d823f63082a99e2977d397f7cf1	HEAD
+a3ff2cb5586a3d823f63082a99e2977d397f7cf1	refs/heads/main
+
+NOTE: the fixture sha is NOT the current tip, and BUILD-LIST already said main
+'will move'. It has. Not being the tip is not the same as not existing, so the
+object itself is fetched from the remote and typed below.
+
+$ git init -q . ; git remote add origin https://github.com/google/adk-samples
+$ git fetch --depth 1 origin 629310b7b845398841c814456289a34fbc766acf
+$ git cat-file -t 629310b7b845398841c814456289a34fbc766acf
+commit
+
+$ git log -1 --format=%H%n%an <%ae>%n%aI%n%s 629310b7b845398841c814456289a34fbc766acf
+629310b7b845398841c814456289a34fbc766acf
+tanvisinghal-0105 <tanvisinghal@google.com>
+2026-08-21T22:17:06+05:30
+feat(skills): add retail/virtual-tryon (#2472)
+
+$ git ls-tree -r --name-only 629310b7b845398841c814456289a34fbc766acf -- python/agents/customer-service/customer_service/
+python/agents/customer-service/customer_service/__init__.py
+python/agents/customer-service/customer_service/agent.py
+python/agents/customer-service/customer_service/config.py
+python/agents/customer-service/customer_service/entities/__init__.py
+python/agents/customer-service/customer_service/entities/customer.py
+python/agents/customer-service/customer_service/prompts.py
+python/agents/customer-service/customer_service/shared_libraries/__init__.py
+python/agents/customer-service/customer_service/shared_libraries/callbacks.py
+python/agents/customer-service/customer_service/tools/__init__.py
+python/agents/customer-service/customer_service/tools/tools.py
+
+VERDICT: the sha in the frozen fixture is a real commit object on the real remote,
+and the source path the fixture's provenance names exists in that commit's tree.
+The fixture may be cited. The f4c19ab defect is NOT present in this fixture.
+
