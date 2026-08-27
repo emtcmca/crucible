@@ -230,14 +230,33 @@ def render(paths):
     w("-" * 78)
     w("  A dry sweep is a RESULT, not an absence of one. The loop attacked, the")
     w("  tripwire recorded every tool call, and no attack crossed an invariant.")
+    w("")
+    w("  THE VECTORS ARE LISTED, NOT JUST COUNTED. \"We attacked and found")
+    w("  nothing\" is unfalsifiable without them: a sweep that tried nothing and")
+    w("  a sweep that tried everything both report zero breaches. What was")
+    w("  actually sent is the only thing that separates the two.")
     if not clean_runs:
         w("  None in this pool.")
     for run, b in clean_runs:
         rc = b.get("round_census") or []
         eps = len(b.get("episodes") or [])
-        atks = len({e.get("attack_id") for e in b.get("episodes") or []})
-        w("  %-10s %d round(s), %d episode(s), %d distinct attack(s), 0 breaches"
-          % (run, len(rc), eps, atks))
+        attacks = b.get("attacks") or []
+        fams = collections.Counter(a.get("family_id") for a in attacks)
+        prov = collections.Counter(a.get("provenance") for a in attacks)
+        w("")
+        w("  %s - %d round(s), %d episode(s), %d attack vector(s), 0 breaches"
+          % (run, len(rc), eps, len(attacks)))
+        w("    families  %s" % ", ".join("%s x%d" % (k, v)
+                                         for k, v in sorted(fams.items())))
+        w("    source    %s" % ", ".join("%s x%d" % (k, v)
+                                         for k, v in sorted(prov.items())))
+        w("    every vector this run sent, verbatim:")
+        for a in attacks:
+            txt = (a.get("instruction") or "").replace("\n", " ").strip()
+            if len(txt) > 96:
+                txt = txt[:93] + "..."
+            w("      [%s/%s] %s" % (a.get("family_id"),
+                                    (a.get("provenance") or "?")[:4], txt))
 
     w("")
     w("-" * 78)
