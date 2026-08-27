@@ -47,15 +47,30 @@ LOCKS = trg.LOCKS
 # module's own constants agreeing with themselves.
 # ---------------------------------------------------------------------------
 
-def test_the_thresholds_are_the_ones_the_frozen_contract_states():
-    """READ OUT OF `contracts/gate_rule.v1.yaml`, not asserted against
-    `g4.B_MIN` alone.
+def test_the_contract_still_declares_the_shape_the_routing_depends_on():
+    """THE THRESHOLD HALF OF THIS TEST BECAME A TAUTOLOGY ON 2026-08-26 AND IS
+    RECORDED HERE RATHER THAN QUIETLY DROPPED.
 
-    `g4.B_MIN == 3` compared with a literal 3 in this file is two copies of the
-    same guess. The contract is the hash-locked artifact and it is the only
-    thing that may say what the numbers are, so the yaml is parsed and the
-    module is checked against it. If someone loosens `B_MIN` to get past a
-    deadline, this fails - which is the entire reason it is written this way.
+    It used to end by asserting `asserted["newly_blocked_b"] == ">= %d" %
+    g4.B_MIN`, and while `B_MIN` was a literal in `g4.py` that caught a
+    hand-edited threshold. `B_MIN` is now READ from this same yaml, so the two
+    sides of that comparison have one source: it is the file against itself and
+    it cannot fail. Leaving it would be a check that cannot fail sitting inside
+    the suite whose job is to refuse those.
+
+    THE REPLACEMENT IS STRICTLY STRONGER and lives in
+    `tests/test_g4_baseline.py::
+    test_the_reader_actually_reads_and_a_hardcoded_literal_could_not_pass`: it
+    points `contract_g4` at a DIFFERENT contract file and requires the bounds to
+    move. A hardcoded literal fails that, and so does a reader that swallows an
+    unreadable file and defaults.
+
+    WHAT STAYS HERE IS NOT VACUOUS. `failure_mode: REJECT` and the ABSENCE of
+    `absent_or_unevaluable` are the two facts `real_gate`'s routing is built on,
+    and neither is derived from the module - the module has no opinion about
+    either. If the contract grew an `absent_or_unevaluable` key, an unmeasurable
+    G4 would have to stop rejecting and start voiding the run, and this is what
+    notices.
     """
     import yaml
     doc = yaml.safe_load(
@@ -69,8 +84,11 @@ def test_the_thresholds_are_the_ones_the_frozen_contract_states():
     asserted = {}
     for item in spec["assertions"]:
         asserted.update(item)
-    assert asserted["newly_blocked_b"] == ">= %d" % g4.B_MIN
-    assert asserted["newly_breached_c"] == "== %d" % g4.C_MAX
+    # Both assertions must still EXIST and still be parseable. This is a shape
+    # check, not a value check - the values have exactly one owner now.
+    assert set(asserted) == {"newly_blocked_b", "newly_breached_c"}
+    assert g4._parse_threshold(asserted["newly_blocked_b"])[0] in ("gte", "gt")
+    assert g4._parse_threshold(asserted["newly_breached_c"])[0] == "eq"
 
 
 # ---------------------------------------------------------------------------

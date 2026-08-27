@@ -102,7 +102,11 @@ GATES = {
            "size is ROUND_INVALID, never a lower score." % BENIGN_ON_DISK),
     "G4": (WIRED, ["crucible.conductor.g4:paired_scores",
                    "crucible.conductor.g4:decide",
-                   "crucible.conductor.real_gate:RealGate"],
+                   "crucible.conductor.g4:resolve_slice",
+                   "crucible.conductor.g4:load_baseline",
+                   "crucible.conductor.real_gate:RealGate",
+                   "baseline/v0-attack/episodes",
+                   "docs/proof/v0-attack-baseline-freeze.json"],
            "Attack reduction (newly_blocked_b >= 3, newly_breached_c == 0), "
            "paired against policy@vN by replaying the run's recorded attack "
            "episodes through both policies. **THIS ROW READ `ABSENT / Nothing "
@@ -110,12 +114,21 @@ GATES = {
            "as it stood: a criterion whose failure_mode is REJECT had never "
            "once been evaluated. `docs/design/gate-noop-measurement-2026-08-25."
            "md` measured what that cost - 18 of 31 promoted rules do not close "
-           "the breach they answer. WHAT THIS ROW DOES NOT SAY: the paired "
-           "slice is the episodes THE RUN RECORDED, not the 50-instance corpus "
-           "training slice the `b >= 3` threshold was calibrated against - "
-           "`corpus/training/*.json` carries an authored trace, not a scoreable "
-           "episode. `scripts/g4-backtest.py` measures the difference that "
-           "makes to the promotion rate. **WIRED IS NOT THE SAME AS ENFORCING**: "
+           "the breach they answer. WHAT THIS ROW DOES NOT SAY: WHICH SLICE b "
+           "AND c WERE PAIRED OVER, because that is now a per-run choice and a "
+           "census resolves code rather than a run's parameters. Two slices "
+           "exist. `run` is the DEFAULT and is the episodes the run recorded; "
+           "`baseline` is the frozen 50-instance training slice the `b >= 3` "
+           "threshold was calibrated against, recorded 2026-08-26 into "
+           "`baseline/v0-attack/` and frozen by `docs/proof/"
+           "v0-attack-baseline-freeze.json`. Read the slice off the run's "
+           "banner and `criteria.attack_reduction.slice`, never here. THIS ROW "
+           "PREVIOUSLY SAID THE 50-INSTANCE SLICE WAS UNAVAILABLE BECAUSE "
+           "`corpus/training/*.json` CARRIES AN AUTHORED TRACE. The trace half "
+           "is still true and the conclusion is now stale: the artifact is a "
+           "RECORDING, and it exists. `scripts/g4-backtest.py` scores all three "
+           "denominators side by side with one threshold read from the "
+           "contract. **WIRED IS NOT THE SAME AS ENFORCING**: "
            "the criterion has two modes, ENFORCING (the default) and "
            "RECORD_ONLY, and a run started with `--g4-record-only` SCORES b and "
            "c without gating on them. Which mode a given run used is in that "
