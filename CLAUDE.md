@@ -161,7 +161,7 @@ exit 2. Do not route around it.
 **Updated:** 2026-08-27 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
 pytest **2183 passed, 1 skipped**; contract-check **SEVEN** passes OK; `--selftest` PASSED.
-**SPINE_VERSION 29.** *(No commit SHA here on purpose: a hand-maintained block cannot track a
+**SPINE_VERSION 30.** *(No commit SHA here on purpose: a hand-maintained block cannot track a
 moving ref, and the one that used to sit on this line went stale within the hour. Read it with
 `git log --oneline -1`.)*
 
@@ -193,14 +193,27 @@ finding about our own gate got WORSE.**
 is now CORRECT** for MEASUREMENT and it is the exact string ruling 60 removed for STRUCTURAL -
 check `exit_class` before re-diagnosing a fixed bug.
 
+**RULING 61: A CHECK THAT CANNOT FAIL ON EMPTY INPUT IS NOT MEASURING ANYTHING.** A run that
+halted before episode one reported `RUN INVALID` and **exited 2**, and the reader said
+**ACCEPTS, 18 of 18 checks OK** - zero episodes means nothing for any per-episode check to
+object to. **Eighteen checks passed and not one of them ran. FOURTH TIME IN ONE WEEK.**
+`E_NO_MEASUREMENT_IN_RUN` ships, but **C6 has nowhere to record `RUN_INVALID`**, so emptiness
+is a PROXY and a C6 field is owed.
+
 **Rulings 58 (grouping key), 59 (two-hook short-circuit), 60 (structural vs measurement in the
-exit code). Outcome E added to the F4 pre-registration BEFORE the unseal.** No hash value in
+exit code), 61 (empty input). Outcome E added to the F4 pre-registration BEFORE the unseal.** No hash value in
 this block - ruling 46.
 
 **Open threads**
-- **3-run live smoke in flight** (`evidence/smoke-reader-2026-08-27`, gated config, seed base
-  8001) to assert `run-NN.reader.json` actually lands. Then the gated re-run to a NEW dir,
-  then recompute ASR **with the acceptance count printed beside it**.
+- **COVERAGE BATCH RUNNING**, `evidence/batch-census-2026-08-27`, 18 runs, seed 9001, ~2.5h.
+  **THE BINDING CONSTRAINT ON EVERY ASR FIGURE, and it is not the null bug:** the degeneracy
+  census covers **26 of 50 corpus instances** - built from the night batch, which walked half
+  the corpus under the module-constant `RED_SEED`. Per-run seeds now draw the other half, where
+  nothing licenses a text-only reply. **8 exclusions across both smoke runs, all 8 unlicensed.**
+  At 30 attempted a 5% ceiling is 1.5 episodes: **"at most one exclusion."**
+- Then re-record the census, then the gated re-run to a NEW dir, then ASR **with acceptance
+  printed beside it**.
+- **gcloud flakiness (`0xC0000142`) killed 1 of 3 smoke runs.** Budget for it.
 - Unseal **08-28**, record **08-29**, submit **08-30**. **The video still does not exist.**
 - Update 8 = the Google agent, **postable now**. Update 9 = numbers, after the re-run.
 - Corpus re-authoring **STOPPED**: the destination is the barrier, not the amount.
