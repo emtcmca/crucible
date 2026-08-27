@@ -23,6 +23,52 @@ suppress the target's exception and hand it a synthetic success, which would let
 CRUCIBLE convert a crash into a clean non-breach - a fragile target rendering as
 a hardened one.
 
+RETURNING A DICT FROM `after_tool_callback` SUPPRESSES THE HOST AGENT'S OWN
+`after_tool_callback`, and on a REFUSAL that is the point. Same file, Steps 4-6:
+
+    :594  Step 4  plugin_manager.run_after_tool_callback(...)   (non-live)
+    :604  Step 5  `if altered_function_response is None:` ->
+                  `for callback in agent.canonical_after_tool_callbacks`
+    :843/:853     the identical pair on the live path
+
+so a non-None plugin return means the host's own after-tool callbacks are never
+reached, and Step 6 substitutes what the plugin returned. We return the SAME
+`blocked_result` object `before_tool_callback` already returned, so what the
+model sees is byte-identical either way: the mechanism changes who is handed the
+refusal, not what the refusal is.
+
+WHY THAT IS NECESSARY, found 2026-08-26 by attaching this plugin to Google's
+UNMODIFIED `adk-samples` customer-service agent
+(`docs/proof/foreign-agent-enforcement-probe-2026-08-26.txt`). ADK runs the
+host's after-tool callbacks unconditionally after a Step-1 short-circuit. The
+sample's own `after_tool` does `tool_response["status"]` on a bare subscript
+(`customer_service/shared_libraries/callbacks.py:187,192`). A refusal payload
+does not carry `status`, so the block held and the host agent then raised
+`KeyError: 'status'` - a crash instead of a graceful refusal, on both the stub
+and the live arm of that probe.
+
+NO PAYLOAD SHAPE CAN FIX THAT, AND ATTEMPTING ONE IS THE DANGEROUS ROAD. The
+host callback is not total over the result shapes ADK can hand it: ADK's own
+`FunctionTool.run_async` returns a bare `{'error': <str>}` for a missing
+mandatory argument, for an unconfirmed call, and for a rejected call
+(`google/adk/tools/function_tool.py:242,266,272`), and every one of those
+crashes that same sample callback with no CRUCIBLE in the picture at all. There
+is no key set that satisfies an unknown host, and the only key that would have
+satisfied THIS host is `status` - i.e. the success field whose presence would
+let a refusal be read as a completed call. That is the one thing a refusal must
+never do, so the fix cannot live in the payload. It lives in not handing a
+result-post-processing callback something that is not a result.
+
+WHAT IT COSTS, stated rather than discovered: on a CRUCIBLE refusal the host's
+after-tool callbacks do not run, and neither do the after-tool callbacks of any
+plugin registered after this one (`plugin_manager._run_callbacks` early-exits on
+the first non-None return). A host that audits every call from its after-tool
+hook loses that record for blocked calls. It keeps the ledger's TOOL_ATTEMPT,
+which is the record enforcement is proven from, and it keeps its process.
+ALLOWED calls are untouched: this returns None there, the host's callbacks run,
+and an exception they raise propagates unchanged - a host fault stays a host
+fault and stays visible.
+
 IF ADK IS NOT IMPORTABLE this module still imports and `ADK_AVAILABLE` is False;
 `core.EnforcementCore` is unaffected. The split exists so that a missing
 dependency degrades the ADAPTER and not the MEASUREMENT.
@@ -56,6 +102,14 @@ class CruciblePlugin(BasePlugin):
         # means a future parallel tool call does not silently pair the wrong
         # result with the wrong attempt.
         self._pending = {}
+        # Keyed the same way, and DISJOINT FROM `_pending` BY CONSTRUCTION:
+        # every write to either one clears the other under that key, so a call
+        # is either pending-executed or refused and never both. Holds the exact
+        # `blocked_result` dict handed back from `before_tool_callback`, so
+        # `after_tool_callback` can return that same object rather than rebuild
+        # a second copy of it - a second construction site for the refusal
+        # payload is a second thing to keep in step.
+        self._refused = {}
 
     # -- helpers ----------------------------------------------------------
     def _key(self, tool, tool_context):
@@ -115,8 +169,14 @@ class CruciblePlugin(BasePlugin):
             # The `pop` clears any stale entry under this key from an earlier
             # call, so a denial can never inherit a previous attempt's event.
             self._pending.pop(key, None)
+            # Recorded so `after_tool_callback` can return this exact payload
+            # and thereby keep ADK from handing a non-result to the HOST
+            # agent's own after-tool callbacks. See the module docstring for
+            # why that cannot be fixed inside the payload instead.
+            self._refused[key] = outcome.blocked_result
             return outcome.blocked_result
 
+        self._refused.pop(key, None)
         self._pending[key] = outcome.attempt_event
 
         # The stamped arguments are written back so the tool executes against
@@ -128,13 +188,37 @@ class CruciblePlugin(BasePlugin):
         return None
 
     async def after_tool_callback(self, *, tool, tool_args, tool_context, result):
-        attempt = self._pending.pop(self._key(tool, tool_context), None)
+        key = self._key(tool, tool_context)
+
+        refusal = self._refused.pop(key, None)
+        if refusal is not None:
+            # THE TOOL DID NOT RUN, SO THERE IS NO RESULT TO POST-PROCESS.
+            # Returning non-None here stops ADK Step 5, so the host agent's own
+            # after-tool callbacks are never handed this non-result. Returning
+            # the SAME dict keeps the model-visible payload byte-identical to
+            # what Step 1 already produced: Step 6 substitutes it for itself.
+            #
+            # No TOOL_EXECUTED is written and none must be - `core.after_tool`
+            # raises `E_AFTER_TOOL_ON_DENIED_CALL` if it is ever handed a denied
+            # attempt, and nothing is stored in `_pending` on a denial anyway.
+            return refusal
+
+        attempt = self._pending.pop(key, None)
         if attempt is not None:
             self.core.after_tool(attempt_event=attempt, result=result)
+        # None ON THE ALLOWED PATH, ALWAYS. The host's after-tool callbacks run
+        # normally and may alter the result; if one of them raises, that
+        # exception is the HOST's and propagates unchanged. CRUCIBLE suppresses
+        # the host's hook only where it refused the call itself.
         return None
 
     async def on_tool_error_callback(self, *, tool, tool_args, tool_context, error):
-        attempt = self._pending.pop(self._key(tool, tool_context), None)
+        key = self._key(tool, tool_context)
+        # A refused call cannot reach Step 3, so it cannot raise a tool error.
+        # Clearing anyway means a stale refusal can never be returned against a
+        # LATER call that happens to land on the same key.
+        self._refused.pop(key, None)
+        attempt = self._pending.pop(key, None)
         if attempt is not None:
             self.core.on_tool_error(attempt_event=attempt, error=error)
         return None                       # ALWAYS. See the module docstring.
