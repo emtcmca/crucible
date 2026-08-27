@@ -392,11 +392,63 @@ its own `before_tool_callback`.
 | `before_model_callback` | observe | Meter prompt tokens; snapshot the tool declarations the model is actually being offered (drift detection at the model layer). Returns `None` always. | Yes; **deliberately never used.** Blocking here is content filtering, which is the thing this project exists not to build. |
 | `after_model_callback` | observe | Record usage metadata (`input`, `output`, `thinking` tokens) into the Budget Governor and the episode. | No. |
 | **`before_tool_callback`** | **ENFORCE** | Resolve `tool → handle → capability_set`; stamp the seven `derived.*` fields over the pending args, recording any model-authored value it overwrites into `derived_overwrites`; resolve `role` from the invoking agent name **and RECORD it on the event — it is no longer passed to the Policy Engine** (ruling 25); call the Policy Engine; emit `TOOL_ATTEMPT` **with post-stamp args**. On `DENY` / `APPROVAL_REQUIRED`, return a structured refusal dict, which short-circuits the tool. | **Yes. This is the enforcement point.** |
-| `after_tool_callback` | observe | Emit `TOOL_EXECUTED` with a result digest. **This event, and only this event, is what the Tripwire scores on.** | No — and that is exactly why it is the ground truth. |
+| `after_tool_callback` | observe on an ALLOW; **re-assert the refusal on a block** | On an allowed call: emit `TOOL_EXECUTED` with a result digest, and return `None`. **That event, and only that event, is what the Tripwire scores on.** On a call `before_tool_callback` already refused: write nothing and **return the same refusal dict `before_tool_callback` returned**. ADK runs the host agent's own after-tool callbacks unconditionally after a Step-1 short-circuit, and a non-`None` plugin return is the documented way to stop that (`flows/llm_flows/functions.py:594` Step 4, `:604` Step 5; `:843`/`:853` live). Without it, a host callback that post-processes a tool result is handed something that is not a result — Google's own `adk-samples` customer-service agent raised `KeyError: 'status'` there, on both arms of `docs/proof/foreign-agent-enforcement-probe-2026-08-26.txt`. **The payload is not changed to satisfy the host, and must never be:** the only key that would have satisfied that host is the success field, and a refusal readable as a completed call is worse than a crash. §3.2.1. | No new block — the decision was already taken in `before_tool_callback`, and the returned dict is that same decision's payload, byte-identical. It never converts a block into a pass and never manufactures a result. |
 | `on_tool_error_callback` | observe | Emit `TOOL_ERROR`. Returns `None` **always**, so the target's own exception propagates unchanged. | Would suppress; never used. Suppressing a target error would let CRUCIBLE convert a crash into a clean non-breach. |
 | `on_model_error_callback` | observe | Emit `MODEL_ERROR` with the classified cause (429 / 5xx / other). Returns `None`; retry and backoff belong to the transport layer (§7.1), not to a hook. | Would suppress; never used. |
 | `after_run_callback` | observe | Seal the episode, flush the event buffer, write the terminal marker and the episode hash. | No. |
 | `on_event_callback` | **not used** | — | Would rewrite the target's outbound event stream. Declined on principle: CRUCIBLE may alter what the product does **only** through the three policy verbs, never by editing its output. |
+
+#### 3.2.1 Surviving a host agent's own after-tool callback
+
+Found by pointing CRUCIBLE at somebody else's agent, which is the only way it could have been
+found. On 2026-08-26 `CruciblePlugin` was attached to the **unmodified** Google `adk-samples`
+customer-service agent, with the sample's own `before_tool` and `after_tool` still wired. The
+block held — 1 `TOOL_ATTEMPT`, 0 `TOOL_EXECUTED` — and then the host agent raised
+`KeyError: 'status'`, on the stub arm and on the live arm alike
+(`docs/proof/foreign-agent-enforcement-probe-2026-08-26.txt`, case A). A hardening layer that
+crashes the thing it hardens has not finished the job.
+
+**The mechanism.** ADK's tool-call path runs the host agent's canonical after-tool callbacks
+after **any** short-circuit, including CRUCIBLE's. The sample's callback does a bare subscript on
+`tool_response["status"]`, and a refusal payload does not carry `status`.
+
+**Why the repair is not in the payload, which is the part that matters.**
+
+1. The only key that would have satisfied *that* host is `status` — the success field. Its
+   unguarded run returns `{"status": "approved"}` (probe case F). A refusal carrying a `status`
+   the host reads is a refusal that can be read as a **completed call**: the tool did not run and
+   the agent would be told it did. That is categorically worse than a crash, and it is the one
+   outcome this component may never produce.
+2. The next host reads a different key. There is no key set that satisfies an unknown callback,
+   so adding one is unbounded guessing dressed as a fix.
+3. **The host callback is not total over the shapes ADK itself produces.** `FunctionTool.run_async`
+   returns a bare `{'error': <str>}` for a missing mandatory argument, for an unconfirmed call, and
+   for a rejected call (`google/adk/tools/function_tool.py:242,266,272`). Every one of those
+   crashes the same sample callback with no CRUCIBLE anywhere in the picture. So the defect being
+   repaired is not "CRUCIBLE's payload is the wrong shape" — and note that CRUCIBLE's payload
+   already **matches** the framework's own in-band refusal shape: a top-level `error` key and no
+   success fields.
+
+**The repair.** Return the refusal from `after_tool_callback` too, which by ADK's documented
+contract (`base_plugin.py:340-344`; `functions.py:594`/`:604` and `:843`/`:853`) means the host's
+after-tool callbacks are not reached. The tool did not run, so there is no result to
+post-process; the fix is to stop handing a result-post-processing callback something that is not
+a result. Step 6 then substitutes the payload for itself, so **what the model sees does not
+change by one byte** and no measurement taken across this change is measuring two different
+things.
+
+**The cost, stated rather than discovered.** On a CRUCIBLE refusal the host's after-tool
+callbacks do not run, and neither do those of any plugin registered after this one
+(`plugin_manager._run_callbacks` early-exits on the first non-`None` return). A host that audits
+every call from its after-tool hook loses that record for blocked calls. It keeps its process,
+and CRUCIBLE keeps the `TOOL_ATTEMPT` that enforcement is actually proven from. **Allowed calls
+are untouched:** the hook returns `None`, the host's callbacks run, and an exception they raise
+propagates unchanged — a host fault stays a host fault and stays visible, which is the whole
+point of a pre-deployment harness.
+
+Proved in `tests/test_host_after_tool_survival.py`, which reproduces the `KeyError` through a
+real `Runner` on both invocation paths before the fix, and separately proves over the complete
+`(outcome × reason_code)` space that a refusal payload can never be read as a success.
 
 ### 3.3 Tool catalog discovery
 
