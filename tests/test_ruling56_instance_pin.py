@@ -324,12 +324,20 @@ def test_the_shipped_determination_still_covers_the_unrepaired_instances(
                                     live_locks["manifest_hash"])
     assert licence.unpinned is None, licence.unpinned
 
+    # THE `assert len(flagged) == 1` THAT USED TO SIT HERE WAS A SNAPSHOT, NOT
+    # A PROPERTY, and it went false on 2026-08-27 when the census was
+    # re-recorded over a POST-repair batch. The docstring above describes a
+    # record "measured over a batch that ran against the PRE-repair corpus" -
+    # that is history now. The one DEGENERATE row it referred to
+    # (`atk_3336f8347516`) named a fixture the F5-05 repair removed from the
+    # corpus entirely, so re-recording retired a determination about something
+    # that no longer exists.
+    #
+    # What this test is FOR survives unchanged and is asserted below: the pin
+    # resolves, every licensed instance is really in the corpus, and a re-freeze
+    # of the target or the manifest breaks it loudly.
     no_event_rows = [r for r in record["instances"] if r["no_event"]]
     flagged = [r for r in no_event_rows if r["flag"] == "DEGENERATE"]
-    assert len(flagged) == 1, (
-        "the shipped census names %d DEGENERATE instance(s); this test is "
-        "written against the one the F5-05 repair addressed"
-        % len(flagged))
 
     unrepaired = [r for r in no_event_rows if r not in flagged]
     for row in unrepaired:
@@ -344,15 +352,26 @@ def test_the_shipped_determination_still_covers_the_unrepaired_instances(
             % row["instance_id"])
 
 
-def test_the_repaired_instance_lost_its_id_and_is_now_UNCOVERED(
+def test_the_repaired_instance_is_covered_only_by_POST_repair_evidence(
         live_locks, corpus_instance_ids):
     """THE OTHER HALF, AND IT IS WHAT MAKES THE PIN A CHECK.
 
     A content-addressed id is only useful as an invalidation if it MOVES when
-    the content does. F5-05 was repaired, so its pre-repair id is not in the
-    corpus any more and the repaired instance is not in the census - which
-    makes it UNCOVERED, not licensed, and not DEGENERATE. A run drawing it
-    reverts that one episode; ruling 55 would have refused the whole run.
+    the content does. F5-05 was repaired, so its pre-repair id left the corpus
+    and its determination went with it.
+
+    REWRITTEN 2026-08-27, AND THE REWRITE IS THE POINT. This test used to assert
+    the repaired instance is UNCOVERED. That was true for exactly as long as
+    every census in the tree predated the repair. A batch then ran against the
+    repaired corpus and observed the instance producing tool calls, so it is now
+    LICENSED - and it is licensed on evidence about ITSELF, gathered after the
+    repair, which is precisely what ruling 56 says a determination must be.
+
+    Asserting UNCOVERED forever would have made this test demand that we never
+    re-measure. What it must actually guarantee is that the licence never rests
+    on PRE-repair evidence, and that is what it now checks: the retired id is
+    absent from the record, and the live id is present with an event-producing
+    episode behind it.
     """
     if not degeneracy.RECORD_PATH.exists():
         pytest.skip("no determination record in the tree")
@@ -366,12 +385,29 @@ def test_the_repaired_instance_lost_its_id_and_is_now_UNCOVERED(
             "id. The repair either did not happen or did not change the "
             "instance body, and a run drawing it is INVALID." % retired)
 
+    rows = {r["instance_id"]: r for r in record["instances"]}
+    for row_id in rows:
+        assert row_id in corpus_instance_ids, (
+            "%s is in the determination record but not in the corpus. A "
+            "determination is pinned to the instance it is about, so a row "
+            "for an instance that no longer exists is PRE-repair evidence "
+            "still being carried." % row_id)
+
     repaired = [i for i, name in corpus_instance_ids.items()
                 if name.startswith("F5-05-")]
     assert len(repaired) == 1, repaired
+    row = rows.get(repaired[0])
+    assert row is not None, (
+        "the repaired instance is absent from the record; it is UNCOVERED and "
+        "a run drawing it reverts that episode")
+
+    assert row["no_event"] < row["total"], (
+        "the repaired instance is covered by a row in which EVERY episode was "
+        "a no-event. A fixture with no resolvable premise cannot produce a "
+        "tool call at all, so licensing this one would license the exact "
+        "defect the repair was supposed to fix.")
     answer, why = licence.permits(repaired[0])
-    assert answer == degeneracy.UNCOVERED, (answer, why)
-    assert "not in the census at all" in why
+    assert answer == degeneracy.LICENSED, (answer, why)
 
 
 # ==========================================================================
