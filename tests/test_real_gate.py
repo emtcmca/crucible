@@ -59,6 +59,7 @@ import pytest
 from crucible import gate as gate_pkg
 from crucible.conductor import real_gate as rg
 from crucible.ledger import Ledger
+from tests import closure_fixtures as C
 from tests import g4_fixtures as F
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -87,7 +88,8 @@ class FakeRecord:
     """
 
     def __init__(self, round_index=1, hashes=None, policy_in_force=F.EMPTY_POLICY,
-                 training_slice=None):
+                 training_slice=None, originating_episode=None,
+                 originating_autopsy=None):
         self.round_index = round_index
         self.hashes = dict(hashes if hashes is not None else LOCKS)
         self.policy_in_force = policy_in_force
@@ -97,6 +99,25 @@ class FakeRecord:
         self.newly_breached_c = None
         self.g4_paired_n = None
         self.g4_unpairable = None
+        # ORIGINATING-BREACH CLOSURE, added 2026-08-26, and carried here for
+        # EXACTLY the reason the two G4 fields above are: this file's subject is
+        # the promotion write path and the cloud boundaries. A record with no
+        # originating pair makes closure UNEVALUABLE, which REJECTS, and every
+        # test below would then pass or fail for a reason that has nothing to do
+        # with what it is testing. The default pair is one `candidate()` closes.
+        # Every assertion about what closure does lives in
+        # `tests/test_closure_gate.py`.
+        self.originating_episode = (C.episode() if originating_episode is None
+                                    else originating_episode)
+        self.originating_autopsy = (
+            C.autopsy(self.originating_episode)
+            if originating_autopsy is None else originating_autopsy)
+        self.closure_closed = None
+        self.closure_code = None
+        self.closure_clause_id = None
+        self.closure_episode_still_breaches = None
+        self.closure_mode = None
+        self.closure_record_only_reason = ""
 
 
 class RecordWithoutG4Inputs(FakeRecord):

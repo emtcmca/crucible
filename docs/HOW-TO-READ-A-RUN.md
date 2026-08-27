@@ -187,6 +187,9 @@ and the run is still not usable. That gap is the entire reason there are two che
 | you see | why it is bad |
 |---|---|
 | **benign `26/26` and every attack blocked** | **the over-blocking finding, and it is the most important row in this table.** A rule that blocks too much passes every gate: attacks blocked, oracle rubber-stamps the benign cases, pass rate reads perfect, the gate promotes, and the agent has been made useless. `benign_passes_requiring_approval` reads **4**: four of those 26 passes depend on the approval oracle waving through a call the policy stopped |
+| `breach_closure.closed: false` on a **promoted** round | **the mirror of the row above, and it needs no rule to over-block.** A rule that blocks NOTHING RELEVANT also passes every gate, and for a simpler reason: a rule that never fires cannot fail a benign floor, so it is the *easiest* candidate in the run to promote. Backtested over 32 recorded promotions, 19 were inert on the trace they answered — `docs/design/breach-closure-gate-2026-08-26.md` §5 |
+| `breach_closure.enforced: false` | the criterion was scored and did not gate the promotion. `record_only_reason` says who asked for that and why. It is not a pass |
+| `breach_closure.closed: true` with `episode_still_breaches: true` | the patch closed the clause it was written for and the episode breaches on a **different** clause. Both are true; neither is the other |
 | `C6 VALIDATION: PASS` on its own | schema validity is not integrity. Read the OFFLINE READER line before believing anything |
 | `breaches 0/6` every round with `promoted 0` | nothing found and nothing learned. A run that discovers nothing is not a run that proved safety |
 | a very low `spend` | often means the run died early. Cross-check the round count |
