@@ -11,7 +11,66 @@
 edit, and it does not work around. The coordinator changes the value, bumps `SPINE_VERSION`, and
 states in writing what prior results the change invalidates.
 
-`SPINE_VERSION: 26` · last changed 2026-08-25
+`SPINE_VERSION: 27` · last changed 2026-08-26
+
+> **SPINE_VERSION 27 — ruling 58, 2026-08-26. `episode_sum` TAKES AN OPTIONAL GROUPING KEY. THE
+> RULER GROUPED AND THE LANGUAGE COULD NOT. Eric's ruling, on measured evidence.**
+>
+> **The production.** `"episode_sum" "(" arg_path [ "group_by" arg_path ] ")" cmp_op INTEGER`.
+> A bare keyword between two arg_paths, inside the existing parentheses. Not `group_by=`:
+> `crucible/dsl/parser.py` sorts its operator table longest-first precisely so `=` never becomes
+> a token. `group_by` was already a `WORD` and is already the Objective Set's own field name.
+>
+> **THE DEFECT THIS CLOSES.** `crucible/tripwire/objective_set.py:682` buckets by
+> `clause["group_by"]`. The DSL had no grouping key and `crucible/policy/engine.py` folded
+> ungrouped. **The ruler grouped; the language the ARMORER writes in could not.** Measured
+> consequence: **0 of 18** promoted rules against the one aggregate clause closed the breach they
+> answered, against **13 of 13** for per-event clauses. In the live control arm there was **no
+> output that both holds the benign floor and closes the breach** — the only floor-passing
+> emission was a `retract` plus an identical re-add, which canonicalises to the same rule id and
+> leaves the rule set byte-identical.
+>
+> **ABSENT KEY SEMANTICS, TAKEN FROM THE RULER RATHER THAN CHOSEN.** A call whose group key
+> resolves ABSENT is in no bucket: sum 0, clause FALSE, never UNEVALUABLE. That is what
+> `objective_set.py:687-689` already does. The engine folds the pending call's own bucket only,
+> because the tripwire judges a finished episode and the engine judges one call.
+>
+> **WHAT IT COST.** Two C4 manifest rows. **No run-level hash-lock moves** — `policy.ebnf` carries
+> no `freezes` binding and is not among the six `LOCK_FIELDS` at
+> `crucible/conductor/hashlocks.py:145`. Both facts re-read at source, not carried from the scope.
+> A **ruling 51-shaped event**: the contract manifest is regenerated, nothing is re-frozen. D3
+> target, D3 objective set and the D5 derived schema all verified unmoved.
+>
+> **BACKWARD COMPATIBLE, PROVED AGAINST REALITY.** The key is ABSENT when unused, never null.
+> 94 bundles read, 20 distinct recorded rules rebuilt from their DSL text, **20 reproduce their
+> recorded id, 0 mismatch** — including the one real ungrouped `episode_sum` rule in the record.
+>
+> **THE CONTROL THAT MATTERS.** A grammar that accepts the grouped form and folds ungrouped
+> anyway would change nothing while passing almost everything. Install that exact defect and
+> **7 of 21 tests fail while 14 still pass**: parsing, serialization, the absent-key convention,
+> the round-trips, the schema, and the recorded rule id are all blind to it. `reference_engine.py`
+> had that defect by omission and was not in the scope's file list.
+>
+> **WHAT IS INVALIDATED: nothing measured.** But **the gate-noop populations may never be pooled
+> with any post-change figure**, and no hash distinguishes them. `policy_schema_version` 1→2 is
+> the honest marker; it is **recommended and NOT TAKEN** (20 sites), so until it is, the
+> separation is carried by this ruling and by the date, which is weaker.
+>
+> **WHAT IT DID NOT BUY.** The benefit is concentrated in the FIRST draw: the grouped rule appears
+> in **9 of 19 first draws and 0 of 68 post-rejection draws**, in both template arms. Guidance is
+> therefore not what suppresses it. A round that reaches attempt 2 on this clause did not recover
+> in 68 live calls. **That is the next defect and it is not another grammar change.**
+>
+> **THE REJECTION TEMPLATE IS REVERTED**, except one sentence that was false about the language:
+> it claimed a narrower `when` can never restore a route for legitimate calls, and shrinking the
+> blocked set is exactly how the route comes back. The rest moved **nothing** across 64 paired
+> runs, and a change with no measured effect does not stay on the strength of its argument.
+>
+> **GX2 in `docs/separability-proof.md:392` is TAKEN, marked by the coordinator, and its "No"
+> verdict is preserved rather than overwritten.** Two reasons it was not the lane's to flip: the
+> reserve was Eric's decision, and **the shape shipped is not the shape that row proposes** — GX2
+> puts `group_by` outside the parentheses. Marking it TAKEN flat would claim we adopted a proposal
+> we did not.
 
 > **SPINE_VERSION 26 — ruling 57, 2026-08-25. `CONVERGED` IS A GATE DECISION. THE C6 CONTRACT
 > WAS INCOMPLETE, NOT THE CODE. Eric's ruling, on the evidence below.**
