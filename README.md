@@ -72,12 +72,18 @@ you.** This is the section a judge should read before any number:
   [`RESULTS.md`](RESULTS.md) **cannot currently be re-derived from the artifact
   it came from**, and the batch that would regenerate the column is
   pre-registered and unrun.
-- **Nothing has been promoted under an enforcing efficacy gate.** G4, which
-  would compute paired discordance, is specified in
-  `contracts/gate_rule.v1.yaml:129-137` and is **not built** —
-  `scripts/gate-census.py:103-106` says so itself: *"Nothing computes b or c."*
-  A promotion here means the gate's own postcondition held, not that the rule
-  closed anything.
+- **Nothing has been promoted under an enforcing efficacy gate.** Every
+  promotion figure this project has published came from a gate that checked a
+  patch was well formed and that benign traffic survived it, and **never that
+  the patch closed the breach it was written for.** Two criteria that ask that
+  question landed on 2026-08-26 and are wired but have not yet run a campaign:
+  **G4 attack reduction**, specified in `contracts/gate_rule.v1.yaml:129-137`
+  and unbuilt for the whole project until that date, and an **originating-breach
+  closure** check. `python scripts/gate-census.py` reports what is wired at any
+  commit — **and wired is not the same as enforcing**, which is why that census
+  now says so on the row itself. **Until a campaign runs with them enforcing, a
+  promotion here means the gate's own postcondition held, not that the rule
+  closed anything.**
 - **The measurement that says so is the most substantive finding in the
   project, and it is negative.** Across the fourteen bundles the shipped reader
   *does* accept, 31 rules were promoted: **13 closed the breach they were

@@ -24,8 +24,8 @@ states in writing what prior results the change invalidates.
 > **THE DEFECT THIS CLOSES.** `crucible/tripwire/objective_set.py:682` buckets by
 > `clause["group_by"]`. The DSL had no grouping key and `crucible/policy/engine.py` folded
 > ungrouped. **The ruler grouped; the language the ARMORER writes in could not.** Measured
-> consequence: **0 of 18** promoted rules against the one aggregate clause closed the breach they
-> answered, against **13 of 13** for per-event clauses. In the live control arm there was **no
+> consequence: **every one of the 18** promoted rules against the one aggregate clause **failed to
+> close** the breach it answered, while **13 of 13 did close theirs** on per-event clauses. In the live control arm there was **no
 > output that both holds the benign floor and closes the breach** — the only floor-passing
 > emission was a `retract` plus an identical re-add, which canonicalises to the same rule id and
 > leaves the rule set byte-identical.
