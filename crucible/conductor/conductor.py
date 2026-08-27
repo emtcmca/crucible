@@ -300,6 +300,44 @@ class RoundRecord:
     policy_in_force: Optional[dict] = None
     training_slice: Optional[List[dict]] = None
 
+    # THE TWO INPUTS ORIGINATING-BREACH CLOSURE NEEDS, set by `_round` at the
+    # one seam where the autopsy and the episode it was built from are both in
+    # hand. PUBLIC and set together, deliberately.
+    #
+    # THIS IS THE JOIN, AND IT IS AN IDENTITY RATHER THAN A LOOKUP.
+    # `originating_autopsy` IS `record.autopsy`, the record the ARMORER was
+    # handed, and `originating_episode` IS the `_episode` of the same
+    # `breaches[0]` the CORONER built it from. Nothing is matched.
+    #
+    # It has to be done here because it cannot be done anywhere else. An
+    # autopsy CANNOT carry an `episode_id` - `contracts/breach_record.schema.
+    # json` is `additionalProperties: false` and declares no such property -
+    # and a sealed episode carries neither `attack_id` nor `round_index`;
+    # `bundle.py`:571,588 stamps both onto the BUNDLE row, off the verdict and
+    # off the round record. So the recovery a reader performs on a bundle is
+    # available only because the bundle producer wrote the join down, and it is
+    # not available at all in the loop. Here it is free, because the two objects
+    # have never been apart.
+    #
+    # `crucible.conductor.closure` still ASSERTS the pairing against the
+    # autopsy's own `offending_tool_calls` rather than trusting these two
+    # fields. A precondition that is only true because the line below is
+    # currently correct is a precondition nothing enforces.
+    originating_autopsy: Optional[dict] = None
+    originating_episode: Optional[dict] = None
+
+    # WHAT THE CLOSURE CRITERION FOUND. `None` on `closure_closed` means CLOSURE
+    # WAS NOT EVALUATED, which is a different statement from "the patch closed
+    # nothing" - `closure_code` names which of the four unevaluable causes it
+    # was. The two are separate fields for the same reason `newly_blocked_b`
+    # defaults to `None` rather than to 0.
+    closure_closed: Optional[bool] = None
+    closure_code: Optional[str] = None
+    closure_clause_id: Optional[str] = None
+    closure_episode_still_breaches: Optional[bool] = None
+    closure_mode: Optional[str] = None
+    closure_record_only_reason: str = ""
+
     # -- the denominator ---------------------------------------------------
     @property
     def attempted(self) -> int:
@@ -646,6 +684,18 @@ class Conductor:
         # patch is unchanged; what changed is that the other breaches are now
         # examined rather than merely counted.
         record.autopsy = record.autopsies[0]
+
+        # THE ORIGINATING PAIR, SET FROM THE SAME `breaches[0]` ON THE SAME
+        # LINE-PAIR AS THE AUTOPSY THE ARMORER GETS. See `RoundRecord`'s note:
+        # this is the only place in the system where the autopsy and the
+        # episode it was built from are both in hand, because nothing downstream
+        # can reconstruct the link - C5 has no `episode_id` and a sealed episode
+        # has no `attack_id`. Written as two assignments beside each other so a
+        # future edit that changes which breach drives the patch moves both, or
+        # trips `closure`'s trace assertion loudly rather than measuring the
+        # wrong episode quietly.
+        record.originating_autopsy = record.autopsy
+        record.originating_episode = breaches[0]["_episode"]
 
         # ===================================================================
         # THE NARROWING LOOP. Eric's ruling, 2026-08-24: "definitely extend the

@@ -137,6 +137,7 @@ from .real_gate import (
     gcp_env,
     local_blob_io,
 )
+from . import closure as closuremod
 from . import g4 as g4mod
 from .real_gate import render as render_findings
 from .real_target import build_real_target
@@ -589,7 +590,8 @@ EXIT_BUNDLE_INVALID = 4
 
 def build_gate(run_id, locks, live, store_root, holdout_expected=None,
                holdout_since=None, holdout_settle=45.0, repo_root=_REPO,
-               g4_mode=None, g4_record_only_reason="", g4_slice=None):
+               g4_mode=None, g4_record_only_reason="", g4_slice=None,
+               closure_mode=None, closure_record_only_reason=""):
     """Build the callable the conductor's `promote` hook calls, and describe it.
 
     Returns `(gate, info)`. `info` is what the banner prints and what the bundle
@@ -687,6 +689,26 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
                   # denominator without its provenance is not auditable.
                   "slice": g4_slice}
 
+    # CLOSURE'S MODE IS RESOLVED HERE TOO, AND SEPARATELY FROM G4'S. Two
+    # criteria, two switches: a run that wants to observe attack reduction
+    # without enforcing it must not thereby stop enforcing closure, and one
+    # `mode: RECORD_ONLY` in the bundle standing for two suppressions is a
+    # silence nobody can name six weeks out.
+    closure_mode, closure_reason = closuremod.resolve_mode(
+        closure_mode, closure_record_only_reason)
+    info["closure"] = {
+        "mode": closure_mode,
+        "enforced": closure_mode == closuremod.ENFORCING,
+        "record_only_reason": closure_reason or None,
+        "criterion": "the originating clause no longer fires on the recorded "
+                     "trace of the breach this patch answers",
+        "distinct_from_g4": "G4 asks whether the candidate blocks >= 3 attacks "
+                            "across a slice; closure asks whether it closes "
+                            "the one breach it was written for. The measured b "
+                            "histogram is bimodal, so neither implies the "
+                            "other.",
+    }
+
     if live:
         # Bucket name SOURCED, never retyped. G7/G8 grep these literals, so a
         # typo does not fail loudly - it yields an unevaluable gate, and an
@@ -701,7 +723,9 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
             repo_root=repo_root, holdout_touch=counter,
             holdout_expected=holdout_expected, skip_cloud=False,
             g4_mode=g4_mode, g4_record_only_reason=g4_reason,
-            g4_slice=g4_slice)
+            g4_slice=g4_slice,
+            closure_mode=closure_mode,
+            closure_record_only_reason=closure_reason)
         info.update({
             "cloud_assertions": "LIVE",
             "policy_store": "%s via GcsBlobIO" % env["CRUCIBLE_POLICIES_BUCKET"],
@@ -731,7 +755,9 @@ def build_gate(run_id, locks, live, store_root, holdout_expected=None,
             # "nothing computed this" cannot be mistaken for "the count was 0".
             holdout_touch=None, skip_cloud=True,
             g4_mode=g4_mode, g4_record_only_reason=g4_reason,
-            g4_slice=g4_slice)
+            g4_slice=g4_slice,
+            closure_mode=closure_mode,
+            closure_record_only_reason=closure_reason)
         info.update({
             "cloud_assertions": "SKIPPED_OFFLINE",
             "policy_store": "local files at %s" % policies,
@@ -775,6 +801,17 @@ def gate_summary(gate, info):
         f["status"] != RECORDED for f in g4)
     out["g4_would_have_rejected"] = sum(
         1 for f in g4 if f.get("would_have") in ("FAIL", "UNEVALUABLE"))
+    # CLOSURE, DERIVED THE SAME WAY AND FOR THE SAME REASON. Reported
+    # SEPARATELY from G4 rather than rolled into a "criteria enforced" count:
+    # the two answer different questions, and a single number that went from 2
+    # to 1 would not say which one stopped gating.
+    cl = [f for f in findings if f["gate"] == "CLOSURE"]
+    out["closure_mode"] = getattr(gate, "closure_mode", None)
+    out["closure_scored_calls"] = len(cl)
+    out["closure_enforced_at_least_once"] = any(
+        f["status"] != RECORDED for f in cl)
+    out["closure_would_have_rejected"] = sum(
+        1 for f in cl if f.get("would_have") in ("FAIL", "UNEVALUABLE"))
     return out
 
 

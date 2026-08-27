@@ -23,9 +23,11 @@ import pathlib
 
 import pytest
 
+from crucible.conductor import closure
 from crucible.conductor import g4
 from crucible.conductor import real_gate as rg
 from crucible.ledger import Ledger
+from tests import closure_fixtures as CF
 from tests import g4_fixtures as F
 from tests import test_real_gate as trg
 
@@ -244,6 +246,20 @@ class Rec:
         self.newly_breached_c = None
         self.g4_paired_n = None
         self.g4_unpairable = None
+        # ORIGINATING-BREACH CLOSURE's inputs, added 2026-08-26. THIS FILE'S
+        # SUBJECT IS G4. The default pair is one every candidate built here
+        # closes, so a closure rejection can never be mistaken for a G4 one;
+        # `tests/test_closure_gate.py` owns every assertion about closure, and
+        # two files asserting one criterion is how one of them goes stale
+        # without failing.
+        self.originating_episode = CF.episode()
+        self.originating_autopsy = CF.autopsy(self.originating_episode)
+        self.closure_closed = None
+        self.closure_code = None
+        self.closure_clause_id = None
+        self.closure_episode_still_breaches = None
+        self.closure_mode = None
+        self.closure_record_only_reason = ""
 
 
 def envelope(policy):
@@ -262,10 +278,32 @@ def led():
         yield l
 
 
-def build(tmp_path, ledger):
+# THIS FILE'S SUBJECT IS G4, SO CLOSURE IS OBSERVED HERE AND NOT ENFORCED.
+#
+# Originating-breach closure (2026-08-26) is a SECOND candidate-dependent
+# criterion on the same gate, and it rejects the same inert candidate G4 does -
+# correctly, and for a different reason. Left enforcing, three tests below would
+# go green or red on closure's verdict while claiming to be about attack
+# reduction, and `test_the_gate_rejects_an_inert_candidate_that_every_other_
+# gate_passes` could not say "the rejection must be G4's alone" at all.
+#
+# THE REASON IS STATED BECAUSE RECORD_ONLY REFUSES TO BE SELECTED WITHOUT ONE,
+# and that refusal is the point: a criterion that is scored and not enforced is
+# a promotion nothing gated. `tests/test_closure_gate.py` owns every assertion
+# about closure, INCLUDING that closure's own record-only mode never suppresses
+# G4. Two files asserting one criterion is how one of them goes stale without
+# failing.
+CLOSURE_OFF = ("this file's subject is G4; tests/test_closure_gate.py owns "
+               "originating-breach closure")
+
+
+def build(tmp_path, ledger, **over):
     """The same gate `tests/test_real_gate.py` builds, with its stubbed cloud
     assertions - those are that file's subject and are not re-tested here."""
-    return trg.build(tmp_path, ledger)
+    kwargs = dict(closure_mode=closure.RECORD_ONLY,
+                  closure_record_only_reason=CLOSURE_OFF)
+    kwargs.update(over)
+    return trg.build(tmp_path, ledger, **kwargs)
 
 
 def test_the_gate_promotes_a_candidate_that_passes_g4(led, tmp_path):
@@ -292,7 +330,11 @@ def test_the_gate_rejects_an_inert_candidate_that_every_other_gate_passes(
     assert gate(envelope(F.deny_pii_reads()), rec) is False
     report = gate.reports[0]
     assert report["decision"] == "REJECT"
-    others = [f for f in report["findings"] if f["gate"] != "G4"]
+    # CLOSURE IS EXCLUDED BY NAME, not by accident. It is RECORDED here (see
+    # `CLOSURE_OFF`), and RECORDED is neither a pass nor a rejection - so
+    # asserting `== PASS` over it would fail for a reason that has nothing to do
+    # with attack reduction. Every other criterion must still be green.
+    others = [f for f in report["findings"] if f["gate"] not in ("G4", "CLOSURE")]
     assert all(f["status"] == rg.PASS for f in others), (
         "the rejection must be G4's alone, or this test is not about G4")
     assert led.versions(RUN) == [], "an inert candidate must not reach the store"
@@ -347,8 +389,8 @@ RECORD_ONLY_REASON = "the v0 attack baseline does not exist yet"
 
 
 def record_only_gate(tmp_path, ledger, reason=RECORD_ONLY_REASON):
-    return trg.build(tmp_path, ledger, g4_mode=g4.RECORD_ONLY,
-                     g4_record_only_reason=reason)
+    return build(tmp_path, ledger, g4_mode=g4.RECORD_ONLY,
+                 g4_record_only_reason=reason)
 
 
 def test_enforcing_is_the_default_and_record_only_must_be_asked_for():

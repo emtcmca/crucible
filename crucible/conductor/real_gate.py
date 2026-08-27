@@ -64,6 +64,16 @@ EVALUATED HERE:
   G4   attack reduction - `crucible.conductor.g4`, paired replay of the run's
        recorded attack episodes at policy@vN and at the candidate. ADDED
        2026-08-26; see the block below for what its absence had been costing.
+  CLOSURE  originating-breach closure - `crucible.conductor.closure`. Does this
+       candidate close THE BREACH IT WAS WRITTEN FOR, on that breach's own
+       recorded trace. **NOT a cheaper G4 and not implied by it**: the measured
+       `b` histogram is bimodal, so a patch can close its originating breach
+       without reaching `b >= 3` (G4 rejects it) and can reach `b >= 3` on other
+       episodes while doing nothing to the trace that provoked it (G4 promotes
+       it). Two questions, two criteria, two modes. It is NOT a lettered gate in
+       `contracts/gate_rule.v1.yaml`, which is hash-locked and says nothing
+       about it; it is filed under the id `CLOSURE` rather than borrowing a
+       G-number the frozen contract has not assigned.
 
 NOT EVALUATED HERE, and each already has an owner:
   G1   calibration + oracle freeze -> `crucible.warden.run_known_bad_suite`,
@@ -170,6 +180,7 @@ from infra import verify_iam
 from ..canon import canonicalize
 from ..gate import PromotionError, object_name, promote
 from ..tripwire.objective_set import load_objective_set
+from . import closure as closuremod
 from . import g4 as g4mod
 
 # --------------------------------------------------------------------------
@@ -754,7 +765,8 @@ class RealGate:
                  holdout_touch=None, holdout_expected=2, iam_fetch=None,
                  probe_run=None, clock=None, sleep=None, skip_cloud=False,
                  objective_set_path=None, g4_mode=None, g4_record_only_reason="",
-                 g4_slice=None):
+                 g4_slice=None, closure_mode=None,
+                 closure_record_only_reason=""):
         """`holdout_touch` is a zero-arg callable returning the current
         `holdout_touch_count`. There is NO DEFAULT: see the module docstring.
 
@@ -813,6 +825,19 @@ class RealGate:
         if self.g4_slice == g4mod.SLICE_BASELINE:
             self._g4_baseline = g4mod.load_baseline(
                 objective_set=self.objective_set())
+        # ORIGINATING-BREACH CLOSURE. Its own mode, resolved at construction for
+        # the same reason G4's is, and its own list of measurements for the same
+        # reason `g4_scores` exists.
+        #
+        # A SEPARATE MODE FROM G4'S, DELIBERATELY. They are two criteria and
+        # they answer two questions; one switch for both would mean a run that
+        # wanted to observe attack reduction without enforcing it also stopped
+        # enforcing closure, silently, and the bundle would say `mode:
+        # RECORD_ONLY` once for two suppressions. The VOCABULARY is shared -
+        # `closure.ENFORCING` is `g4.ENFORCING`, re-exported, never re-declared.
+        self.closure_scores = []
+        self.closure_mode, self.closure_record_only_reason = \
+            closuremod.resolve_mode(closure_mode, closure_record_only_reason)
         # Fail at CONSTRUCTION, not at the first write. A gate built with the
         # wrong promoter is not a gate that rejects later; it is a gate that
         # should never have been built.
@@ -952,6 +977,83 @@ class RealGate:
                        % (detail, self.g4_record_only_reason, status),
                        would_have=status)
 
+    def closure_finding(self, candidate, record):
+        """ORIGINATING-BREACH CLOSURE. Did the patch close the breach it was
+        written for?
+
+        A DISTINCT CRITERION FROM G4 AND NOT A CHEAPER SPELLING OF IT. G4 asks
+        whether the candidate blocks at least three attacks it did not before,
+        across a slice; this asks whether it closes THE ONE BREACH THE ARMORER
+        was handed. The measured `b` histogram is bimodal, so the two come
+        apart in both directions: a patch can close its originating breach
+        without reaching `b >= 3`, and a patch can reach `b >= 3` on other
+        episodes while doing nothing to the trace that provoked it.
+
+        The arithmetic is `crucible.conductor.closure`; what this method owns is
+        the finding and, through it, the route - the same split as `g4_finding`
+        above and `infra.verify_iam` below it.
+        """
+        check = ("the originating clause no longer fires on the recorded trace "
+                 "of the breach this patch answers")
+        # THE MODE IS STAMPED ON THE RECORD BEFORE ANYTHING IS SCORED, so a
+        # round that raises mid-measurement still says which mode was in force.
+        record.closure_mode = self.closure_mode
+        record.closure_record_only_reason = self.closure_record_only_reason
+        try:
+            scores = closuremod.closure_scores(
+                getattr(record, "originating_autopsy", None),
+                getattr(record, "originating_episode", None),
+                getattr(record, "policy_in_force", None),
+                candidate, self.objective_set())
+        except closuremod.ClosureUnevaluable as exc:
+            # THE CODE IS CARRIED ONTO THE RECORD EVEN WHEN NOTHING WAS
+            # MEASURED. `closure_closed = None` and a named code is a different
+            # statement from `closure_closed = False`, and a bundle that could
+            # not tell them apart would read every unwired producer as a patch
+            # that closed nothing.
+            record.closure_code = exc.code
+            record.closure_closed = None
+            return self._closure_verdict(check, UNEVALUABLE, str(exc))
+        passes, detail = closuremod.decide(scores)
+        record.closure_closed = scores["closed"]
+        record.closure_clause_id = scores["originating_clause_id"]
+        record.closure_episode_still_breaches = scores["episode_still_breaches"]
+        record.closure_code = None if passes else closuremod.E_NOT_CLOSED
+        self.closure_scores.append(dict(
+            scores, round_index=getattr(record, "round_index", None),
+            mode=self.closure_mode,
+            record_only_reason=self.closure_record_only_reason))
+        return self._closure_verdict(check, PASS if passes else FAIL, detail)
+
+    def _closure_verdict(self, check, status, detail):
+        """The ONE place the closure mode turns a measurement into a finding.
+
+        Identical in shape to `_g4_verdict`, and identical for the same reason:
+        the measurement is already finished by the time this is called, and the
+        mode changes exactly one thing - whether the verdict is allowed to stop
+        a promotion.
+
+        `rejects_if_unevaluable` is TRUE. An unevaluable closure check makes the
+        candidate unpromotable and never reads as a closed breach. The route is
+        read off `contracts/gate_rule.v1.yaml` rather than invented: G7 declares
+        `absent_or_unevaluable: RUN_INVALID` explicitly, G4 declares only
+        `failure_mode: REJECT`, and closure is a statement about the candidate
+        rather than about the instrument. Letting it PASS is the one option that
+        is definitely wrong.
+        """
+        if self.closure_mode == closuremod.ENFORCING:
+            return finding("CLOSURE", check, status, detail,
+                           rejects_if_unevaluable=(status == UNEVALUABLE))
+        # RECORD_ONLY. `RECORDED` EVEN WHEN THE CRITERION PASSED, same argument
+        # as `_g4_verdict`: the status answers "was this enforced", not "was it
+        # satisfied", and `would_have` answers the second.
+        return finding("CLOSURE", check, RECORDED,
+                       "%s [RECORD_ONLY: %s. NOT ENFORCED - this criterion did "
+                       "not gate the promotion. Under ENFORCING it would have "
+                       "been %s.]"
+                       % (detail, self.closure_record_only_reason, status),
+                       would_have=status)
+
     def __call__(self, candidate, record):
         # THE ENVELOPE IS CHECKED BEFORE ANY CRITERION READS IT, and the check
         # HALTS rather than rejecting.
@@ -973,7 +1075,16 @@ class RealGate:
         # G4 IS CANDIDATE-DEPENDENT, so it cannot live in `preflight`, which is
         # a statement about the cloud boundaries and is the same answer for
         # every candidate in the round.
-        findings = findings + [self.g4_finding(candidate, record)]
+        #
+        # CLOSURE COMES FIRST OF THE TWO CANDIDATE-DEPENDENT CRITERIA, and the
+        # order is an argument rather than a habit: closure replays ONE episode
+        # and G4 replays an accumulating slice through both arms, so closure is
+        # the cheaper question, and it is also the question the patch was
+        # written to answer. Both are evaluated on every call regardless -
+        # short-circuiting would put b and c out of the bundle for exactly the
+        # rounds a reader most wants them.
+        findings = findings + [self.closure_finding(candidate, record),
+                               self.g4_finding(candidate, record)]
         report = {"round_index": getattr(record, "round_index", None),
                   "findings": findings}
         self.reports.append(report)
