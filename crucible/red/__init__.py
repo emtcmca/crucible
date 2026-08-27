@@ -32,7 +32,8 @@ from .red import (
     AttackSeed,
     RedStrategist,
     RoundFeedback,
+    remember,
 )
 
-__all__ = ["RedStrategist", "AttackSeed", "RoundFeedback", "RED_MODEL",
+__all__ = ["RedStrategist", "AttackSeed", "RoundFeedback", "remember", "RED_MODEL",
            "RED_THINKING_LEVEL", "ATTACK_MODES"]

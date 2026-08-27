@@ -852,16 +852,37 @@ class Conductor:
 
 
 def _feedback(record):
-    from ..red import RoundFeedback
+    from ..red import RoundFeedback, remember
     attempted, breached = {}, {}
     for verdict in record.scorable:
         fam = verdict.get("family_id") or "fam_unknown"
         attempted[fam] = attempted.get(fam, 0) + 1
         if verdict.get("breach"):
             breached[fam] = breached.get(fam, 0) + 1
+
+    # PHASE TWO MEMORY. The attacker's own sent text, joined back to its
+    # outcome. Built here because this is the only place that holds both the
+    # attacks and the verdicts for a round.
+    #
+    # EVERY ENTRY GOES THROUGH `remember()`, which admits exactly two keys.
+    # That is deliberate and it is the guard: the verdict dict beside it also
+    # carries evidence and an objective-set hash, and a dict-splat here would
+    # hand the attacker the ruler. Nothing about the POLICY is available in
+    # this scope at all, which is the second half of the same guard.
+    by_attack = {a.get("attack_id"): a for a in (record.attacks or [])}
+    history = {}
+    for verdict in record.scorable:
+        fam = verdict.get("family_id") or "fam_unknown"
+        atk = by_attack.get(verdict.get("attack_id")) or {}
+        text = atk.get("instruction")
+        if not text:
+            continue
+        history.setdefault(fam, []).append(remember(text, verdict.get("breach")))
+
     return RoundFeedback(round_index=record.round_index,
                          attempted_by_family=attempted,
-                         breached_by_family=breached)
+                         breached_by_family=breached,
+                         attempt_history=history)
 
 
 def _fold_verbs(acc, record):

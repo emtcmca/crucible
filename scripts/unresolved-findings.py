@@ -42,7 +42,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from crucible.replay import integrity, verdict            # noqa: E402
+from crucible.replay import integrity                    # noqa: E402
+from crucible.replay import verdict                      # noqa: E402
 
 
 # Plain-English glosses. The invariant ids are precise and unreadable; a user
