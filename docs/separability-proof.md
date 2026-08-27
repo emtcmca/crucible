@@ -389,28 +389,44 @@ Consistent with Ruling 8's precedent and held in reserve on the same terms: *if 
 | # | Production | Pure & replayable? | Superseded by | Cost if taken | Take? |
 |---|---|---|---|---|---|
 | **GX1** | `"not_preceded_by" "(" cap_class ")"` | **Yes** — same bounded fold over the recorded prefix, negated. No clock, no surviving counter. | `derived.subject_verified_in_episode`, which is **strictly stronger**: it binds the lookup to *this call's subject*. `not_preceded_by(CAP_READS_PII)` is defeated by looking up any unrelated customer first. | 1 production, 1 evaluator branch, 1 more construct the ARMORER must spell on day 1 | **No** |
-| **GX2** — see the TAKEN note below this table | `"episode_sum" "(" arg_path ")" "group_by" arg_path cmp_op NUMBER` | **Yes** — still a bounded fold over a finite recorded prefix, exactly the §5.6 argument for `episode_sum` | `derived.episode_sum_amount_minor_same_beneficiary` | 1 production; **but it keeps the grouping key inside the hashed policy and lets the ARMORER choose it**, which is genuinely better for the CL-2 story | **No — but this is the closest call in the document.** See §8 |
+| **GX2** — TAKEN; see the note below, and note the row keeps its ORIGINAL proposed shape | `"episode_sum" "(" arg_path ")" "group_by" arg_path cmp_op NUMBER` | **Yes** — still a bounded fold over a finite recorded prefix, exactly the §5.6 argument for `episode_sum` | `derived.episode_sum_amount_minor_same_beneficiary` | 1 production; **but it keeps the grouping key inside the hashed policy and lets the ARMORER choose it**, which is genuinely better for the CL-2 story | **TAKEN 2026-08-26, ON EVIDENCE, AND ON THIS ROW'S OWN TERMS.** See below |
 | **GX3** | `clause = "episode" "." context_field cmp_op literal` | **Yes** — identical purity to the existing right-hand-side form; the field is already frozen and manifest-enumerated | mirroring the fact into `derived.*` | 1 production; the cheapest of the three, and the most likely to be needed if the `derived.*` budget is capped | **No** |
 | **GX4** | `not` / disjunction in `when` | — | — | Breaks the "total and terminating, conjunction-only" argument that §5.6 rests on | **Refused outright** |
 
-> **GX2 WAS TAKEN, 2026-08-26, CONVENTIONS ruling 58, SPINE_VERSION 27. Eric's ruling. The row
-> above keeps its "No" and is NOT rewritten**, because the record of a call held in reserve and
-> later taken is worth more than a table that reads as if it always said yes.
+> **GX2 WAS TAKEN ON 2026-08-26, AND THE CONDITION THIS SECTION SET IS THE CONDITION THAT WAS
+> MET.** The rule above is *"if a later pair proves the schema route cannot cover it, take the
+> extension then, on evidence."* The pair was not a corpus pair, it was a clause:
+> `inv_repeated_mutation_on_one_subject` is an `aggregate` clause whose `sum_path` is
+> **`derived.episode_count_same_subject`, a RUNNING COUNTER**, and the ruler then sums that
+> counter within a bucket. For a homogeneous group of *n* calls the quantity is 1+2+…+*n*, a
+> triangular number, and **no per-call derived field can equal one** — so the "superseded by"
+> column's route provably cannot cover this clause, which is exactly the disproof this row
+> reserved itself against. The money-side aggregate is unaffected and still uses the derived
+> field.
 >
-> **The shape shipped is not the shape this row proposes.** GX2 puts `group_by` OUTSIDE the
-> parentheses; the implementation puts it inside — `"episode_sum" "(" arg_path [ "group_by"
-> arg_path ] ")"` — because `crucible/dsl/parser.py` sorts its operator table longest-first so
-> `=` never becomes a token, and a keyword inside the existing production needs no new bracket
-> rule. So this row was not adopted as written, and a bare TAKEN would claim otherwise.
+> The evidence, in the order it was taken:
+> `docs/design/gate-noop-measurement-2026-08-25.md` (every promoted rule written against that
+> clause was a no-op on its own breach), `docs/design/dsl-grouping-gap-scope-2026-08-25.md` (the
+> change built once in a throwaway tree: no hash-lock field moves, no freeze re-runs, no
+> behavioural test fails), `docs/proof/armorer-grouping-probe-2026-08-26.md` (thirty live
+> ARMORER calls: with the production the model writes the grouped rule, without it the model's
+> whole reachable output is a rule that over-blocks or a patch that changes nothing), and
+> `docs/proof/narrowing-loop-live-2026-08-26.md` (the loop run live with the production landed).
 >
-> **Why the "closest call in the document" went the other way.** The row was decided on cost
-> against a benefit nobody had measured. The benefit was later measured: **0 of 18** promoted
-> rules against the one aggregate clause closed the breach they answered, and in a live control
-> arm on the frozen grammar there was **no emission that both held the benign floor and closed
-> the breach.** The row's reasoning was sound on what it knew.
+> **THE SHAPE SHIPPED IS NOT THE SHAPE THIS ROW PROPOSES, and the row is left proposing what it
+> proposed.** GX2 puts `group_by` OUTSIDE the parentheses; the production puts it inside —
+> `"episode_sum" "(" arg_path [ "group_by" arg_path ] ")"` — because a keyword inside the existing
+> production needs no new bracket rule. (A `group_by=` spelling was never this row's proposal and
+> would not have worked either: `crucible/dsl/parser.py` sorts its operator table longest-first
+> specifically so `=` never becomes a token.) A bare TAKEN on the row would claim we adopted a
+> proposal we did not, so the row keeps its own text and this note carries the difference.
 >
-> **Marked by the coordinator, not by the lane that implemented it.** The reserve was Eric's
-> decision and a lane does not retire one; `docs/CONVENTIONS.md` carries the full ruling.
+> **Marked by the coordinator, not by the lane that implemented it**, and the row's original
+> **"No — but this is the closest call in the document"** verdict is the thing being superseded
+> rather than erased: the record of a call held in reserve and later taken is worth more than a
+> table that reads as if it always said yes. Full ruling: `docs/CONVENTIONS.md`, ruling 58.
+> The key is **OPTIONAL and ABSENT when unused**, which is what lets every rule written before
+> it hash to the id already recorded beside it.
 
 **Ruling 8's fourth predicate form: confirmed unnecessary.** No pair in this table needs `not in` against a reference set. Keep it in reserve.
 

@@ -266,6 +266,15 @@ cannot, and the reason is structural.
 
 ### Why it cannot: the DSL has no group-by
 
+> **CLOSED 2026-08-26, AND THIS SECTION IS A RECORD OF THE GRAMMAR AS IT STOOD.**
+> `contracts/policy.ebnf` now carries `"episode_sum" "(" arg_path [ "group_by"
+> arg_path ] ")" cmp_op INTEGER` (GX2), and the engine, both evaluators, the
+> validator and the serializer group with it. Every figure in this document was
+> measured against the grammar described below and stays as written; **a
+> post-change figure is a different system's figure and the two are never
+> pooled.** What the change bought, measured live:
+> `docs/proof/narrowing-loop-live-2026-08-26.md`.
+
 - `contracts/policy.ebnf:80` - the only aggregate production in the grammar is
   `"episode_sum" "(" arg_path ")" cmp_op INTEGER`. **One argument, and no
   grouping key** - read at source 2026-08-25.

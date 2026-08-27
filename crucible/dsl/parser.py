@@ -324,11 +324,22 @@ class _Parser:
             self.take()
             self.expect("PUNCT", "(")
             path = self.arg_path()
+            # GX2. OPTIONAL grouping key, so an ungrouped `episode_sum(p)`
+            # written before this production existed parses byte-for-byte as it
+            # always did. `group_by` is a bare keyword between two arg_paths and
+            # not a keyword argument: `=` is deliberately not a token (see
+            # _OPERATORS above), and introducing one to carry `group_by=` would
+            # reopen the ambiguity that comment exists to close.
+            group_path = None
+            if self.at("WORD", "group_by"):
+                self.take()
+                group_path = self.arg_path()
             self.expect("PUNCT", ")")
             op = self.cmp_op()
             t = self.expect("INT", what="episode_sum compares to an INTEGER")
             return Clause(form=CLAUSE_EPISODE_SUM, path=path, op=op,
-                          value=int(t.text), value_type="int")
+                          value=int(t.text), value_type="int",
+                          group_path=group_path)
 
         path = self.arg_path()
 

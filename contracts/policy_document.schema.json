@@ -222,6 +222,10 @@
                   "arg_path": {
                     "type": "string"
                   },
+                  "group_by": {
+                    "type": "string",
+                    "$comment": "GX2, 2026-08-26. OPTIONAL, and ABSENT rather than null when unused - canonicalization restriction 5, and here that restriction is what makes the change backward compatible at all: a rule written before this key existed hashes to the rule_id it already earned, so every recorded rule and every bundle carrying one stays valid. Only `episode_sum` may carry it. It names the argument whose value buckets the fold, mirroring `group_by` on an aggregate clause of the Objective Set - and a call whose group key is ABSENT is in NO bucket, which is what objective_set.py::_fire_aggregate already does when it skips such an event. The engine sums the PENDING CALL'S OWN bucket only: the tripwire scans every bucket because it judges a finished episode, the engine judges one call, and denying a call for a total it did not contribute to is a different rule."
+                  },
                   "op": {
                     "enum": [
                       "eq",

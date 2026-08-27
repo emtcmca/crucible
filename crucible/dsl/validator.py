@@ -120,7 +120,8 @@ PAYLOAD_SUBSTRING_TOKENS = 8
 _DSL_VOCABULARY = frozenset(CAP_CLASSES) | frozenset({
     "rule", "retract", "cap", "tool", "when", "and", "in", "is", "absent", "present",
     "deny", "constrain_arg", "require_approval", "origin", "seed", "armorer",
-    "preceded_by", "episode_sum", "episode", "true", "false", UNCLASSIFIED,
+    "preceded_by", "episode_sum", "group_by", "episode", "true", "false",
+    UNCLASSIFIED,
 })
 
 
@@ -586,6 +587,16 @@ class Validator:
         for cl in parsed.clauses:
             if cl.path:
                 yield cl.path
+            # GX2. A GROUPING KEY IS AN arg_path AND MUST REACH V10/N8 AND N6.
+            # It is a second arg_path position inside `episode_sum`, and V10
+            # says EVERY plain one. A grouped clause keyed on an argument no
+            # tool declares resolves ABSENT on every event, so every call lands
+            # in no bucket, every bucket total is zero, and the clause is
+            # permanently false - a rule that validates cleanly and can never
+            # fire, which is the check-that-cannot-fail shape from the inert
+            # side rather than the fail-closed one.
+            if cl.group_path:
+                yield cl.group_path
         if parsed.action.path:
             yield parsed.action.path
 

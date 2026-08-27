@@ -426,8 +426,8 @@ and the class you bound to is not the problem. The way your rule RESOLVED that
 class is.
 
 Reconsider the verb before you touch the `when`. A narrower `when` on the same
-deny is rarely the repair here: it can only shrink the set of calls you block,
-never restore a route for the legitimate ones. Where a legitimate above-band
+deny is rarely the repair here: it restores a route only for the legitimate
+calls that fail the condition you add. Where a legitimate above-band
 path exists, require_approval bounded by a `when` closes the breach without
 removing the capability, and it is the only verb that leaves that path open.
 
@@ -448,7 +448,59 @@ through an approver and repairs nothing.
 # No fixture id, no rule id, no fixture contents. `build_rejection_feedback`
 # below is still the only door, and it still refuses anything that is not one
 # of the six.
-
+#
+# --------------------------------------------------------------------------
+# ONE CLAUSE CHANGED 2026-08-26, AND A WHOLE REWRITE WAS REVERTED THE SAME DAY.
+# BOTH HALVES OF THAT ARE THE RECORD.
+#
+# WHAT CHANGED, AND IT IS ONE CLAUSE. The sentence above read:
+#
+#     "A narrower `when` on the same deny is rarely the repair here: it can
+#      only shrink the set of calls you block, never restore a route for the
+#      legitimate ones."
+#
+# THE SECOND HALF IS FALSE ABOUT THIS LANGUAGE. Shrinking the set of blocked
+# calls is exactly how the route comes back: `PolicyEngine._when` returns FALSE,
+# the rule contributes no effect, and the call resolves to the implicit allow.
+# The instruction was right about a real case - the one where the legitimate
+# calls satisfy the same condition the breach does - and wrong about the
+# mechanism, and the mechanism is the sentence a model reads. The replacement
+# states the true version and hands the conditional to the paragraph below,
+# which already carried it ("only if you can name the condition that
+# separates"). The verb-first steer is UNCHANGED and deliberately so.
+#
+# WHAT WAS REVERTED, AND WHY THE REASONING IS NOT THE POINT. On 2026-08-26 this
+# block was rewritten far past that clause: a reordering, a
+# name-the-discriminating-condition framing, a G4-shaped first condition
+# ("the breach must still satisfy your `when`"), and a null-patch warning. It
+# was then MEASURED, live, against the paragraph it replaced -
+# `docs/proof/narrowing-loop-live-2026-08-26.md` section 3. **64 paired runs,
+# three different rejection situations, both arms handed byte-identical
+# rejection facts and differing in one string: every scenario returned the same
+# verdict in both arms, 32 against 32.**
+#
+# ERIC'S RULING: a change with no measurable effect does not stay on the
+# strength of the argument behind it. That is the standard every other claim in
+# this repository is held to and prompt guidance does not get an exemption for
+# being well reasoned. Only the false clause survived, and it survived because
+# it is FALSE rather than because it is unhelpful - reverting it would put an
+# untrue statement about the language back in front of the model.
+#
+# THE THREE FINDINGS THAT MOTIVATED THE REST ARE REAL AND THEY LIVE IN THE
+# WRITE-UP, NOT HERE. Section 4 of that document: the guidance is an ordering
+# rather than a test and ruling 49 is the recorded case where the ordering is
+# wrong; the objective reported back to the model is one-sided because G4 is
+# specified and absent from the promotion path; and `Armorer.propose` rebuilds
+# the user message every attempt, so the model is told to reconsider a patch it
+# is not shown. None of them earned a place in the prompt on zero measured
+# effect. Do not reintroduce them here in gentler wording.
+#
+# AND THE RESULT THAT MATTERS MOST CAME OUT OF TESTING A CHANGE THAT DID
+# NOTHING. The grouped rule appears in 9 of 19 of the round's FIRST draws and in
+# 0 of 68 draws made after a rejection - IN BOTH ARMS. Guidance is not what
+# suppresses it. Whatever does is in the part of this message both arms share,
+# and that is the next thing to probe. Section 5 of the same document.
+# --------------------------------------------------------------------------
 # The six, restated here as a MEMBERSHIP TEST rather than as documentation. A
 # fixture id is not a capability class, so it cannot ride in on this channel.
 _SIX = frozenset((

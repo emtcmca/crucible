@@ -219,6 +219,93 @@ def test_rejection_feedback_points_at_the_verb():
 
 
 # ---------------------------------------------------------------------------
+# 2026-08-26. ONE CLAUSE OF THE REJECTION GUIDANCE IS PINNED, AND THREE OTHER
+# PINS WERE DELETED THE SAME DAY. THE DELETION IS RECORDED RATHER THAN QUIET.
+#
+# WHAT HAPPENED. `REJECTION_TEMPLATE` was rewritten on 2026-08-26 to add three
+# things - a name-the-discriminating-condition framing, a G4-shaped first
+# condition ("the breach must still satisfy your `when`"), and a null-patch
+# warning - and four predicates were pinned here, one per property. The rewrite
+# was then measured live against the paragraph it replaced:
+# `docs/proof/narrowing-loop-live-2026-08-26.md` section 3. **64 paired runs,
+# three rejection situations, both arms handed byte-identical rejection facts:
+# every scenario returned the same verdict in both arms, 32 against 32.**
+#
+# Eric reverted everything except the false clause. So THREE OF THE FOUR
+# PREDICATES BELOW WERE DELETED, and they were deleted because the text they
+# pinned is gone, not because they stopped working. Naming them so a reader of
+# this file's history is not left wondering what shrank:
+#   _requires_the_breach_to_still_match   - the G4-shaped first condition
+#   _makes_the_choice_conditional         - the can-you-name-a-condition test
+#   _names_the_null_patch                 - the retract-and-re-add warning
+# Each was a real property of a real paragraph. Each measured nothing. The
+# findings that motivated them survive in section 4 of that document, which is
+# where a finding with no measured effect belongs.
+#
+# THE ONE THAT SURVIVES IS NOT A TASTE JUDGEMENT. The retired sentence was
+# FALSE about this language, and reverting it would have put an untrue statement
+# back in front of the model. That is why it is the exception.
+#
+# AND IT IS STILL PROVED TO DISCRIMINATE. `test_the_check_discriminates` runs
+# the same predicate over the paragraph that was replaced and requires it to
+# FAIL. A pair of `assert "x" not in text` lines would otherwise pass against
+# almost any text and would be measuring nothing.
+# ---------------------------------------------------------------------------
+
+# The exact clause in force from 2026-08-24 to 2026-08-26, quoted so the check
+# below can be shown to discriminate. DO NOT RESTORE IT: `PolicyEngine._when`
+# returning FALSE drops the rule from consideration and the call resolves to the
+# implicit allow, so a narrower `when` restores the route for exactly the
+# legitimate calls that fail the added condition - and this sentence says it
+# never can. The instruction was right about a real case and wrong about the
+# mechanism, and a model reads the mechanism.
+RETIRED_NARROWING_CLAUSE = """\
+Reconsider the verb before you touch the `when`. A narrower `when` on the same
+deny is rarely the repair here: it can only shrink the set of calls you block,
+never restore a route for the legitimate ones. Where a legitimate above-band
+path exists, require_approval bounded by a `when` closes the breach without
+removing the capability, and it is the only verb that leaves that path open.
+"""
+
+
+def _states_narrowing_truthfully(text):
+    """The false claim is absent AND the true one is present.
+
+    Both halves are needed. Absence alone would pass against a template that
+    had simply deleted the sentence and said nothing about narrowing at all,
+    which is a different template from the one in force.
+    """
+    return ("can only shrink the set of calls you block" not in text
+            and "never restore a route" not in text
+            and "restores a route only for the legitimate" in text)
+
+
+def test_the_rejection_guidance_states_narrowing_truthfully():
+    assert _states_narrowing_truthfully(
+        prompt_mod.build_rejection_feedback(4, ["CAP_MOVES_MONEY"]))
+
+
+def test_the_check_discriminates():
+    """THE PROOF THE CHECK MEASURES SOMETHING.
+
+    If it passed against the clause it replaced, it is a substring that happens
+    to be there rather than a pin on the repair.
+    """
+    assert not _states_narrowing_truthfully(RETIRED_NARROWING_CLAUSE)
+
+
+def test_the_verb_first_ordering_was_KEPT_and_is_not_an_oversight():
+    """The rewrite replaced this ordering with a test the model applies itself.
+    That rewrite measured nothing over 64 paired runs and was reverted, so the
+    ordering is back ON PURPOSE. A future reader finding the argument against it
+    in `narrowing-loop-live-2026-08-26.md` section 4 should find this test
+    first: the argument is sound and it is not sufficient.
+    """
+    text = prompt_mod.build_rejection_feedback(4, ["CAP_MOVES_MONEY"])
+    assert "Reconsider the verb before you touch the `when`" in text
+
+
+# ---------------------------------------------------------------------------
 # THE BOUNDARY. Nothing above may have widened the channel. These assert the
 # same two things `test_conductor_loop.py` asserts, from this lane's side, so a
 # change to prompt.py that loosened the gate fails in the file that made it.
