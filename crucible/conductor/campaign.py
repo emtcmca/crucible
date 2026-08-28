@@ -897,12 +897,16 @@ def gate_banner_lines(live, info):
             % (info["promoter"], info["promoter_source"],
                info["policy_store"], info["holdout"]["since"],
                info["holdout"]["expected_for_this_phase"]),
-            "  >>> GcsBlobIO HAS NEVER RUN AGAINST GCS. Its create-only "
-            "precondition, its 412 branch and its generation-pinned read-back "
-            "are written from data-spec.md 3.1/3.2 and no test covers them, so "
-            "this run is their first execution. `promote`'s "
-            "recompute-from-bytes read-back is what stands behind them: a "
-            "write that cannot be read back and rehashed HALTS.",
+            "  >>> GcsBlobIO HAS EXECUTED AGAINST GCS. First live execution "
+            "2026-08-24; the policy store has been written by many runs since "
+            "(count is verify-on-use: `gcloud storage ls "
+            "gs://crucible-policies-x7/runs/`). WHAT REMAINS OPEN IS TEST "
+            "COVERAGE, NOT EXECUTION: its create-only precondition, its 412 "
+            "branch and its generation-pinned read-back are written from "
+            "data-spec.md 3.1/3.2 and no test exercises them, so they are "
+            "evidenced only by live runs. `promote`'s recompute-from-bytes "
+            "read-back is what stands behind them: a write that cannot be read "
+            "back and rehashed HALTS.",
             _g4_banner_line(info),
         ]
     # THE G4 LINE IS APPENDED, NOT PREPENDED. `tests/test_readme_claims.py`

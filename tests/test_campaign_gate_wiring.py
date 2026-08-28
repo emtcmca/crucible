@@ -512,18 +512,36 @@ def test_the_live_banner_is_rendered_by_the_same_code_that_prints_it(tmp_path):
     assert "expected_for_this_phase=2" in lines[0]
     assert "NOT EXERCISED" not in lines[0]
     # The untested path is on the banner, not only in the bundle.
-    assert "GcsBlobIO HAS NEVER RUN AGAINST GCS" in lines[1]
+    #
+    # THIS ASSERTION PINNED A FALSE CLAIM FOR FOUR DAYS. It read
+    # `"GcsBlobIO HAS NEVER RUN AGAINST GCS" in lines[1]` and passed every run,
+    # while the policy store had been written by live runs since 2026-08-24.
+    # A green test enforcing a statement that has since become false is the
+    # same defect this repo keeps finding, wearing test clothes: the check ran,
+    # and it could not fail, because it was asserting the prose rather than the
+    # fact the prose is about. The banner now separates EXECUTION (happened)
+    # from TEST COVERAGE (still absent), and this pins both halves.
+    assert "GcsBlobIO HAS EXECUTED AGAINST GCS" in lines[1]
+    assert "TEST COVERAGE, NOT EXECUTION" in lines[1]
+    assert "HAS NEVER RUN AGAINST GCS" not in lines[1]
 
     offline = C.gate_banner_lines(False, info)
     assert "G7/G8 NOT EXERCISED" in offline[0]
     assert "EVALUATED AGAINST LIVE GCP" not in offline[0]
 
 
-def test_the_live_build_declares_GcsBlobIO_as_never_run_against_gcs(tmp_path):
-    """The one untested thing on the live path, carried into the bundle rather
+def test_the_live_build_declares_GcsBlobIO_as_untested_not_unrun(tmp_path):
+    """The one UNTESTED thing on the live path, carried into the bundle rather
     than left in a docstring. `local_blob_io` is the exercised path; the GCS one
     is written from `data-spec.md` 3.1/3.2 and no test calls it, including this
-    one."""
+    one.
+
+    RENAMED 2026-08-28. The old name said `never_run_against_gcs`, which stopped
+    being true on 2026-08-24 when live runs began writing the policy store. The
+    ASSERTIONS below were always about test coverage and are unchanged and still
+    correct; only the name asserted the thing that went stale. A test name is
+    read far more often than a test body, so a name that states a fact has to be
+    maintained like one."""
     _gate, info = C.build_gate("run_20260822_000000_5100ff", _locks(),
                                live=True, store_root=str(tmp_path / "g"),
                                holdout_expected=2,
