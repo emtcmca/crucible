@@ -157,82 +157,41 @@ ending 08-31. **G8 asserts the policy exists, not that it is locked.**
 exit 2. Do not route around it.
 
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
+**Updated:** 2026-08-28 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**Updated:** 2026-08-27 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Rebuilt from git and artifacts after a Windows Update reboot (02:34) killed the session that
+did this work. Nothing was lost; nothing was narrated.** Re-verified at source 2026-08-28:
+pytest **2195 passed, 1 skipped** (was 2183), contract-check **SEVEN** passes OK, tripwire and
+G4 `--selftest` pass, **SPINE_VERSION 30.** No commit SHA here — ruling 46; read it with
+`git log --oneline -1`.
 
-pytest **2183 passed, 1 skipped**; contract-check **SEVEN** passes OK; `--selftest` PASSED.
-**SPINE_VERSION 30.** *(No commit SHA here on purpose: a hand-maintained block cannot track a
-moving ref, and the one that used to sit on this line went stale within the hour. Read it with
-`git log --oneline -1`.)*
-
-**THE FIRST EFFICACY NUMBERS EXIST, AND MY FIRST FIGURE WAS WRONG.** ASR on the frozen
-50-episode baseline: **8 at an empty policy, 3.0 across the FOUR runs the reader ACCEPTS** -
-not 2.5 across ten. All ten grammar bundles are unreadable and six also breach the exclusion
-ceiling. **I computed a headline from ten runs without asking whether the reader took them.** Generalization: **44 -> 12 on attacks a run drew,
-36 -> 16 on attacks it NEVER drew.** Cross-FAMILY is **not measurable** - the strategist
-round-robins all six families, so **F4 is the only unseen family.**
-
-**CRUCIBLE GOVERNED GOOGLE'S UNMODIFIED ADK SAMPLE.** Its own Gemini approved a 40% discount
-with no policy; **DENIED** under a policy learned on a different agent, by a rule that
-**names no tool**. Not a breach - the sample obeyed its own prompt. **"Tricked the agent"
-stays DEAD VOCABULARY.**
-
-**THE 20-RUN GATED BATCH IS INVALID.** All exit 0, **all 20 refused by the reader**:
-`record_only_reason` is `null` in ENFORCING mode and restriction 5 refuses nulls. **Fixed and
-MERGED**; re-run goes to a NEW directory. **No figure from it is quotable.**
-
-**RULING 60 IS MERGED, AND ITS FIRST SWEEP CORRECTED A HAND-VERIFIED PUBLISHED FIGURE.** All
-123 bundles on disk: **101 STRUCTURAL, 4 MEASUREMENT, 18 CLEAN, 0 unclassified** - every one
-of which exited 0 before today. **C13: the gate-noop figure is 19 of 32, not 18 of 31.**
-`pilot-2026-08-25/run-08` was mid-write at the 08-25 snapshot and has since completed. The
-other 14 bundles are unchanged, so no ruling-58 confound. **58.1% -> 59.4%: the negative
-finding about our own gate got WORSE.**
-
-**`verdict` and `exit_class` ARE DIFFERENT QUESTIONS.** `ACCEPTS` == `CLEAN` == zero defects
-== quotable. `REJECTS` covers **both** MEASUREMENT and STRUCTURAL. **`REJECTS` beside exit 0
-is now CORRECT** for MEASUREMENT and it is the exact string ruling 60 removed for STRUCTURAL -
-check `exit_class` before re-diagnosing a fixed bug.
-
-**RULING 61: A CHECK THAT CANNOT FAIL ON EMPTY INPUT IS NOT MEASURING ANYTHING.** A run that
-halted before episode one reported `RUN INVALID` and **exited 2**, and the reader said
-**ACCEPTS, 18 of 18 checks OK** - zero episodes means nothing for any per-episode check to
-object to. **Eighteen checks passed and not one of them ran. FOURTH TIME IN ONE WEEK.**
-`E_NO_MEASUREMENT_IN_RUN` ships, but **C6 has nowhere to record `RUN_INVALID`**, so emptiness
-is a PROXY and a C6 field is owed.
-
-**Rulings 58 (grouping key), 59 (two-hook short-circuit), 60 (structural vs measurement in the
-exit code), 61 (empty input). Outcome E added to the F4 pre-registration BEFORE the unseal.** No hash value in
-this block - ruling 46.
+**BOTH 20-RUN BATCHES ARE COMPLETE AND FULLY ACCEPTED.** `batch-measure-2026-08-27` (gates
+ENFORCING) and its pre-registered replication `batch-replicate-2026-08-27` (identical config,
+different seeds): **20 of 20 accepted by the reader in each, 0 STRUCTURAL, 0 MEASUREMENT.** They
+replace the invalid `batch-gated-2026-08-27`. **The census re-record covers 50 of 50 instances,
+0 powered — the "26 of 50" binding constraint is RETIRED.** Scope and headline are **LOCKED**
+(`docs/contest/SCOPE-LOCK.md`): no new capability enters the submission.
 
 **Open threads**
-- **COVERAGE BATCH RUNNING**, `evidence/batch-census-2026-08-27`, 18 runs, seed 9001, ~2.5h.
-  **THE BINDING CONSTRAINT ON EVERY ASR FIGURE, and it is not the null bug:** the degeneracy
-  census covers **26 of 50 corpus instances** - built from the night batch, which walked half
-  the corpus under the module-constant `RED_SEED`. Per-run seeds now draw the other half, where
-  nothing licenses a text-only reply. **8 exclusions across both smoke runs, all 8 unlicensed.**
-  At 30 attempted a 5% ceiling is 1.5 episodes: **"at most one exclusion."**
-- Then re-record the census, then the gated re-run to a NEW dir, then ASR **with acceptance
-  printed beside it**.
-- **gcloud flakiness (`0xC0000142`) killed 1 of 3 smoke runs.** Budget for it.
-- Unseal **08-28**, record **08-29**, submit **08-30**. **The video still does not exist.**
-- Update 8 = the Google agent, **postable now**. Update 9 = numbers, after the re-run.
-- Corpus re-authoring **STOPPED**: the destination is the barrier, not the amount.
-- `BUILD-LIST` **T2-9 added 2026-08-27**. The foreign manifest is still **UNRATIFIED** -
-  `ratify.py` needs a named human, and until then no manifest figure is quotable.
+- **THE REPLICATION HAS NOT BEEN ANALYZED.** Nothing outside its own pre-registration
+  references `batch-replicate-2026-08-27`. The first stability estimate this project has ever
+  had is unread on disk, and it is what removes the k=1 caveat. Reporting rule is already
+  fixed: **pooled figure, per-batch split beside it, both reported, neither dropped.**
+- **Re-take `docs/design/where-we-stand-2026-08-27.md`** — its scoreboard was computed at
+  **15 of 20 runs** and its own header calls it provisional.
+- **Unseal F4 today (08-28)**, Outcome E pre-registered · record **08-29** · submit **08-30**.
+  **The video still does not exist.**
+- Update 8 (Google agent) **postable now**; Update 9 after the pooled numbers.
+- Foreign manifest **UNRATIFIED** — `ratify.py` needs a named human, and no manifest figure is
+  quotable until it has one.
 
 **Watch out for**
-- **A BRANCH THAT NEVER EXECUTES IS INDISTINGUISHABLE FROM ONE THAT WORKS.** Three times in
-  one session: the CONVERGED enum, G4 itself, the ENFORCING null.
-- **Every ARMORER attempt is a FRESH call, no history.** A 519-char rejection block on a 15KB
-  message takes grouped emissions **9/19 -> 0/24**, and REMOVING the guidance changes nothing.
-- **An out-of-band probe and a live run compute the same assertion against DIFFERENT expected
-  values.** Quote the file, the date and the phase.
-- **Python `/tmp` is not Git Bash `/tmp`. Backticks in `git commit -m` get substituted** -
-  write the message to a file.
-- **A DATED SNAPSHOT THAT NAMES ITS OWN CONDITION CAN BE RE-TAKEN.** C13 was findable only
-  because the 08-25 doc said "the batch was still writing". **Correct a live claim; strike and
-  amend a dated snapshot or a pre-registration - never rewrite one.**
-- **The CLAIM lint exemption is a +/-140 CHARACTER WINDOW.** Inserting text above a line can
-  un-exempt it.
-- **Four of the coordinator's claims were corrected by lanes this session.**
+- **A BRANCH THAT NEVER EXECUTES IS INDISTINGUISHABLE FROM ONE THAT WORKS** — four times in one
+  week: the CONVERGED enum, G4, the ENFORCING null, ruling 61's empty input.
+- **The exit code is not evidence — read `exit_class`.** `REJECTS` beside exit 0 is CORRECT for
+  MEASUREMENT; ruling 60 removed it for STRUCTURAL.
+- **A dated snapshot that names its own condition can be re-taken.** Correct a live claim;
+  strike and amend a snapshot or a pre-registration, never rewrite one.
+- **Orphaned agent worktree at `.claude/worktrees/agent-a23794095d002e7b9/`** carries a stale
+  CLAUDE.md (SPINE_VERSION 25) and pollutes repo-wide greps — exclude it.
 <!-- VAULT:SESSION-STATE end -->
