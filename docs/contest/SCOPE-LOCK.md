@@ -13,17 +13,35 @@ is not.
 
 ## 1. The headline
 
-> **CRUCIBLE is an ADK plugin that carries a learned policy to an agent it has
-> never seen, and a harness that refuses to ship a fix it cannot prove works.**
+> # Crash-test your AI agent before you trust it with money.
+>
+> **CRUCIBLE attacks it, writes the rules that stop the attacks, and refuses to
+> ship a rule it can't prove works. More than half of ours didn't — and it
+> caught that itself.**
 
-Two clauses because the project has two halves and both are load-bearing. The
-first is what a judge can watch happen. The second is why the first is worth
-believing.
+**Chosen by Eric 2026-08-27, replacing a two-clause version that failed the only
+test that matters here: a careless judge, two hundred submissions in, does not
+parse a compound sentence about carrying learned policies.**
 
-**Why not "it hardens agents".** Because the honest version of that sentence is
+**Headline does one job: the category, instantly.** "Crash test" is universally
+understood to mean *deliberately break it in a lab so it does not break in the
+world.* Nobody needs the domain to get it.
+
+**Subhead does the other: the differentiator.** Three verbs, then the hook. The
+self-indictment in the last clause is the credibility move, because nobody fakes
+a number in that direction.
+
+**It also earns the project name.** A crucible is where you apply extreme heat
+to find out what something really is. *"Put your agent in the crucible"* closes
+the video for the same reason.
+
+**Why not lead with "it hardens agents".** The honest version of that sentence is
 "attack success fell from 11.3% to 6.2% on one agent, single-sample" — true,
 small, and indistinguishable from every other entry claiming an improvement. It
 is our weakest strong material and it must not lead.
+
+**The Google-agent demonstration is the PROOF, not the headline.** It is what a
+judge sees at 0:30, not what they read first.
 
 ## 2. The four proof points, in the order a judge should meet them
 
