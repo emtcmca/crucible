@@ -58,10 +58,16 @@ enforcement lives in a plugin at the ADK `before_tool` boundary rather than in a
 fork of one agent.* It is **not** a breach and the write-up says so first: the
 sample obeyed its own prompt.
 
-**2 · THE GATE THAT REFUSES.** 18 refused patch attempts in the measurement
-batch, each with the invariant, the attempted rule, and the machine-checked
-reason. Earlier, before those gates existed, **19 of 32 promoted rules had closed
-nothing** — found by measuring our own output, not by review.
+**2 · THE GATE THAT REFUSES.** **21 refused patch attempts** across all 20
+completed bundles of the measurement batch, each with the invariant, the
+attempted rule, and the machine-checked reason — split **14
+`inv_repeated_mutation_on_one_subject` / 4
+`inv_escalated_below_the_queue_the_amount_requires` / 3
+`inv_account_identifier_left_the_boundary`**. It read ~~18 (12/4/2)~~ until
+2026-08-28; that was a 17-run snapshot of a 20-run batch, counted while the
+batch was still writing. The replication batch refuses **31**, split
+**19/7/5**. Earlier, before those gates existed, **19 of 32 promoted rules had
+closed nothing** — found by measuring our own output, not by review.
 
 **3 · THE NUMBERS, WITH THEIR ACCEPTANCE.** 20 runs, **the reader accepts 20 of
 20**. A replication at identical configuration is running for the first stability

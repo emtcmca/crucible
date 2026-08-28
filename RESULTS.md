@@ -5,7 +5,12 @@ and dated.*
 
 > ## Read this before any figure below
 >
-> **No rate in this document may be quoted as of 2026-08-26.** Two things moved
+> **No rate in this document may be quoted. This document is the record of the
+> sixty-run batch of 2026-08-25, and the ban is on that batch — it is not a
+> blanket prohibition on the repository.** Later batches are a different
+> population and are governed by their own acceptance counts; see
+> `docs/design/where-we-stand-2026-08-27.md` and its 2026-08-28 amendment. What
+> follows is why this batch's rates are out of circulation. Two things moved
 > after the `Observed` column was filled on 2026-08-25, and between them they
 > take every rate here out of circulation:
 >
@@ -36,13 +41,20 @@ and dated.*
 > `docs/design/batch-2026-08-25-post-repair-preregistration.md` and, as of
 > 2026-08-26, **has not been run**.
 >
-> **Nothing has ever been PROMOTED under an enforcing efficacy gate.** G4 — the
-> gate that would compute paired discordance b and c — is specified in
-> `contracts/gate_rule.v1.yaml:129-137` and **is not built**;
-> `scripts/gate-census.py:103-106` says so in its own words: *"Nothing computes
-> b or c."* Promotion here means the promotion gate's own postcondition held
-> (the rule was durably written and its hash recomputed from the bytes), not
-> that the rule closed anything.
+> **No rule in THIS batch was promoted under an enforcing efficacy gate**, and
+> that is a statement about this batch rather than about the project. When these
+> runs executed, G4 — the gate that computes paired discordance b and c —
+> was specified in `contracts/gate_rule.v1.yaml:129-137` and unbuilt, and
+> `scripts/gate-census.py` said so in its own words: *"Nothing computes b or
+> c."* A promotion in the table below therefore means the promotion gate's own
+> postcondition held (the rule was durably written and its hash recomputed from
+> the bytes), **not that the rule closed anything.** ~~"Nothing has ever been
+> PROMOTED under an enforcing efficacy gate"~~ was true when written and was
+> superseded on 2026-08-27: G4 and an originating-breach closure check landed
+> 2026-08-26 and both ran `mode=ENFORCING` across all 20 bundles of each
+> 2026-08-27 batch, with 12 rules promoted under them in the measurement batch
+> and 14 in the replication batch. None of that changes any figure below, which
+> is why it is recorded here rather than merged into the table.
 >
 > **The transfer number does not exist**, and cannot before **2026-08-28**,
 > when the sealed F4 family is unsealed under the pre-registration at

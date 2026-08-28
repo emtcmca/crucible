@@ -150,3 +150,77 @@ Every number above is checkable by someone who does not trust us:
 - **Nothing here is a re-attack.** Rates are over episodes the loop actually ran;
   the closure measurement is a replay of recorded calls. Neither answers *could
   an attacker find another way in.*
+
+---
+
+# AMENDMENT, 2026-08-28. THE BATCH FINISHED, AND A SECOND ONE DISAGREES WITH IT.
+
+**The body above is a correct snapshot of a batch that was still running, and it
+is left exactly as written.** It says so in its own first line and again in §7
+(*"15 of 20 runs at the time of writing"*), and that self-naming is the only
+reason this amendment could be written rather than guessed at. **A dated
+snapshot is struck and amended, never rewritten.**
+
+`evidence/batch-measure-2026-08-27` completed at 20 runs, and the replication
+batch at identical configuration completed at 20 more. Everything below
+supersedes the corresponding figure above. All figures exclude `TARGET_FAULT`
+episodes per `docs/CONVENTIONS.md:1133`, and every one is **k = 1 per episode,
+no stability estimate**.
+
+## A1. Reader acceptance
+
+| | body above | completed |
+|---|---|---|
+| measurement batch | 15 of 15 | **20 of 20** |
+| replication batch | 17 of 17 | **20 of 20** |
+
+Both denominators above were mid-batch counts. Neither was wrong when written;
+both are superseded.
+
+## A2. Attack success rate, and the two batches do not agree
+
+**Pooled across both batches, v0 is 70/520 = 13.5% and vFinal is 56/725 = 7.7%
+— and the two batches disagree materially, the replication running about four
+points worse at both ends (v0 15.4% vs 11.8%, vFinal 9.7% vs 5.7%).** That
+sentence is one sentence on purpose: the replication pre-registration requires
+the disagreement to travel with the pooled figure rather than sit in a footnote
+under it.
+
+| | v0 | vFinal |
+|---|---|---|
+| **pooled** | 70/520 = **13.5%** | 56/725 = **7.7%** |
+| measurement batch | 33/280 = **11.8%** | 21/366 = **5.7%** |
+| replication batch | 37/240 = **15.4%** | 35/359 = **9.7%** |
+
+**This supersedes the pair in §1 and §3, which read ~~v0 11.3% → final 6.2%~~.**
+The direction of §3's argument is unchanged and if anything is sharpened: the
+v0 design target is 34/50 = 68%, the observed pooled v0 is 13.5%, so the gap
+CRUCIBLE has to work in is about 13 points and not 62. The replication is the
+first evidence this project has about run-to-run spread, and the first thing it
+says is that a single batch understated the rate at both ends.
+
+## A3. The denominator in §2's third row was wrong
+
+§2 reports *"runs that found breaches and shipped nothing: 11/114 = 9.6%"*.
+**The correct figure is 11/60 = 18.3%, over the 4 runs in that group.** The old
+denominator pooled those 4 runs together with the 3 runs that had no breach to
+fix, which is the one comparison that row exists to keep apart — a run that
+found nothing and a run that found something and could not answer it are the
+opposite outcomes §2 was written to separate, and its own denominator blurred
+them back together.
+
+The corrected row nearly doubles the rate, and it should: measured only over
+the runs where a breach was actually found and no rule shipped, the attacks
+that succeeded are a much larger share of a much smaller pool. The
+qualitative reading in §2 stands — the gate stopped a bad candidate rather than
+shipping it — but the number attached to it was diluted by three runs that had
+nothing to ship.
+
+## A4. What this amendment does not touch
+
+The benign rows (26/26, 14/14), §4's reading of what 26/26 does not mean, and
+§6's account of how any of it is checkable are unchanged. §2's *"19 of 32
+promoted rules closed nothing"* is also unchanged and stays correct: it is the
+recount over **15** accepted bundles recorded in
+`gate-noop-measurement-2026-08-25.md` and [`AUDIT.md`](../../AUDIT.md) C13,
+superseding an earlier 18 of 31 over 14.

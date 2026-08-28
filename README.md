@@ -62,33 +62,44 @@ repository that a stranger can check without trusting anything.
 **3. What is *not* defensible today, stated here rather than discovered by
 you.** This is the section a judge should read before any number:
 
-- **No rate from any live run may be quoted.** Six live batches have run against
-  Vertex. Every figure that reached a results table came from the sixty-run
+- **No rate in [`RESULTS.md`](RESULTS.md) may be quoted. The ban names a batch,
+  not this repository.** Every figure in that table came from the sixty-run
   batch of 2026-08-25, and **the offline reader this repository ships now
   refuses all sixty of those bundles** — ruling 55 made
   `episodes[].target_responded` a required property after they were written
   (`docs/design/gate-noop-measurement-2026-08-25.md:161-171`), and the corpus
   was re-frozen underneath them when instance F5-05 was repaired. A figure in
-  [`RESULTS.md`](RESULTS.md) **cannot currently be re-derived from the artifact
-  it came from**, and the batch that would regenerate the column is
-  pre-registered and unrun.
-- **Nothing has been promoted under an enforcing efficacy gate.** Every
-  promotion figure this project has published came from a gate that checked a
-  patch was well formed and that benign traffic survived it, and **never that
-  the patch closed the breach it was written for.** Two criteria that ask that
-  question landed on 2026-08-26 and are wired but have not yet run a campaign:
-  **G4 attack reduction**, specified in `contracts/gate_rule.v1.yaml:129-137`
-  and unbuilt for the whole project until that date, and an **originating-breach
-  closure** check. `python scripts/gate-census.py` reports what is wired at any
-  commit — **and wired is not the same as enforcing**, which is why that census
-  now says so on the row itself. **Until a campaign runs with them enforcing, a
-  promotion here means the gate's own postcondition held, not that the rule
-  closed anything.**
+  that table **cannot be re-derived from the artifact it came from**, which is
+  why it stays out of circulation rather than being restated. The two
+  post-repair batches of 2026-08-27 are a different population that the reader
+  **accepts 20 of 20 bundles from, in each batch**; figures drawn from them are
+  not covered by this ban and print that acceptance count beside them
+  (`docs/design/where-we-stand-2026-08-27.md`). The `RESULTS.md` table itself
+  has not been recomputed from them.
+- **Every promotion published before 2026-08-27 came from a gate that never
+  asked whether the patch worked.** Those gates checked a patch was well formed
+  and that benign traffic survived it, and **never that it closed the breach it
+  was written for**, so a promotion in those batches means the gate's own
+  postcondition held and nothing more. The two criteria that ask the missing
+  question landed on 2026-08-26 — **G4 attack reduction**, specified in
+  `contracts/gate_rule.v1.yaml:129-137` and unbuilt for the whole project until
+  that date, and an **originating-breach closure** check — and **they have since
+  run.** Both were `mode=ENFORCING` in **all 20 bundles** of
+  `evidence/batch-measure-2026-08-27` (40 mode strings, zero
+  `record_only_reason`) and in the replication batch at identical
+  configuration. **12 rules were promoted under enforcing efficacy gates in the
+  measurement batch, and 14 in the replication batch.** `python
+  scripts/gate-census.py` reports what is wired at any commit — **and wired is
+  not the same as enforcing.** Which mode a given run used is in that run's
+  banner and in `criteria.attack_reduction.mode`, never in the census.
 - **The measurement that says so is the most substantive finding in the
-  project, and it is negative.** Across the fourteen bundles the shipped reader
-  *does* accept, 31 rules were promoted: **13 closed the breach they were
-  written for and 18 were no-ops on it**
-  (`docs/design/gate-noop-measurement-2026-08-25.md:10-13`). The cause is not
+  project, and it is negative.** Across the fifteen bundles the shipped reader
+  *does* accept, 32 rules were promoted: **13 closed the breach they were
+  written for and 19 were no-ops on it** — recounted 2026-08-27 after
+  `pilot-2026-08-25/run-08` finished writing and the reader began accepting it,
+  which took the finding from 58.1% to 59.4%, i.e. it got *worse*
+  (`docs/design/gate-noop-measurement-2026-08-25.md:8-36`, [`AUDIT.md`](AUDIT.md)
+  C13). It read ~~"14 bundles, 31 rules, 18 no-ops"~~ until then. The cause is not
   the Armorer being careless — the tripwire's aggregate clause groups by a key
   the DSL the Armorer must write in cannot express. Those bundles live in
   `evidence/`, which is gitignored, so **that finding is reproducible on the
@@ -183,12 +194,14 @@ Cloud Run revision id superseded two days earlier, a G7/G8 probe result quoted
 from the wrong file with an UNEVALUABLE where the artifact records a FAIL, and
 an object count that had never been measured at all.
 
-The measurement state is unchanged from 2026-08-25 and is summarised under
-**"What is *not* defensible today"** above: counts exist, **no rate may be
-quoted**, nothing has been promoted under an enforcing efficacy gate, and the
-held-out family stays sealed until 2026-08-28. The full record, with the
-sixty-run batch's own headline failure — a per-run exclusion rate over its
-ceiling in 51 of 60 runs — is [`RESULTS.md`](RESULTS.md).
+The measurement state moved on 2026-08-27 and is summarised under **"What is
+*not* defensible today"** above: **no rate from the sixty-run batch of
+2026-08-25 may be quoted**, both efficacy criteria ran ENFORCING across the two
+2026-08-27 batches and rules were promoted under them, and the held-out family
+stays sealed until 2026-08-28. The full record of the 2026-08-25 batch, with
+that batch's own headline failure — a per-run exclusion rate over its ceiling in
+51 of 60 runs — is [`RESULTS.md`](RESULTS.md), which is a record of that batch
+and not a current scoreboard.
 
 Every number in this repository is one of four things and is labelled as such: a
 **frozen parameter** (decided before measurement so it cannot be chosen
@@ -398,13 +411,23 @@ resolve. `pytest` was added to this file on 2026-08-21 for the same reason as th
 pin: the section below tells a judge to run the test suite, and a cold clone that only had
 the first three packages could not.
 
-> **UNVERIFIED:** `pip install -r requirements.txt` has not been executed into an empty
-> virtualenv. The packages above were already present at exactly those versions
-> (`python -m pip list`), so what is verified is that *the pinned versions are the ones
-> everything below ran against*, not that a cold resolve succeeds. What would settle it:
-> `python -m venv .venv && .venv/Scripts/python -m pip install -r requirements.txt` in a
-> fresh clone. A partial cold-clone run of the commands themselves — without the install
-> step — is recorded at
+> **VERIFIED 2026-08-28, and this block read ~~UNVERIFIED~~ until then.** The command
+> that would settle it was run: `python -m venv .venv` into a scratch directory outside
+> the tree, then `.venv/Scripts/python -m pip install -r requirements.txt`. It **exited
+> 0**, all five pins resolved at exactly their pinned versions, `google.adk`,
+> `jsonschema`, `referencing`, `yaml` and `pytest` all imported, the offline reader ran
+> against the tracked golden fixture, and the full suite came back **2195 passed, 1
+> skipped, exit 0** — identical to the build machine, which is the half that matters,
+> because the build machine's pre-existing packages cannot be doing the work in an
+> environment that has none. Record:
+> [`docs/proof/cold-install-2026-08-28.md`](docs/proof/cold-install-2026-08-28.md).
+>
+> **Caveat, and it is the whole remaining gap:** this was **Python 3.11.9 on Windows**.
+> Nothing here licenses a claim about Linux, Colab, or a different Python minor version —
+> those are different environments and stay unverified until run there. Nothing in the
+> check called a model, spent anything, or touched GCS; `--live` remains unexercised by
+> it. A partial cold-clone run of the commands themselves — without the install step — is
+> recorded at
 > [`docs/proof/L6-cold-clone-2026-08-20.txt`](docs/proof/L6-cold-clone-2026-08-20.txt).
 
 ### 3. Run the tests
@@ -414,12 +437,20 @@ python -m pytest tests/ -p no:cacheprovider
 ```
 
 ```
-2038 passed, 3 skipped in 62.93s
+2217 passed, 1 skipped in 103.51s
 ```
 
-*Re-counted 2026-08-26 from the JUnit XML of that exact command: 2,041 collected, 0
-failures, 0 errors. It read ~~`757 passed, 1 skipped in 10.15s`~~ until then. A test
-count in prose only ever moves in one direction, and nothing was watching this one.*
+*Verified on 2026-08-28 on the build machine and in a clean virtualenv, which returned
+the identical count. Earlier the same day the suite stood at `2195 passed, 1 skipped`;
+the +22 is `tests/test_sealed_io.py`, added that afternoon. Both figures and the
+cold-install method are recorded at
+[`docs/proof/cold-install-2026-08-28.md`](docs/proof/cold-install-2026-08-28.md). This
+transcript read ~~`2038 passed, 3 skipped in 62.93s`~~ until then, and ~~`757 passed, 1
+skipped in 10.15s`~~ before that.*
+
+**A test count in prose only ever moves in one direction, and nothing was watching this
+one.** It went stale three times. Treat any number here as verify-on-use and read the
+date beside it: the honest way to quote this line is to run the suite, not to cite it.
 
 `tests/` includes **strawmen** — deliberately wrong implementations kept in the tree
 forever, so every suite can be shown to fail.
