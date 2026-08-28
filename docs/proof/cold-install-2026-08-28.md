@@ -28,8 +28,24 @@ machine's site-packages.
 | offline reader vs the tracked golden fixture | **exit 0**, real census output |
 | full test suite | **2195 passed, 1 skipped, exit 0**, 60.38s |
 
+**RE-VERIFIED the same day after a sixth pin was added.** `google-cloud-storage==3.10.1`
+was added to `requirements.txt` (see below). The cold environment was re-installed and re-run:
+all six pins resolve, all six import, and the suite is **2217 passed, 1 skipped, exit 0** - the
++22 being `tests/test_sealed_io.py`, added the same afternoon. **Test counts are verify-on-use;
+quote the date with the number.**
+
 Resolved at the pins: `google-adk 2.1.0`, `jsonschema 4.26.0`, `referencing 0.37.0`,
-`PyYAML 6.0.3`, `pytest 9.0.3`. The transitive tree resolved without conflict.
+`PyYAML 6.0.3`, `pytest 9.0.3`, and (added later the same day) `google-cloud-storage 3.10.1`.
+The transitive tree resolved without conflict.
+
+**THE SIXTH PIN WAS FOUND BY THIS TEST, AND IT MATTERED MORE THAN THE TEST DID.**
+`crucible/conductor/real_gate.py:718` does `from google.cloud import storage` behind a `try`,
+and that package was named in NO dependency file. The cold environment resolved all five
+original pins and still had no `google.cloud`, proving it is **not transitive from
+`google-adk`**. So before this fix, a cold clone could not execute ANY live GCS path,
+including `GcsBlobIO`, and would have failed at an import with a message about the package
+not being importable. That is a defect in the judge-facing spin-up path that only a cold
+install could have surfaced.
 
 **The suite result in the cold environment is identical to the build machine's**, which is
 the part that matters: the pins are not merely installable, they reproduce the same result

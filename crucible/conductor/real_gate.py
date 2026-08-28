@@ -686,13 +686,24 @@ def local_blob_io(root):
 
 
 class GcsBlobIO:
-    """**UNVERIFIED AGAINST LIVE GCS.** Writing an object is a cloud mutation and
-    the lane that wrote this module is read-only by contract, so every line below
-    is written from `data-spec.md` 3.1/3.2 and has never been executed against
-    the real API. It is kept separate from `local_blob_io` and labelled rather
-    than blended into one backend, because a backend that tests green through a
-    double and has never been called is the exact shape that passes a suite and
-    fails on the first live call.
+    """**EXECUTED AGAINST LIVE GCS SINCE 2026-08-24. UNTESTED, WHICH IS A
+    DIFFERENT THING.** Every line below is written from `data-spec.md` 3.1/3.2
+    and NO TEST EXERCISES IT; the evidence that it works is live runs, not the
+    suite. The policy store has been written by many runs (count is
+    verify-on-use: `gcloud storage ls gs://crucible-policies-x7/runs/`).
+
+    **CORRECTED 2026-08-28.** This docstring said the module "has never been
+    executed against the real API", and the live run banner said the same
+    sentence, and both stayed false for four days while runs wrote objects. A
+    caveat that goes stale is worse than no caveat, because it is read as
+    current. The honest split is EXECUTION, which happened, against TEST
+    COVERAGE, which has not.
+
+    It is kept separate from `local_blob_io` and labelled rather than blended
+    into one backend, because a backend that tests green through a double and
+    has never been called is the exact shape that passes a suite and fails on
+    the first live call. That risk is now retired by execution rather than by
+    testing, and the distinction is the point of this paragraph.
 
     What it implements, from data-spec 3.1:
       step 3  create-only precondition `if_generation_match=0`

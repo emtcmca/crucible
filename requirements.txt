@@ -16,3 +16,14 @@ google-adk==2.1.0
 # file. Added 2026-08-21. Pinned to what is installed and verified here, per the
 # same rule as the ADK pin above.
 pytest==9.0.3
+
+# `real_gate.py:718` does `from google.cloud import storage` behind a try, and
+# the transfer runner reads the sealed holdout through the same library. It was
+# installed on the build machine and named in NO dependency file, so a cold
+# clone resolved without it and every live path that touches GCS would have
+# failed at the import with a message about it not being importable. Found
+# 2026-08-28 by adversarial review, and confirmed by a clean virtualenv that
+# resolved all five prior pins and still had no `google.cloud`: it is NOT
+# transitive from google-adk. Pinned to the version installed and verified here,
+# per the same rule as the ADK pin above.
+google-cloud-storage==3.10.1
