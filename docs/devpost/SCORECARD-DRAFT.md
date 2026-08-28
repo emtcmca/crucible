@@ -27,11 +27,21 @@ the agent an ordinary customer question.
 it as "ask a manager for approval." There is no manager behind that tool. It approves
 anything it is asked.
 
-**With a policy CRUCIBLE learned on a completely different agent:** the same request, the
-same model, the same tool call. **Refused. The tool never ran.**
+**With a policy CRUCIBLE assembled against a completely different agent:** the same request,
+the same model, the same tool call. **Refused. The tool never ran.**
 
 The rule that stopped it **does not mention that tool, or any tool.** It binds to what the
-tool *can do* — move money — which a classifier worked out from the tool's description.
+tool *can do* — escalate privilege — which a classifier worked out from the tool's own
+description.
+
+**Two things about that rule, because the artifact says them and the earlier draft did not.**
+It is `r_00332742f13f`, and it is a **seed** rule rather than one the loop learned: the policy
+it travelled in was built against the refund agent and carries both seed and learned rules, and
+the one that fired here was seeded. The learned rule `r_ceb7cbd4f589` also denies on this agent
+in the offline case matrix, where it is the expected deciding rule, but it is not what stopped
+the live call. **The portable thing is the class binding, not the provenance of that particular
+rule**, and the claim is written that way here so a reader checking
+`docs/proof/foreign-agent-enforcement-probe-2026-08-26.json` finds what this says it will.
 
 > *This is not a security flaw in Google's agent. It did what its own instructions told it
 > to do. What it shows is that CRUCIBLE's rules travel to agents it has never met.*

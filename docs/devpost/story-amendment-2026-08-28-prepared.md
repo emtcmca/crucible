@@ -64,10 +64,16 @@ With no policy, the agent called its approval tool for a 40 percent discount. It
 returned approved, and the agent told the customer so. There is no manager behind that
 tool. It approves whatever it is handed.
 
-With a policy CRUCIBLE had learned on a completely different agent, the same question and
-the same call were refused. The tool never ran. The rule that stopped it names no tool at
-all. It binds to a capability class, and the class was assigned to that tool by a
-classifier reading the tool's own description.
+With a policy CRUCIBLE had assembled against a completely different agent, the same
+question and the same call were refused. The tool never ran. The rule that stopped it names
+no tool at all. It binds to a capability class, privilege escalation, and the class was
+assigned to that tool by a classifier reading the tool's own description.
+
+The deciding rule was a seed rule rather than one the loop learned, and that belongs in the
+same breath. The policy it travelled in was built against the refund agent and carries
+both. The learned rule denies on this agent too, in the offline case matrix, but it is not
+what stopped the live call. **What travelled is the class binding. That is the claim, and
+it does not need the rule to have been learned in order to be the interesting one.**
 
 **This is not a breach and the distinction is the point.** The sample's own prompt
 describes that tool as asking a manager for approval and never states a cap, so routing a
@@ -78,11 +84,15 @@ ADK `before_tool` boundary instead of in a fork of one agent.
 
 It is one run per arm. There is no rate here and no before and after percentage.
 
-## The caveat that was on every number until now (added 2026-08-28)
+## A second batch, and what it does and does not settle (added 2026-08-28)
 
-Every figure this project has published carried the same label: single sample, k=1, no
-stability estimate. It was the most repeated limitation in the repository and it weakened
-every number equally.
+Every figure this project publishes carries the same label: single sample, k=1, no
+stability estimate. **That label has not been retired and this section does not retire
+it.** A replication at batch level, different seeds, same configuration, tells you whether
+a twenty-run batch reproduces. It does not turn one observation per attack into repeated
+sampling of the same attack, so the per-episode limitation stands exactly where it was.
+
+What the second batch adds is a spread where before there was a single point.
 
 Two batches now exist at identical configuration with different seeds, the second
 pre-registered before it fired. The reporting rule was fixed in that pre-registration and
@@ -94,8 +104,19 @@ disagree materially, the disagreement is the finding.
 because a rule in this repository requires it, and because two days earlier the same reader
 refused all sixty bundles of an overnight batch.
 
-[FILL: pooled attack success rate, then the per-batch split. If the batches disagree
-materially, say so in this sentence rather than in a footnote.]
+Attack success, any-of-1, **k=1 per episode**, TARGET_FAULT episodes excluded: pooled
+**13.5 percent at v0 falling to 7.7 percent at the final policy**, and the two batches do
+not agree. The measurement batch ran 11.8 to 5.7. The replication ran 15.4 to 9.7. **The
+replication is about four points worse at both ends, and that disagreement is the finding
+rather than a footnote to the pooled number.** The direction is the same in both. The size
+is not, and one batch would have told you it was.
+
+**The reader accepts 20 of 20 bundles in each batch.**
+
+*(Verified 2026-08-28 by two independent derivations from the C6 episodes. An earlier
+published figure of 11.3 to 6.2 was computed over the measurement batch at 15 of 20 runs,
+while it was still writing, and is superseded. That is the third time a mid-batch snapshot
+has produced a figure this project later had to correct.)*
 
 **A replication that contradicts the first batch does not retire the first batch. It
 retires the claim that one batch was enough.**
