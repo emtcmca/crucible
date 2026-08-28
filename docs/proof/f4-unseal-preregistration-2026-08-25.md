@@ -165,3 +165,101 @@ Fixed before the unseal:
 **Nothing in this document may be edited after 2026-08-28.** A correction, if one is needed,
 is appended below a dated line with what it supersedes, the same rule the superseded hash
 records follow.
+
+---
+
+**AMENDMENT 3, 2026-08-28 morning. WRITTEN AND COMMITTED BEFORE THE UNSEAL, AND BEFORE THE
+RELOCATION IT AUTHORISES.** It supersedes nothing in sections 1 to 4. It adds three things
+the table had no row for and fixes one unit the contract left open. Section 4's six
+forbidden moves are unchanged and still bind.
+
+## A3.1 The sealed instances are being MOVED INTO the bucket, and that is recorded here first
+
+**The state found this morning:** `gs://crucible-sealed-x7` contained exactly one object,
+`_probe/canary.txt`. The 24 F4 instances have lived only in the local worktree
+`crucible-wt-SEAL/corpus/sealed` on branch `freeze/D5-corpus`.
+
+**What that means, stated plainly rather than discovered later.** `holdout_touch_count` and
+G7c have been attesting to reads of a CANARY, not to reads of the holdout. The counter could
+have returned a clean zero while the sealed set was read freely from local disk, because the
+sealed set was never behind the boundary the counter watches. That is the same defect this
+project has now caught five times: **a check that passes while measuring nothing.** The
+blindness itself was real and remains real, but it was enforced by CODE STRUCTURE, by there
+being no path from the harness to `corpus/sealed/` and by `E_SEALED_FAMILY_REACHED`, and NOT
+by the IAM boundary the commitment's `_limits` field names as a control.
+
+**The remedy, and why it is legitimate on the day.** The 24 instances are uploaded to
+`gs://crucible-sealed-x7/families/` BEFORE the unseal read, performed under
+`--impersonate-service-account=crucible-sealed-eval`, which is the only identity holding
+`objectCreator` on that bucket. After that, IAM guards the instances themselves, G7c counts
+real holdout reads, and the transfer run reads the set through the boundary rather than
+around it.
+
+**This does not touch what is sealed.** The commitment hashes, for each file sorted by name,
+the filename bytes then the file bytes with CRLF normalised to LF. Location is not in the
+hash. The procedure is: verify the fingerprint from the worktree, upload, then read every
+object BACK OUT OF THE BUCKET and recompute. **Both verifications are recorded in
+`docs/proof/`. If the post-upload recompute does not equal the published fingerprint, the
+upload is reverted and Outcome D applies.**
+
+**An upload is not a touch.** `infra/holdout_touch.py` counts only `storage.objects.get`
+naming a real object. `storage.objects.create` classifies as OTHER and is not counted, and
+performing the upload as `crucible-sealed-eval` leaves no foreign principal in the trail.
+
+## A3.2 `expected_for_this_phase` is fixed as a CONTENT_READ count over the run's own window
+
+`measurement-spec.md`:946 gives the expected value as **2**. That value is WRONG and is
+superseded here. `infra/holdout_touch.py` and `campaign.py`:942 both say why: one evaluation
+pass over 24 instances cannot produce 2 content reads, so a fixed 2 marks the run INVALID the
+first time it is used correctly, and a guard that fires on correct behaviour is not a guard.
+
+**The unit is fixed as: granted `storage.objects.get` entries naming a real object, within
+the run's own G7c window.** `--holdout-since` defaults to the run's start instant, so reads
+predating the run, including every attested read of 2026-08-22 and the upload above, fall
+outside it and are not counted.
+
+**The value is CALIBRATED, not guessed.** Before the transfer run starts, the canary object
+is read once through the exact code path the runner uses, and the entries that read produces
+are counted. That fixes reads-per-object empirically without touching an F4 instance. The
+expected value is then `reads_per_object x 24 x passes`, and it is written into this document
+BELOW, before the run fires.
+
+CALIBRATED VALUE: [to be filled before the run, and before any F4 instance is read]
+
+## A3.3 Two evaluation passes happen today, because touch #1 never happened
+
+Section D5 of `measurement-spec.md` planned a holdout baseline run as touch #1 on 08-24. The
+audit log shows it did not occur: the only objects ever read in that bucket are the two
+canary paths, and no F4 instance has been read by anyone. **There is therefore no
+`breached_at_v0` for F4**, and Outcome E's condition is defined on it.
+
+**Today's run is two passes over the same 24 instances: policy@v0 and policy@vFinal.** That
+is what the spec's "expected value 2" was always counting, and it is why the number is a
+count of passes rather than of reads. Neither pass authors a patch. The Armorer does not run
+in either. This changes nothing in the outcome table.
+
+## A3.4 What happens if the run CRASHES, which the table had no row for
+
+Outcomes A to E classify RESULTS. None of them covers a run that dies in flight, and that is
+the likeliest operational failure: `gcloud` has failed to launch with `0xC0000142` once in
+three smoke runs this week.
+
+**The rule, fixed before it is needed:**
+
+- **Crash BEFORE any F4 episode produces a scored verdict** (launch failure, auth failure,
+  G7 or G8 unevaluable at startup, any halt in step 0 or step 1). **No F4 content was
+  observed, so the attempt is VOID rather than spent, and ONE retry is permitted.** A retry
+  here is not selection, because nothing was seen to select on. The void attempt is published
+  with its own touch count. The retry's G7c window begins at the retry's start instant, so
+  the void attempt's reads fall outside it and the calibrated expected value is unchanged.
+- **Crash AFTER one or more F4 episodes produced a scored verdict.** **The run is reported
+  INVALID and there is NO retry.** Partial outcomes are partial knowledge, and a second run
+  launched with them in hand is selected on them, which is exactly what section 4 item 3
+  forbids. What is reported is the count of instances scored before the halt, their raw
+  outcomes, and the statement that the transfer question has no answer in this build. **No
+  rate is quoted, under Outcome C's discipline.**
+- **Either way the crash is published**, with the touch count before and after, and with the
+  stage it reached.
+
+**This amendment may not be edited after the unseal.** A correction is appended below a dated
+line, the same rule the rest of this document follows.
