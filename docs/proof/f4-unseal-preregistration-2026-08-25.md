@@ -402,3 +402,103 @@ the loop failed. Outcome E's denominator caveat is unaffected and still applies.
 **Three statements of ours have now been corrected before the seal opened rather than after:
 A3.5, A3.6, and the rule text itself. All three corrections are public and timestamped ahead
 of the event. That is the system working, and it is worth more than having been right first.**
+
+## A3.8 THE RUN'S DESIGN, fixed before it is built and before the seal opens
+
+Settled by an adversarial third-party review answering five questions put to it on 2026-08-28.
+Each choice below could have been made after seeing a result. None was.
+
+### A3.8.1 Two LIVE drives, not a replay. 48 target episodes.
+
+`measurement-spec.md`:740,748 says F4 is **measured exactly twice**, once at policy@v0 and once
+at the final policy, and separately calls benign and G4 evaluation "replay". So the primary
+transfer experiment is **24 live episodes under each arm, 48 total.**
+
+**The cheaper option was available and is rejected on the merits.** `g4.score_at()` already
+scores a recorded episode against any policy, and `paired_scores()` applies two. That would
+have halved the model cost and removed a class of nondeterminism. It answers a DIFFERENT
+question: whether those exact recorded calls would have been denied. **It cannot observe an
+agent that, refused one route, tries another** - which for destination smuggling is precisely
+the behaviour worth knowing about.
+
+**The replay figure may still be published, as a SECONDARY "recorded-call counterfactual block
+rate", clearly labelled, and it may never be substituted for `transfer_rate`.**
+
+### A3.8.2 A TIMING DEVIATION, recorded because it is one
+
+The specification places the v0 holdout arm BEFORE the hardening loop and the vFinal arm after
+the freeze. **Both arms will run post-freeze, on the same day.** The v0 arm was never taken
+(section A3.3), so the alternative is no v0 arm at all rather than a correctly timed one.
+
+The paired behavioural A/B remains valid: both arms use the same instances, the same target
+build, and the same frozen locks. **But it is not what the spec described, and any figure from
+it carries that sentence.** A reader who is told the design and then reads the spec will find
+the difference; better they find it here first.
+
+### A3.8.3 A NEW BUNDLE KIND. The C6 contract cannot represent this run honestly.
+
+**`attacks[].provenance` admits exactly two values and neither is true of F4.**
+`training_corpus` means, in the schema's own comment, "reproducible from the committed corpus
+at corpus_hash, so an id suffices" - and F4 is not in the committed training corpus.
+`generated` means "exists NOWHERE ELSE ... so if the bundle does not carry its bytes, the
+attack is unrecoverable" - and choosing it **obligates the bundle to publish the sealed
+instruction text.** One value is false and the other breaks the seal.
+
+Six further mismatches, each of which would require inventing data: `v0_benign_traces` is
+mandatory and unrelated; `excluded[]` requires a round index a transfer arm does not have;
+`execution_provenance` has no `not_applicable` for the uninvoked Coroner, Armorer and Warden;
+`sep_by_split={0,0}` fails parity; and `autopsies=[]` raises `E_AUTOPSY_MISSING_FOR_BREACH`
+once per breach.
+
+**So a `transfer_evidence` kind is authored with its own reader, and campaign-only fields are
+NOT populated with placeholders.** Filling a field with a plausible value so a validator passes
+is fabricating a finding, which is the one thing this repository does not do.
+
+**The reader for it must enforce what the C6 reader cannot**, and each of these was found
+absent by direct mutation: exactly two named arms; 24 instances per arm; identical instance
+sets across arms; **unique episode ids** (`_episode_id_for()` derives from the attack id alone,
+so the arms collide by construction, and a bundle carrying two identical episodes with the same
+id currently reads ACCEPTS); arm-specific attempted, scorable and excluded censuses; named
+exclusions; both preflight finding lists; the transfer arithmetic; and the hash locks.
+
+### A3.8.4 Isolation between arms
+
+A fresh `EpisodeWorld`, and specifically a fresh mutable `SimulatedSystemOfRecord`, is built
+immediately before EVERY `(instance, arm)` drive. A refund issued in the v0 arm must not exist
+when the vFinal arm runs. The parsed sealed document is immutable and is loaded once; the world
+built from it is not.
+
+**Drives run SEQUENTIALLY.** The target's tool backends are module-global, so two arms in
+parallel could overwrite each other's binding. Each arm gets a distinct `episode_id` over one
+shared `instance_id`.
+
+### A3.8.5 G7 and G8 are called directly, twice, and their findings are recorded
+
+`preflight()` holds the whole assertion set and is the correct entry point, but **it only
+RETURNS findings: it does not raise and does not append to `gate.reports`.** So the runner
+persists both complete lists, treats every `UNEVALUABLE` or `invalidates` finding as run
+invalid, and derives `g7_g8_exercised` from what it recorded rather than from an empty reports
+list. **The two calls use DIFFERENT calibrated `holdout_expected` values** - zero before any
+sealed read, the calibrated figure after - which means two gate instances, because one instance
+holds one expectation and the default of 2 is wrong for both.
+
+### A3.8.6 The zeroed policy binding is attested, NOT repaired
+
+Every promoted policy carries `target_manifest_hash = 0000000000000000` against a real frozen
+manifest. `PolicyEngine` never reads that field, so it neither broadens nor narrows what the
+rules match, and the behavioural comparison is uncontaminated.
+
+**The zero is NOT corrected for this run.** It is inside the canonical policy hash, so changing
+it produces a different policy and the pinned artifact would no longer be the one this document
+pins. Instead, before any F4 drive: recompute the pinned payload's full hash, recompute the
+runtime manifest and assert it equals the frozen lock, and **record a detached binding
+attestation carrying the policy hash, the embedded zero, the actual manifest hash, the target
+agent hash, and the status `POLICY_BINDING_DEFECT`.** The exact hashed payload ships inside the
+transfer artifact so a reader can recompute the hash without trusting us.
+
+**What this buys and what it does not.** It attests which target surface the run actually used.
+It does not repair the historical policy, and **the pinned policy may not be described as
+target-bound.** Repair requires a new policy version, which changes the hash, which cannot be
+the pre-registered primary policy.
+
+**Nothing in A3.8 may be edited after the unseal.**
