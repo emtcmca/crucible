@@ -1,0 +1,1 @@
+{"bundle": "run-01.c6.json", "checks_ok": 19, "checks_total": 19, "codes": [], "defect_count": 0, "exit_class": "CLEAN", "measurement": [], "schema": "crucible.reader_verdict.v1", "schema_errors": 0, "structural": [], "unclassified": [], "verdict": "ACCEPTS"}
