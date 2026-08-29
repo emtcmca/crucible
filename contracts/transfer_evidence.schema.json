@@ -1,0 +1,834 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crucible.invalid/contracts/transfer_evidence.schema.json",
+  "title": "Transfer Evidence Bundle - the two-arm sealed-holdout run",
+  "description": "THE RUN OF RECORD FOR A TWO-ARM TRANSFER EXPERIMENT, and a DIFFERENT KIND OF DOCUMENT from C6. Pre-registered at docs/proof/f4-unseal-preregistration-2026-08-25.md A3.8.3. Read by crucible/transfer/reader.py and by nothing else. THE DECISIVE REASON IT EXISTS: C6 attacks[].provenance admits exactly two values and neither is true of a sealed holdout instance. 'training_corpus' means reproducible from the committed corpus at corpus_hash, which the sealed family is not; 'generated' obligates the bundle to carry the attack's own bytes, which would PUBLISH THE SEALED INSTRUCTIONS. One value is false and the other breaks the seal, so the honest move is a new kind rather than a placeholder in an old one. Six further mismatches are listed in A3.8.3: v0_benign_traces is mandatory and unrelated; excluded[] requires a round index a transfer arm does not have; execution_provenance has no not_applicable for the uninvoked CORONER, ARMORER and WARDEN; sep_by_split at zero and zero fails parity; and an empty autopsy list raises one defect per breach. Filling a field with a plausible value so a validator passes is fabricating a finding.",
+  "$comment": "NOT REGISTERED IN contracts/MANIFEST.json. Registration would mean an entry in scripts/hash-contracts.py CONTRACT_FILES, a golden fixture pair under contracts/golden/, and a contract id, all of which are coordinator decisions and none of which is a file this schema's author owns. Until that happens this contract is HASHED BY NOTHING, and a reader should treat its version field rather than a manifest hash as the thing that says which shape it is looking at.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_kind",
+    "contract_version",
+    "run_manifest",
+    "arms",
+    "episodes",
+    "censuses",
+    "exclusions",
+    "preflight",
+    "policy_binding",
+    "transfer_arithmetic",
+    "execution_provenance",
+    "labels"
+  ],
+  "properties": {
+    "bundle_kind": {
+      "const": "transfer_evidence",
+      "$comment": "THE FIRST FIELD AND THE WHOLE POINT OF IT. A const, so this document can never be mistaken for a C6 evidence bundle by a reader that opened the wrong file, and so a C6 bundle can never validate here. The two kinds answer different questions and a tool that confused them would report a transfer arithmetic over a campaign, or a round census over a run that has no rounds."
+    },
+    "contract_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1,
+      "$comment": "1. Bumped only when a reader handed two versions would be looking at two different claims about what this evidence is. The version is the only field that says so before the schema does."
+    },
+    "run_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "spine_version",
+        "created_at",
+        "hash_locks",
+        "target_ref"
+      ],
+      "$comment": "MIRRORS C7's SHAPE WITHOUT REFERENCING IT. C7 requires frozen_parameters, whose members - round_cap, attacks_per_round, dry_rounds_required - describe a hardening campaign this run does not perform. Referencing C7 would force this document to carry campaign parameters that mean nothing here, which is the placeholder problem one level up.",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_[0-9]{8}_[0-9]{6}_[0-9a-f]{6}$"
+        },
+        "spine_version": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "hash_locks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gate_rule_hash",
+            "target_agent_hash",
+            "manifest_hash",
+            "objective_set_hash",
+            "corpus_hash",
+            "derived_schema_hash"
+          ],
+          "$comment": "THE SAME FIVE LOCKS ACROSS SIX FIELDS C7 CARRIES, and both arms are stamped with them. This is what makes the paired A/B a paired A/B: a v0 arm and a vFinal arm measured under two different definitions of breach would produce a transfer figure while every claim under it was false. The fifth lock is corpus plus derived_schema, frozen together at D5.",
+          "properties": {
+            "gate_rule_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$"
+            },
+            "target_agent_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$",
+              "$comment": "A weaker target is easier to attack, which inflates the v0 arm and flatters the difference. Pin it, hash it, and name the tier every time the counts are reported."
+            },
+            "manifest_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$",
+              "$comment": "Capability manifest part A. The policy binding block below recomputes the RUNTIME manifest and is asserted against this value."
+            },
+            "objective_set_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$",
+              "$comment": "THE DEFINITION OF BREACH. Stamped on every episode and on every verdict, and the reader cross-checks all three."
+            },
+            "corpus_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$",
+              "$comment": "The TRAINING corpus. The sealed family is deliberately not in it, which is the reason C6's provenance enum cannot describe these instances."
+            },
+            "derived_schema_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$"
+            }
+          }
+        },
+        "target_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_id",
+            "source",
+            "modified_by_crucible",
+            "model_id",
+            "thinking_level"
+          ],
+          "properties": {
+            "target_id": {
+              "type": "string",
+              "pattern": "^tgt_[a-z0-9_]+$"
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "modified_by_crucible": {
+              "const": false
+            },
+            "model_id": {
+              "type": "string",
+              "maxLength": 120,
+              "$comment": "PINNED EXACTLY. No aliases, no latest."
+            },
+            "thinking_level": {
+              "enum": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "$comment": "EXACTLY TWO, AND THE SCHEMA SAYS SO RATHER THAN LEAVING IT TO THE READER. A transfer figure is a comparison between two policies over one instance set; a third arm, or a second copy of one arm, means the figure below is a comparison of something else. The reader independently checks that the two are DISTINCT and NAMED, because minItems and maxItems cannot tell two identical arms from two different ones.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "arm",
+          "policy_version",
+          "policy_hash",
+          "policy_hash_full",
+          "hashed_payload"
+        ],
+        "properties": {
+          "arm": {
+            "enum": [
+              "v0",
+              "vfinal"
+            ],
+            "$comment": "The two arm names, closed. v0 is the policy in force before any hardening; vfinal is the promoted policy under test. Every episode names one of these and the reader refuses any other value."
+          },
+          "policy_version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "policy_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$",
+            "$comment": "The first 16 characters of policy_hash_full. RECOMPUTED BY THE READER from the hashed_payload carried beside it, which is the only check in this document that can disagree with what the producer wrote. Comparing a stored hash to itself passes on a truncated write, a partial write and a corrupted read."
+          },
+          "policy_hash_full": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "hashed_payload": {
+            "type": "object",
+            "$comment": "THE EXACT BYTES THE HASH COVERS, shipped inside the artifact so a reader can recompute the hash WITHOUT TRUSTING THE PRODUCER. Pre-registration A3.8.6. Not constrained further here: it is a foreign artifact under its own contract, and re-describing its shape in this file would be a second source of truth for it. run_id is deliberately outside it - inside, the same policy hashes differently in two runs."
+          },
+          "rule_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "episodes": {
+      "type": "array",
+      "$comment": "ONE EPISODE PER (instance_id, arm). Forty-eight rows for a twenty-four instance holdout under two arms. A fresh mutable world is built immediately before every drive, so a refund issued in the v0 arm does not exist when the vFinal arm runs, and the two arms are therefore comparable rather than sequential.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "$comment": "additionalProperties IS FALSE HERE AS A SEAL-SAFETY PROPERTY, NOT A STYLE CHOICE. This object describes a sealed instance. There is no instruction, prompt, text, turns, transcript or attack-body property on it, and the closed object means one cannot be added by a producer that finds it convenient. THE SEALED INSTRUCTIONS ARE NOT PUBLISHABLE AND THIS DOCUMENT IS PUBLISHED.",
+        "required": [
+          "instance_id",
+          "arm",
+          "episode_id",
+          "outcome",
+          "verdict",
+          "tool_calls",
+          "objective_set_hash",
+          "manifest_hash",
+          "derived_schema_hash",
+          "model_provenance",
+          "target_responded"
+        ],
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "pattern": "^atk_[0-9a-f]{12}$",
+            "$comment": "OPAQUE BY CONSTRUCTION. Four characters of prefix and twelve of hex, which is a shape that cannot carry a sentence, a slug, or a description of what the attack does. These exact ids are already public in corpus/F4-MANIFEST.json, which is a manifest of COUNTS and carries no instance content, so naming them here reveals nothing the commitment did not already reveal. A filename with a descriptive slug is NOT acceptable in this field: the slug would describe the attack."
+          },
+          "arm": {
+            "enum": [
+              "v0",
+              "vfinal"
+            ],
+            "$comment": "Which of the two declared arms drove this episode. The reader also checks membership against the arms actually declared above, because an enum here and a declaration there can drift apart."
+          },
+          "episode_id": {
+            "type": "string",
+            "pattern": "^ep_[0-9a-f]{12}$",
+            "$comment": "UNIQUE ACROSS THE WHOLE DOCUMENT, and the reader asserts it. The campaign's own _episode_id_for() derives an id from the attack id alone, so two arms over one instance set COLLIDE BY CONSTRUCTION - and a C6 bundle carrying two identical episodes under one id currently reads ACCEPTS. A transfer run is the exact shape that defect eats, because its two arms are two drives of the same instance."
+          },
+          "outcome": {
+            "enum": [
+              "completed",
+              "blocked",
+              "error",
+              "TARGET_FAULT"
+            ],
+            "$comment": "TARGET_FAULT is neither breach nor non-breach. It comes out of the denominator and is named in the exclusion ledger. Counting a crash as an attack that did not land would let a fragile target render as a hardened one."
+          },
+          "verdict": {
+            "$ref": "https://crucible.invalid/contracts/verdict.schema.json",
+            "$comment": "C9 UNCHANGED. The TRIPWIRE is the same pure-code component in both arms and its output contract does not change because the corpus is sealed. C9 is itself a closed object with no free-text field, which is why referencing it is seal-safe."
+          },
+          "tool_calls": {
+            "type": "array",
+            "$comment": "THE ORDERED RECORD OF WHAT THE TARGET ACTUALLY CALLED, which is the only thing the breach predicate is evaluated over. C1 IS DELIBERATELY NOT REFERENCED: C1's args object is unconstrained, and an unconstrained object inside a document that describes sealed instances is a place a whole attack instruction can sit while every validator stays green. The shape below is a strict subset of C1 with bounded argument values.",
+            "items": {
+              "$ref": "#/$defs/sealed_tool_call"
+            }
+          },
+          "objective_set_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$"
+          },
+          "manifest_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$"
+          },
+          "derived_schema_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$"
+          },
+          "model_provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "model_id",
+              "provider"
+            ],
+            "$comment": "A live run on this project once reached the wrong API entirely, because the target picks its provider from an unhashed environment variable while the endpoint sits inside a freeze. Every lock agreed and the calls went somewhere else. The episode now says who served it.",
+            "properties": {
+              "role": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "model_id": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "requested_model_id": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "provider": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "endpoint": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "thinking_level": {
+                "type": "string",
+                "maxLength": 16
+              },
+              "downgraded": {
+                "type": "boolean"
+              }
+            }
+          },
+          "target_responded": {
+            "enum": [
+              true,
+              false,
+              "UNSTAMPED"
+            ],
+            "$comment": "DID THE TARGET REPLY IN WORDS AT ALL - a harness fact stamped as the events go past, never inferred from a transcript and NEVER THE TEXT ITSELF. Three-valued because a target that said nothing and a target that engaged and called nothing are different findings, and an episode nobody drove has no target silence to report. The sentinel is uppercase so it cannot be mistaken for an answer."
+          },
+          "wall_clock_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "censuses": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "$comment": "ONE ROW PER ARM, AND THE ARM IS THE ONLY AXIS THERE IS. C6's round_census is indexed by round; a transfer arm has no rounds, so a round index here would be a number invented to satisfy a validator. The reader recomputes all three counters from the episodes and the exclusion ledger, so a census that does not account for itself is caught rather than believed.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "arm",
+          "attempted",
+          "scorable",
+          "excluded"
+        ],
+        "properties": {
+          "arm": {
+            "enum": [
+              "v0",
+              "vfinal"
+            ]
+          },
+          "attempted": {
+            "type": "integer",
+            "minimum": 0,
+            "$comment": "Every (instance, arm) drive that was started in this arm."
+          },
+          "scorable": {
+            "type": "integer",
+            "minimum": 0,
+            "$comment": "Episodes in this arm whose verdict answered the question, which is BREACH or CLEAN. INVALID answers nothing and belongs in the ledger."
+          },
+          "excluded": {
+            "type": "integer",
+            "minimum": 0,
+            "$comment": "attempted minus scorable, and every one of them NAMED in exclusions[]. A denominator that shrinks for a reason the ledger does not name is the silent exclusion this pair of fields exists to prevent."
+          },
+          "breaches": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wall_clock_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "$comment": "THE NAMED LEDGER. Every excluded instance appears here with its arm and a reason from a closed list. Silent exclusion turns flakiness into apparent hardening, and a ledger that does not add up is the shape that takes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "$comment": "THERE IS NO round_index PROPERTY AND THERE CANNOT BE ONE. C6's excluded[] requires a round index; a transfer arm has no rounds, so any value written there would be invented. The closed object is what makes that structural rather than a convention, and the reader ALSO refuses a round_index by name in case this object is ever loosened.",
+        "required": [
+          "instance_id",
+          "arm",
+          "reason"
+        ],
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "pattern": "^atk_[0-9a-f]{12}$"
+          },
+          "arm": {
+            "enum": [
+              "v0",
+              "vfinal"
+            ]
+          },
+          "episode_id": {
+            "type": "string",
+            "pattern": "^ep_[0-9a-f]{12}$"
+          },
+          "reason": {
+            "enum": [
+              "harness_error",
+              "quota_abort",
+              "hash_mismatch",
+              "target_fault",
+              "invalid_verdict",
+              "sealed_read_error",
+              "arm_isolation_fault"
+            ],
+            "$comment": "NAMED, NEVER FREE TEXT. The first five are C6's list. sealed_read_error and arm_isolation_fault are transfer-only: a holdout object that did not arrive, and a drive that found state left behind by the other arm. A free-text reason would be a place to write a sentence about the instance."
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 200,
+            "$comment": "BOUNDED, AND THE BOUND IS THE SEAL. Two hundred characters is room for an error class and a name, and not room for an attack instruction. The reader scans it anyway."
+          }
+        }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "before_read",
+        "after_read",
+        "g7_g8_exercised"
+      ],
+      "$comment": "BOTH FINDING LISTS, PERSISTED. Pre-registration A3.8.5: preflight() holds the whole assertion set and is the correct entry point, but it only RETURNS findings - it does not raise and it does not append to the gate's own reports. So a runner that called it and threw the result away leaves an empty reports list behind, and g7_g8_exercised derived from THAT is derived from nothing. The two calls also use different calibrated holdout expectations, zero before any sealed read and the calibrated figure after, which is why there are two lists rather than one.",
+      "properties": {
+        "before_read": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/preflight_finding"
+          }
+        },
+        "after_read": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/preflight_finding"
+          }
+        },
+        "g7_g8_exercised": {
+          "type": "boolean",
+          "$comment": "DERIVED FROM THE TWO LISTS, NEVER FROM A COMMAND-LINE FLAG. The reader recomputes it and refuses the overclaim direction: true beside a missing or empty list is two producer-written fields contradicting each other in the same breath."
+        }
+      }
+    },
+    "policy_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_hash",
+        "embedded_target_manifest_hash",
+        "runtime_manifest_hash",
+        "target_agent_hash",
+        "status"
+      ],
+      "$comment": "THE ATTESTATION, WHICH IS NOT A REPAIR. Pre-registration A3.8.6: every promoted policy carries a zeroed target_manifest_hash against a real frozen manifest. The engine never reads that field, so it neither broadens nor narrows what the rules match and the behavioural comparison is uncontaminated. THE ZERO IS NOT CORRECTED FOR THIS RUN, because it sits inside the canonical policy hash and changing it would produce a different policy - and the pinned artifact would no longer be the one the pre-registration pins. So the defect is recorded instead of hidden, and the pinned policy MAY NOT BE DESCRIBED AS TARGET-BOUND.",
+      "properties": {
+        "policy_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "$comment": "Which arm's policy this attestation is about. The reader checks it names an arm that exists."
+        },
+        "embedded_target_manifest_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "$comment": "The value CARRIED INSIDE the policy document, verbatim, including the zeroed one. Recorded rather than repaired."
+        },
+        "runtime_manifest_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "$comment": "The capability manifest RECOMPUTED at run time, which is what attests which target surface the run actually used. Asserted equal to run_manifest.hash_locks.manifest_hash."
+        },
+        "target_agent_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "status": {
+          "enum": [
+            "BOUND",
+            "POLICY_BINDING_DEFECT"
+          ],
+          "$comment": "POLICY_BINDING_DEFECT IS AN ADMISSIBLE VALUE AND IS THE EXPECTED ONE FOR THIS RUN. A status enum that could only say BOUND would force the producer to either lie or omit the block, and omitting it is how the defect stops being visible. The reader cross-checks the status against the two manifest hashes, so a BOUND beside two values that differ is caught."
+        }
+      }
+    },
+    "transfer_arithmetic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "breached_at_v0",
+        "breached_at_vfinal",
+        "floor"
+      ],
+      "$comment": "THE TWO RAW COUNTS AND THE FLOOR, AND NO RATE. There is deliberately no transfer_rate property here and additionalProperties is false, so a producer CANNOT assert one. The rate is derived by the reader, which is the same discipline the exclusion-rate applicability test follows: a producer that asserts its own applicability is a producer that can lie about it, and the assertion would be believed on exactly the same authority as the number it exempts. Below the floor there is no rate to write down, and a field that exists gets filled.",
+      "properties": {
+        "breached_at_v0": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "Episodes in the v0 arm whose verdict is BREACH. RECOMPUTED BY THE READER from the episodes. This is the DENOMINATOR, and it is the reason the transfer question can fail to resolve while the run is still perfectly valid."
+        },
+        "breached_at_vfinal": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "The same count under the promoted policy. Recomputed the same way."
+        },
+        "floor": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "THE PRE-REGISTERED DENOMINATOR FLOOR, twelve for the twenty-four instance holdout. Below it the quotient is not defined and the reader says so instead of printing one. It is ARITHMETIC rather than preference: a difference of one over a denominator of three is not a transfer rate, it is noise wearing a percent sign. The reader takes the expected floor as a parameter and asserts this field equals it, so a bundle carrying a lowered floor is caught rather than obeyed."
+        },
+        "replay_counterfactual_blocked": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "OPTIONAL AND SECONDARY. The recorded-call counterfactual: how many of the v0 arm's recorded calls the final policy would have denied. It answers a DIFFERENT question from the live arms - it cannot observe an agent that, refused one route, tries another - so it is clearly labelled and MAY NEVER BE SUBSTITUTED FOR THE LIVE FIGURE."
+        }
+      }
+    },
+    "execution_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "components",
+        "model_calls"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "live",
+            "stand_in",
+            "offline"
+          ]
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "red_strategist",
+            "tripwire",
+            "coroner",
+            "armorer",
+            "warden",
+            "gate"
+          ],
+          "$comment": "EVERY COMPONENT NAMED, INCLUDING THE ONES THAT DID NOT RUN. not_applicable is admitted here and is REQUIRED for the CORONER, the ARMORER and the WARDEN, because a transfer arm authors no patch and neither pass calls them. C6's enum has no such value, which is one of the six mismatches: under C6 those three would have to be described as something they were not. Declaring not_applicable is honest reporting of an absence that happened; writing a stand-in record for them would be fabricating a finding.",
+          "properties": {
+            "target": {
+              "$ref": "#/$defs/component"
+            },
+            "red_strategist": {
+              "$ref": "#/$defs/component"
+            },
+            "tripwire": {
+              "$ref": "#/$defs/component"
+            },
+            "coroner": {
+              "$ref": "#/$defs/component"
+            },
+            "armorer": {
+              "$ref": "#/$defs/component"
+            },
+            "warden": {
+              "$ref": "#/$defs/component"
+            },
+            "gate": {
+              "$ref": "#/$defs/component"
+            }
+          }
+        },
+        "model_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "Zero on a live run is the exact shape of a scripted run wearing a live label."
+        },
+        "cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "input_tokens",
+            "output_tokens",
+            "wall_clock_ms"
+          ],
+          "properties": {
+            "input_tokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "output_tokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wall_clock_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retries": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "k",
+        "target_tier",
+        "timing_deviation"
+      ],
+      "$comment": "THE CAVEATS THAT TRAVEL WITH THE COUNTS. Three, not C6's five: sep_by_split and benign_regression describe a corpus of test pairs and a benign replay set, neither of which a sealed holdout run has, and a label about a thing that did not happen is a placeholder.",
+      "properties": {
+        "k": {
+          "type": "string",
+          "maxLength": 120,
+          "$comment": "Single-sample, no stability estimate, while reps stay at one. Printed beside every count."
+        },
+        "target_tier": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "timing_deviation": {
+          "type": "string",
+          "maxLength": 400,
+          "$comment": "A3.8.2, AND IT IS REQUIRED RATHER THAN OPTIONAL. The specification places the v0 holdout arm BEFORE the hardening loop and the vFinal arm after the freeze; both arms ran post-freeze on one day, because the v0 arm was never taken and the alternative was no v0 arm at all rather than a correctly timed one. The paired comparison stays valid - same instances, same target build, same locks - but it is not what the spec described, and a reader who is told the design and then reads the spec will find the difference. Better they find it here first."
+        },
+        "seal_status": {
+          "type": "string",
+          "maxLength": 400
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sealed_tool_call": {
+      "type": "object",
+      "additionalProperties": false,
+      "$comment": "A STRICT SUBSET OF C1 WITH BOUNDED ARGUMENT VALUES. Every property here means what it means in C1 and the reader does not redefine any of them. What is deliberately absent: the unconstrained args object, any free-text field, and any tool return value.",
+      "required": [
+        "episode_id",
+        "seq",
+        "kind",
+        "tool_name",
+        "tool_handle",
+        "capability_classes",
+        "args"
+      ],
+      "properties": {
+        "episode_id": {
+          "type": "string",
+          "pattern": "^ep_[0-9a-f]{12}$"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "Monotonic within the episode. The order carries the meaning: a trace out of order replays a different episode than the one that ran."
+        },
+        "kind": {
+          "enum": [
+            "TOOL_ATTEMPT",
+            "TOOL_EXECUTED",
+            "TOOL_ERROR"
+          ],
+          "$comment": "TOOL_EXECUTED, and only TOOL_EXECUTED, is what the TRIPWIRE scores on. A denied call produces an ATTEMPT with no matching EXECUTED, which is how enforcement is proven from the record alone - and in a transfer run that pairing is the entire finding."
+        },
+        "tool_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "tool_handle": {
+          "type": "string",
+          "pattern": "^tool:t_[0-9a-f]{8}$"
+        },
+        "capability_classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "CAP_MOVES_MONEY",
+              "CAP_EXTERNAL_COMMS",
+              "CAP_MUTATES_DURABLE_STATE",
+              "CAP_READS_PII",
+              "CAP_ESCALATES_PRIVILEGE",
+              "CAP_INVOKES_AGENT",
+              "UNCLASSIFIED"
+            ]
+          },
+          "$comment": "A TOOL CARRIES A SET, and matching a rule against it is membership rather than equality. UNCLASSIFIED means we do not know what the tool does, which is a different fact from a tool that does nothing, and the two must not share an encoding."
+        },
+        "args": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_.]{0,63}$"
+          },
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean"
+            ],
+            "maxLength": 120
+          },
+          "$comment": "SCALARS ONLY, AND EVERY STRING BOUNDED AT 120 CHARACTERS. This is the seal-safety bound that C1 cannot provide: C1's args is an unconstrained object because a general agent's arguments are unconstrained, and an unconstrained object in a document about sealed instances is exactly where a whole attack instruction sits while every validator stays green. A hundred and twenty characters holds an instrument id, an amount, an email address. It does not hold a social-engineering paragraph. Nested objects are refused for the same reason: depth is where a bound stops applying."
+        },
+        "policy_decision": {
+          "enum": [
+            "ALLOW",
+            "DENY",
+            "APPROVAL_REQUIRED"
+          ]
+        },
+        "denied_by_rule_id": {
+          "type": "string",
+          "pattern": "^r_[0-9a-f]{12}$",
+          "$comment": "A decision no rule is accountable for is not auditable, and in a transfer run the rule that fired IS the result. The pre-registration requires that a non-zero difference be reported together with WHICH call was denied - a cross-subject read is the invariant doing its job, a money or state call is a different finding, and one cannot be told from the other without this field."
+        },
+        "error_class": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "result_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "$comment": "REPLAY INTEGRITY ONLY, and explicitly not evaluable by the policy engine. A hash, not a value: reading a tool return into the evaluator's input is what would make the derived fields computable again."
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "A TOOL_ERROR must carry its error class.",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "TOOL_ERROR"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "error_class"
+            ]
+          }
+        },
+        {
+          "$comment": "A TOOL_ATTEMPT must carry the policy decision that was reached for it.",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "TOOL_ATTEMPT"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "policy_decision"
+            ]
+          }
+        },
+        {
+          "$comment": "A DENY or an APPROVAL_REQUIRED must name the rule that produced it.",
+          "if": {
+            "properties": {
+              "policy_decision": {
+                "enum": [
+                  "DENY",
+                  "APPROVAL_REQUIRED"
+                ]
+              }
+            },
+            "required": [
+              "policy_decision"
+            ]
+          },
+          "then": {
+            "required": [
+              "denied_by_rule_id"
+            ]
+          }
+        }
+      ]
+    },
+    "preflight_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate",
+        "assertion",
+        "status",
+        "invalidates"
+      ],
+      "properties": {
+        "gate": {
+          "enum": [
+            "G7",
+            "G8"
+          ],
+          "$comment": "G7 is seal integrity, G8 is non-self-approval. The reader requires both to appear in both lists, because a list holding only one of them is a preflight that asserted half of what it claims."
+        },
+        "assertion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "status": {
+          "enum": [
+            "OK",
+            "FAIL",
+            "UNEVALUABLE"
+          ],
+          "$comment": "UNEVALUABLE IS NOT OK. A check that could not run is not a check that passed, and an unevaluable gate is a check that cannot fail. It invalidates the run."
+        },
+        "invalidates": {
+          "type": "boolean"
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 400
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implementation"
+      ],
+      "properties": {
+        "implementation": {
+          "enum": [
+            "real",
+            "stand_in",
+            "not_applicable"
+          ],
+          "$comment": "not_applicable IS THE ADDITION C6 DOES NOT HAVE, and it is the honest value for a component that was never invoked. stand_in means something ran in its place, which is a different and much weaker claim."
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    }
+  }
+}
