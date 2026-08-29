@@ -62,6 +62,18 @@ ARMS = ("v0", "vfinal")
 DEFAULT_STANDIN = "F7"
 SEALED_FAMILY = "F4"
 
+# AN EXPLICIT SENTINEL, BECAUSE `None` MEANT TWO THINGS AND THAT COST A RUN.
+#
+# `build_real_target(model=None)` means "use the pinned live default". This file
+# also used `None` to mean "build the offline stub". Both branches therefore set
+# `model = None`, and `--live` silently executed the scripted offline model while
+# the record claimed live, named the Gemini pin, and labelled every episode
+# `provider: vertex`. Found by adversarial review 2026-08-29; the stand-in
+# artifacts built on it were withdrawn.
+#
+# The offline path now carries a value that cannot be confused with a default.
+OFFLINE_STUB = "OFFLINE_SCRIPTED_STUB"
+
 
 class TransferRunError(RuntimeError):
     def __init__(self, code, message):
@@ -319,7 +331,7 @@ def drive(seeds, instances, policies, base_manifest, model, objective_set, limit
             attack = {"attack_id": aid,
                       "family_id": rec.family_id,
                       "instruction": rec.turns[-1]}
-            if model is None:
+            if model is OFFLINE_STUB:
                 # OFFLINE: the stub is scripted from THIS instance's own trace,
                 # built fresh per arm. Looked up on the BASE id - the armed id
                 # exists only to separate episode ids and names no instance.
@@ -430,7 +442,7 @@ def main(argv=None):
         assert_provider_matches_descriptor()
         model, model_id = None, TARGET_MODEL
     else:
-        model, model_id = None, "OFFLINE_SCRIPTED"
+        model, model_id = OFFLINE_STUB, "OFFLINE_SCRIPTED"
 
     print("=" * 78)
     print("TRANSFER DRIVE   family=%s  source=%s  mode=%s"

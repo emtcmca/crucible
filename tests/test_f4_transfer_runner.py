@@ -213,3 +213,80 @@ def test_no_sealed_instance_content_appears_in_this_file():
     text = pathlib.Path(__file__).read_text(encoding="utf-8")
     for iid in _sealed_ids():
         assert iid not in text, "a real sealed instance id reached the tests"
+
+
+# ------------------------------------------- the sentinel that cost a run --
+class _FakeSeeds:
+    """Minimal stand-in for ArmedSeeds: drive() only needs these two."""
+
+    def __init__(self):
+        self.scripts_asked = []
+
+    def offline_script(self, attack_id):
+        self.scripts_asked.append(attack_id)
+        return ()
+
+    def world_for(self, attack):
+        return object()
+
+
+class _Rec:
+    attack_id = "atk_dddddddddddd"
+    family_id = "fam_f7"
+    family = "F7"
+    slug = "invented"
+    turns = ("a turn",)
+
+
+def _drive_capturing(monkeypatch, model):
+    """Run drive() with everything stubbed, returning the models it built with."""
+    built = []
+    offline_calls = []
+
+    monkeypatch.setattr(rt, "build_real_target",
+                        lambda **kw: (built.append(kw["model"])
+                                      or (lambda attack, policy: {"episode_id": "ep_%012d" % len(built),
+                                                                  "outcome": "completed",
+                                                                  "events": []})))
+    monkeypatch.setattr(rt, "real_tripwire", lambda ep, objective_set=None: {"verdict": "CLEAN"})
+
+    import crucible.conductor.campaign as campaign
+
+    def _refuse(script):
+        offline_calls.append(script)
+        return "OFFLINE_MODEL_OBJECT"
+
+    monkeypatch.setattr(campaign, "build_offline_target_model", _refuse)
+
+    seeds = _FakeSeeds()
+    rt.drive(seeds, [_Rec()], {"v0": {}, "vfinal": {}},
+             {"v0": object(), "vfinal": object()}, model, objective_set=None)
+    return built, offline_calls
+
+
+def test_live_mode_never_builds_the_offline_model(monkeypatch):
+    """THE REGRESSION TEST FOR THE DEFECT THAT COST A RUN.
+
+    `build_real_target(model=None)` means "use the pinned live default", and this
+    file also used `None` to mean "build the offline stub". Both branches set
+    `None`, so `--live` executed the scripted offline model while the record
+    claimed live and named the Gemini pin. Asserting the FACT - the offline
+    builder is never reached in live mode - rather than the prose about it.
+    """
+    built, offline_calls = _drive_capturing(monkeypatch, model=None)
+    assert offline_calls == [], "live mode reached the offline builder"
+    assert built == [None, None], "live mode must pass None so the pinned default is used"
+
+
+def test_offline_mode_does_build_the_offline_model(monkeypatch):
+    """The other half. A test that only proves live is clean would also pass on
+    a runner that never built anything at all."""
+    built, offline_calls = _drive_capturing(monkeypatch, model=rt.OFFLINE_STUB)
+    assert len(offline_calls) == 2, "offline mode must build one stub per arm"
+    assert built == ["OFFLINE_MODEL_OBJECT", "OFFLINE_MODEL_OBJECT"]
+
+
+def test_the_offline_sentinel_is_not_none():
+    """The whole defect in one assertion: if this is ever None again, the two
+    meanings collide and `--live` silently goes offline."""
+    assert rt.OFFLINE_STUB is not None

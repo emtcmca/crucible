@@ -234,11 +234,17 @@ said in the same sentence as the pooled figure.** A real run now ships at
   `--i-am-opening-the-seal`), `E_SEALED_PATH_NOT_WIRED` (sealed drive deliberately not wired
   yet), `E_SEALED_FAMILY_VIA_TRAINING` (F4 through the training door). Ordering matters — the
   guard was originally reached after setup, so a setup crash hid the refusal.
-- **FULL PIPELINE GREEN END TO END on the live stand-in, 2026-08-29.** drive -> assemble ->
-  reader. `record: WELL FORMED`, `exit_class: MEASUREMENT`, exit 0. The one defect is
-  `E_PREFLIGHT_INVALIDATES`, which is CORRECT for a stand-in: no seal exists to inspect, so
-  G7/G8 read UNEVALUABLE. Well formed record of a non-sealed run is exactly ruling 60's
-  MEASUREMENT class. Artifacts in `docs/proof/standin-run/`.
+- **CODEX RETURNED A NO-GO ON 2026-08-29. TEN CONFIRMED DEFECTS, SIX REPRODUCED.** Do not
+  open F4 with the runner as it stands. Full verdict and triage:
+  `scratchpad/queued-fixes-before-unseal.md` plus the Codex report in-session.
+- **THE "LIVE" STAND-IN WAS NEVER LIVE, and its artifacts are withdrawn.** `--live` and offline
+  BOTH set `model = None`, and `drive()` read `None` as "build the offline stub", so live mode
+  ran the scripted replay while the record claimed Vertex and named the Gemini pin. **The model
+  id came from a constant, not an observed call.** Fixed with an explicit `OFFLINE_STUB`
+  sentinel plus two mutation-checked regression tests. **Never again report a run as live
+  without checking for token counts or model-call telemetry** - that is the check nobody ran.
+- **The offline stand-in stands** and is a policy-coverage reading only: 16 episodes, unique
+  episode ids across arms, both arms per instance, no instance moved between arms.
 - **`breached_at_v0` = 7 on the stand-in, under the floor of 12.** Had it been F4 that is
   Outcome E — two raw counts, the floor, no rate. The pre-registration already names Outcome E
   the likely one (v0 baseline breaches 8 of 50 against a design target of 34).
