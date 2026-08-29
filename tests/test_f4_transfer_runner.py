@@ -384,3 +384,23 @@ def test_the_episode_record_never_carries_a_slug():
     if src:
         block = src.split('"kind": "episode",', 1)[1].split("}", 1)[0]
         assert "slug" not in block, "the episode record must not carry a slug"
+
+
+def test_duplicate_declared_names_are_refused_before_any_request():
+    """`read_sealed_once` refuses a duplicate only when it reaches the second
+    one, by which point a request has issued and the audit count has moved.
+    A declared set is validated in full before anything is touched."""
+    called = []
+    names = _declared_names(23) + [_declared_names(23)[0]]
+    with pytest.raises(rt.TransferRunError) as exc:
+        rt.load_sealed_instances(object_names=names,
+                                 downloader=lambda uri: called.append(uri))
+    assert exc.value.code == "E_DECLARED_SET_DUPLICATE"
+    assert called == [], "no request may be issued before the set is validated"
+
+
+def test_a_live_run_that_made_no_calls_is_refusable():
+    """The contract's own comment: zero on a live run is the exact shape of a
+    scripted run wearing a live label. That is the defect this runner shipped,
+    so the meter's emptiness has to be actionable."""
+    assert hasattr(rt, "_metered_model"), "live runs must be metered"

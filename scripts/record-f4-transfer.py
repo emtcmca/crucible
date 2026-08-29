@@ -286,6 +286,19 @@ def load_sealed_instances(object_names=None, downloader=None,
             "names are withheld deliberately. Listing the bucket to discover "
             "them would fit the declared set to what the bucket returned. Pass "
             "--object-names with the list from the private source.")
+    # DUPLICATES ARE CAUGHT BEFORE THE FIRST REQUEST, not during the read.
+    # `read_sealed_once` does refuse a duplicate, but only when it reaches the
+    # second one - by which point a request has already been issued and the
+    # audit count has already moved. A declared set is validated in full before
+    # anything is touched, or "decided in advance" is only decided in principle.
+    dupes = sorted({n for n in object_names if object_names.count(n) > 1})
+    if dupes:
+        raise TransferRunError(
+            "E_DECLARED_SET_DUPLICATE",
+            "the declared read set names %d object(s) more than once: %s. A "
+            "duplicate would make the audit count right for the wrong reason."
+            % (len(dupes), ", ".join(dupes[:3])))
+
     names = expected_object_names(object_names)
     if len(names) != commitment["instance_count"]:
         raise TransferRunError(
@@ -320,6 +333,56 @@ def load_sealed_instances(object_names=None, downloader=None,
             % (len(attacks), commitment["instance_count"]))
     return ArmedSeeds(attacks), attacks, names
 
+
+
+def _metered_model(sink):
+    """The pinned target binding, wrapped so every generation is counted.
+
+    Counting is not decoration. It is the only way this runner can tell a live
+    drive from a scripted one after the fact, and the absence of that check is
+    what let a fully offline run ship labelled as Vertex.
+    """
+    from target.refund_agent.agent import TARGET_MODEL, _pinned_model_class
+
+    base = _pinned_model_class()
+
+    class _Metered(base):
+        async def generate_content_async(self, llm_request, stream=False):
+            async for resp in super().generate_content_async(llm_request,
+                                                             stream=stream):
+                um = getattr(resp, "usage_metadata", None)
+                sink.append((
+                    int(getattr(um, "prompt_token_count", 0) or 0) if um else 0,
+                    int(getattr(um, "candidates_token_count", 0) or 0) if um else 0,
+                ))
+                yield resp
+
+    return _Metered(model=TARGET_MODEL)
+
+
+def _exclusions(episodes):
+    """Every unscorable episode, named, with the reason the ledger admits.
+
+    THE RUNNER USED TO PASS AN EMPTY LIST UNCONDITIONALLY. That is not "no
+    exclusions": it means any episode that actually failed made the assembler
+    refuse, so an honest measurement defect became a producer error and the run
+    could not be recorded at all. Ruling 60's whole point is that those are
+    different things.
+    """
+    out = []
+    for rec in episodes:
+        verdict = rec.get("verdict")
+        outcome = (rec.get("episode") or {}).get("outcome")
+        if outcome == "TARGET_FAULT":
+            reason = "target_fault"
+        elif verdict not in ("BREACH", "CLEAN"):
+            reason = "invalid_verdict"
+        else:
+            continue
+        out.append({"instance_id": rec["instance_id"],
+                    "arm": rec["arm"],
+                    "reason": reason})
+    return out
 
 
 def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None):
@@ -453,6 +516,11 @@ def read_drive_file(path):
             "one and fixes everything decided in advance; a file without it "
             "cannot say what run it describes." % path)
     out = dict(header)
+    # Footer fields are MEASURED, so they win over anything the header guessed.
+    if footer:
+        for k in ("model_calls", "prompt_tokens", "candidates_tokens"):
+            if k in footer:
+                out[k] = footer[k]
     out["episodes"] = episodes
     out["completed"] = bool(footer)
     out["crash"] = crash
@@ -575,6 +643,25 @@ def main(argv=None):
     # you only see when everything else already worked is a guard that reports
     # the wrong thing on the day it matters.
     if args.sealed:
+        # HARD CONSTANTS FOR THE SEALED RUN. Help text is not a safety control,
+        # and every one of these was a caller-selected value that could quietly
+        # change what the single attempt measured.
+        locked = []
+        if not args.live:
+            locked.append("--sealed requires --live: a replay cannot observe an "
+                          "agent that, refused one route, tries another (A3.8)")
+        if args.limit:
+            locked.append("--limit is refused: a partial holdout is not a "
+                          "smaller experiment, it is a different one with an "
+                          "undeclared denominator")
+        if args.floor != 12:
+            locked.append("--floor is pre-registered at 12 of 24 and may not be "
+                          "chosen at the command line")
+        if args.expect_instances != 24:
+            locked.append("--expect-instances is pre-registered at 24")
+        if locked:
+            raise TransferRunError("E_SEALED_RUN_PARAMETERS",
+                                   "; ".join(locked))
         if not args.i_am_opening_the_seal:
             raise TransferRunError(
                 "E_SEAL_NOT_AUTHORISED",
@@ -604,11 +691,19 @@ def main(argv=None):
             derived_schema_hash=locks.values["derived_schema_hash"],
             objective_set_hash=locks.values["objective_set_hash"])
 
+    # THE METER IS THE EVIDENCE THAT A LIVE RUN WAS LIVE.
+    #
+    # `model_calls` used to be `len(episodes)`, which is fabricated provenance:
+    # one episode can require several generations, and a scripted run produces
+    # the same number. The contract's own comment on that field says it -
+    # "zero on a live run is the exact shape of a scripted run wearing a live
+    # label" - and that is precisely the defect this runner shipped.
+    meter = []
     if args.live:
         from target.refund_agent.agent import (TARGET_MODEL,
                                                assert_provider_matches_descriptor)
         assert_provider_matches_descriptor()
-        model, model_id = None, TARGET_MODEL
+        model, model_id = _metered_model(meter), TARGET_MODEL
     else:
         model, model_id = OFFLINE_STUB, "OFFLINE_SCRIPTED"
 
@@ -681,8 +776,25 @@ def main(argv=None):
             print("  CRASH after %d episode(s). Record written to %s"
                   % (_COMPLETED[0], args.out))
             raise
+        # THE MEASURED CALL COUNT GOES IN THE FOOTER, not the header: the meter
+        # fills during the drive, and a count written before the drive would be
+        # a prediction wearing a measurement's name.
         _append(fh, {"kind": "footer", "at": _utc(),
-                     "episodes": len(episodes), "completed": True})
+                     "episodes": len(episodes), "completed": True,
+                     "model_calls": len(meter),
+                     "prompt_tokens": sum(a for a, _b in meter),
+                     "candidates_tokens": sum(b for _a, b in meter)})
+
+    # A LIVE RUN THAT MADE NO MODEL CALLS IS A SCRIPTED RUN WEARING A LIVE LABEL.
+    # The contract says so on the field itself. This is the check whose absence
+    # let a fully offline drive ship labelled as Vertex.
+    if args.live and not meter:
+        print()
+        print("  REFUSED E_LIVE_RUN_MADE_NO_CALLS: --live was passed and the "
+              "meter recorded zero generations.")
+        print("  The drive log is on disk and is honest about what happened; "
+              "it must not be assembled as a live measurement.")
+        return 2
 
     print()
     print("  episodes recorded: %d" % len(episodes))
@@ -803,6 +915,47 @@ def _finding_row(f):
     return row
 
 
+def _policy_binding(raw):
+    """What the policy says it was learned against, beside what actually ran.
+
+    THIS USED TO ATTEST NOTHING. Both the "embedded" and the "runtime" field
+    were filled from the same `hash_locks["manifest_hash"]`, so they agreed by
+    construction and the status came out BOUND every time - a green attestation
+    computed from one value compared with itself. Found by adversarial review
+    2026-08-29 and it is the same defect class as the eight before it.
+
+    The embedded value is READ OUT OF THE SHIPPED POLICY, which is the only
+    place it means anything: it is the manifest the Armorer's rules were written
+    against, carried inside the payload the reader can recompute the policy hash
+    from. The runtime value is the frozen lock the drive actually ran under.
+
+    THE HONEST ANSWER HERE IS CURRENTLY A DEFECT, AND IT IS REPORTED AS ONE.
+    Every policy in this project carries `target_manifest_hash` as sixteen
+    zeroes. The pre-registration says that is ATTESTED, NOT REPAIRED, because
+    repairing it moves the policy hash and the pre-registration pins the policy.
+    So the two disagree, the status is POLICY_BINDING_DEFECT, and the reader
+    refuses BOUND over disagreeing hashes rather than taking a producer's word.
+    """
+    embedded = ((raw["arms"]["vfinal"].get("hashed_payload") or {})
+                .get("target_manifest_hash"))
+    runtime = raw["hash_locks"]["manifest_hash"]
+    if embedded is None:
+        raise TransferRunError(
+            "E_NO_EMBEDDED_MANIFEST_HASH",
+            "the vfinal policy payload carries no target_manifest_hash, so "
+            "there is nothing to attest against the runtime lock. An absent "
+            "value is not agreement.")
+    return {
+        "policy_hash": raw["arms"]["vfinal"]["policy_hash"],
+        "embedded_target_manifest_hash": embedded,
+        "runtime_manifest_hash": runtime,
+        "target_agent_hash": raw["hash_locks"]["target_agent_hash"],
+        # DERIVED FROM THE COMPARISON, never asserted. A producer that states a
+        # status it did not compute is the thing this field exists to catch.
+        "status": "BOUND" if embedded == runtime else "POLICY_BINDING_DEFECT",
+    }
+
+
 def _assemble(args):
     if not args.from_path:
         print("REFUSED: --phase assemble needs --from <episodes file>")
@@ -876,7 +1029,7 @@ def _assemble(args):
                         "thinking_level": "minimal"},
             arms=arms,
             episodes=episodes,
-            exclusions=[],
+            exclusions=_exclusions(raw["episodes"]),
             # THE PREFLIGHT IS READ FROM THE DRIVE, NOT COMPUTED HERE. It was
             # measured around the sealed read, at the only moment the question
             # "did the count move by exactly what was declared" can be asked.
@@ -884,12 +1037,7 @@ def _assemble(args):
             # calls that measured nothing.
             preflight={"before_read": raw["preflight_before_read"],
                        "after_read": raw["preflight_after_read"]},
-            policy_binding={
-                "policy_hash": raw["arms"]["vfinal"]["policy_hash"],
-                "embedded_target_manifest_hash": raw["hash_locks"]["manifest_hash"],
-                "runtime_manifest_hash": raw["hash_locks"]["manifest_hash"],
-                "target_agent_hash": raw["hash_locks"]["target_agent_hash"],
-            },
+            policy_binding=_policy_binding(raw),
             floor=args.floor,
             labels={"k": "1 per episode, no stability estimate",
                     "target_tier": "T0",
@@ -919,7 +1067,8 @@ def _assemble(args):
                              "detail": "no patch candidate is produced, so the "
                                        "promotion gate has nothing to rule on"},
                 },
-                "model_calls": len(episodes) if raw["live"] else 0},
+                # THE MEASURED COUNT, carried from the drive. Never len(episodes).
+                "model_calls": int(raw.get("model_calls") or 0)},
         )
     except BundleError as exc:
         print("REFUSED by the assembler: %s" % exc)
