@@ -112,7 +112,7 @@ class ArmedSeeds(CorpusSeeds):
         return super().lookup(attack)
 
 
-def load_instances(family, sealed, opening_the_seal):
+def load_instances(family, sealed, opening_the_seal, object_names=None):
     """The corpus instances for one family, and the door each source comes through.
 
     The two sources are deliberately different code paths. The training path
@@ -129,11 +129,7 @@ def load_instances(family, sealed, opening_the_seal):
                 "forbidden, so there is no second try. Pass "
                 "--i-am-opening-the-seal only with a human present and the "
                 "read path already calibrated on the canary.")
-        raise TransferRunError(
-            "E_SEALED_PATH_NOT_WIRED",
-            "the sealed drive is not wired in this build. Calibrate on the "
-            "canary first, then wire it deliberately - not as a side effect of "
-            "tuning the stand-in.")
+        return load_sealed_instances(object_names=object_names)
 
     if family == SEALED_FAMILY:
         raise TransferRunError(
@@ -148,7 +144,163 @@ def load_instances(family, sealed, opening_the_seal):
         raise TransferRunError(
             "E_FAMILY_EMPTY",
             "no training instance declares family %r. Present: %s" % (family, have))
-    return seeds, picked
+    # Three values on BOTH paths. The sealed path also returns the object
+    # names it declared in advance, which the preflight asserts against; the
+    # training path has no holdout and returns None rather than an empty
+    # tuple, so 'no seal here' cannot be confused with 'read nothing'.
+    return seeds, picked, None
+
+
+SEALED_BUCKET = "gs://crucible-sealed-x7"
+F4_MANIFEST = "corpus/F4-MANIFEST.json"
+SEAL_COMMITMENT = "docs/proof/sealed-family-commitment.json"
+
+
+
+def _declared_names(path):
+    """The sealed read set, read from a file the operator points at.
+
+    Returned as a list so the caller can count it; `None` when no file was
+    given, which the sealed path turns into a refusal rather than an empty read.
+    """
+    if not path:
+        return None
+    text = pathlib.Path(path).read_text(encoding="utf-8")
+    return [ln.strip() for ln in text.splitlines() if ln.strip()]
+
+
+def _adapt_sealed(doc):
+    """One sealed instance to a `CorpusAttack`, mirroring `_adapt` exactly.
+
+    THE REFUSALS ARE THE MIRROR IMAGE OF THE TRAINING ONE, and that symmetry is
+    the design. `CorpusSeeds._adapt` refuses family F4 and refuses `sealed: true`.
+    This refuses anything that is NOT F4 and anything NOT marked sealed. Neither
+    door can be talked into reading the other's family, and a filter in either
+    would drop an instance silently and pass identically whether the seal held
+    or not.
+
+    Everything after the guards is `_adapt`'s body, unchanged. The two arms must
+    be built by the same construction as every training episode, or the transfer
+    comparison is between differently-built worlds.
+    """
+    from crucible.conductor.corpus_seeds import CorpusAttack, CorpusSeedError
+    from crucible.conductor.corpus_seeds import family_id_for
+    from crucible.conductor.corpus_seeds import (blind_fields, build_sor,
+                                                 unpresentable_entities,
+                                                 _script_from_trace)
+    from corpus.schema import instance_id
+
+    slug = doc.get("slug") or "<instance>"
+    family = doc.get("family")
+    if family != SEALED_FAMILY:
+        raise CorpusSeedError(
+            "E_NOT_THE_SEALED_FAMILY",
+            "%s declares family %r. This door reads %s and nothing else."
+            % (slug, family, SEALED_FAMILY))
+    if not doc.get("sealed"):
+        raise CorpusSeedError(
+            "E_SEALED_FLAG_ABSENT",
+            "%s does not carry `sealed: true`. An instance reaching this path "
+            "without the flag is an instance that came from somewhere else."
+            % slug)
+
+    turns = doc.get("input_turns")
+    if not isinstance(turns, list) or not turns or not all(
+            isinstance(t, str) and t.strip() for t in turns):
+        raise CorpusSeedError(
+            "E_INPUT_TURNS",
+            "%s carries no usable `input_turns`." % slug)
+
+    sor, unstated, ignored = build_sor(doc)
+    computed = blind_fields(doc)
+    aid = doc.get("_instance_id") or instance_id(doc)
+    return CorpusAttack(
+        attack_id=aid, corpus_instance_id=aid, slug=slug, family=family,
+        family_id=family_id_for(family), turns=tuple(turns),
+        order_id=doc["scenario"]["order"]["order_id"],
+        customer_id=doc["scenario"]["account"]["account_id"],
+        approval_tier=computed["derived.approval_tier"],
+        script=tuple(_script_from_trace(doc)),
+        unstated_fields=unstated, ignored_scenario_keys=ignored,
+        unpresentable=unpresentable_entities(doc, sor), doc=doc)
+
+
+def load_sealed_instances(object_names=None, downloader=None,
+                          bucket=SEALED_BUCKET):
+    """Read the holdout ONCE, assert its fingerprint, and adapt it.
+
+    THE FINGERPRINT IS CHECKED BEFORE A SINGLE INSTANCE IS USED. The commitment
+    was published before the run; if what came back does not hash to it, the set
+    on the wire is not the set that was sealed, and every number downstream would
+    be about a corpus nobody committed to. That is a stop, not a warning.
+
+    The object names come from the PUBLISHED manifest of counts, which carries
+    ids and no content. Deciding the read set in advance is what makes the audit
+    count assertable: a run that reads whatever the bucket happens to hold cannot
+    say afterwards that it read only what it declared.
+    """
+    from crucible.transfer.sealed_io import (expected_object_names,
+                                             fingerprint_from_bytes,
+                                             parse_instances, read_sealed_once)
+
+    commitment = json.loads((ROOT / SEAL_COMMITMENT).read_text(encoding="utf-8"))
+
+    # THE READ SET IS SUPPLIED, NOT DERIVED, AND THAT IS NOT AN OVERSIGHT.
+    #
+    # `F4-MANIFEST.json` publishes `atk_` INSTANCE IDS. The bucket holds objects
+    # named `F4-dest-NN-slug.json`. They are different things, and the object
+    # names are withheld from the published manifest on purpose - the
+    # commitment's own `_withheld` says the instance names describe each
+    # attack's pattern, so publishing them would leak the family this seal
+    # exists to hold back.
+    #
+    # That leaves exactly two ways to obtain the read set, and only one is
+    # legitimate. LISTING THE BUCKET would fit the declared set to whatever came
+    # back, which destroys the property that makes the audit count assertable:
+    # a run that reads what it finds cannot claim afterwards that it read only
+    # what it named. So the operator supplies the list, from the private source,
+    # and this function validates the shape and the count before any request.
+    if not object_names:
+        raise TransferRunError(
+            "E_NO_DECLARED_READ_SET",
+            "the sealed read set was not supplied. It cannot be derived: the "
+            "published manifest carries instance ids, not object names, and the "
+            "names are withheld deliberately. Listing the bucket to discover "
+            "them would fit the declared set to what the bucket returned. Pass "
+            "--object-names with the list from the private source.")
+    names = expected_object_names(object_names)
+    if len(names) != commitment["instance_count"]:
+        raise TransferRunError(
+            "E_DECLARED_SET_SIZE",
+            "%d name(s) declared against a committed count of %d. The read set "
+            "is fixed before the network is touched, so a mismatch here is "
+            "caught before it becomes an undeclared denominator."
+            % (len(names), commitment["instance_count"]))
+
+    if downloader is None:
+        from crucible.transfer.gcs_reader import make_downloader
+        downloader = make_downloader()
+
+    pairs = read_sealed_once(bucket, names, downloader)
+    got = fingerprint_from_bytes(pairs)
+    if got != commitment["fingerprint"]:
+        raise TransferRunError(
+            "E_SEAL_FINGERPRINT_MISMATCH",
+            "the bytes read do not hash to the published commitment. The set on "
+            "the wire is not the set that was sealed, so nothing derived from it "
+            "describes the committed corpus. Read %d object(s); recorded in "
+            "%s." % (len(pairs), SEAL_COMMITMENT))
+
+    docs = parse_instances(pairs)
+    attacks = [_adapt_sealed(d) for d in docs]
+    if len(attacks) != commitment["instance_count"]:
+        raise TransferRunError(
+            "E_SEALED_COUNT",
+            "%d instance(s) adapted against a committed count of %d. A partial "
+            "holdout is not a smaller experiment, it is a different one with an "
+            "undeclared denominator."
+            % (len(attacks), commitment["instance_count"]))
+    return ArmedSeeds(attacks), attacks, names
 
 
 def drive(seeds, instances, policies, base_manifest, model, objective_set, limit=None):
@@ -226,6 +378,9 @@ def main(argv=None):
                     help="training family used as the stand-in (default %s)" % DEFAULT_STANDIN)
     ap.add_argument("--sealed", action="store_true",
                     help="read the held-out family instead of a stand-in")
+    ap.add_argument("--object-names",
+                    help="file listing the sealed object names, one per line. "
+                         "Required with --sealed; it cannot be derived.")
     ap.add_argument("--i-am-opening-the-seal", action="store_true",
                     help="required with --sealed. Spends the single attempt.")
     ap.add_argument("--policy-run", default="docs/proof/sample-run/run-01.json")
@@ -250,8 +405,9 @@ def main(argv=None):
     # setup failure raised a TypeError and the refusal never printed - a guard
     # you only see when everything else already worked is a guard that reports
     # the wrong thing on the day it matters.
-    seeds, instances = load_instances(args.family, args.sealed,
-                                      args.i_am_opening_the_seal)
+    seeds, instances, sealed_names = load_instances(
+        args.family, args.sealed, args.i_am_opening_the_seal,
+        object_names=_declared_names(args.object_names))
 
     from crucible.conductor.campaign import resolve_objective_set
     objective_set = resolve_objective_set()
