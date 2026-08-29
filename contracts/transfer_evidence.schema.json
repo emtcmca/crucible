@@ -647,7 +647,9 @@
         },
         "seal_status": {
           "type": "string",
-          "maxLength": 400
+          "maxLength": 400,
+          "pattern": "^(STAND-IN|SEALED): ",
+          "$comment": "THE PREFIX IS A CLOSED VOCABULARY AND THE REST IS PROSE. This field was a free string, and the assembler hardcoded the STAND-IN sentence into every bundle it produced - including, had the run happened, the one bundle for which that sentence is false and the only one anyone reads. Two artifacts that differ only in an unconstrained sentence are two artifacts a reader cannot machine-distinguish, and the difference here is the entire claim: one is a transfer figure and the other says it is not. A reader may branch on the prefix; it may not parse the rest."
         }
       }
     }

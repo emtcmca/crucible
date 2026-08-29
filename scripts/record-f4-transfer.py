@@ -1072,6 +1072,35 @@ def _policy_binding(raw):
     }
 
 
+def seal_status_label(sealed):
+    """The bundle's own account of which corpus it measured.
+
+    THIS WAS HARDCODED TO THE STAND-IN TEXT. Every bundle the assembler
+    produced said "the sealed family was not read", including - had the run
+    happened - the one bundle for which that sentence is false, and it is the
+    only bundle anyone will read. A label that cannot disagree with the run is
+    not a label, it is decoration.
+
+    The prefix is a closed vocabulary rather than prose, and the schema pins
+    it. Two artifacts that differ only in a free-text sentence are two
+    artifacts a reader cannot tell apart, and the difference here is the whole
+    claim: one of them is a transfer figure and the other explicitly is not.
+
+    Note the asymmetry that makes the hardcoded value survivable but not
+    acceptable. A STAND-IN bundle mislabelled SEALED would be caught anyway -
+    `standin_preflight` records an UNEVALUABLE G7/G8 finding and the reader
+    fires E_PREFLIGHT_INVALIDATES on it. The direction that was NOT caught is
+    the real run wearing the stand-in's disclaimer, which understates rather
+    than overstates and so trips nothing. Understating is still lying about
+    what was measured.
+    """
+    if sealed:
+        return ("SEALED: the held-out family was read once under the "
+                "pre-registration. This is the transfer measurement.")
+    return ("STAND-IN: the sealed family was not read. No figure here is a "
+            "transfer figure.")
+
+
 def _assemble(args):
     if not args.from_path:
         print("REFUSED: --phase assemble needs --from <episodes file>")
@@ -1157,8 +1186,7 @@ def _assemble(args):
             floor=args.floor,
             labels={"k": "1 per episode, no stability estimate",
                     "target_tier": "T0",
-                    "seal_status": ("STAND-IN: the sealed family was not read. "
-                                    "No figure here is a transfer figure."),
+                    "seal_status": seal_status_label(bool(raw.get("sealed"))),
                     "timing_deviation": (
                         "both arms run post-freeze; the spec puts the v0 arm "
                         "before the loop and that arm was never taken")},

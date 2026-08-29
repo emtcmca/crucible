@@ -36,8 +36,8 @@
     "C11": {
       "files": {
         "transfer_evidence.schema.json": {
-          "sha256": "a465ca01d435108dff0726c3e3b8dd4a4996d3135cc4f79f12d4890401333bbd",
-          "bytes": 78814
+          "sha256": "7a3bcdc057f0fb55773c48d0bd31e846fccb82f91e814e8690dda3f8e937915f",
+          "bytes": 79442
         }
       },
       "produced_by": "coordinator",

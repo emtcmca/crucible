@@ -834,3 +834,103 @@ def test_the_pinned_policy_check_does_not_apply_to_the_stand_in(monkeypatch):
 
     with pytest.raises(_SealTouched):
         rt.main(["--phase", "drive", "--family", "F7", "--out", "unused.json"])
+
+
+# ============================================================================
+# THE BUNDLE HAS TO SAY WHICH CORPUS IT MEASURED, AND MEAN IT
+#
+# `seal_status` was hardcoded to the stand-in sentence, so every bundle the
+# assembler produced said "the sealed family was not read" - including, had the
+# run happened, the one bundle for which that is false and the only bundle
+# anyone reads.
+#
+# These drive the REAL assemble path end to end: read_drive_file is replaced
+# with a fixture, and everything after it is production code - build the
+# bundle, write it, read it back off disk, verify it. A test that called the
+# label function and asserted its return value would pass with the assembler
+# still hardcoding the string two lines away.
+# ============================================================================
+
+@pytest.fixture(scope="module")
+def offline_drive(tmp_path_factory):
+    """One real offline stand-in drive, driven once for the module.
+
+    A hand-built dict was tried first and was the wrong fixture: the assembler
+    reads two dozen keys off the drive payload, and the recorded 08-29 artifact
+    predates `hashed_payload`, so a test built on either exercises a shape no
+    current drive produces. This drives F7 for real - scripted replay, no
+    network, no model call, about six seconds - and every key is the one the
+    production writer wrote.
+    """
+    out = tmp_path_factory.mktemp("drive") / "f7.jsonl"
+    rt.main(["--phase", "drive", "--family", "F7", "--out", str(out)])
+    return out
+
+
+def _assemble_to(offline_drive, tmp_path, monkeypatch, sealed):
+    """Assemble that drive, optionally relabelled sealed.
+
+    Only the `sealed` flag is forced. Everything downstream of `read_drive_file`
+    is production code: build the bundle, write it, read it back off disk,
+    verify it. A test that called `seal_status_label` and asserted its return
+    would pass with the assembler still hardcoding the string two lines away.
+    """
+    real = rt.read_drive_file
+
+    def relabelled(path):
+        raw = real(path)
+        raw["sealed"] = sealed
+        return raw
+
+    monkeypatch.setattr(rt, "read_drive_file", relabelled)
+    out = tmp_path / "bundle.json"
+    rt.main(["--phase", "assemble", "--from", str(offline_drive),
+             "--out", str(out), "--floor", "4", "--expect-instances", "8"])
+    return json.loads(out.read_text(encoding="utf-8"))
+
+
+def test_a_stand_in_assembly_labels_itself_a_stand_in(offline_drive, tmp_path, monkeypatch):
+    b = _assemble_to(offline_drive, tmp_path, monkeypatch, sealed=False)
+    assert b["labels"]["seal_status"].startswith("STAND-IN: ")
+
+
+def test_a_sealed_assembly_does_not_claim_the_seal_was_unread(offline_drive, tmp_path, monkeypatch):
+    """THE DEFECT, STATED AS A TEST.
+
+    A sealed bundle carrying "the sealed family was not read. No figure here is
+    a transfer figure" is a false sentence on the artifact whose entire purpose
+    is to be that figure.
+    """
+    b = _assemble_to(offline_drive, tmp_path, monkeypatch, sealed=True)
+    label = b["labels"]["seal_status"]
+    assert label.startswith("SEALED: ")
+    assert "was not read" not in label
+    assert "not a transfer figure" not in label
+
+
+def test_the_two_labels_are_actually_different(offline_drive, tmp_path, monkeypatch):
+    """The control that keeps the two tests above from both passing against one
+    constant. A single hardcoded string starting with SEALED would satisfy the
+    sealed test and fail here."""
+    a = _assemble_to(offline_drive, tmp_path, monkeypatch, sealed=False)["labels"]["seal_status"]
+    b = _assemble_to(offline_drive, tmp_path, monkeypatch, sealed=True)["labels"]["seal_status"]
+    assert a != b
+
+
+def test_the_seal_status_prefix_is_a_closed_vocabulary():
+    """The schema pins the prefix, so a reader may branch on it.
+
+    Read from the contract rather than restated here: a second copy of the
+    pattern in a test is a second source of truth for it, and this repository
+    has paid for that mistake more than once.
+    """
+    schema = json.loads(
+        (ROOT / "contracts" / "transfer_evidence.schema.json").read_text(encoding="utf-8"))
+    node = schema["properties"]["labels"]["properties"]["seal_status"]
+    assert "pattern" in node, "seal_status is unconstrained prose again"
+
+    import re
+    pat = re.compile(node["pattern"])
+    assert pat.search(rt.seal_status_label(True))
+    assert pat.search(rt.seal_status_label(False))
+    assert not pat.search("the sealed family was not read")

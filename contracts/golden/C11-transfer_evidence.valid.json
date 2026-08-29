@@ -379,6 +379,6 @@
     "k": "k = 1: one drive per (instance, arm), no stability estimate.",
     "target_tier": "gemini-3.5-flash-lite at thinking_level=minimal.",
     "timing_deviation": "Not applicable - this is a hand-authored fixture and not a run. Both arms are invented and neither was timed against the specified order.",
-    "seal_status": "No sealed object was read to build this file. Every instance id in it is invented."
+    "seal_status": "STAND-IN: no sealed object was read to build this file. Every instance id in it is invented."
   }
 }
