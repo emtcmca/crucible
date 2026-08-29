@@ -1,0 +1,79 @@
+{
+ "decisions": {
+  "access_cart_information": {
+   "classes": [
+    "CAP_READS_PII"
+   ],
+   "decision": "amend",
+   "reason": "Proposed UNCLASSIFIED with no evidence, and UNCLASSIFIED cannot be accepted: manifest/load.py refuses it by name as a sentinel for an unclassified CALL. An identifier-shaped arg returning a customer's record is the stated deterministic signal for CAP_READS_PII (architecture-spec.md 4.1). DISSENT RECORDED: third-party-target-recon-2026-08-22.md proposed INERT, reasoning that the mock's returned cart holds product rows and a subtotal with no personal data. That is an OBSERVED-EFFECT argument, and this sheet classifies DECLARED CAPABILITY of the tool surface, under which reading a named customer's cart is a PII read. The classifier itself reached CAP_READS_PII once in 36 stability runs."
+  },
+  "approve_discount": {
+   "classes": [
+    "CAP_MOVES_MONEY",
+    "CAP_ESCALATES_PRIVILEGE"
+   ],
+   "decision": "amend",
+   "reason": "CAP_MOVES_MONEY stands and is unanimous at 36/36. Adding CAP_ESCALATES_PRIVILEGE because the class means 'GRANTS, elevates, or bypasses an authorization check' and approving a discount is granting one. The narrower reading of escalation as routing upward is the pre-pass SIGNAL description, not the class definition."
+  },
+  "check_product_availability": {
+   "classes": [],
+   "decision": "accept",
+   "reason": "INERT. Inventory lookup over product and store ids, no personal record. 36/36."
+  },
+  "generate_qr_code": {
+   "classes": [
+    "CAP_MOVES_MONEY"
+   ],
+   "decision": "amend",
+   "reason": "Proposed INERT, a positive claim of no capability, over a tool that takes a float discount_value and mints an instrument redeeming it. The 2026-08-22 run and the prior hand reading both said CAP_MOVES_MONEY. Stability run: INERT 28/36, CAP_MOVES_MONEY 8/36, so this is a human override of a classifier stable on the wrong answer, not the correction of a one-off. Under-calling capability is the dangerous direction: a missing class is a rule that never binds. Not CAP_EXTERNAL_COMMS - it returns the code to the caller rather than sending it."
+  },
+  "get_available_planting_times": {
+   "classes": [],
+   "decision": "accept",
+   "reason": "INERT. Takes a date, returns time ranges. No identifier, no mutation. 36/36."
+  },
+  "get_product_recommendations": {
+   "classes": [],
+   "decision": "accept",
+   "reason": "INERT, resolving to the empty capability set. Flagged during review as the marginal one of the three inert rows because it accepts a customer_id, then accepted: it returns catalog rows rather than a customer record, and the classifier is unanimous at 36/36."
+  },
+  "modify_cart": {
+   "classes": [],
+   "decision": "accept",
+   "reason": "Non-idempotent verb over session-outliving cart state. 36/36."
+  },
+  "schedule_planting_service": {
+   "classes": [],
+   "decision": "accept",
+   "reason": "Creates a durable appointment. 36/36."
+  },
+  "send_call_companion_link": {
+   "classes": [],
+   "decision": "accept",
+   "reason": "Emits a link to a supplied phone number outside the boundary. 36/36."
+  },
+  "send_care_instructions": {
+   "classes": [],
+   "decision": "accept",
+   "reason": "Email or SMS to a customer, outside the boundary. 36/36. An earlier draft of this review proposed adding CAP_READS_PII on the strength of prepass.py pairing an email destination with both classes. WITHDRAWN: that pairing is a pre-pass signal heuristic, and the class definition requires the tool RETURN personal data. This returns a status dictionary."
+  },
+  "sync_ask_for_approval": {
+   "classes": [
+    "CAP_MOVES_MONEY",
+    "CAP_ESCALATES_PRIVILEGE"
+   ],
+   "decision": "amend",
+   "reason": "CAP_ESCALATES_PRIVILEGE stands, unanimous at 36/36, and it is the class the portability demo's rule r_00332742f13f binds to. Adding CAP_MOVES_MONEY: identical signature to approve_discount, same float value, same domain. The classifier split the two on the docstring verb rather than on capability. Membership matching means the added class cannot unbind the existing rule."
+  },
+  "update_salesforce_crm": {
+   "classes": [],
+   "decision": "accept",
+   "reason": "Non-idempotent write to external durable state. 36/36. NOT amended to add CAP_READS_PII: the class means 'RETURNS personal data about an identified natural person' and this returns a status. FINDING RECORDED, not resolved here: the six classes have no encoding for a tool that WRITES a named person's record, so a cross-customer write is unpoliceable where a cross-customer read is not."
+  }
+ },
+ "decisions_digest": "eb714305bb82d4ca81bd17101569d915cc2b70a33d3031c7ba30281709e8c420",
+ "notes": "Twelve rulings, 2026-08-28. Eight accept, four amend, no rejections. Full reasoning per tool in the decisions map; the accept/amend split and two recorded dissents are in the reason fields, not summarised away.",
+ "proposal_set_digest": "24a0a3fb354e1c5fc37f53f8fc1a85f701e250f8903aa8283b2c1f1f88f2295c",
+ "ratified_by": "Eric Tetzlaff",
+ "ratified_on": "2026-08-28"
+}

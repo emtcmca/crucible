@@ -159,39 +159,67 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 **Updated:** 2026-08-28 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**Rebuilt from git and artifacts after a Windows Update reboot (02:34) killed the session that
-did this work. Nothing was lost; nothing was narrated.** Re-verified at source 2026-08-28:
-pytest **2195 passed, 1 skipped** (was 2183), contract-check **SEVEN** passes OK, tripwire and
-G4 `--selftest` pass, **SPINE_VERSION 30.** No commit SHA here — ruling 46; read it with
-`git log --oneline -1`.
+**THE UNSEAL IS DEFERRED, deliberately.** No transfer runner existed; G7 and G8 execute only
+when a patch candidate reaches the gate, and the transfer phase forbids candidates, so the
+seal check would have run **zero times during the seal's own run**. Opening F4 would have
+spent the single attempt proving the instrumentation. Verified 2026-08-28: pytest **2217
+passed, 1 skipped** on the build machine and in a clean virtualenv, contract-check **SEVEN**
+passes, SPINE_VERSION 30. No SHA here — ruling 46.
 
-**BOTH 20-RUN BATCHES ARE COMPLETE AND FULLY ACCEPTED.** `batch-measure-2026-08-27` (gates
-ENFORCING) and its pre-registered replication `batch-replicate-2026-08-27` (identical config,
-different seeds): **20 of 20 accepted by the reader in each, 0 STRUCTURAL, 0 MEASUREMENT.** They
-replace the invalid `batch-gated-2026-08-27`. **The census re-record covers 50 of 50 instances,
-0 powered — the "26 of 50" binding constraint is RETIRED.** Scope and headline are **LOCKED**
-(`docs/contest/SCOPE-LOCK.md`): no new capability enters the submission.
+**The seal was watching a canary.** `gs://crucible-sealed-x7` held one object while the 24 F4
+instances lived only in `crucible-wt-SEAL`. Relocated under `crucible-sealed-eval` and
+verified byte-identical either side. **ASR corrected and derived twice: pooled 13.5% to 7.7%,
+and the two batches disagree by ~4 points at both ends, which the pre-registration requires be
+said in the same sentence as the pooled figure.** A real run now ships at
+`docs/proof/sample-run/` so the offline reader and the hardening report have an input.
 
 **Open threads**
-- **THE REPLICATION HAS NOT BEEN ANALYZED.** Nothing outside its own pre-registration
-  references `batch-replicate-2026-08-27`. The first stability estimate this project has ever
-  had is unread on disk, and it is what removes the k=1 caveat. Reporting rule is already
-  fixed: **pooled figure, per-batch split beside it, both reported, neither dropped.**
-- **Re-take `docs/design/where-we-stand-2026-08-27.md`** — its scoreboard was computed at
-  **15 of 20 runs** and its own header calls it provisional.
-- **Unseal F4 today (08-28)**, Outcome E pre-registered · record **08-29** · submit **08-30**.
-  **The video still does not exist.**
-- Update 8 (Google agent) **postable now**; Update 9 after the pooled numbers.
-- Foreign manifest **UNRATIFIED** — `ratify.py` needs a named human, and no manifest figure is
-  quotable until it has one.
+- **THE FOREIGN MANIFEST IS RATIFIED, signed 2026-08-28**, eight accept four amend no
+  rejections. Manifest figures are quotable now. Row 12 `generate_qr_code` is the human
+  override that justifies the gate: proposed INERT while stable at 28 of 36 on that wrong
+  answer. Row 5 could not be accepted at all — `UNCLASSIFIED` is refused by name at load.
+- **ERIC OWNS TWO.** Decide whether to publish the Update 8 correction — **the ground moved,
+  see below**. Green-light pushing; the branch is `fix/ratify-decisions-digest`, unpushed.
+- **Sequence:** build the runner, run and tune against a **stand-in** family, calibrate the
+  read path on the canary, then **unseal ONCE**, then video. **The unseal cannot be tuned** —
+  48 is 24 instances x 2 arms and re-running F4 is forbidden.
+- **CHECKPOINT: no clean bundles by midday 08-29 means the video ships without the transfer**,
+  recorded as owed. **The video still does not exist.**
+- **Transfer contract + reader landed and verified 2026-08-28**: schema, `crucible/transfer/reader.py`,
+  89 tests green, 22 known-bad fixtures, 47 of 48 codes exercised. **Untracked and UNREGISTERED** —
+  absent from `hash-contracts.py::CONTRACT_FILES`, so no contract id and no golden pair. The
+  producer must put the arm in the episode id (`_episode_id_for` keys on `attack_id` alone, so both
+  arms collide) and write `instance_id` in the `atk_` form, not the object-name slug.
+- **Portability: the offline arm is DONE and the result improved.** `adk-samples` fetched at
+  the pinned sha (scratchpad `adk/`, outside the repo); probe wired with `--ratified-manifest`
+  and re-run against the ratified manifest plus the shipped sample policy. Six of six cases
+  pass, exit 0. **The matched-fact case is now decided by `r_ceb7cbd4f589`, a rule the loop
+  LEARNED and which names no tool** — previously that tool carried all six classes so the
+  decision fell to a tie-break and was not attributable. `CAP_INVOKES_AGENT` is now genuinely
+  globally absent, so any rule binding it here is **vacuous, not a pass**.
+  **STILL OWED: the live arm, which predates the host-fault repair.**
+- **UPDATE 8's GROUND MOVED.** It said "a policy CRUCIBLE had learned" when the deciding rule
+  was a SEED rule, which is why a correction was drafted. Under the ratified manifest a
+  LEARNED rule now decides the matched-fact case. The original claim was still unsupported
+  **for the run it described**, so the correction stands — but it can now be published
+  alongside a run where the claim holds, which is a better update than a bare retraction.
 
 **Watch out for**
-- **A BRANCH THAT NEVER EXECUTES IS INDISTINGUISHABLE FROM ONE THAT WORKS** — four times in one
-  week: the CONVERGED enum, G4, the ENFORCING null, ruling 61's empty input.
-- **The exit code is not evidence — read `exit_class`.** `REJECTS` beside exit 0 is CORRECT for
-  MEASUREMENT; ruling 60 removed it for STRUCTURAL.
-- **A dated snapshot that names its own condition can be re-taken.** Correct a live claim;
-  strike and amend a snapshot or a pre-registration, never rewrite one.
-- **Orphaned agent worktree at `.claude/worktrees/agent-a23794095d002e7b9/`** carries a stale
-  CLAUDE.md (SPINE_VERSION 25) and pollutes repo-wide greps — exclude it.
+- **A CHECK THAT PASSES WHILE MEASURING NOTHING — EIGHT instances now.** Newest: the
+  ratification digest bound what the reviewer SAW and nothing bound what they DECIDED, so an
+  amendment class edited after signing changed the manifest and still validated. Found by
+  adversarial third-party review, reproduced, closed by `decisions_digest()`. Before that: G7
+  never firing without a candidate, and the seal counter watching a canary.
+- **A SUMMARY OF A REVIEW IS NOT THE REVIEW.** The 12-row ratification sheet in the repo was
+  correct; a scratchpad summary built from it showed the fail-closed manifest's all-six values
+  instead of the actual proposals and recommended amending `generate_qr_code` to the empty
+  set — ratifying the model's own regression. Eric refused to sign a blanket approval and
+  asked for the rows. **That refusal caught it.**
+- **A TEST CAN PIN A FALSE CLAIM.** One asserted a literal sentence and passed for four days
+  after it went false. Assert the fact, not the prose about it.
+- **Read the whole structure before reasoning on it.** An extractor that ignored
+  `match.predicates` produced two wrong pre-registrations, corrected before the unseal.
+- **A count taken mid-batch carries the batch's completion state, or it is not a count.**
+- Full working state, including what is on disk nowhere else:
+  `scratchpad/WORKING-STATE-2026-08-28.md`.
 <!-- VAULT:SESSION-STATE end -->

@@ -507,6 +507,12 @@ def main(argv=None):
     ap.add_argument("--stability-floor", type=float, default=0.9)
     ap.add_argument("--manifest-out",
                     default="docs/proof/foreign-manifest-adk-customer-service-2026-08-26.json")
+    ap.add_argument("--ratified-manifest", default=None,
+                    help="a manifest produced by scripts/ratify-foreign-manifest.py. "
+                         "When given, the probe enforces against the RATIFIED "
+                         "classification and generates nothing. Without it the "
+                         "probe builds the fail-closed modal manifest, which no "
+                         "human has signed.")
     ap.add_argument("--json", default=None)
     ap.add_argument("--live", action="store_true",
                     help="ALSO run one episode per arm with the sample's OWN "
@@ -531,7 +537,43 @@ def main(argv=None):
 
     frozen = load_frozen_target(args.fixture)
     modal, ok_runs = modal_classes(args.stability, args.stability_floor)
-    manifest, manifest_hash = build_foreign_manifest(frozen, modal, args.manifest_out)
+
+    # TWO MANIFESTS ARE POSSIBLE HERE AND THEY ARE NOT INTERCHANGEABLE.
+    #
+    # Generated: the modal Cartographer class per tool, with "we do not know"
+    # and "the classifier disagreed with itself" both encoded fail-closed-maximal
+    # (all six classes). NOBODY HAS SIGNED IT, and `human_confirmed` is false on
+    # every row.
+    #
+    # Ratified: produced only by ratify.to_manifest_entries() from a named
+    # human's per-tool verdicts. Amended rows are stamped `classified_by: human`.
+    #
+    # The probe must say WHICH it ran against, because the interesting claim -
+    # that a rule bound a tool through a capability class - means something
+    # different when the class came from a fail-closed default than when a person
+    # ruled on it.
+    if args.ratified_manifest:
+        manifest, manifest_hash = load_part_a(args.ratified_manifest)
+        if not manifest.get("_RATIFIED"):
+            print("REFUSED E_MANIFEST_NOT_RATIFIED: %s carries no _RATIFIED "
+                  "attestation. Pass a manifest written by "
+                  "scripts/ratify-foreign-manifest.py, or omit the flag."
+                  % args.ratified_manifest)
+            return 2
+        manifest_path = args.ratified_manifest
+        manifest_status = "RATIFIED. %s" % manifest["_RATIFIED"]
+        classification_note = (
+            "per-tool human verdicts over the Cartographer proposal set; "
+            "%d of %d rows stamped classified_by=human"
+            % (sum(1 for t in manifest["tools"] if t.get("classified_by") == "human"),
+               len(manifest["tools"])))
+    else:
+        manifest, manifest_hash = build_foreign_manifest(frozen, modal, args.manifest_out)
+        manifest_path = args.manifest_out
+        manifest_status = "UNRATIFIED. No human has signed the classification."
+        classification_note = (
+            "modal class over %d OK Cartographer runs, floor %.2f"
+            % (ok_runs, args.stability_floor))
 
     run_doc = json.loads(pathlib.Path(args.policy_run).read_text(encoding="utf-8"))
     policy = run_doc["final_policy"]
@@ -565,33 +607,47 @@ def main(argv=None):
              is not None,
              getattr(foreign_agent_mod.root_agent, "after_tool_callback", None)
              is not None))
-    print("manifest         %s" % args.manifest_out)
+    print("manifest         %s" % manifest_path)
     print("manifest_hash    %s   (computed at use time, never typed - ruling 46)"
           % manifest_hash)
-    print("manifest status  UNRATIFIED. No human has signed the classification.")
+    print("manifest status  %s" % manifest_status)
     print("policy           %s  (%d rules, %d authored by the ARMORER)"
           % (run_id, len(rules),
              sum(1 for r in rules if r.get("origin") == "armorer")))
-    print("classification   modal class over %d OK Cartographer runs, floor %.2f"
-          % (ok_runs, args.stability_floor))
+    print("classification   %s" % classification_note)
     print()
 
-    # NO CAPABILITY CLASS IS GLOBALLY ABSENT FROM THIS MANIFEST, and that is a
-    # CONSEQUENCE OF THE ENCODING RATHER THAN A PROPERTY OF THE AGENT: the two
-    # tools the Cartographer could not settle are declared fail-closed-maximal,
-    # so between them they carry all six classes. An "absent class" control is
-    # therefore impossible at manifest level and is run per-tool instead, on a
-    # tool that carries exactly one class.
+    # WHETHER A CLASS IS GLOBALLY ABSENT DEPENDS ON WHICH MANIFEST RAN, and the
+    # difference is worth stating rather than discovering.
+    #
+    # GENERATED: no class is absent, and that is a CONSEQUENCE OF THE ENCODING
+    # RATHER THAN A PROPERTY OF THE AGENT. The two tools the Cartographer could
+    # not settle are declared fail-closed-maximal, so between them they carry all
+    # six. An "absent class" control is impossible at manifest level there and is
+    # run per-tool instead, on a tool carrying exactly one class.
+    #
+    # RATIFIED: the fail-closed rows are gone, so absence becomes a real reading
+    # of the surface. CAP_INVOKES_AGENT is expected to be absent - every tool in
+    # the sample is a plain function, with no AgentTool and no sub-agents - and
+    # any rule binding it is VACUOUSLY clean here. Report that as vacuous, never
+    # as a pass.
     globally_absent = [c for c in CAPABILITY_CLASSES
                        if not any(c in t["capability_classes"]
                                   for t in manifest["tools"])]
 
     # THE SINGLE-RULE POLICY FOR THE MATCHED-FACT CASE, and why it is needed.
-    # `access_cart_information` is fail-closed-maximal, so it carries every
-    # class and EVERY rule binds it; strictness resolution then hands the
-    # decision to the lowest-id `deny`, which is a fail-closed one. Reducing the
-    # policy to the single CAP_READS_PII rule is what makes the outcome
-    # attributable to THAT rule's predicate rather than to the tie-break.
+    #
+    # GENERATED manifest: `access_cart_information` is fail-closed-maximal, so it
+    # carries every class and EVERY rule binds it; strictness resolution then
+    # hands the decision to the lowest-id `deny`, which is a fail-closed one.
+    # Reducing the policy to the single CAP_READS_PII rule is what makes the
+    # outcome attributable to THAT rule's predicate rather than to the tie-break.
+    #
+    # RATIFIED manifest: the reviewer amended that tool to exactly CAP_READS_PII,
+    # so the tie-break is gone and the binding is already attributable. The
+    # reduction is kept anyway, because holding the case identical across both
+    # manifests is what makes the two runs comparable - and a case that changes
+    # shape with the manifest cannot isolate the manifest's effect.
     pii_rules = [r for r in rules
                  if (r.get("match") or {}).get("capability_class") == "CAP_READS_PII"
                  and (r.get("match") or {}).get("predicates")]
@@ -793,11 +849,15 @@ def main(argv=None):
                            "commit_sha": frozen["commit_sha"],
                            "sha_verified_by":
                                "docs/proof/adk-commit-verification-2026-08-26.txt"},
-        "foreign_manifest": {"path": args.manifest_out,
+        # These three MUST be derived from the manifest that actually ran. They
+        # were hardcoded to the generated case, so wiring the ratified path left
+        # the JSON asserting "no human has signed it" beside the ratified hash -
+        # a false label next to a true number, which is worse than either alone
+        # because a reader who takes only the labels leaves inaccurate.
+        "foreign_manifest": {"path": manifest_path,
                              "manifest_hash": manifest_hash,
-                             "ratified": False,
-                             "note": "generated from the Cartographer's modal "
-                                     "class; no human has signed it"},
+                             "ratified": bool(args.ratified_manifest),
+                             "note": manifest_status},
         "policy": {"run_id": run_id, "source": args.policy_run,
                    "rules": rules},
         "cases": results,
