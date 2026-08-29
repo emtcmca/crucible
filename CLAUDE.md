@@ -220,6 +220,27 @@ said in the same sentence as the pooled figure.** A real run now ships at
   **for the run it described**, so the correction stands — but it can now be published
   alongside a run where the claim holds, which is a better update than a bare retraction.
 
+**TRANSFER RUNNER — built 2026-08-29, `scripts/record-f4-transfer.py`**
+- **Two phases, and the split is a safety property.** `--phase drive` writes raw episodes to
+  disk; `--phase assemble` reads that file. The drive is unrepeatable for F4, so an assembly
+  bug must never force a re-drive.
+- **Stand-in is F7**, chosen because it carries F4's exact capability pair (`CAP_MOVES_MONEY` +
+  `CAP_MUTATES_DURABLE_STATE`) and the same dominant tool `issue_refund`.
+- **Offline stand-in green:** 16 episodes, all completed, episode ids unique per arm, both arms
+  present for all 8 instances. **breached_at_v0 = 7, breached_at_vfinal = 7, ZERO instances
+  moved.** Offline is a policy-coverage reading only — A3.8 requires the real measurement be
+  LIVE because a replay cannot observe an agent that, refused one route, tries another.
+- **Three seal guards, checked BEFORE any other work:** `E_SEAL_NOT_AUTHORISED` (no
+  `--i-am-opening-the-seal`), `E_SEALED_PATH_NOT_WIRED` (sealed drive deliberately not wired
+  yet), `E_SEALED_FAMILY_VIA_TRAINING` (F4 through the training door). Ordering matters — the
+  guard was originally reached after setup, so a setup crash hid the refusal.
+- **`GOOGLE_GENAI_USE_VERTEXAI=1` IS REQUIRED FOR ANY LIVE DRIVE.** Without it the provider
+  resolves to `developer_api`, the frozen descriptor says `vertex`, and
+  `assert_provider_matches_descriptor()` refuses before anything is called. **Why it is not
+  merely an auth setting: ADK reads that variable when building TOOL DECLARATIONS, so a wrong
+  value ships a different payload for all 8 tools while `target_agent_hash` stays IDENTICAL** —
+  a hash that cannot move is a check that cannot fail.
+
 **Watch out for**
 - **A CHECK THAT PASSES WHILE MEASURING NOTHING — EIGHT instances now.** Newest: the
   ratification digest bound what the reviewer SAW and nothing bound what they DECIDED, so an
