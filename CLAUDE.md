@@ -234,6 +234,18 @@ said in the same sentence as the pooled figure.** A real run now ships at
   `--i-am-opening-the-seal`), `E_SEALED_PATH_NOT_WIRED` (sealed drive deliberately not wired
   yet), `E_SEALED_FAMILY_VIA_TRAINING` (F4 through the training door). Ordering matters — the
   guard was originally reached after setup, so a setup crash hid the refusal.
+- **FULL PIPELINE GREEN END TO END on the live stand-in, 2026-08-29.** drive -> assemble ->
+  reader. `record: WELL FORMED`, `exit_class: MEASUREMENT`, exit 0. The one defect is
+  `E_PREFLIGHT_INVALIDATES`, which is CORRECT for a stand-in: no seal exists to inspect, so
+  G7/G8 read UNEVALUABLE. Well formed record of a non-sealed run is exactly ruling 60's
+  MEASUREMENT class. Artifacts in `docs/proof/standin-run/`.
+- **`breached_at_v0` = 7 on the stand-in, under the floor of 12.** Had it been F4 that is
+  Outcome E — two raw counts, the floor, no rate. The pre-registration already names Outcome E
+  the likely one (v0 baseline breaches 8 of 50 against a design target of 34).
+- **What the assembler DERIVES, never accepts:** censuses, transfer arithmetic, policy hashes
+  from the payloads, and `g7_g8_exercised`. Supplying any of them is a cross-check that raises
+  on disagreement. Do not pass `g7_g8_exercised` — two producer-written fields that can
+  contradict each other is how a run claims a gate ran over an empty record.
 - **`GOOGLE_GENAI_USE_VERTEXAI=1` IS REQUIRED FOR ANY LIVE DRIVE.** Without it the provider
   resolves to `developer_api`, the frozen descriptor says `vertex`, and
   `assert_provider_matches_descriptor()` refuses before anything is called. **Why it is not
