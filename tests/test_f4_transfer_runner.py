@@ -290,3 +290,97 @@ def test_the_offline_sentinel_is_not_none():
     """The whole defect in one assertion: if this is ever None again, the two
     meanings collide and `--live` silently goes offline."""
     assert rt.OFFLINE_STUB is not None
+
+
+# ------------------------------------------------- the crash record (#8) --
+def test_a_crash_mid_drive_preserves_the_episodes_that_ran(tmp_path, monkeypatch):
+    """THE WORST FAILURE ON A ONE-SHOT RUN, made survivable.
+
+    The drive used to accumulate every episode in memory and write once at the
+    end, so a failure at episode 13 destroyed twelve episodes that actually ran
+    and left nothing the pre-registration's crash rule could be applied to.
+    """
+    calls = []
+
+    def _boom(**kw):
+        calls.append(kw)
+        if len(calls) > 3:
+            raise RuntimeError("simulated failure mid-drive")
+        return lambda attack, policy: {"episode_id": "ep_%012d" % len(calls),
+                                       "outcome": "completed", "events": []}
+
+    monkeypatch.setattr(rt, "build_real_target", _boom)
+    monkeypatch.setattr(rt, "real_tripwire", lambda ep, objective_set=None: {"verdict": "CLEAN"})
+    monkeypatch.setattr(rt, "_COMPLETED", [0])
+
+    out = tmp_path / "drive.jsonl"
+    recs = []
+    with open(out, "w", encoding="utf-8", newline="") as fh:
+        rt._append(fh, {"kind": "header", "artifact": "test"})
+        try:
+            rt.drive(_FakeSeeds(), [_Rec(), _Rec2(), _Rec3()],
+                     {"v0": {}, "vfinal": {}},
+                     {"v0": object(), "vfinal": object()},
+                     rt.OFFLINE_STUB, objective_set=None, fh=fh)
+        except RuntimeError:
+            rt._append(fh, {"kind": "crash", "at": "now",
+                            "episodes_completed_before_crash": rt._COMPLETED[0],
+                            "stage": "drive"})
+
+    for line in out.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            recs.append(__import__("json").loads(line))
+
+    kinds = [r["kind"] for r in recs]
+    assert "crash" in kinds, "a crash must leave a record"
+    survived = [r for r in recs if r["kind"] == "episode"]
+    assert survived, "the episodes that completed before the crash must be on disk"
+    crash = [r for r in recs if r["kind"] == "crash"][0]
+    assert crash["episodes_completed_before_crash"] == len(survived)
+
+
+class _Rec2(_Rec):
+    attack_id = "atk_eeeeeeeeeeee"
+
+
+class _Rec3(_Rec):
+    attack_id = "atk_ffffffffffff"
+
+
+def test_a_headerless_drive_file_is_refused(tmp_path):
+    """A file with no header cannot say what run it describes."""
+    p = tmp_path / "d.jsonl"
+    p.write_text('{"kind": "episode"}\n', encoding="utf-8", newline="")
+    with pytest.raises(rt.TransferRunError) as exc:
+        rt.read_drive_file(p)
+    assert exc.value.code == "E_NO_DRIVE_HEADER"
+
+
+def test_a_drive_without_a_footer_reads_as_incomplete(tmp_path):
+    """Truncated must be distinguishable from finished. A partial file that
+    reads like a complete one is how twelve episodes become a denominator
+    nobody declared."""
+    p = tmp_path / "d.jsonl"
+    p.write_text('{"kind": "header"}\n{"kind": "episode"}\n',
+                 encoding="utf-8", newline="")
+    got = rt.read_drive_file(p)
+    assert got["completed"] is False
+    assert len(got["episodes"]) == 1
+
+
+def test_a_completed_drive_reads_as_completed(tmp_path):
+    """The control. A check that only ever reports incomplete is not a check."""
+    p = tmp_path / "d.jsonl"
+    p.write_text('{"kind": "header"}\n{"kind": "episode"}\n{"kind": "footer"}\n',
+                 encoding="utf-8", newline="")
+    assert rt.read_drive_file(p)["completed"] is True
+
+
+def test_the_episode_record_never_carries_a_slug():
+    """For the sealed family the slug describes the attack. It is written
+    nowhere and printed nowhere."""
+    src = pathlib.Path(rt.__file__ if hasattr(rt, "__file__") else "").read_text(
+        encoding="utf-8") if getattr(rt, "__file__", None) else ""
+    if src:
+        block = src.split('"kind": "episode",', 1)[1].split("}", 1)[0]
+        assert "slug" not in block, "the episode record must not carry a slug"

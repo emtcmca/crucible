@@ -43,6 +43,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 import pathlib
 import sys
 
@@ -73,6 +74,11 @@ SEALED_FAMILY = "F4"
 #
 # The offline path now carries a value that cannot be confused with a default.
 OFFLINE_STUB = "OFFLINE_SCRIPTED_STUB"
+
+# How many episodes finished, readable by the crash handler. A crash record
+# that cannot say how far the drive got is a record the crash rule cannot be
+# applied to.
+_COMPLETED = [0]
 
 
 class TransferRunError(RuntimeError):
@@ -315,7 +321,146 @@ def load_sealed_instances(object_names=None, downloader=None,
     return ArmedSeeds(attacks), attacks, names
 
 
-def drive(seeds, instances, policies, base_manifest, model, objective_set, limit=None):
+
+def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None):
+    """Calibrate, assert, read, settle, assert again. In that order, once.
+
+    WHY THIS IS NOT AT ASSEMBLE TIME, WHICH IS WHERE IT USED TO BE.
+
+    The seal question is whether the reads that happened are the reads that were
+    declared, and that is a question about a CHANGE. Two preflight calls issued
+    at one instant after the drive, differing only in the count they expect,
+    measure the same thing twice and answer nothing. Worse, the gate was built
+    with no `holdout_touch` counter at all, so G7c returned UNEVALUABLE - which
+    means RUN INVALID - on every bundle produced. Found by adversarial review
+    2026-08-29.
+
+    THE CALIBRATED DOWNLOADER IS THE ONE THAT READS. `open_calibrated_downloader`
+    builds and calibrates in a single call that cannot be split, and
+    `read_sealed_once` is handed that object. Calibrating one callable and
+    reading with another measures a path the run does not perform.
+    """
+    from crucible.conductor.real_gate import RealGate, gcp_env
+    from crucible.transfer import gcs_reader as gr
+    from crucible.transfer import holdout_assert as ha
+    from infra import holdout_touch as ht
+
+    env = gcp_env(str(ROOT))
+
+    def gate(counter, expected):
+        kw = dict(gate_kwargs or {})
+        return RealGate(ledger=None, run_id=kw.pop("run_id", "transfer"),
+                        blob_writer=None, blob_reader=None, repo_root=ROOT,
+                        holdout_touch=counter, holdout_expected=expected, **kw)
+
+    # 0-2. A calibration window, a counter for it, and a downloader proved
+    #      against the canary before it is pointed at anything sealed.
+    cal_since = ht.open_audit_window()
+    cal_counter = ht.make_counter(env, cal_since, settle_seconds=0.0)
+    cal = gr.open_calibrated_downloader(cal_counter, bucket)
+
+    # 3-5. A FRESH window for the run, strictly after the calibration's, then
+    #      the assertion that it starts clean. A window that overlapped the
+    #      calibration would count the canary read as a holdout touch.
+    since = ha.open_run_window(cal)
+    counter = ha.make_run_counter(env, since)
+    ha.assert_clean_before_read(counter)
+
+    # 6. The pre-read preflight, with the counter actually injected.
+    before = ha.preflight_no_candidate(gate(counter, 0))
+    ha.assert_preflight_clean(before, label="before read")
+
+    # 7. The read, through the calibrated object.
+    seeds, instances, names = load_sealed_instances(
+        object_names=object_names, downloader=cal, bucket=bucket)
+
+    # 8-10. Settle, then assert the STRUCTURED result: count, distinct reads and
+    #       the object set. A count of 24 is satisfied by one object read 24
+    #       times, which is why the integer alone is not the assertion.
+    ha.wait_for_log_settlement()
+    expected = ha.expected_content_read_count(names, cal)
+    ha.assert_read_exactly(counter, names, bucket, cal)
+
+    # 11. The post-read preflight, expecting the measured count.
+    after = ha.preflight_no_candidate(gate(counter, expected))
+    ha.assert_preflight_clean(after, label="after read")
+
+    return (seeds, instances, names,
+            [row for f in before for row in _finding_rows(f)],
+            [row for f in after for row in _finding_rows(f)],
+            expected)
+
+
+def standin_preflight():
+    """The stand-in's honest preflight: nothing was inspected, and it says so.
+
+    `skip_cloud=True` records one UNEVALUABLE finding covering G7 and G8. That
+    marks the bundle as not a valid sealed measurement, which is exactly what a
+    stand-in is. An empty list would be indistinguishable from a gate that ran
+    and found everything in order.
+    """
+    from crucible.conductor.real_gate import RealGate
+
+    findings = RealGate(ledger=None, run_id="standin", blob_writer=None,
+                        blob_reader=None, repo_root=ROOT,
+                        holdout_expected=0, skip_cloud=True).preflight()
+    rows = [row for f in findings for row in _finding_rows(f)]
+    return rows, list(rows), 0
+
+
+def _append(fh, obj):
+    """One record, on disk, before the next episode starts.
+
+    flush() alone leaves the bytes in the OS page cache, so a crash between
+    episodes can lose records that Python believes it wrote. fsync is the
+    difference between a checkpoint and an intention. It costs a few
+    milliseconds per episode against a run that cannot be repeated.
+    """
+    fh.write(json.dumps(obj, sort_keys=True) + chr(10))
+    fh.flush()
+    os.fsync(fh.fileno())
+
+
+def read_drive_file(path):
+    """The JSONL drive log back as one dict, with its completion state.
+
+    Returns the header's fields plus `episodes`, `completed`, and `crash`. A
+    caller must be able to tell a finished drive from a truncated one - a
+    partial file that reads like a complete one is how twelve episodes become a
+    denominator nobody declared.
+    """
+    header = None
+    episodes = []
+    footer = None
+    crash = None
+    for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        kind = rec.get("kind")
+        if kind == "header":
+            header = rec
+        elif kind == "episode":
+            episodes.append(rec)
+        elif kind == "footer":
+            footer = rec
+        elif kind == "crash":
+            crash = rec
+    if header is None:
+        raise TransferRunError(
+            "E_NO_DRIVE_HEADER",
+            "%s carries no header record. The header is written before episode "
+            "one and fixes everything decided in advance; a file without it "
+            "cannot say what run it describes." % path)
+    out = dict(header)
+    out["episodes"] = episodes
+    out["completed"] = bool(footer)
+    out["crash"] = crash
+    return out
+
+
+def drive(seeds, instances, policies, base_manifest, model, objective_set,
+          fh=None, limit=None):
     """One episode per (instance, arm). Sequential, fresh world each time.
 
     SEQUENTIAL AND NOT PARALLEL, deliberately: the target's tool backends are
@@ -350,19 +495,31 @@ def drive(seeds, instances, policies, base_manifest, model, objective_set, limit
             # no verdict of its own; asking the policy whether it was breached
             # would let the thing under test grade its own paper.
             verdict = real_tripwire(episode, objective_set=objective_set)
-            out.append({
+            row = {
+                "kind": "episode",
                 # The TRUE instance id, not the armed one. Both arms carry the
                 # same value here, which is what pairs them.
                 "instance_id": rec.attack_id,
                 "arm": arm,
                 "armed_attack_id": aid,
                 "family": rec.family,
-                "slug": rec.slug,
                 "episode": episode,
                 "verdict": (verdict or {}).get("verdict"),
                 "verdict_full": verdict,
-            })
-        print("  %3d/%d  %s  %s" % (i, len(todo), rec.attack_id, rec.slug[:44]))
+            }
+            out.append(row)
+            # CHECKPOINTED THE MOMENT IT EXISTS. Accumulating in memory and
+            # writing at the end means a failure at episode 13 destroys twelve
+            # episodes that actually ran, on a drive that cannot be repeated -
+            # and leaves no record from which the pre-registration's crash rule
+            # could be applied. The slug is deliberately NOT written: for the
+            # sealed family the slug describes the attack.
+            if fh is not None:
+                _append(fh, row)
+            _COMPLETED[0] += 1
+        # The instance id only. Slugs describe the attack, and for the sealed
+        # family printing them to a terminal and a scrollback is a leak.
+        print("  %3d/%d  %s" % (i, len(todo), rec.attack_id))
     return out
 
 
@@ -417,9 +574,20 @@ def main(argv=None):
     # setup failure raised a TypeError and the refusal never printed - a guard
     # you only see when everything else already worked is a guard that reports
     # the wrong thing on the day it matters.
-    seeds, instances, sealed_names = load_instances(
-        args.family, args.sealed, args.i_am_opening_the_seal,
-        object_names=_declared_names(args.object_names))
+    if args.sealed:
+        if not args.i_am_opening_the_seal:
+            raise TransferRunError(
+                "E_SEAL_NOT_AUTHORISED",
+                "--sealed reads the held-out family and spends the single "
+                "attempt the pre-registration allows. Re-running F4 is "
+                "forbidden, so there is no second try.")
+        (seeds, instances, sealed_names,
+         before_read, after_read, expected_reads) = sealed_drive_lifecycle(
+            _declared_names(args.object_names))
+    else:
+        seeds, instances, sealed_names = load_instances(
+            args.family, args.sealed, args.i_am_opening_the_seal)
+        before_read, after_read, expected_reads = standin_preflight()
 
     from crucible.conductor.campaign import resolve_objective_set
     objective_set = resolve_objective_set()
@@ -456,11 +624,9 @@ def main(argv=None):
               % args.limit)
     print("=" * 78)
 
-    episodes = drive(seeds, instances, policies, manifests, model,
-                     objective_set, args.limit)
-
-    payload = {
-        "artifact": "transfer drive, raw episodes. NOT a bundle.",
+    header = {
+        "kind": "header",
+        "artifact": "transfer drive log, JSONL. NOT a bundle.",
         "family": args.family,
         "sealed": bool(args.sealed),
         "driven_at": _utc(),
@@ -484,11 +650,40 @@ def main(argv=None):
             "hashed_payload": policies[arm].get("hashed_payload") or {},
         } for arm in ARMS},
         "hash_locks": dict(locks.values),
-        "episodes": episodes,
+        "declared_object_names": sealed_names,
+        "preflight_before_read": before_read,
+        "preflight_after_read": after_read,
+        "expected_content_reads": expected_reads,
     }
+
     p = pathlib.Path(args.out)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8", newline="")
+    # THE HEADER IS DURABLE BEFORE EPISODE ONE. Everything decided in advance -
+    # the arms, the locks, the declared read set, the pre-read preflight - is on
+    # disk before anything can fail, so a crash record has something to attach to.
+    with open(p, "w", encoding="utf-8", newline="") as fh:
+        _append(fh, header)
+        try:
+            episodes = drive(seeds, instances, policies, manifests, model,
+                             objective_set, fh=fh, limit=args.limit)
+        except BaseException as exc:                          # noqa: BLE001
+            # A CRASH RECORD, WRITTEN BEFORE THE EXCEPTION PROPAGATES. Without
+            # it a failed one-shot leaves a truncated file that cannot say how
+            # far it got, and the pre-registration's crash rule turns on exactly
+            # that: VOID with one retry before any scored episode, INVALID with
+            # none after. Nobody applies a rule to evidence that was not kept.
+            _append(fh, {"kind": "crash", "at": _utc(),
+                         "error_class": type(exc).__name__,
+                         "code": getattr(exc, "code", None),
+                         "episodes_completed_before_crash": _COMPLETED[0],
+                         "stage": "drive"})
+            print()
+            print("  CRASH after %d episode(s). Record written to %s"
+                  % (_COMPLETED[0], args.out))
+            raise
+        _append(fh, {"kind": "footer", "at": _utc(),
+                     "episodes": len(episodes), "completed": True})
+
     print()
     print("  episodes recorded: %d" % len(episodes))
     print("  written          : %s" % args.out)
@@ -511,13 +706,26 @@ def _tool_calls(episode):
     wholesale would reintroduce exactly that, so this keeps a fixed key list and
     drops anything else the event carries.
     """
+    from crucible.transfer.reader import tool_arg_allowlist
+
+    allowlist = tool_arg_allowlist()
     out = []
     for seq, ev in enumerate(episode.get("events") or ()):
         row = {"episode_id": episode.get("episode_id"), "seq": seq}
         for key in _TOOL_CALL_KEYS:
             if ev.get(key) is not None:
                 row[key] = ev[key]
-        row.setdefault("args", {})
+        # ARGS ARE NARROWED TO THE FROZEN SIGNATURE, NOT COPIED.
+        #
+        # The event carries `derived.*` values the harness computed alongside the
+        # call. Those are not arguments the target passed, the hash-locked
+        # manifest does not declare them, and an argument object a producer can
+        # extend is precisely where a sealed instruction rides out of a run. The
+        # allowlist is read from the reader so there is ONE source: a second copy
+        # here would drift from the thing that checks it.
+        args = ev.get("args") or {}
+        allowed = allowlist.get(ev.get("tool_name")) or ()
+        row["args"] = {k: v for k, v in args.items() if k in allowed}
         out.append(row)
     return out
 
@@ -599,7 +807,22 @@ def _assemble(args):
     if not args.from_path:
         print("REFUSED: --phase assemble needs --from <episodes file>")
         return 2
-    raw = json.loads(pathlib.Path(args.from_path).read_text(encoding="utf-8"))
+    raw = read_drive_file(args.from_path)
+    if raw.get("crash"):
+        c = raw["crash"]
+        print("REFUSED E_DRIVE_CRASHED: the drive recorded a crash after %s "
+              "episode(s) at stage %r (%s)."
+              % (c.get("episodes_completed_before_crash"), c.get("stage"),
+                 c.get("error_class")))
+        print("  A bundle assembled from a partial drive carries a denominator "
+              "nobody declared. Classify the attempt under the pre-registration's "
+              "crash rule first; the record you need is in %s." % args.from_path)
+        return 2
+    if not raw.get("completed"):
+        print("REFUSED E_DRIVE_INCOMPLETE: %s has no footer, so the drive did "
+              "not finish and did not record why. Treat it as a truncated "
+              "attempt, not a short run." % args.from_path)
+        return 2
     from crucible.transfer.bundle import (BundleError, build_transfer_bundle,
                                           write_bundle)
     from crucible.transfer.reader import (exit_class, partition,
@@ -654,7 +877,13 @@ def _assemble(args):
             arms=arms,
             episodes=episodes,
             exclusions=[],
-            preflight=_preflight(raw),
+            # THE PREFLIGHT IS READ FROM THE DRIVE, NOT COMPUTED HERE. It was
+            # measured around the sealed read, at the only moment the question
+            # "did the count move by exactly what was declared" can be asked.
+            # Recomputing it at assemble time is what produced two identical
+            # calls that measured nothing.
+            preflight={"before_read": raw["preflight_before_read"],
+                       "after_read": raw["preflight_after_read"]},
             policy_binding={
                 "policy_hash": raw["arms"]["vfinal"]["policy_hash"],
                 "embedded_target_manifest_hash": raw["hash_locks"]["manifest_hash"],
