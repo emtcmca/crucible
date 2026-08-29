@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  KNOWN-BAD FIXTURE. The verifier must always reject a take of this page.
+
+  It satisfies every cheap signal: it loads, it exposes a complete
+  window.__cuePlayer, play() returns without error, Playwright records a valid
+  well-formed WebM of the correct length, and the process exits 0. It renders
+  nothing and it never moves.
+
+  That is exactly this project's recurring defect in video form -- a check that
+  passes while measuring nothing -- so it is the thing capture/selftest.mjs
+  points the verifier at to prove the verifier can still fail.
+
+  White, not black, on purpose: white matches Chromium's own default document
+  background, so there is no paint transition at load that a motion check could
+  mistake for content.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>known-bad: blank</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #ffffff; }
+    </style>
+  </head>
+  <body>
+    <script>
+      // A complete cue-player interface that does nothing at all.
+      let t = 0;
+      window.__cuePlayer = {
+        play() { /* deliberately renders nothing */ },
+        seek(ms) { t = ms; },
+        state() { return { playing: true, t_ms: t, note: 'known-bad fixture' }; },
+      };
+    </script>
+  </body>
+</html>

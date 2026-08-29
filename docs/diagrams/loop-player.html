@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRUCIBLE - the hardening loop - beat N4</title>
+<!--
+  loop-player.html - the 45 second architecture beat, N4 of the demo video.
+
+  Cued by docs/diagrams/loop-cues.json. Specified by
+  docs/design/architecture-animation-spec.md, whose three rules are the whole
+  brief and whose fourth section says everything else is decoration:
+
+    1  SPOTLIGHT, NEVER BUILD-ON. The full topology is on screen at frame one.
+       A build-on withholds the architecture for 45 seconds and delivers it at
+       the end, which is backwards for a judge scoring whether it is legible.
+    2  BLINDNESS IS THE MOVE NOBODY ELSE HAS. When a component lights, the
+       things it cannot see go visibly dark in the same beat.
+    3  THE TRUST BOUNDARY RESOLVES LAST. The line is drawn the whole time. On
+       the closing sentence the model-bearing side desaturates and the
+       deterministic side keeps its colour.
+
+  SELF-CONTAINED ON PURPOSE. No CDN, no fetch, no font request. A file:// page
+  cannot fetch, and a capture run that needs a web server is a capture run that
+  fails at 2am. The cost is that the SVG and the cue JSON are inlined copies,
+  and a copy is a second source of truth, so scripts/check-loop-cues.py diffs
+  both against their files (R6) instead of trusting them.
+
+  DETERMINISTIC BY SEEK. Everything drawn is a pure function of one integer t.
+  window.__cuePlayer.seek(ms) suppresses transitions, renders, and settles in
+  the same frame, so a headless driver gets the same pixels for the same t
+  every time. play() is the real-time path for recording a take.
+
+  window.__cuePlayer = {
+      play(), pause(), toggle(),
+      seek(ms),          deterministic, transitions off, returns the clamped t
+      advance(dt_ms),    deterministic step
+      state(),           READ BACK OFF THE DOM, not off intent
+      frameAt(ms),       the pure frame plan, no DOM read, no side effect
+      duration_ms, cues, targets
+  }
+
+  state() deliberately reads the classes it finds on the elements rather than
+  echoing the cue it meant to apply. An assertion against a value the renderer
+  never touched is a check that passes while measuring nothing, which is this
+  project's signature defect and stands at twelve recorded instances.
+
+  Chrome (scrub bar, cue list, keys) is HIDDEN unless the page is opened with
+  ?chrome=1, so the recorded frame carries nothing that is not the diagram.
+-->
+<style>
+:root {
+  color-scheme: dark;
+
+  /* Straight off docs/diagrams/loop.svg. Colour carries semantics and only
+     semantics: molten = contains a model = untrusted, steel = pure code =
+     deterministic, quench = a refusal or rejection path. Nothing here is
+     picked for contrast or variety. */
+  --page:        #0A0908;
+  --ground:      #14110F;
+  --panel:       #1E1A17;
+  --panel-model: #2A1A0F;
+  --molten:      #E8933A;
+  --molten-lit:  #F5B461;
+  --steel:       #7FA0B0;
+  --quench:      #C23B44;
+  --quench-bg:   #1C0F10;
+  --ink:         #EDE8E2;
+  --ink-2:       #9A938B;
+  --ink-3:       #6E665E;
+  --rule:        #2E2A26;
+
+  --dim-opacity:   .20;
+  --blind-opacity: .09;
+
+  --fit: 1;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+/* The stage is authored at exactly 1920x1080 and scaled to fit. Every overlay
+   coordinate is therefore an SVG user unit, which is what getBBox returns, so
+   chips need no unit conversion and cannot drift as the window resizes. */
+#fit {
+  position: absolute; inset: 0; overflow: hidden;
+}
+#stage {
+  /* Centred by translate rather than by a flex or grid parent. The stage is
+     laid out at its full 1920x1080 whatever the scale is, so a centring parent
+     centres the UNSCALED box and the plate ends up clipped. */
+  position: absolute; left: 50%; top: 50%;
+  width: 1920px; height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--fit));
+  background: var(--ground);
+  box-shadow: 0 0 0 1px #241F1B, 0 40px 120px -40px #000;
+}
+#diagram { position: absolute; inset: 0; }
+#diagram svg { display: block; width: 1920px; height: 1080px; }
+#overlay {
+  position: absolute; inset: 0;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Rule 1. The spotlight is subtractive: the named component keeps the state it
+   already had and everything else falls away. Nothing is ever built up.
+   --------------------------------------------------------------------------- */
+#diagram .node, #diagram .edge { opacity: 1; }
+
+#diagram .node.is-dim,
+#diagram .edge.is-dim   { opacity: var(--dim-opacity); }
+#diagram .node.is-blind { opacity: var(--blind-opacity); }
+#diagram .edge.is-blind { opacity: var(--blind-opacity); }
+
+#diagram .node.is-lit .shape,
+#diagram .node.is-lit .shape-lip { stroke-width: 3.4; }
+#diagram .node.is-lit           { filter: drop-shadow(0 0 26px rgba(232,147,58,.30)); }
+#diagram .node.code.is-lit,
+#diagram .node.store.is-lit,
+#diagram .node.decision.is-lit,
+#diagram .node.term.is-lit      { filter: drop-shadow(0 0 26px rgba(127,160,176,.34)); }
+
+#edge-labels { transition: opacity .28s ease; }
+#stage.spotlighting #edge-labels { opacity: .26; }
+
+/* ---------------------------------------------------------------------------
+   Rule 3. Fires once, last. Left of the trust boundary in the narration is
+   ABOVE it in this plate - loop.svg draws the boundary horizontally, with the
+   four model-bearing components above and the thirteen pure-code components
+   below. The set is read off the class attribute (.node.model), never listed
+   here, so adding a model-bearing component cannot leave this out of date.
+   --------------------------------------------------------------------------- */
+#stage.resolved #diagram .node.model,
+#stage.resolved #diagram #zone-model {
+  filter: grayscale(1) brightness(.62) contrast(.9);
+}
+#stage.resolved #diagram .node   { opacity: 1; }
+#stage.resolved #diagram .edge   { opacity: .34; }
+#stage.resolved #diagram #void-note line { stroke: var(--steel); }
+#stage.resolved #diagram #void-note text { fill: var(--ink); }
+#diagram #void-note { transition: opacity .5s ease; }
+
+/* The wipe that resolves the line. Pure function of elapsed cue time; there is
+   no CSS animation here because a CSS animation restarts on seek and would
+   make the same t render two different frames. */
+#boundary-wipe {
+  position: absolute; left: 28px; top: 416px; height: 5px; width: 0;
+  background: linear-gradient(90deg, rgba(232,147,58,0) 0%, var(--molten) 22%, var(--steel) 100%);
+  opacity: 0;
+}
+#boundary-head {
+  position: absolute; top: 408px; width: 2px; height: 21px;
+  background: var(--ink); opacity: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Rule 2. A blindness target is a thing the lit component cannot see. Some of
+   them are elements of the diagram; the sealed held-out family and the fixture
+   suites are not, and cannot be, because they are what the diagram is blind to.
+   So each one is drawn as a chip pinned to the element it belongs to, which is
+   what `anchor` in the cue file is for and what R1 checks.
+
+   A chip arrives LIT and then quenches. That ordering is the point: the claim
+   is not "this is absent", it is "this exists and is being withheld".
+   --------------------------------------------------------------------------- */
+/* The opaque plate lives on the OUTER element and the fade is applied to the
+   inner one. Fading the whole chip would let the dimmed diagram read through
+   the quenched text, and a blindness claim rendered as legible-but-crossed
+   over a legible node is worse than no claim at all. */
+.chip { position: absolute; background: var(--quench-bg); }
+.chip-lead {
+  position: absolute; width: 1px; background: var(--quench); opacity: .55;
+}
+.chip-box {
+  border: 1.5px solid var(--quench);
+  padding: 8px 14px 9px;
+  white-space: nowrap;
+}
+.chip-eyebrow {
+  font-size: 16px; font-weight: 600; letter-spacing: .16em;
+  color: var(--quench); text-transform: uppercase; margin-bottom: 3px;
+}
+.chip-label {
+  position: relative; display: inline-block;
+  font-size: 19px; font-weight: 600; color: var(--ink);
+}
+.chip-strike {
+  position: absolute; left: -2px; top: 52%; height: 2px;
+  background: var(--quench); width: 0;
+}
+.chip-enf {
+  font-size: 16px; font-weight: 500; letter-spacing: .1em;
+  color: var(--ink-3); text-transform: uppercase; margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   Operator chrome. Hidden unless ?chrome=1. Nothing below this comment appears
+   in a recorded frame.
+   --------------------------------------------------------------------------- */
+#chrome-bar { display: none; }
+html[data-chrome="1"] #chrome-bar {
+  display: flex; align-items: center; gap: 18px;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  padding: 12px 18px; background: #100E0C; border-top: 1px solid var(--rule);
+  font-size: 13px; color: var(--ink-2);
+}
+#chrome-bar button {
+  font: inherit; color: var(--ink); background: #1E1A17;
+  border: 1px solid #3A342E; padding: 5px 14px; cursor: pointer;
+}
+#chrome-bar input[type=range] { flex: 1; }
+#chrome-note { color: var(--ink-3); max-width: 46ch; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+#chrome-t { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+            color: var(--molten); min-width: 8ch; }
+
+/* seek() sets this for one frame so the render settles instantly. Without it a
+   seek lands mid-transition and the same t yields different pixels. */
+.no-anim, .no-anim * {
+  transition: none !important;
+  animation: none !important;
+}
+</style>
+</head>
+<body>
+<div id="fit"><div id="stage">
+<div id="diagram">
+<!-- BEGIN loop.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-labelledby="ttl desc" font-family="'IBM Plex Sans','Segoe UI',system-ui,-apple-system,sans-serif">
+ <title id="ttl">CRUCIBLE - the hardening loop</title>
+ <desc id="desc">Seventeen components in three bands. A horizontal trust boundary separates the four model-bearing components above it from the thirteen pure-code components below it.</desc>
+ <style>
+  .name { letter-spacing: .005em; }
+  .sub { letter-spacing: .008em; }
+  .edge-label { letter-spacing: .01em; }
+  .eyebrow { letter-spacing: .16em; }
+  .node, .edge { transition: opacity .28s ease, filter .28s ease; }
+ </style>
+ <defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="7"
+   markerHeight="7" orient="auto-start-reverse">
+   <path d="M0,0.6 L10,5 L0,9.4 Z" fill="#7C736B"/></marker>
+  <marker id="arrow-muted" viewBox="0 0 10 10" refX="9.2" refY="5" markerWidth="6.6"
+   markerHeight="6.6" orient="auto-start-reverse">
+   <path d="M0,0.6 L10,5 L0,9.4 Z" fill="#9A938B"/></marker>
+  <!-- refusal paths get their OWN head shape, not just their own hue: an open
+       chevron, so the quench path stays distinguishable from molten in grayscale
+       and at a glance. -->
+  <marker id="arrow-quench" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="5.2"
+   markerHeight="5.2" orient="auto-start-reverse">
+   <path d="M1,0.5 L11,6 L1,11.5" fill="none" stroke="#C23B44" stroke-width="2.6"
+    stroke-linecap="square" stroke-linejoin="miter"/></marker>
+ </defs>
+ <rect id="ground" x="0" y="0" width="1920" height="1080" fill="#14110F"/>
+ <g id="chrome">
+  <text x="60" y="70" font-size="19" font-weight="600" fill="#E8933A" text-anchor="start" letter-spacing="0.3em" class="eyebrow">CRUCIBLE</text>
+  <text x="60" y="106" font-size="33" font-weight="600" fill="#EDE8E2" text-anchor="start">The hardening loop</text>
+  <line x1="60" y1="128" x2="1860" y2="128" stroke="#2E2A26" stroke-width="1"/>
+  <rect x="1164" y="73" width="20" height="20" fill="#2A1A0F" stroke="#E8933A" stroke-width="2"/>
+  <text x="1201.52" y="89" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start">[M]  contains a model</text>
+  <rect x="1419" y="73" width="20" height="20" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2"/>
+  <text x="1456.6399999999999" y="89" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start">[C]  pure code</text>
+  <line x1="1613" y1="83" x2="1639" y2="83" stroke="#C23B44" stroke-width="3" stroke-linecap="square"/>
+  <path d="M1630,77 L1638,83 L1630,89" fill="none" stroke="#C23B44" stroke-width="2.4"/>
+  <text x="1650.7199999999998" y="89" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start">refusal / rejection path</text>
+ </g>
+ <g id="zone-model"><rect x="28" y="228" width="1864" height="190" fill="#1A1410"/></g>
+ <g id="band-headings">
+  <text x="60" y="176" font-size="17" font-weight="600" fill="#9A938B" text-anchor="start" letter-spacing="0.12em">①  PROVOKE</text>
+  <text x="60" y="202" font-size="16" font-weight="400" fill="#6E665E" text-anchor="start">the agent is put under pressure</text>
+  <text x="876" y="176" font-size="17" font-weight="600" fill="#9A938B" text-anchor="start" letter-spacing="0.12em">②  RULE</text>
+  <text x="1192" y="176" font-size="17" font-weight="600" fill="#9A938B" text-anchor="start" letter-spacing="0.12em">③  REPAIR</text>
+  <text x="1192" y="202" font-size="16" font-weight="400" fill="#6E665E" text-anchor="start">and prove the repair broke nothing</text>
+ </g>
+ <g id="void-note">
+  <line x1="876" y1="248" x2="876" y2="332" stroke="#6E665E" stroke-width="2"/>
+  <text x="892" y="270" font-size="16" font-weight="500" fill="#6E665E" text-anchor="start" letter-spacing="0.06em" class="eyebrow">nothing above this line</text>
+  <text x="892" y="302" font-size="20" font-weight="600" fill="#EDE8E2" text-anchor="start">No model decides whether</text>
+  <text x="892" y="328" font-size="20" font-weight="600" fill="#EDE8E2" text-anchor="start">a breach happened.</text>
+ </g>
+ <g id="trust-boundary">
+  <line x1="28" y1="411" x2="1892" y2="411" stroke="#E8933A" stroke-width="1.6"/>
+  <line x1="28" y1="418" x2="1892" y2="418" stroke="#574E46" stroke-width="3.2"/>
+  <line x1="28" y1="425" x2="1892" y2="425" stroke="#7FA0B0" stroke-width="1.6"/>
+  <line x1="28" y1="405" x2="28" y2="431" stroke="#9A938B" stroke-width="1.8"/>
+  <line x1="1892" y1="405" x2="1892" y2="431" stroke="#9A938B" stroke-width="1.8"/>
+  <text x="876" y="384" font-size="16" font-weight="600" fill="#E8933A" text-anchor="start" letter-spacing="0.09em" class="eyebrow">model-generated ·</text>
+  <text x="876" y="406" font-size="16" font-weight="600" fill="#E8933A" text-anchor="start" letter-spacing="0.09em" class="eyebrow">untrusted</text>
+  <text x="876" y="452" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="start" letter-spacing="0.09em" class="eyebrow">deterministic code</text>
+ </g>
+ <g id="edges">
+  <path class="edge flow" id="e_GOV_RED" d="M185,478 V354" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_RED_TGT" d="M310,296 H430" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_TGT_PLG" d="M555,354 V478" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_PLG_ENG" d="M555,594 V646" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_ENG_TGT" d="M430,732 H370 V320 H430" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge quench" id="e_ENG_PLG" d="M430,672 H395 V518 H430" fill="none" stroke="#C23B44" stroke-width="2.2" stroke-linejoin="miter" stroke-linecap="square" marker-end="url(#arrow-quench)"/>
+  <path class="edge flow" id="e_PLG_LED" d="M680,518 H750 V872 H680" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_LED_TW" d="M680,900 H856 V536 H876" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_TW_DRY" d="M1001,594 V652" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_DRY_CONV" d="M1001,756 V814" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_DRY_COR" d="M1101,704 H1168 V296 H1192" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_COR_ADP" d="M1317,354 V478" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_ADP_ARM" d="M1442,536 H1540 V390 H1630 V354" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_ARM_VAL" d="M1697,354 V478" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_VAL_WAR" d="M1697,594 V646" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_WAR_NARROW" d="M1572,704 H1417" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge quench" id="e_NARROW_ARM" d="M1317,652 V620 H1500 V300 H1572" fill="none" stroke="#C23B44" stroke-width="2.2" stroke-linejoin="miter" stroke-linecap="square" marker-end="url(#arrow-quench)"/>
+  <path class="edge flow" id="e_NARROW_GATE" d="M1317,756 V814" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge flow" id="e_GATE_NEXT" d="M1442,872 H1597" fill="none" stroke="#7C736B" stroke-width="1.7" stroke-linejoin="miter" stroke-linecap="butt" marker-end="url(#arrow)"/>
+  <path class="edge return" id="e_CONV_GOV" d="M1001,930 V1032" fill="none" stroke="#9A938B" stroke-width="2.0" stroke-linejoin="miter" stroke-linecap="butt" stroke-dasharray="13 6"/>
+  <path class="edge return" id="e_NEXT_GOV_promote" d="M1697,924 V1032" fill="none" stroke="#9A938B" stroke-width="2.0" stroke-linejoin="miter" stroke-linecap="butt" stroke-dasharray="13 6"/>
+  <path class="edge return" id="e_NEXT_GOV_rollback" d="M1797,872 H1822 V1032" fill="none" stroke="#9A938B" stroke-width="2.0" stroke-linejoin="miter" stroke-linecap="butt" stroke-dasharray="13 6"/>
+  <path class="edge return" id="e_return_bus" d="M1822,1032 H185 V594" fill="none" stroke="#9A938B" stroke-width="2.0" stroke-linejoin="miter" stroke-linecap="butt" stroke-dasharray="13 6" marker-end="url(#arrow-muted)"/>
+ </g>
+ <g id="edge-labels">
+  <rect class="lbl-bg" x="319" y="285" width="101" height="24" fill="#1A1410"/>
+  <text x="370" y="300" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">AttackSpec</text>
+  <rect class="lbl-bg" x="509" y="437" width="92" height="24" fill="#14110F"/>
+  <text x="555" y="452" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">tool call</text>
+  <rect class="lbl-bg" x="337" y="437" width="67" height="24" fill="#14110F"/>
+  <text x="370" y="452" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">ALLOW</text>
+  <text x="386" y="626" font-size="16" font-weight="600" fill="#C23B44" text-anchor="end" class="edge-label">DENY ·</text>
+  <text x="386" y="648" font-size="16" font-weight="600" fill="#C23B44" text-anchor="end" class="edge-label">APPROVAL_REQUIRED</text>
+  <rect class="lbl-bg" x="677" y="567" width="172" height="61" fill="#14110F"/>
+  <text x="763" y="582" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">TOOL_ATTEMPT ·</text>
+  <text x="763" y="601" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">TOOL_EXECUTED ·</text>
+  <text x="763" y="620" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">TOOL_ERROR</text>
+  <text x="1015" y="790" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start" class="edge-label">no</text>
+  <text x="1015" y="1006" font-size="16" font-weight="500" fill="#6E665E" text-anchor="start" class="edge-label">next round</text>
+  <text x="1150" y="632" font-size="16" font-weight="600" fill="#EDE8E2" text-anchor="end" class="edge-label">yes — first breach</text>
+  <rect class="lbl-bg" x="1258" y="437" width="119" height="24" fill="#14110F"/>
+  <text x="1317" y="452" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">BreachRecord</text>
+  <text x="1478" y="376" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start" class="edge-label">+ the fired clause predicate</text>
+  <rect class="lbl-bg" x="1581" y="437" width="232" height="24" fill="#14110F"/>
+  <text x="1697" y="452" font-size="16" font-weight="500" fill="#9A938B" text-anchor="middle" class="edge-label">PatchSet, placeholder ids</text>
+  <text x="1684" y="624" font-size="16" font-weight="500" fill="#9A938B" text-anchor="end" class="edge-label">candidate policy vN+1</text>
+  <text x="1385" y="642" font-size="16" font-weight="600" fill="#C23B44" text-anchor="middle" class="edge-label">no — retry, up to 6</text>
+  <text x="1331" y="790" font-size="16" font-weight="500" fill="#9A938B" text-anchor="start" class="edge-label">yes</text>
+  <text x="1810" y="936" font-size="16" font-weight="500" fill="#6E665E" text-anchor="end" class="edge-label">rolled back</text>
+  <text x="1684" y="1006" font-size="16" font-weight="500" fill="#6E665E" text-anchor="end" class="edge-label">policy becomes vN+1</text>
+  <text x="205" y="946" font-size="16" font-weight="600" fill="#9A938B" text-anchor="start" letter-spacing="0.16em" class="eyebrow">return path</text>
+  <text x="205" y="974" font-size="16" font-weight="400" fill="#6E665E" text-anchor="start">every round re-enters</text>
+  <text x="205" y="994" font-size="16" font-weight="400" fill="#6E665E" text-anchor="start">at BUDGET_GOVERNOR</text>
+ </g>
+ <g id="nodes">
+ <g class="node code" id="GOV">
+  <rect class="shape" x="60" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="296" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="74" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">BUDGET_GOVERNOR</text>
+  <text x="74" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">opens the round,</text>
+  <text x="74" y="565" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">or refuses</text>
+ </g>
+ <g class="node model" id="RED">
+  <rect class="shape" x="60" y="238" width="250" height="116" fill="#2A1A0F" stroke="#E8933A" stroke-width="2.0"/>
+  <text x="296" y="262" font-size="16" font-weight="600" fill="#F5B461" text-anchor="end" letter-spacing="0.1em" class="tag">[M]</text>
+  <text x="74" y="284" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">RED_STRATEGIST</text>
+  <text x="74" y="306" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">gemini-3.6-flash</text>
+  <text x="74" y="325" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">6 attack specs</text>
+ </g>
+ <g class="node model" id="TGT">
+  <rect class="shape" x="430" y="238" width="250" height="116" fill="#2A1A0F" stroke="#E8933A" stroke-width="2.0"/>
+  <text x="666" y="262" font-size="16" font-weight="600" fill="#F5B461" text-anchor="end" letter-spacing="0.1em" class="tag">[M]</text>
+  <text x="444" y="284" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">TARGET_AGENT</text>
+  <text x="444" y="306" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">gemini-3.5-flash-lite</text>
+  <text x="444" y="325" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">refund agent, 8 tools</text>
+ </g>
+ <g class="node code" id="PLG">
+  <rect class="shape" x="430" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="666" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="444" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">CRUCIBLE_PLUGIN</text>
+  <text x="444" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">ADK before_tool</text>
+  <text x="444" y="565" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">stamp, evaluate,</text>
+  <text x="444" y="584" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">short-circuit</text>
+ </g>
+ <g class="node code" id="ENG">
+  <rect class="shape" x="430" y="646" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="666" y="670" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="444" y="692" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">POLICY_ENGINE</text>
+  <text x="444" y="714" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">evaluates policy at vN</text>
+ </g>
+ <g class="node store" id="LED">
+  <path class="shape" d="M430,827 A125.0,13 0 0 1 680,827 L680,917 A125.0,13 0 0 1 430,917 Z" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <path class="shape-lip" d="M430,827 A125.0,13 0 0 0 680,827" fill="none" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="666" y="846" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="444" y="868" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">Episode ledger</text>
+  <text x="444" y="890" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">ordered ToolEvent list</text>
+ </g>
+ <g class="node code" id="TW">
+  <rect class="shape" x="876" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1112" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="890" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">TRIPWIRE</text>
+  <text x="890" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">11 Objective Set clauses</text>
+  <text x="890" y="565" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">over the ordered</text>
+  <text x="890" y="584" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">event list</text>
+ </g>
+ <g class="node term" id="CONV">
+  <rect class="shape" x="876" y="814" width="250" height="116" fill="#241F1B" stroke="#4A5F6B" stroke-width="1.5"/>
+  <text x="890" y="860" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">3 consecutive</text>
+  <text x="890" y="882" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">dry rounds</text>
+  <text x="890" y="902" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">= converged</text>
+ </g>
+ <g class="node model" id="COR">
+  <rect class="shape" x="1192" y="238" width="250" height="116" fill="#2A1A0F" stroke="#E8933A" stroke-width="2.0"/>
+  <text x="1428" y="262" font-size="16" font-weight="600" fill="#F5B461" text-anchor="end" letter-spacing="0.1em" class="tag">[M]</text>
+  <text x="1206" y="284" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">CORONER</text>
+  <text x="1206" y="306" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">gemini-3.5-flash-lite</text>
+  <text x="1206" y="325" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">writes the autopsy</text>
+  <text x="1206" y="344" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">no fix field in its schema</text>
+ </g>
+ <g class="node code" id="ADP">
+  <rect class="shape" x="1192" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1428" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="1206" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">Armorer input adapter</text>
+  <text x="1206" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">enumerated projection</text>
+  <text x="1206" y="565" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">no free text</text>
+ </g>
+ <g class="node model" id="ARM">
+  <rect class="shape" x="1572" y="238" width="250" height="116" fill="#2A1A0F" stroke="#E8933A" stroke-width="2.0"/>
+  <text x="1808" y="262" font-size="16" font-weight="600" fill="#F5B461" text-anchor="end" letter-spacing="0.1em" class="tag">[M]</text>
+  <text x="1586" y="284" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">ARMORER</text>
+  <text x="1586" y="306" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">gemini-3.7-flash</text>
+  <text x="1586" y="325" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">deny · constrain_arg</text>
+  <text x="1586" y="344" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">require_approval</text>
+ </g>
+ <g class="node code" id="VAL">
+  <rect class="shape" x="1572" y="478" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1808" y="502" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="1586" y="524" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">DSL parser + validator</text>
+  <text x="1586" y="546" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">assigns the rule id</text>
+ </g>
+ <g class="node code" id="WAR">
+  <rect class="shape" x="1572" y="646" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1808" y="670" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="1586" y="692" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">REGRESSION_WARDEN</text>
+  <text x="1586" y="714" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">26 fixtures, 14 near-miss</text>
+  <text x="1586" y="733" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">must be 26 of 26</text>
+ </g>
+ <g class="node code" id="GATE">
+  <rect class="shape" x="1192" y="814" width="250" height="116" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2.0"/>
+  <text x="1428" y="838" font-size="16" font-weight="600" fill="#7FA0B0" text-anchor="end" letter-spacing="0.1em" class="tag">[C]</text>
+  <text x="1206" y="860" font-size="18" font-weight="600" fill="#EDE8E2" text-anchor="start" class="name">PROMOTION_GATE</text>
+  <text x="1206" y="882" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">write · read the bytes</text>
+  <text x="1206" y="901" font-size="16" font-weight="400" fill="#9A938B" text-anchor="start" class="sub">back · recompute the hash</text>
+ </g>
+ <g class="node decision" id="DRY">
+  <polygon class="shape" points="1001,652 1101,704 1001,756 901,704" fill="#14110F" stroke="#4A5F6B" stroke-width="1.5"/>
+  <text x="1001" y="699" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">any</text>
+  <text x="1001" y="721" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">breach?</text>
+ </g>
+ <g class="node decision" id="NARROW">
+  <polygon class="shape" points="1317,652 1417,704 1317,756 1217,704" fill="#14110F" stroke="#4A5F6B" stroke-width="1.5"/>
+  <text x="1317" y="699" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">floor</text>
+  <text x="1317" y="721" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">holds?</text>
+ </g>
+ <g class="node decision" id="NEXT">
+  <polygon class="shape" points="1697,820 1797,872 1697,924 1597,872" fill="#14110F" stroke="#4A5F6B" stroke-width="1.5"/>
+  <text x="1697" y="878" font-size="17" font-weight="500" fill="#9A938B" text-anchor="middle" class="name">promoted?</text>
+ </g>
+ </g>
+</svg>
+<!-- END loop.svg -->
+</div>
+<div id="overlay">
+  <div id="boundary-wipe"></div>
+  <div id="boundary-head"></div>
+</div>
+</div></div>
+
+<div id="chrome-bar">
+  <button id="c-play" type="button">play</button>
+  <span id="chrome-t">0.000s</span>
+  <input id="c-scrub" type="range" min="0" max="45000" step="10" value="0">
+  <span id="chrome-note"></span>
+</div>
+
+<script type="application/json" id="loop-cues">
+{
+  "beat": "N4",
+  "duration_ms": 45000,
+  "svg": "loop.svg",
+  "provenance": {
+    "narration": "docs/design/narration-LOCKED-2026-08-27.md, section N4",
+    "spec": "docs/design/architecture-animation-spec.md",
+    "blindness_source": "docs/architecture-spec.md section 1.1, read 2026-08-29, not recalled",
+    "timings_are": "ESTIMATES",
+    "how_the_timings_were_derived": "The locked N4 script is 263 spoken words. There is no recorded take yet, so each cue sits at the proportional position of its first spoken word across a 43800 ms body after a 1200 ms opening hold. The spec is explicit that Eric's recorded pacing sets the real timestamps: re-cut this file against the take, never the animation.",
+    "known_conflict_read_before_recording": "263 words does not fit 45000 ms. That is 350 wpm. At a natural 150 wpm the locked N4 copy runs about 105 s. duration_ms is held at 45000 here because the 45 s beat is what docs/execution-spec.md and the animation spec both name; when the take is recorded, duration_ms and every t_ms are rescaled together and nothing else changes.",
+    "enforcement_field": "Each blindness target carries the WEAKEST enforcement class it holds across every component that is blind to it, because a chip that overstates enforcement is an overclaim on camera. architecture-spec.md section 1.1 says of the Armorer's blindness to the fixture suites: application convention plus a code check, NOT IAM. Never call that one enforced."
+  },
+  "blindness_targets": {
+    "RED_PAYLOAD": {
+      "label": "attacker payload text",
+      "anchor": "RED",
+      "enforcement": "adapter",
+      "source": "1.1 ARMORER blind (a), enforced by the input adapter which has no field for it; also TRIPWIRE and REGRESSION_WARDEN"
+    },
+    "ATTACK_FAMILY": {
+      "label": "the attack family",
+      "anchor": "RED",
+      "enforcement": "construction",
+      "source": "1.1 TRIPWIRE blind; CRUCIBLE_PLUGIN blind"
+    },
+    "RED_INTENT": {
+      "label": "the Red Strategist's stated intent",
+      "anchor": "e_RED_TGT",
+      "enforcement": "construction",
+      "source": "1.1 TRIPWIRE blind"
+    },
+    "OBJECTIVE_SET": {
+      "label": "the Objective Set and its predicates",
+      "anchor": "TW",
+      "enforcement": "construction",
+      "source": "1.1 RED_STRATEGIST blind (b); CRUCIBLE_PLUGIN blind. THE TRAP: this is on RED's blind list and on the plugin's. It is NOT on the ARMORER's. Got wrong once already."
+    },
+    "HELDOUT": {
+      "label": "the sealed held-out attack family",
+      "anchor": "RED",
+      "enforcement": "iam",
+      "source": "1.1 RED_STRATEGIST blind (d) and ARMORER blind (e), both real IAM: the sealed family exists only in GCS and BigQuery and neither identity holds a role there"
+    },
+    "FIXTURE_SUITES": {
+      "label": "the benign and known-bad fixture suites",
+      "anchor": "WAR",
+      "enforcement": "convention",
+      "source": "1.1 ARMORER blind (b), application convention plus a code check, NOT IAM; also CORONER and RED_STRATEGIST (c)"
+    },
+    "WARDEN_REPORT": {
+      "label": "the Warden report contents",
+      "anchor": "e_WAR_NARROW",
+      "enforcement": "convention",
+      "source": "1.1 ARMORER blind (c), same status as (b)"
+    },
+    "DSL_GRAMMAR": {
+      "label": "the policy DSL grammar",
+      "anchor": "VAL",
+      "enforcement": "construction",
+      "source": "1.1 CORONER blind"
+    },
+    "CURRENT_POLICY": {
+      "label": "the policy at vN",
+      "anchor": "ENG",
+      "enforcement": "construction",
+      "source": "1.1 CORONER blind (the current policy); TRIPWIRE blind (the policy version)"
+    },
+    "ARMORER_EXISTENCE": {
+      "label": "that an Armorer exists at all",
+      "anchor": "ARM",
+      "enforcement": "construction",
+      "source": "1.1 CORONER blind"
+    },
+    "ARMORER_REASONING": {
+      "label": "the Armorer's reasoning",
+      "anchor": "ARM",
+      "enforcement": "construction",
+      "source": "1.1 REGRESSION_WARDEN blind; PROMOTION_GATE blind to everything upstream of the Warden report"
+    },
+    "CORONER_RECORDS": {
+      "label": "the Coroner's breach records",
+      "anchor": "COR",
+      "enforcement": "construction",
+      "source": "1.1 REGRESSION_WARDEN blind; PROMOTION_GATE blind"
+    }
+  },
+  "cues": [
+    {
+      "t_ms": 0,
+      "spotlight": [],
+      "dim": [],
+      "note": "Full topology, nothing dimmed. Rule 1: a judge sees the whole system at frame one and never watches it assemble."
+    },
+    {
+      "t_ms": 1200,
+      "spotlight": ["GOV", "RED"],
+      "dim": [],
+      "note": "The round opens at the budget governor, or it refuses. A red team model writes six attacks a round."
+    },
+    {
+      "t_ms": 2400,
+      "spotlight": ["RED", "TGT"],
+      "dim": [],
+      "note": "...against the target."
+    },
+    {
+      "t_ms": 3200,
+      "spotlight": ["RED"],
+      "dim": ["HELDOUT", "OBJECTIVE_SET"],
+      "note": "The corpus was authored, then sealed and committed before the first patch existed. Red cannot read the sealed family (IAM) and cannot read the Objective Set it is being scored against."
+    },
+    {
+      "t_ms": 6800,
+      "spotlight": ["RED", "ARM"],
+      "dim": ["HELDOUT"],
+      "note": "The identity that writes patches cannot read the sealed set. Both ends of the arrow are blind to the same bucket, and that one is real IAM."
+    },
+    {
+      "t_ms": 8400,
+      "spotlight": ["LED", "TW"],
+      "dim": ["RED_PAYLOAD", "ATTACK_FAMILY", "RED_INTENT"],
+      "note": "The tripwire is pure code. It rules from the ordered tool call trace, not from anything the agent said. Three things it cannot see, going dark in one beat."
+    },
+    {
+      "t_ms": 11200,
+      "spotlight": ["TW", "DRY", "CONV"],
+      "dim": ["CURRENT_POLICY"],
+      "note": "Eleven Objective Set clauses. Breach or no breach, and three consecutive dry rounds is convergence. The oracle does not know which policy version it is scoring."
+    },
+    {
+      "t_ms": 12400,
+      "spotlight": ["COR"],
+      "dim": ["DSL_GRAMMAR", "CURRENT_POLICY", "FIXTURE_SUITES"],
+      "note": "The coroner writes the autopsy and structurally cannot propose a fix. There is no fix field in its schema."
+    },
+    {
+      "t_ms": 16600,
+      "spotlight": ["COR", "ADP"],
+      "dim": ["ARMORER_EXISTENCE"],
+      "note": "Its findings sit in a subtree the armorer's input adapter cannot address. The coroner does not know an armorer exists."
+    },
+    {
+      "t_ms": 20800,
+      "spotlight": ["ARM"],
+      "dim": ["RED_PAYLOAD", "FIXTURE_SUITES", "WARDEN_REPORT", "HELDOUT"],
+      "note": "THE HEADLINE OF RULE 2. Four things go dark in one beat: the attacker's payload text, the fixture suites, the Warden report contents, the held-out family. Twenty seconds of narration, two seconds of picture."
+    },
+    {
+      "t_ms": 24800,
+      "spotlight": ["ARM", "VAL"],
+      "dim": [],
+      "note": "Three verbs. Deny, constrain argument, require approval. No allow verb, so no sequence of patches can widen the blast radius. The validator assigns the rule id, because a model cannot compute SHA-256."
+    },
+    {
+      "t_ms": 29200,
+      "spotlight": ["PLG", "ENG"],
+      "dim": [],
+      "note": "The compiled policy runs as a plugin callback, before the agent's own callbacks, and a non-None return skips execution."
+    },
+    {
+      "t_ms": 32200,
+      "spotlight": ["TGT", "PLG", "ENG"],
+      "dim": ["OBJECTIVE_SET", "ATTACK_FAMILY"],
+      "note": "So the policy cannot be argued with by the agent it governs. The enforcement layer enforces and reports; it does not score, and it does not know what the attacker was trying."
+    },
+    {
+      "t_ms": 34300,
+      "spotlight": ["WAR", "NARROW"],
+      "dim": ["CORONER_RECORDS", "ARMORER_REASONING", "RED_PAYLOAD"],
+      "note": "The regression warden, also pure code. Twenty six benign fixtures, fourteen of them near misses, all twenty six must still pass. It grades against criteria it cannot write."
+    },
+    {
+      "t_ms": 38600,
+      "spotlight": ["GATE", "NEXT"],
+      "dim": ["CORONER_RECORDS", "ARMORER_REASONING"],
+      "note": "The gate promotes only if attack success falls AND benign is exactly one hundred percent. It is blind to everything upstream of the Warden report, so there is no reasoning for it to weigh."
+    },
+    {
+      "t_ms": 41000,
+      "spotlight": [],
+      "dim": [],
+      "boundary": "resolve",
+      "note": "Rule 3, fired once and last. Everything on the model-generated side of the trust boundary desaturates; the deterministic side keeps its colour. No model ever decides whether a breach happened. NOTE: loop.svg draws the boundary HORIZONTALLY (model-bearing ABOVE, pure code BELOW) while the locked narration says 'left of this line'. That conflict is real and belongs to the recording, not to this file."
+    }
+  ]
+}
+</script>
+
+<script>
+/* CRUCIBLE_CUE_CORE_BEGIN
+   -------------------------------------------------------------------------
+   The pure core: no DOM, no clock, no globals but the one it exports. Given
+   (t, cue list, the diagram's node and edge ids) it returns a complete
+   description of the frame. The layer below it only assigns classes and
+   positions boxes.
+
+   THIS SPLIT EXISTS SO THE TIMELINE CAN BE TESTED. Nothing in this repo can
+   drive a browser from pytest - there is no playwright and no jsdom in the
+   pinned dependencies - so a player whose logic lived inside DOM callbacks
+   would ship with a test suite that could only assert the file contains the
+   word "seek". That is the defect this project has recorded twelve times: a
+   check that passes while measuring nothing. tests/test_loop_cues.py extracts
+   the text between these two markers, evaluates it in node, and drives it.
+   ------------------------------------------------------------------------- */
+(function (root) {
+  "use strict";
+
+  var CHIP_MS  = 520;    /* a chip arrives lit and then quenches over this long */
+  var CHIP_LIT = 0.34;   /* the fraction of that spent lit, before the strike */
+  var WIPE_MS  = 900;
+  var WIPE_W   = 1864;   /* the trust boundary line's own extent in loop.svg */
+
+  function clamp01(x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
+
+  function makeTimeline(config) {
+    var data    = config.data;
+    var cues    = data.cues;
+    var targets = data.blindness_targets || {};
+    var duration = data.duration_ms;
+    var nodeIds = config.nodeIds || [];
+    var edgeIds = config.edgeIds || [];
+
+    function clampT(ms) {
+      ms = Math.round(Number(ms));
+      if (!isFinite(ms) || ms < 0) { return 0; }
+      return ms > duration ? duration : ms;
+    }
+
+    function cueIndexAt(ms) {
+      var idx = 0;
+      for (var i = 0; i < cues.length; i++) {
+        if (cues[i].t_ms <= ms) { idx = i; } else { break; }
+      }
+      return idx;
+    }
+
+    /* Rule 3 fires exactly once - the validator's R3 is what guarantees it -
+       so the first resolve at or before ms is the only one there can be. */
+    function resolveAtOrBefore(ms) {
+      for (var i = 0; i < cues.length; i++) {
+        if (cues[i].boundary === "resolve" && cues[i].t_ms <= ms) { return cues[i]; }
+      }
+      return null;
+    }
+
+    /* An edge belongs to a lit node when that node's id is one of the
+       underscore tokens of the edge id: e_RED_TGT, e_NEXT_GOV_promote. A
+       heuristic, and it fails closed - an edge it cannot attribute simply
+       dims with everything else, which is never worse than the spec asks. */
+    function edgeTouches(edgeId, litSet) {
+      if (edgeId.indexOf("e_") !== 0) { return false; }
+      var parts = edgeId.slice(2).split("_");
+      for (var i = 0; i < parts.length; i++) {
+        if (litSet[parts[i]]) { return true; }
+      }
+      return false;
+    }
+
+    function computeFrame(rawMs) {
+      var ms = clampT(rawMs);
+      var index = cueIndexAt(ms);
+      var cue = cues[index];
+      var resolveCue = resolveAtOrBefore(ms);
+      var spotlight = cue.spotlight || [];
+      var dim = cue.dim || [];
+      var i;
+
+      var litSet = {};
+      for (i = 0; i < spotlight.length; i++) { litSet[spotlight[i]] = true; }
+
+      /* Every dimmed id is either a declared blindness target, which darkens
+         its anchor and raises a chip, or a direct pointer at a diagram
+         element, which just darkens. R1 has already proved both resolve. */
+      var blindSet = {};
+      var chips = [];
+      var perAnchor = {};
+      for (i = 0; i < dim.length; i++) {
+        var name = dim[i];
+        var spec = targets[name];
+        if (spec) {
+          blindSet[spec.anchor] = true;
+          var slot = perAnchor[spec.anchor] || 0;
+          perAnchor[spec.anchor] = slot + 1;
+          chips.push({
+            target: name,
+            anchor: spec.anchor,
+            label: spec.label,
+            enforcement: spec.enforcement || "construction",
+            slot: slot,
+            phase: clamp01((ms - cue.t_ms) / CHIP_MS)
+          });
+        } else {
+          blindSet[name] = true;
+        }
+      }
+
+      var resolved = !!resolveCue;
+      /* Rule 3 owns the closing frames outright. A spotlight still burning
+         while the boundary resolves would split the judge's attention at the
+         one moment the thesis lands. */
+      var spotlighting = spotlight.length > 0 && !resolved;
+
+      var lit = [], dimNodes = [], blind = [], dimEdges = [];
+      if (!resolved) {
+        for (i = 0; i < nodeIds.length; i++) {
+          var nid = nodeIds[i];
+          if (litSet[nid]) { lit.push(nid); }
+          else if (blindSet[nid]) { blind.push(nid); }
+          else if (spotlighting) { dimNodes.push(nid); }
+        }
+        for (i = 0; i < edgeIds.length; i++) {
+          var eid = edgeIds[i];
+          if (blindSet[eid]) { blind.push(eid); }
+          else if (spotlighting && !edgeTouches(eid, litSet)) { dimEdges.push(eid); }
+        }
+      }
+
+      var wipe = resolved ? clamp01((ms - resolveCue.t_ms) / WIPE_MS) : 0;
+
+      return {
+        t_ms: ms,
+        cue_index: index,
+        cue_t_ms: cue.t_ms,
+        note: cue.note || "",
+        spotlighting: spotlighting,
+        boundary_resolved: resolved,
+        lit: lit.sort(),
+        dim_nodes: dimNodes.sort(),
+        dim_edges: dimEdges.sort(),
+        blind: blind.sort(),
+        chips: chips,
+        wipe_px: Math.round(WIPE_W * wipe),
+        wipe_running: resolved && wipe < 1
+      };
+    }
+
+    /* Where the strike sits across a chip label, 0 to 1 of the label's width.
+       Lit first, struck after: the claim is not "this is absent", it is
+       "this exists and is being withheld". */
+    function chipStrike(phase) {
+      if (phase <= CHIP_LIT) { return 0; }
+      return clamp01((phase - CHIP_LIT) / (1 - CHIP_LIT));
+    }
+
+    function chipOpacity(phase) { return 1 - 0.58 * chipStrike(phase); }
+
+    return {
+      duration_ms: duration,
+      cues: cues,
+      targets: targets,
+      clampT: clampT,
+      cueIndexAt: cueIndexAt,
+      computeFrame: computeFrame,
+      chipStrike: chipStrike,
+      chipOpacity: chipOpacity,
+      edgeTouches: edgeTouches
+    };
+  }
+
+  root.CrucibleCueTimeline = { makeTimeline: makeTimeline, CHIP_MS: CHIP_MS, WIPE_MS: WIPE_MS };
+}(typeof globalThis !== "undefined" ? globalThis : this));
+/* CRUCIBLE_CUE_CORE_END */
+
+/* -------------------------------------------------------------------------
+   The DOM layer. Applies a frame; decides nothing.
+   ------------------------------------------------------------------------- */
+(function () {
+  "use strict";
+
+  var DATA = JSON.parse(document.getElementById("loop-cues").textContent);
+
+  var stage   = document.getElementById("stage");
+  var overlay = document.getElementById("overlay");
+  var svg     = document.querySelector("#diagram svg");
+  var wipeEl  = document.getElementById("boundary-wipe");
+  var headEl  = document.getElementById("boundary-head");
+  var root    = document.documentElement;
+
+  var WIPE_X = 28;
+
+  var nodes = Array.prototype.slice.call(svg.querySelectorAll(".node"));
+  var edges = Array.prototype.slice.call(svg.querySelectorAll(".edge"));
+
+  var timeline = globalThis.CrucibleCueTimeline.makeTimeline({
+    data: DATA,
+    nodeIds: nodes.map(function (n) { return n.id; }),
+    edgeIds: edges.map(function (e) { return e.id; })
+  });
+
+  var DURATION = timeline.duration_ms;
+  var t = 0, playing = false, rafId = null, lastFrame = 0;
+
+  function enforcementCopy(kind) {
+    /* architecture-spec.md 1.1 says the Armorer's blindness to the fixture
+       suites is application convention plus a code check and NOT IAM, and says
+       in as many words never to call that one enforced on camera. So the chip
+       prints its class instead of a generic "blocked", and the cue file
+       carries the weakest class each target holds across every component. */
+    if (kind === "iam") { return "IAM · no read binding"; }
+    if (kind === "adapter") { return "input adapter · no field for it"; }
+    if (kind === "convention") { return "convention + code check · not IAM"; }
+    return "by construction";
+  }
+
+  /* The trust boundary is drawn from frame one and is never revealed - that is
+     rule 3, and the whole closing thesis rests on the judge having watched the
+     line sit there for forty seconds. So it is reserved territory: no chip may
+     be placed over it, and the lit component is reserved for the same reason. */
+  var BOUNDARY_KEEPOUT = { x: 0, y: 396, w: 1920, h: 38 };
+  var CHIP_PAD = 10;
+  var CHIP_TOP_LIMIT = 148;      /* below the title rule at y=128 */
+  var CHIP_BOTTOM_LIMIT = 1064;
+
+  function overlaps(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x &&
+           a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function firstCollision(rect, occupied) {
+    for (var i = 0; i < occupied.length; i++) {
+      if (overlaps(rect, occupied[i])) { return occupied[i]; }
+    }
+    return null;
+  }
+
+  /* Push a chip clear of whatever it landed on: down if there is room below,
+     otherwise up. Bounded, and driven only by the frame's own contents, so two
+     renders of the same t place every chip identically. */
+  function settleRect(rect, occupied) {
+    var hit, guard = 0;
+    while ((hit = firstCollision(rect, occupied)) !== null && guard++ < 48) {
+      var down = hit.y + hit.h + CHIP_PAD;
+      if (down + rect.h <= CHIP_BOTTOM_LIMIT) { rect.y = down; }
+      else { rect.y = Math.max(CHIP_TOP_LIMIT, hit.y - rect.h - CHIP_PAD); }
+    }
+    return rect;
+  }
+
+  function buildChip(chip) {
+    var anchor = svg.getElementById(chip.anchor);
+    if (!anchor) { return null; }   /* R1 makes this unreachable; belt and braces */
+    var box = anchor.getBBox();
+
+    var el = document.createElement("div");
+    el.className = "chip";
+    el.setAttribute("data-target", chip.target);
+    el.setAttribute("data-anchor", chip.anchor);
+
+    var inner = document.createElement("div");
+    inner.className = "chip-box";
+
+    var eyebrow = document.createElement("div");
+    eyebrow.className = "chip-eyebrow";
+    eyebrow.textContent = "cannot see";
+    inner.appendChild(eyebrow);
+
+    var label = document.createElement("div");
+    label.className = "chip-label";
+    label.textContent = chip.label;
+    var strike = document.createElement("span");
+    strike.className = "chip-strike";
+    label.appendChild(strike);
+    inner.appendChild(label);
+
+    var enf = document.createElement("div");
+    enf.className = "chip-enf";
+    enf.textContent = enforcementCopy(chip.enforcement);
+    inner.appendChild(enf);
+
+    el.appendChild(inner);
+    var lead = document.createElement("div");
+    lead.className = "chip-lead";
+    el.appendChild(lead);
+
+    /* Height is unknown until it is in the document, so append, measure, then
+       place. Position starts from the anchor's own bbox, which means a chip
+       cannot drift away from what it is talking about and moving a node in
+       loop.svg moves its chips with it. */
+    overlay.appendChild(el);
+
+    var strikeFrac = timeline.chipStrike(chip.phase);
+    strike.style.width = strikeFrac > 0 ? (label.offsetWidth * strikeFrac + 4) + "px" : "0px";
+    inner.style.opacity = String(timeline.chipOpacity(chip.phase));
+
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var left = box.x + box.width / 2 - w / 2;
+    if (left < 24) { left = 24; }
+    if (left + w > 1896) { left = 1896 - w; }
+
+    var below = box.y + box.height + 14 + chip.slot * (h + CHIP_PAD);
+    var top = (below + h <= CHIP_BOTTOM_LIMIT)
+      ? below
+      : Math.max(CHIP_TOP_LIMIT, box.y - 14 - h - chip.slot * (h + CHIP_PAD));
+
+    return { el: el, lead: lead, box: box, height: h,
+             rect: { x: left, y: top, w: w, h: h } };
+  }
+
+  function placeChip(item) {
+    item.el.style.left = item.rect.x + "px";
+    item.el.style.top = item.rect.y + "px";
+
+    /* The leader only gets drawn when the chip ended up directly under or over
+       its anchor. A line dragged across the plate to a chip that collision
+       avoidance pushed sideways reads as an edge, and this diagram already
+       uses lines to mean something. */
+    var cx = item.box.x + item.box.width / 2;
+    var inColumn = cx >= item.rect.x && cx <= item.rect.x + item.rect.w;
+    if (!inColumn) { item.lead.style.height = "0px"; return; }
+
+    item.lead.style.left = (cx - item.rect.x) + "px";
+    if (item.rect.y >= item.box.y + item.box.height) {
+      var drop = item.rect.y - (item.box.y + item.box.height);
+      item.lead.style.top = (-drop) + "px";
+      item.lead.style.height = drop + "px";
+    } else if (item.rect.y + item.height <= item.box.y) {
+      item.lead.style.top = item.height + "px";
+      item.lead.style.height = (item.box.y - (item.rect.y + item.height)) + "px";
+    } else {
+      item.lead.style.height = "0px";
+    }
+  }
+
+  function render(ms) {
+    var f = timeline.computeFrame(ms);
+    var i, set;
+
+    stage.classList.toggle("spotlighting", f.spotlighting);
+    stage.classList.toggle("resolved", f.boundary_resolved);
+
+    for (i = 0; i < nodes.length; i++) {
+      nodes[i].classList.remove("is-lit", "is-dim", "is-blind");
+    }
+    for (i = 0; i < edges.length; i++) {
+      edges[i].classList.remove("is-dim", "is-blind");
+    }
+
+    set = function (ids, cls) {
+      for (var k = 0; k < ids.length; k++) {
+        var el = svg.getElementById(ids[k]);
+        if (el) { el.classList.add(cls); }
+      }
+    };
+    set(f.lit, "is-lit");
+    set(f.dim_nodes, "is-dim");
+    set(f.dim_edges, "is-dim");
+    set(f.blind, "is-blind");
+
+    /* Chips are rebuilt every frame rather than diffed. Rebuilding is what
+       makes the frame a function of ms alone: a diffed overlay carries state
+       from the previous t, and a seek backwards would leave a chip standing
+       that should not exist yet. */
+    var old = overlay.querySelectorAll(".chip");
+    for (i = 0; i < old.length; i++) { overlay.removeChild(old[i]); }
+
+    var occupied = [{ x: BOUNDARY_KEEPOUT.x, y: BOUNDARY_KEEPOUT.y,
+                      w: BOUNDARY_KEEPOUT.w, h: BOUNDARY_KEEPOUT.h }];
+    for (i = 0; i < f.lit.length; i++) {
+      var litEl = svg.getElementById(f.lit[i]);
+      if (!litEl) { continue; }
+      var lb = litEl.getBBox();
+      occupied.push({ x: lb.x - 8, y: lb.y - 8, w: lb.width + 16, h: lb.height + 16 });
+    }
+    for (i = 0; i < f.chips.length; i++) {
+      var item = buildChip(f.chips[i]);
+      if (!item) { continue; }
+      settleRect(item.rect, occupied);
+      placeChip(item);
+      occupied.push({ x: item.rect.x - 6, y: item.rect.y - 6,
+                      w: item.rect.w + 12, h: item.rect.h + 12 });
+    }
+
+    if (f.boundary_resolved) {
+      wipeEl.style.opacity = "1";
+      wipeEl.style.width = f.wipe_px + "px";
+      headEl.style.opacity = f.wipe_running ? "1" : "0";
+      headEl.style.left = (WIPE_X + f.wipe_px) + "px";
+    } else {
+      wipeEl.style.opacity = "0";
+      wipeEl.style.width = "0px";
+      headEl.style.opacity = "0";
+    }
+
+    root.setAttribute("data-t", String(f.t_ms));
+    syncChrome(f);
+    return f;
+  }
+
+  /* seek() suppresses transitions for the frame it draws, so the same t lands
+     the same pixels every time. Without this a seek arrives mid-transition and
+     a capture taken at that instant is whatever the previous t was decaying
+     from. play() is the real-time path, for recording the take. */
+  function settle(ms) {
+    document.body.classList.add("no-anim");
+    render(ms);
+    void document.body.offsetWidth;
+    document.body.classList.remove("no-anim");
+  }
+
+  function frame(now) {
+    if (!playing) { return; }
+    t = Math.min(DURATION, t + (now - lastFrame));
+    lastFrame = now;
+    render(t);
+    if (t >= DURATION) { playing = false; rafId = null; updatePlayButton(); return; }
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function play() {
+    if (playing) { return; }
+    if (t >= DURATION) { t = 0; }
+    playing = true;
+    lastFrame = performance.now();
+    rafId = requestAnimationFrame(frame);
+    updatePlayButton();
+  }
+
+  function pause() {
+    playing = false;
+    if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    updatePlayButton();
+  }
+
+  function seek(ms) {
+    var target = timeline.clampT(ms);
+    pause();
+    t = target;
+    settle(target);
+    return target;
+  }
+
+  function advance(dt) { return seek(t + dt); }
+
+  /* state() READS THE DOM BACK. If the renderer stops applying a class this
+     stops reporting it, and a test asserting on it goes red. A state() that
+     echoed the cue it meant to apply would stay green through a deleted
+     renderer, which is exactly the shape this project keeps re-authoring. */
+  function idsWith(cls) {
+    var out = [], found = svg.querySelectorAll("." + cls);
+    for (var i = 0; i < found.length; i++) { out.push(found[i].id); }
+    return out.sort();
+  }
+
+  function state() {
+    var chips = [], found = overlay.querySelectorAll(".chip");
+    for (var i = 0; i < found.length; i++) {
+      chips.push({
+        target: found[i].getAttribute("data-target"),
+        anchor: found[i].getAttribute("data-anchor"),
+        opacity: Number(found[i].querySelector(".chip-box").style.opacity || "1"),
+        struck: parseFloat(found[i].querySelector(".chip-strike").style.width) > 0
+      });
+    }
+    chips.sort(function (a, b) { return a.target < b.target ? -1 : 1; });
+
+    return {
+      t_ms: t,
+      playing: playing,
+      duration_ms: DURATION,
+      cue_index: timeline.cueIndexAt(t),
+      lit: idsWith("is-lit"),
+      dimmed: idsWith("is-dim"),
+      blind: idsWith("is-blind"),
+      chips: chips,
+      boundary_resolved: stage.classList.contains("resolved"),
+      wipe_px: Math.round(parseFloat(wipeEl.style.width || "0"))
+    };
+  }
+
+  function fit() {
+    root.style.setProperty(
+      "--fit", String(Math.min(window.innerWidth / 1920, window.innerHeight / 1080)));
+  }
+
+  var cPlay  = document.getElementById("c-play");
+  var cScrub = document.getElementById("c-scrub");
+  var cT     = document.getElementById("chrome-t");
+  var cNote  = document.getElementById("chrome-note");
+
+  function updatePlayButton() { cPlay.textContent = playing ? "pause" : "play"; }
+
+  function syncChrome(f) {
+    if (root.getAttribute("data-chrome") !== "1") { return; }
+    cT.textContent = (f.t_ms / 1000).toFixed(3) + "s";
+    if (document.activeElement !== cScrub) { cScrub.value = String(f.t_ms); }
+    cNote.textContent = f.note;
+  }
+
+  cPlay.addEventListener("click", function () { if (playing) { pause(); } else { play(); } });
+  cScrub.addEventListener("input", function () { seek(Number(cScrub.value)); });
+
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === " ") { ev.preventDefault(); if (playing) { pause(); } else { play(); } }
+    else if (ev.key === "ArrowRight") { advance(ev.shiftKey ? 1000 : 100); }
+    else if (ev.key === "ArrowLeft") { advance(ev.shiftKey ? -1000 : -100); }
+    else if (ev.key === "Home") { seek(0); }
+    else if (ev.key === "End") { seek(DURATION); }
+  });
+
+  window.addEventListener("resize", fit);
+
+  if (new URLSearchParams(location.search).get("chrome") === "1") {
+    root.setAttribute("data-chrome", "1");
+  }
+  cScrub.max = String(DURATION);
+
+  fit();
+  settle(0);
+  updatePlayButton();
+
+  window.__cuePlayer = {
+    play: play,
+    pause: pause,
+    toggle: function () { if (playing) { pause(); } else { play(); } },
+    seek: seek,
+    advance: advance,
+    state: state,
+    frameAt: timeline.computeFrame,
+    duration_ms: DURATION,
+    cues: timeline.cues,
+    targets: timeline.targets
+  };
+}());
+</script>
+</body></html>

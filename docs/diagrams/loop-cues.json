@@ -1,0 +1,187 @@
+{
+  "beat": "N4",
+  "duration_ms": 45000,
+  "svg": "loop.svg",
+  "provenance": {
+    "narration": "docs/design/narration-LOCKED-2026-08-27.md, section N4",
+    "spec": "docs/design/architecture-animation-spec.md",
+    "blindness_source": "docs/architecture-spec.md section 1.1, read 2026-08-29, not recalled",
+    "timings_are": "ESTIMATES",
+    "how_the_timings_were_derived": "The locked N4 script is 263 spoken words. There is no recorded take yet, so each cue sits at the proportional position of its first spoken word across a 43800 ms body after a 1200 ms opening hold. The spec is explicit that Eric's recorded pacing sets the real timestamps: re-cut this file against the take, never the animation.",
+    "known_conflict_read_before_recording": "263 words does not fit 45000 ms. That is 350 wpm. At a natural 150 wpm the locked N4 copy runs about 105 s. duration_ms is held at 45000 here because the 45 s beat is what docs/execution-spec.md and the animation spec both name; when the take is recorded, duration_ms and every t_ms are rescaled together and nothing else changes.",
+    "enforcement_field": "Each blindness target carries the WEAKEST enforcement class it holds across every component that is blind to it, because a chip that overstates enforcement is an overclaim on camera. architecture-spec.md section 1.1 says of the Armorer's blindness to the fixture suites: application convention plus a code check, NOT IAM. Never call that one enforced."
+  },
+  "blindness_targets": {
+    "RED_PAYLOAD": {
+      "label": "attacker payload text",
+      "anchor": "RED",
+      "enforcement": "adapter",
+      "source": "1.1 ARMORER blind (a), enforced by the input adapter which has no field for it; also TRIPWIRE and REGRESSION_WARDEN"
+    },
+    "ATTACK_FAMILY": {
+      "label": "the attack family",
+      "anchor": "RED",
+      "enforcement": "construction",
+      "source": "1.1 TRIPWIRE blind; CRUCIBLE_PLUGIN blind"
+    },
+    "RED_INTENT": {
+      "label": "the Red Strategist's stated intent",
+      "anchor": "e_RED_TGT",
+      "enforcement": "construction",
+      "source": "1.1 TRIPWIRE blind"
+    },
+    "OBJECTIVE_SET": {
+      "label": "the Objective Set and its predicates",
+      "anchor": "TW",
+      "enforcement": "construction",
+      "source": "1.1 RED_STRATEGIST blind (b); CRUCIBLE_PLUGIN blind. THE TRAP: this is on RED's blind list and on the plugin's. It is NOT on the ARMORER's. Got wrong once already."
+    },
+    "HELDOUT": {
+      "label": "the sealed held-out attack family",
+      "anchor": "RED",
+      "enforcement": "iam",
+      "source": "1.1 RED_STRATEGIST blind (d) and ARMORER blind (e), both real IAM: the sealed family exists only in GCS and BigQuery and neither identity holds a role there"
+    },
+    "FIXTURE_SUITES": {
+      "label": "the benign and known-bad fixture suites",
+      "anchor": "WAR",
+      "enforcement": "convention",
+      "source": "1.1 ARMORER blind (b), application convention plus a code check, NOT IAM; also CORONER and RED_STRATEGIST (c)"
+    },
+    "WARDEN_REPORT": {
+      "label": "the Warden report contents",
+      "anchor": "e_WAR_NARROW",
+      "enforcement": "convention",
+      "source": "1.1 ARMORER blind (c), same status as (b)"
+    },
+    "DSL_GRAMMAR": {
+      "label": "the policy DSL grammar",
+      "anchor": "VAL",
+      "enforcement": "construction",
+      "source": "1.1 CORONER blind"
+    },
+    "CURRENT_POLICY": {
+      "label": "the policy at vN",
+      "anchor": "ENG",
+      "enforcement": "construction",
+      "source": "1.1 CORONER blind (the current policy); TRIPWIRE blind (the policy version)"
+    },
+    "ARMORER_EXISTENCE": {
+      "label": "that an Armorer exists at all",
+      "anchor": "ARM",
+      "enforcement": "construction",
+      "source": "1.1 CORONER blind"
+    },
+    "ARMORER_REASONING": {
+      "label": "the Armorer's reasoning",
+      "anchor": "ARM",
+      "enforcement": "construction",
+      "source": "1.1 REGRESSION_WARDEN blind; PROMOTION_GATE blind to everything upstream of the Warden report"
+    },
+    "CORONER_RECORDS": {
+      "label": "the Coroner's breach records",
+      "anchor": "COR",
+      "enforcement": "construction",
+      "source": "1.1 REGRESSION_WARDEN blind; PROMOTION_GATE blind"
+    }
+  },
+  "cues": [
+    {
+      "t_ms": 0,
+      "spotlight": [],
+      "dim": [],
+      "note": "Full topology, nothing dimmed. Rule 1: a judge sees the whole system at frame one and never watches it assemble."
+    },
+    {
+      "t_ms": 1200,
+      "spotlight": ["GOV", "RED"],
+      "dim": [],
+      "note": "The round opens at the budget governor, or it refuses. A red team model writes six attacks a round."
+    },
+    {
+      "t_ms": 2400,
+      "spotlight": ["RED", "TGT"],
+      "dim": [],
+      "note": "...against the target."
+    },
+    {
+      "t_ms": 3200,
+      "spotlight": ["RED"],
+      "dim": ["HELDOUT", "OBJECTIVE_SET"],
+      "note": "The corpus was authored, then sealed and committed before the first patch existed. Red cannot read the sealed family (IAM) and cannot read the Objective Set it is being scored against."
+    },
+    {
+      "t_ms": 6800,
+      "spotlight": ["RED", "ARM"],
+      "dim": ["HELDOUT"],
+      "note": "The identity that writes patches cannot read the sealed set. Both ends of the arrow are blind to the same bucket, and that one is real IAM."
+    },
+    {
+      "t_ms": 8400,
+      "spotlight": ["LED", "TW"],
+      "dim": ["RED_PAYLOAD", "ATTACK_FAMILY", "RED_INTENT"],
+      "note": "The tripwire is pure code. It rules from the ordered tool call trace, not from anything the agent said. Three things it cannot see, going dark in one beat."
+    },
+    {
+      "t_ms": 11200,
+      "spotlight": ["TW", "DRY", "CONV"],
+      "dim": ["CURRENT_POLICY"],
+      "note": "Eleven Objective Set clauses. Breach or no breach, and three consecutive dry rounds is convergence. The oracle does not know which policy version it is scoring."
+    },
+    {
+      "t_ms": 12400,
+      "spotlight": ["COR"],
+      "dim": ["DSL_GRAMMAR", "CURRENT_POLICY", "FIXTURE_SUITES"],
+      "note": "The coroner writes the autopsy and structurally cannot propose a fix. There is no fix field in its schema."
+    },
+    {
+      "t_ms": 16600,
+      "spotlight": ["COR", "ADP"],
+      "dim": ["ARMORER_EXISTENCE"],
+      "note": "Its findings sit in a subtree the armorer's input adapter cannot address. The coroner does not know an armorer exists."
+    },
+    {
+      "t_ms": 20800,
+      "spotlight": ["ARM"],
+      "dim": ["RED_PAYLOAD", "FIXTURE_SUITES", "WARDEN_REPORT", "HELDOUT"],
+      "note": "THE HEADLINE OF RULE 2. Four things go dark in one beat: the attacker's payload text, the fixture suites, the Warden report contents, the held-out family. Twenty seconds of narration, two seconds of picture."
+    },
+    {
+      "t_ms": 24800,
+      "spotlight": ["ARM", "VAL"],
+      "dim": [],
+      "note": "Three verbs. Deny, constrain argument, require approval. No allow verb, so no sequence of patches can widen the blast radius. The validator assigns the rule id, because a model cannot compute SHA-256."
+    },
+    {
+      "t_ms": 29200,
+      "spotlight": ["PLG", "ENG"],
+      "dim": [],
+      "note": "The compiled policy runs as a plugin callback, before the agent's own callbacks, and a non-None return skips execution."
+    },
+    {
+      "t_ms": 32200,
+      "spotlight": ["TGT", "PLG", "ENG"],
+      "dim": ["OBJECTIVE_SET", "ATTACK_FAMILY"],
+      "note": "So the policy cannot be argued with by the agent it governs. The enforcement layer enforces and reports; it does not score, and it does not know what the attacker was trying."
+    },
+    {
+      "t_ms": 34300,
+      "spotlight": ["WAR", "NARROW"],
+      "dim": ["CORONER_RECORDS", "ARMORER_REASONING", "RED_PAYLOAD"],
+      "note": "The regression warden, also pure code. Twenty six benign fixtures, fourteen of them near misses, all twenty six must still pass. It grades against criteria it cannot write."
+    },
+    {
+      "t_ms": 38600,
+      "spotlight": ["GATE", "NEXT"],
+      "dim": ["CORONER_RECORDS", "ARMORER_REASONING"],
+      "note": "The gate promotes only if attack success falls AND benign is exactly one hundred percent. It is blind to everything upstream of the Warden report, so there is no reasoning for it to weigh."
+    },
+    {
+      "t_ms": 41000,
+      "spotlight": [],
+      "dim": [],
+      "boundary": "resolve",
+      "note": "Rule 3, fired once and last. Everything on the model-generated side of the trust boundary desaturates; the deterministic side keeps its colour. No model ever decides whether a breach happened. NOTE: loop.svg draws the boundary HORIZONTALLY (model-bearing ABOVE, pure code BELOW) while the locked narration says 'left of this line'. That conflict is real and belongs to the recording, not to this file."
+    }
+  ]
+}

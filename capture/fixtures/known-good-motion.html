@@ -1,0 +1,91 @@
+<!doctype html>
+<!--
+  KNOWN-GOOD FIXTURE (the positive control).
+
+  A verifier that always FAILS is as useless as one that always passes, so the
+  selftest also records this page and requires every check to come back PASS.
+
+  It stands in for docs/diagrams/loop-player.html only in shape: it exposes the
+  same window.__cuePlayer = { play(), seek(ms), state() } contract, holds a
+  still, legible frame at t=0 for the head pad, moves continuously while the
+  beat runs, and holds again at the end. It is NOT the architecture diagram and
+  must never be recorded as one -- it carries no node set and no cue list.
+
+  Palette is the project's own so the fixture cannot be mistaken for a stray
+  test page: brass #9A6B12, verdigris #2C6355, ground #F1F3EF, ink #14181B.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>known-good: motion</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #F1F3EF; }
+      body {
+        font: 600 28px/1.4 "Segoe UI", system-ui, sans-serif;
+        color: #14181B;
+        overflow: hidden;
+      }
+      #label { position: absolute; left: 64px; top: 56px; }
+      #sub   { position: absolute; left: 64px; top: 104px; font-weight: 400; font-size: 20px; opacity: .7; }
+      #bar {
+        position: absolute; top: 45%; left: 0;
+        width: 320px; height: 160px;
+        background: #9A6B12;
+      }
+      #chase {
+        position: absolute; top: 45%; left: 0;
+        width: 160px; height: 160px;
+        background: #2C6355;
+      }
+      #clock { position: absolute; left: 64px; bottom: 56px; font-variant-numeric: tabular-nums; }
+    </style>
+  </head>
+  <body>
+    <div id="label">capture selftest — positive control</div>
+    <div id="sub">not the architecture diagram. fixture only.</div>
+    <div id="bar"></div>
+    <div id="chase"></div>
+    <div id="clock">t = 0 ms</div>
+    <script>
+      const bar = document.getElementById('bar');
+      const chase = document.getElementById('chase');
+      const clock = document.getElementById('clock');
+
+      let playing = false;
+      let startedAt = 0;
+      let tMs = 0;
+      const SPAN = 1400; // px of travel across the frame
+
+      function render(t) {
+        // Two elements moving at different rates guarantees a per-frame change
+        // large enough for the motion check at any sampling rate.
+        bar.style.transform = `translateX(${(t / 6) % SPAN}px)`;
+        chase.style.transform = `translateX(${(t / 2.5) % SPAN}px)`;
+        clock.textContent = `t = ${Math.round(t)} ms`;
+      }
+
+      function frame() {
+        if (!playing) return;
+        tMs = performance.now() - startedAt;
+        render(tMs);
+        requestAnimationFrame(frame);
+      }
+
+      window.__cuePlayer = {
+        play() {
+          playing = true;
+          startedAt = performance.now() - tMs;
+          requestAnimationFrame(frame);
+        },
+        seek(ms) {
+          tMs = ms;
+          startedAt = performance.now() - ms;
+          render(ms);
+        },
+        state() { return { playing, t_ms: Math.round(tMs) }; },
+      };
+
+      render(0);
+    </script>
+  </body>
+</html>

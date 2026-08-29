@@ -1,0 +1,11 @@
+# Installed dependencies. Pinned in package.json; re-creatable with `npm ci`.
+node_modules/
+
+# Recorded takes and every scratch artifact of a recording session.
+# A video is evidence of a run, not source. Force-add a specific take only if a
+# published claim depends on that exact file:
+#   git add -f capture/out/N4.webm
+out/
+
+# Selftest scratch. Written and deleted on every `npm run selftest`.
+.selftest/

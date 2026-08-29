@@ -1,0 +1,92 @@
+{
+  "beat": "N4-KNOWN-BAD",
+  "duration_ms": 45000,
+  "svg": "loop.svg",
+  "_this_file_is_deliberately_broken": "Same reason the eval harness ships known-bads: a check that cannot fail is not measuring anything. scripts/check-loop-cues.py must reject this file with ALL SIX rule codes, every time. If it ever passes, the validator is the defect, not this fixture. Never repair it. Never point the player at it.",
+  "_defects_planted": {
+    "R1_DANGLING": "spotlight ARMOURER (British spelling, no such element), dim SEALED_BUCKET (neither an SVG id nor a declared target), and the FLOOR target anchors to a node that exists in docs/diagrams/_loop.mmd but NOT in loop.svg. That last one is the real-world shape of this defect: the node set moved and the pointer did not.",
+    "R2_UNCUED_NODE": "GOV, PLG, ENG, LED, CONV, ADP, VAL, NARROW, GATE and NEXT are named by no cue. Ten components nobody narrates.",
+    "R3_BOUNDARY": "two cues carry boundary resolve, at 30000 and at 41000. Rule 3 fires exactly once, last.",
+    "R4_TIMING": "the cue at 44000 precedes the cue at 12000 (out of order), and the cue at 61000 is past duration_ms.",
+    "R5_UNUSED_TARGET": "UNUSED_ON_PURPOSE is declared and cued by nothing.",
+    "R6_PLAYER_EMBED": "not applicable to a fixture; the player embed check is skipped when the cue file is not the shipping one."
+  },
+  "blindness_targets": {
+    "RED_PAYLOAD": {
+      "label": "attacker payload text",
+      "anchor": "RED",
+      "enforcement": "adapter",
+      "source": "1.1 ARMORER blind (a)"
+    },
+    "FLOOR_FIXTURES": {
+      "label": "the benign floor fixtures",
+      "anchor": "FLOOR",
+      "enforcement": "convention",
+      "source": "PLANTED DEFECT: FLOOR is a node in _loop.mmd and is not a node in loop.svg"
+    },
+    "UNUSED_ON_PURPOSE": {
+      "label": "a target no cue ever names",
+      "anchor": "TW",
+      "enforcement": "construction",
+      "source": "PLANTED DEFECT: declared, never used"
+    }
+  },
+  "cues": [
+    {
+      "t_ms": 0,
+      "spotlight": [],
+      "dim": [],
+      "note": "full topology visible"
+    },
+    {
+      "t_ms": 4000,
+      "spotlight": ["RED", "TGT"],
+      "dim": ["FLOOR_FIXTURES"],
+      "note": "planted: FLOOR_FIXTURES anchors to a node loop.svg does not have"
+    },
+    {
+      "t_ms": 18000,
+      "spotlight": ["ARMOURER"],
+      "dim": ["RED_PAYLOAD", "SEALED_BUCKET"],
+      "note": "planted: ARMOURER and SEALED_BUCKET both dangle"
+    },
+    {
+      "t_ms": 26000,
+      "spotlight": ["COR", "TW", "DRY", "WAR"],
+      "dim": [],
+      "note": "coverage stops here, ten nodes are never named"
+    },
+    {
+      "t_ms": 30000,
+      "spotlight": [],
+      "dim": [],
+      "boundary": "resolve",
+      "note": "planted: first of two resolves"
+    },
+    {
+      "t_ms": 44000,
+      "spotlight": ["ARM"],
+      "dim": [],
+      "note": "planted: out of order, this precedes 12000 below"
+    },
+    {
+      "t_ms": 12000,
+      "spotlight": ["ARM"],
+      "dim": [],
+      "note": "planted: t_ms goes backwards here"
+    },
+    {
+      "t_ms": 41000,
+      "spotlight": [],
+      "dim": [],
+      "boundary": "resolve",
+      "note": "planted: second resolve"
+    },
+    {
+      "t_ms": 61000,
+      "spotlight": ["RED"],
+      "dim": [],
+      "note": "planted: 61000 is past duration_ms 45000"
+    }
+  ]
+}

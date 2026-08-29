@@ -1,0 +1,20 @@
+{
+  "name": "crucible-capture",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright capture harness for the CRUCIBLE demo video. Records the N4 architecture beat as one unbroken take and asserts the postconditions of the artifact it produced.",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "install-browsers": "playwright install chromium ffmpeg",
+    "doctor": "node doctor.mjs",
+    "capture:n4": "node capture-n4.mjs",
+    "verify": "node verify.mjs",
+    "selftest": "node selftest.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.60.0"
+  }
+}
