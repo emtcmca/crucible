@@ -41,6 +41,7 @@ history recall. Opening it spends the single attempt.
 
 import argparse
 import datetime
+import functools
 import hashlib
 import json
 import os
@@ -188,6 +189,18 @@ def _declared_names(path):
     return [ln.strip() for ln in text.splitlines() if ln.strip()]
 
 
+@functools.lru_cache(maxsize=1)
+def _part_a():
+    """Part A of the capability manifest, read once for the whole sealed set.
+
+    Cached because it is read per instance and the answer cannot change inside
+    a run: the manifest hash is one of the frozen locks, so a manifest that
+    moved mid-run is already a refusal upstream, not a value to re-read here.
+    """
+    from corpus.model import load_part_a
+    return load_part_a()
+
+
 def _adapt_sealed(doc):
     """One sealed instance to a `CorpusAttack`, mirroring `_adapt` exactly.
 
@@ -229,6 +242,38 @@ def _adapt_sealed(doc):
         raise CorpusSeedError(
             "E_INPUT_TURNS",
             "%s carries no usable `input_turns`." % slug)
+
+    # THE SAME VALIDATOR THE TRAINING DOOR RUNS, PLUS THE TWO LINTS THAT EXIST
+    # ONLY FOR THIS FAMILY.
+    #
+    # `load_corpus` validates every instance as it loads, and says why: a
+    # corpus that half-loads and then reports counts produces a verdict over
+    # instances nobody checked. This path never went through `load_corpus` - it
+    # reads bytes off a bucket - so until now the held-out set was the ONLY set
+    # in the project that reached a measurement unvalidated. The asymmetry was
+    # the defect; the fix is to remove the asymmetry, not to add a second,
+    # weaker check here.
+    #
+    # `lint_sealed_destination` is the one that is load-bearing rather than
+    # hygienic. It proves the instance smuggles through a STRUCTURED argument
+    # the policy grammar can compare against episode context. An instance
+    # smuggling through free text cannot be stopped at either arm, so it
+    # breaches at v0 AND at vfinal, transfer collapses toward zero
+    # MECHANICALLY, and the result reads as "the system did not generalize"
+    # when the truth is "we sealed a family the language cannot express".
+    # A rigged failure is worse than a rigged success, because you would
+    # believe it.
+    #
+    # ORDER MATTERS: the door's own guards run first. For a doc from the wrong
+    # family the useful refusal is that it is from the wrong family, not a
+    # schema complaint that buries it.
+    from corpus.lints import (lint_sealed_capability_classes,
+                              lint_sealed_destination)
+    from corpus.schema import validate_instance
+    manifest = _part_a()
+    validate_instance(doc, manifest=manifest)
+    lint_sealed_destination(doc, manifest=manifest)
+    lint_sealed_capability_classes(doc)
 
     sor, unstated, ignored = build_sor(doc)
     computed = blind_fields(doc)
@@ -608,6 +653,70 @@ def build_arm_policies(policy_run_path):
     return {"v0": v0, "vfinal": vfinal}, run_doc
 
 
+def assert_sealed_parameters(args):
+    """The pre-registered numbers, checked in BOTH phases.
+
+    HARD CONSTANTS FOR THE SEALED RUN. Help text is not a safety control, and
+    every value here was a caller-selected one that could quietly change what
+    the single attempt measured.
+
+    The floor and the denominator are not drive-time decorations. The reader is
+    handed both at ASSEMBLE time and they set what the bundle claims, so a
+    sealed bundle assembled with a hand-chosen floor would carry a number
+    nobody registered while the drive it came from was correct. Assemble used
+    to be dispatched before these ran and therefore never saw them.
+
+    `--live` and `--limit` are drive-only concepts and are checked only there:
+    at assemble there is no model to call and nothing to truncate, and
+    demanding `--live` on a re-assembly would refuse a legitimate second
+    assembly of a drive that was live.
+    """
+    locked = []
+    if args.phase == "drive":
+        if not args.live:
+            locked.append("--sealed requires --live: a replay cannot observe an "
+                          "agent that, refused one route, tries another (A3.8)")
+        if args.limit:
+            locked.append("--limit is refused: a partial holdout is not a "
+                          "smaller experiment, it is a different one with an "
+                          "undeclared denominator")
+    if args.floor != 12:
+        locked.append("--floor is pre-registered at 12 of 24 and may not be "
+                      "chosen at the command line")
+    if args.expect_instances != 24:
+        locked.append("--expect-instances is pre-registered at 24")
+    if locked:
+        raise TransferRunError("E_SEALED_RUN_PARAMETERS", "; ".join(locked))
+
+
+def assert_sealed_policy_pin(policies):
+    """THE FINAL POLICY IS PINNED, NOT CHOSEN AT THE PROMPT.
+
+    Without this a sealed run could be attributed to whichever policy happened
+    to be on the command line, and the attribution IS the measurement.
+
+    Drive-only, and deliberately so: at assemble the arms are read out of the
+    drive log, which carries each arm's full hashed payload. Re-deriving the
+    policy from `--policy-run` at assemble time would introduce a second source
+    for a value the log already owns, which is ruling 46 in a new place.
+
+    Separated from `assert_sealed_parameters` because it needs `policies`, and
+    the previous version of this check reached for that name eighteen lines
+    before `build_arm_policies` assigned it. A sealed invocation therefore
+    raised UnboundLocalError where the refusal was supposed to print - the
+    exact failure the comment above the old block was written to describe.
+    """
+    pin = json.loads((ROOT / FINAL_POLICY_PIN).read_text(encoding="utf-8"))
+    got = compute_policy_hash(policies["vfinal"].get("hashed_payload") or {})
+    if got != pin["policy_hash"]:
+        raise TransferRunError(
+            "E_SEALED_RUN_PARAMETERS",
+            "the vfinal policy does not match the one pinned in %s by %s on "
+            "%s (run %s). Read the hash off that record; do not retype it."
+            % (FINAL_POLICY_PIN, pin["pinned_by"], pin["pinned_on"],
+               pin["run_id"]))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -635,51 +744,39 @@ def main(argv=None):
                     help="drive against the pinned target model. Costs money.")
     args = ap.parse_args(argv)
 
+    # THE PRE-REGISTERED NUMBERS FIRST, IN EITHER PHASE. They cost nothing to
+    # check and they are the cheapest thing that can be wrong.
+    if args.sealed:
+        assert_sealed_parameters(args)
+
     if args.phase == "assemble":
         return _assemble(args)
 
-    # THE SEAL AUTHORISATION IS CHECKED BEFORE ANY OTHER WORK, and the ordering
-    # is the point. It was originally reached after the hash-locks loaded, so a
-    # setup failure raised a TypeError and the refusal never printed - a guard
-    # you only see when everything else already worked is a guard that reports
-    # the wrong thing on the day it matters.
+    # EVERY NON-F4 SETUP STEP HAPPENS BEFORE THE SEAL IS TOUCHED, AND THE
+    # ORDERING IS THE WHOLE POINT.
+    #
+    # The objective set, the hash locks and the arm policies all read files,
+    # all can fail, and none of them needs the holdout. Any one of them failing
+    # AFTER the read spends the single unrepeatable attempt to learn something
+    # a file read would have reported for nothing. A guard you only see when
+    # everything else already worked is a guard that reports the wrong thing on
+    # the day it matters.
+    from crucible.conductor.campaign import resolve_objective_set
+    objective_set = resolve_objective_set()
+    locks = load_hash_locks(objective_set)
+    policies, run_doc = build_arm_policies(args.policy_run)
+
     if args.sealed:
-        # HARD CONSTANTS FOR THE SEALED RUN. Help text is not a safety control,
-        # and every one of these was a caller-selected value that could quietly
-        # change what the single attempt measured.
-        locked = []
-        if not args.live:
-            locked.append("--sealed requires --live: a replay cannot observe an "
-                          "agent that, refused one route, tries another (A3.8)")
-        if args.limit:
-            locked.append("--limit is refused: a partial holdout is not a "
-                          "smaller experiment, it is a different one with an "
-                          "undeclared denominator")
-        if args.floor != 12:
-            locked.append("--floor is pre-registered at 12 of 24 and may not be "
-                          "chosen at the command line")
-        if args.expect_instances != 24:
-            locked.append("--expect-instances is pre-registered at 24")
-        # THE FINAL POLICY IS PINNED, NOT CHOSEN AT THE PROMPT. Without this a
-        # sealed run could be attributed to whichever policy happened to be on
-        # the command line, and the attribution is the measurement.
-        pin = json.loads((ROOT / FINAL_POLICY_PIN).read_text(encoding="utf-8"))
-        got = compute_policy_hash(policies["vfinal"].get("hashed_payload") or {})
-        if got != pin["policy_hash"]:
-            locked.append(
-                "the vfinal policy does not match the one pinned in %s by %s on "
-                "%s (run %s). Read the hash off that record; do not retype it."
-                % (FINAL_POLICY_PIN, pin["pinned_by"], pin["pinned_on"],
-                   pin["run_id"]))
-        if locked:
-            raise TransferRunError("E_SEALED_RUN_PARAMETERS",
-                                   "; ".join(locked))
+        assert_sealed_policy_pin(policies)
         if not args.i_am_opening_the_seal:
             raise TransferRunError(
                 "E_SEAL_NOT_AUTHORISED",
                 "--sealed reads the held-out family and spends the single "
                 "attempt the pre-registration allows. Re-running F4 is "
                 "forbidden, so there is no second try.")
+        # THE READ IS THE LAST THING THAT HAPPENS IN SETUP. Nothing below this
+        # line may be moved above it without asking what it costs to discover
+        # that failure with the attempt already spent.
         (seeds, instances, sealed_names,
          before_read, after_read, expected_reads) = sealed_drive_lifecycle(
             _declared_names(args.object_names))
@@ -687,11 +784,6 @@ def main(argv=None):
         seeds, instances, sealed_names = load_instances(
             args.family, args.sealed, args.i_am_opening_the_seal)
         before_read, after_read, expected_reads = standin_preflight()
-
-    from crucible.conductor.campaign import resolve_objective_set
-    objective_set = resolve_objective_set()
-    locks = load_hash_locks(objective_set)
-    policies, run_doc = build_arm_policies(args.policy_run)
 
     manifests = {}
     for arm in ARMS:
