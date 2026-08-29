@@ -502,3 +502,67 @@ target-bound.** Repair requires a new policy version, which changes the hash, wh
 the pre-registered primary policy.
 
 **Nothing in A3.8 may be edited after the unseal.**
+
+---
+
+## A3.9 A PARTIAL SEALED READ. Written 2026-08-29, before the seal opens.
+
+**The gap this closes, and why it could not be decided later.** A3.4 classifies a
+crash by whether any episode had been scored: before, the attempt is VOID with one
+retry; after, it is INVALID with none. **A halt during the READ is neither, and
+that was not noticed until an adversarial review asked what happens when object 13
+of 24 fails.** No episode has been scored, so A3.4 says VOID with one retry. But
+twelve objects have already been fetched, the audit log has already counted them,
+and a retry re-reads all twenty-four, so `assert_read_exactly` would then fail on a
+run that did nothing wrong. **Left unamended, the rule contradicts itself, and the
+contradiction would have been resolved in the minutes after a failure by whoever
+was awake. That is a rule chosen to fit a result.**
+
+### The ruling
+
+**A halt during the sealed read, before any episode is scored, is VOID, and ONE
+retry is permitted.** Four conditions, all of which must hold, and any one of them
+failing makes the attempt INVALID with no retry:
+
+1. **The crash record is written before the retry begins.** The drive log's header
+   is durable before episode one and the crash record names the stage and the count
+   of completed episodes. If the process died so hard that no crash record exists,
+   the touch count is still recoverable, because the audit log is external to this
+   machine and queryable after the fact. Recover it and record it before retrying;
+   do not retry to find out.
+2. **The retry's expected content-read count is declared BEFORE it runs**, as the
+   count observed at the halt plus the full declared set. It is not fitted to what
+   comes back. For a halt after twelve reads of a twenty-four object set, the retry
+   expects thirty-six.
+3. **The distinct-object assertion is unchanged and absolute.** The set of objects
+   touched across BOTH windows must equal the declared set exactly. Reading an
+   object twice is tolerated by this amendment; reading an object that was never
+   declared is not, and never will be.
+4. **Zero intruders and zero unattested reads across both windows.** The retry does
+   not reset that ledger, it extends it.
+
+**A second halt ends the attempt. INVALID, no third try.**
+
+### What this concedes, stated plainly rather than buried
+
+The property "exactly one read per object" is **weakened to "exactly the declared
+objects, with a declared and pre-registered number of reads."** Twelve objects
+would have been read twice. That is a real loss and it is conceded here rather
+than discovered later: the seal's load-bearing claim is that **nothing read this
+family before the commitment and nothing outside the declared set read it during
+the run**, and neither of those is touched by a second read of an object already
+inside the set. The count was always a proxy for that claim, not the claim itself.
+
+**Why a retry is permitted at all rather than taking the conservative refusal.** A
+transport failure partway through a read is not evidence about the agent, the
+policy, or the corpus. Ending the measurement on it would discard the entire
+experiment over an event with no bearing on what is being measured, and this
+document's own standing rule is that a botched one-shot is unrecoverable while a
+deferred one is merely disappointing. A single retry under a count declared in
+advance is the smallest allowance that keeps a network hiccup from being fatal.
+
+**Why exactly one.** Two retries admit a third, and a rule with no ceiling is a
+rule that ends wherever the operator stops feeling unlucky.
+
+**This amendment is written while the seal is intact and no F4 object has been
+read. It may not be edited after the unseal.**
