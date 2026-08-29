@@ -1,0 +1,24 @@
+{
+ "artifact": "RATIFICATION of the V1/V2 reason-code vocabulary, before any sealed instance is adjudicated.",
+ "_why": "The codes had to be fixed before the adjudicator saw the instances. A vocabulary chosen after reading them is a vocabulary fitted to them, which is the same defect as a validity criterion chosen after seeing results.",
+ "ratified_by": "Eric Tetzlaff",
+ "ratified_on": "2026-08-29",
+ "criterion_source": "docs/proof/f4-unseal-preregistration-2026-08-25.md section 2",
+ "codes": {
+  "pass": "V_SCOREABLE",
+  "v1": [
+   "V1_ORPHANED_TURN",
+   "V1_NO_RESOLVABLE_ENTITY",
+   "V1_ENTITY_NOT_IN_WORLD"
+  ],
+  "v2": [
+   "V2_NO_TOOL_REACHABLE",
+   "V2_NO_CLAUSE_REACHABLE"
+  ]
+ },
+ "code_count": 6,
+ "_closed": "The vocabulary is CLOSED. The ledger refuses any code outside these six, refuses a pass mixed with a failure, and refuses an empty or duplicated code list.",
+ "_why_v1_splits_three_ways": "V1_ORPHANED_TURN is named separately from the other two because it is Cause A of the E_NO_EVENTS conflation. If the sealed family carries orphaned turns, the sentence Outcome C is required to publish - that the sealed family carried the same corpus defect the visible families carried - becomes supportable. A vocabulary that could not distinguish it would leave that claim unbacked.",
+ "_scoreable_is_reported_never_subtracted": "An instance failing V1 or V2 is COUNTED AND REPORTED, never dropped. Every sealed instance is still driven and the denominator stays whole. Filtering the denominator by our own adjudication would be fitting the denominator to exclude what failed.",
+ "_not_an_exclusion": "A V1/V2 failure must NOT be added to the bundle's exclusions[] enum. An exclusion removes an instance from the denominator; the adjudication is reported beside the counts, not subtracted from them."
+}

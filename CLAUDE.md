@@ -195,9 +195,14 @@ PINNED to `run_20260827_194532_5100ff` · the transfer contract registered as **
   instance (a CORRECTNESS gap, not robustness); V1/V2 adjudication by a named human before the
   first model call, counts derived from the ledger.
 - **In flight:** agent on paired arithmetic + args grammar; agent on the V1/V2 ledger.
-- **ERIC OWES:** ratify the V1/V2 reason codes, then adjudicate 24 instances after the read and
-  before the first model call. **Record the video regardless** - the only Stage One pass/fail item
-  still missing.
+- **V1/V2 REASON CODES RATIFIED by Eric 2026-08-29**, before any instance was adjudicated:
+  `docs/proof/v1-v2-reason-codes-ratified-2026-08-29.json`. Six, closed. The ledger is built
+  (`crucible/transfer/adjudication.py`, 77 tests, 34 mutations all caught).
+  **A V1/V2 failure is REPORTED, never subtracted** - every sealed instance is still driven and
+  the denominator stays whole. It must NOT go in the bundle's `exclusions[]`, which would remove
+  it from the denominator through the schema.
+- **ERIC OWES:** adjudicate 24 instances after the read and before the first model call.
+  **Record the video regardless** - the only Stage One pass/fail item still missing.
 - **Ask Codex:** is Outcome B reachable at all? Under the paired ceiling a per-arm breach also
   breaches the union ceiling, which may leave B a dead row.
 
