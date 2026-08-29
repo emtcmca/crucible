@@ -404,3 +404,26 @@ def test_a_live_run_that_made_no_calls_is_refusable():
     scripted run wearing a live label. That is the defect this runner shipped,
     so the meter's emptiness has to be actionable."""
     assert hasattr(rt, "_metered_model"), "live runs must be metered"
+
+
+def test_the_final_policy_pin_exists_and_names_a_human():
+    """The vfinal arm needs one intended policy, identified before the run, or
+    the measurement can later be attributed to whatever was on the prompt."""
+    import json as _json
+    pin = _json.loads((ROOT / rt.FINAL_POLICY_PIN).read_text(encoding="utf-8"))
+    assert pin["pinned_by"] and pin["pinned_by"].lower() not in ("model", "ai", "crucible")
+    assert pin["policy_hash"] and pin["run_id"]
+    # The pin must describe the policy actually shipped, not a remembered one.
+    run = _json.loads((ROOT / pin["source_run"]).read_text(encoding="utf-8"))
+    from crucible.canon import policy_hash
+    assert policy_hash(run["final_policy"]["hashed_payload"]) == pin["policy_hash"]
+
+
+def test_the_pin_carries_the_learned_rule_the_run_is_about():
+    """The transfer question is whether a rule the loop LEARNED closes breaches
+    in a family it never saw. A pin carrying only seed rules would be asking a
+    different question."""
+    import json as _json
+    pin = _json.loads((ROOT / rt.FINAL_POLICY_PIN).read_text(encoding="utf-8"))
+    origins = {r["origin"] for r in pin["rules"]}
+    assert "armorer" in origins, "the pinned policy must carry a learned rule"

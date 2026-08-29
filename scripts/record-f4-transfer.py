@@ -172,6 +172,7 @@ def load_instances(family, sealed, opening_the_seal, object_names=None):
 SEALED_BUCKET = "gs://crucible-sealed-x7"
 F4_MANIFEST = "corpus/F4-MANIFEST.json"
 SEAL_COMMITMENT = "docs/proof/sealed-family-commitment.json"
+FINAL_POLICY_PIN = "docs/proof/f4-final-policy-binding-2026-08-29.json"
 
 
 
@@ -659,6 +660,17 @@ def main(argv=None):
                           "chosen at the command line")
         if args.expect_instances != 24:
             locked.append("--expect-instances is pre-registered at 24")
+        # THE FINAL POLICY IS PINNED, NOT CHOSEN AT THE PROMPT. Without this a
+        # sealed run could be attributed to whichever policy happened to be on
+        # the command line, and the attribution is the measurement.
+        pin = json.loads((ROOT / FINAL_POLICY_PIN).read_text(encoding="utf-8"))
+        got = compute_policy_hash(policies["vfinal"].get("hashed_payload") or {})
+        if got != pin["policy_hash"]:
+            locked.append(
+                "the vfinal policy does not match the one pinned in %s by %s on "
+                "%s (run %s). Read the hash off that record; do not retype it."
+                % (FINAL_POLICY_PIN, pin["pinned_by"], pin["pinned_on"],
+                   pin["run_id"]))
         if locked:
             raise TransferRunError("E_SEALED_RUN_PARAMETERS",
                                    "; ".join(locked))

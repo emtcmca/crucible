@@ -1,0 +1,40 @@
+{
+ "artifact": "THE FINAL POLICY FOR THE F4 TRANSFER RUN. Pinned before the seal opens.",
+ "_why": "The vfinal arm needs exactly one intended policy, identified by a named human before the unrepeatable run, so the measurement cannot later be attributed to whichever policy happened to be on the command line. Sealed mode refuses any other. Authorised by Eric Tetzlaff 2026-08-29.",
+ "pinned_by": "Eric Tetzlaff",
+ "pinned_on": "2026-08-29",
+ "source_run": "docs/proof/sample-run/run-01.json",
+ "run_id": "run_20260827_194532_5100ff",
+ "policy_hash": "3aeb4cec53e6f70c",
+ "policy_hash_full": "3aeb4cec53e6f70c242ff61ae6ed6b9e80c9100035f78b0b82af588c0a6d5bac",
+ "policy_version": 1,
+ "rule_count": 4,
+ "rules": [
+  {
+   "rule_id": "r_00332742f13f",
+   "verb": "deny",
+   "origin": "seed",
+   "capability_class": "CAP_ESCALATES_PRIVILEGE"
+  },
+  {
+   "rule_id": "r_4be43bffe173",
+   "verb": "deny",
+   "origin": "seed",
+   "capability_class": "CAP_MOVES_MONEY"
+  },
+  {
+   "rule_id": "r_ceb7cbd4f589",
+   "verb": "deny",
+   "origin": "armorer",
+   "capability_class": "CAP_READS_PII"
+  },
+  {
+   "rule_id": "r_d64a1e53f409",
+   "verb": "require_approval",
+   "origin": "seed",
+   "capability_class": "CAP_MOVES_MONEY"
+  }
+ ],
+ "_why_this_run": "It is the only completed run whose bundle ships in the repository, so a judge can open the artifact the measurement was taken against. It carries r_ceb7cbd4f589, the single distinct rule the loop learned across forty runs, which is the rule whose transfer is the question being asked.",
+ "_binding_defect": "The payload carries target_manifest_hash as sixteen zeroes. Per A3.8.6 that is ATTESTED, NOT REPAIRED: correcting it changes the policy hash and the pinned artifact would no longer be the one this record pins. Bundles must therefore report status POLICY_BINDING_DEFECT, never BOUND."
+}
