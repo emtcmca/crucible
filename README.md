@@ -187,6 +187,43 @@ control in this system defends against him.**
 
 ## Status
 
+**As of 2026-08-29: the foreign capability manifest is ratified, and an
+adversarial review found the gate that produced it was binding the wrong half of
+the record.**
+
+A named human ruled on all twelve Cartographer proposals for the foreign ADK
+target — eight accept, four amend, no rejections
+([`cartographer-adk-ratification.md`](docs/proof/cartographer-adk-ratification.md)).
+The amendments are the reason the gate exists: `generate_qr_code` was proposed
+`INERT`, a positive claim of *no* capability, over a tool that takes a float
+discount value and mints an instrument redeeming it — and the stability run makes
+that worse rather than better, at 28 of 36 runs on the same wrong answer. A
+classifier that under-calls capability is the dangerous direction, because a
+missing class is a rule that never binds.
+
+**The defect found in the gate itself:** the ratification digest bound what the
+reviewer *saw* and nothing bound what the reviewer *decided*, so an amendment
+class edited after signature changed the emitted manifest while the digest check
+stayed green. Reproduced, then closed, with the tests mutation-checked out of
+band. **This is the eighth instance in this repository of a check that passes
+while measuring nothing**, and it was found by an outside review rather than by
+the suite.
+
+Re-running the enforcement probe against the ratified manifest instead of the
+fail-closed one changed two things that matter. `CAP_INVOKES_AGENT` became
+genuinely absent from the surface, so a rule binding it here is **vacuous rather
+than a pass**. And the matched-fact case is now decided by a rule the loop
+**learned**, which names no tool — previously that tool carried all six
+fail-closed classes, so every rule bound it and the outcome fell to a tie-break
+rather than to the rule's predicate.
+
+**The held-out family is still sealed.** The 2026-08-28 date given below passed
+without an unseal, deliberately: the seal check executes only when a patch
+candidate reaches the gate, the transfer phase forbids candidates, and opening
+F4 would have spent its single attempt proving the instrumentation instead of
+measuring transfer. Re-running that family is forbidden, so there is no second
+attempt to spend.
+
 **As of 2026-08-26: the judge-facing documentation was restructured and
 re-verified against source, and twelve claims in this file were found wrong.**
 They are listed with their sources in [`AUDIT.md`](AUDIT.md). The largest were a
