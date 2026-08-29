@@ -830,9 +830,6 @@ def _tool_calls(episode):
     wholesale would reintroduce exactly that, so this keeps a fixed key list and
     drops anything else the event carries.
     """
-    from crucible.transfer.reader import tool_arg_allowlist
-
-    allowlist = tool_arg_allowlist()
     out = []
     for seq, ev in enumerate(episode.get("events") or ()):
         row = {"episode_id": episode.get("episode_id"), "seq": seq}
@@ -847,9 +844,24 @@ def _tool_calls(episode):
         # extend is precisely where a sealed instruction rides out of a run. The
         # allowlist is read from the reader so there is ONE source: a second copy
         # here would drift from the thing that checks it.
-        args = ev.get("args") or {}
-        allowed = allowlist.get(ev.get("tool_name")) or ()
-        row["args"] = {k: v for k, v in args.items() if k in allowed}
+        # ARGS ARE PASSED THROUGH INTACT. THE ASSEMBLER DECIDES.
+        #
+        # This used to silently drop every name the allowlist did not carry, and
+        # that made two downstream checks UNREACHABLE for any normally produced
+        # bundle: the reader's E_TOOL_ARG_NOT_ALLOWLISTED and the builder's
+        # raise. A smuggled argument name vanished here with nothing recording
+        # that it had ever existed - a filter that silences the alarm it was
+        # installed to feed. Twelfth instance of this project's signature defect,
+        # authored 2026-08-29 while repairing the eleventh, and found by the
+        # worker that owns the assembler.
+        #
+        # `or ()` made it worse: a call to a tool absent from the frozen manifest
+        # had ALL its arguments dropped, so E_TOOL_NOT_IN_MANIFEST then fired on
+        # a call whose argument evidence was already destroyed.
+        #
+        # `bundle.py` now drops `derived.*` and `body` by name and raises on any
+        # other unknown, which is the behaviour that belongs in one place.
+        row["args"] = dict(ev.get("args") or {})
         out.append(row)
     return out
 
