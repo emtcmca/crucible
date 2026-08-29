@@ -182,6 +182,7 @@ READ-ONLY. The only command this module runs is `gcloud logging read`, plus
 deletes, and binds nothing.
 """
 
+import datetime
 import json
 import os
 import subprocess
@@ -211,6 +212,22 @@ STORAGE_SERVICE = "storage.googleapis.com"
 
 # Above this, a result is assumed truncated rather than complete.
 DEFAULT_CAP = 1000
+
+# Seconds to wait for Cloud Logging ingestion before a count is trusted.
+#
+# WHY A CONSTANT AND NOT A LITERAL AT EACH CALL SITE. Ingestion lags the event
+# (see the module docstring: every entry measured 2026-08-22 was visible within
+# ~30 s), and a read that has not landed yet is an UNDERCOUNT, which is the one
+# error direction that looks like a pass. The value 45.0 is the one already in
+# use at `campaign.py:592` / `:991` and `scripts/probe-g7-g8.py:94`; those two
+# still carry it as a literal and are not this module's to edit. This constant
+# is where a caller that wants the repo's answer should read it from, so a
+# fourth copy is not created.
+#
+# It is a DEFAULT, not a guarantee. No unit test can establish that any delay is
+# long enough, and the docstring above says so. It is deliberately not zero:
+# zero settlement on the one-shot run is the documented way to miss a read.
+DEFAULT_SETTLE_SECONDS = 45.0
 
 # --------------------------------------------------------------------------
 # THE CAP HAD A COUNTDOWN ON IT. What this narrowing is and what it is not.
@@ -732,6 +749,87 @@ def _iso_ge(a, b):
     return a >= b
 
 
+def now_utc(clock=None):
+    """The current instant as `YYYY-MM-DDTHH:MM:SSZ`, TRUNCATED to the second.
+
+    TRUNCATED DOWN, NOT ROUNDED UP, AND THE DIRECTION IS A DECISION. Rounding up
+    would push the window boundary into the future, and a read performed in that
+    sliver falls outside `timestamp>=since` and is never counted - an UNDERCOUNT,
+    which is the one error direction that looks like a clean seal. Truncating
+    down can only make the window WIDER than intended, and a read that leaks in
+    from before the window shows up as a non-zero count that
+    `assert_clean_before_read` refuses out loud.
+
+    `clock` is injected so the whole window discipline runs offline in tests.
+    """
+    clock = clock or (lambda: datetime.datetime.now(datetime.timezone.utc))
+    t = clock()
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def open_audit_window(clock=None, floor=ATTESTATION_FLOOR_UTC, after=None):
+    """Open a FRESH G7c window and return its `since` instant.
+
+    The window is what makes `holdout_touch_count` a statement about THIS run
+    rather than about the bucket's lifetime, so opening one is a step with its
+    own failure modes rather than a string a caller formats inline:
+
+      * a `since` before `ATTESTATION_FLOOR_UTC` covers time the audit log
+        cannot speak to. `HoldoutTouchCounter._check_window` refuses it later;
+        refusing it HERE means the run stops before it has spent anything.
+      * `after` is the instant a previous phase finished - in practice the
+        canary calibration. A run window that still contains the calibration
+        read cannot attribute its own count to its own reads, and the expected
+        value would be short by exactly the calibration's entries. This raises
+        rather than silently sliding the boundary, because sliding it forward is
+        how a window stops covering the reads it exists to count.
+
+    Raises `HoldoutTouchUnevaluable` in both cases: neither is a statement about
+    the seal, both are statements that this instrument declines to guess.
+    """
+    since = now_utc(clock)
+    if not _iso_ge(since, floor):
+        raise HoldoutTouchUnevaluable(
+            "the window would open at %s, before the attestation floor %s. Data "
+            "Access logging is not retroactive and a count over uncovered time "
+            "is a clean seal invented out of missing data." % (since, floor))
+    if after is not None:
+        # Strictly greater. Equality means the two windows share a whole second,
+        # and an event inside that second belongs to both.
+        if not (_iso_ge(since, after) and since != after):
+            raise HoldoutTouchUnevaluable(
+                "the window would open at %s, which is not strictly after %s. "
+                "The preceding phase's reads would sit inside this run's own "
+                "window and its count could no longer be attributed to its own "
+                "reads. Wait for the clock to pass %s and open again."
+                % (since, after, after))
+    return since
+
+
+def make_counter(env, since, settle_seconds=0.0, **kwargs):
+    """THE FACTORY. `env` + a window -> the zero-arg callable `RealGate` wants.
+
+        since   = open_audit_window()
+        counter = make_counter(env, since)
+        gate    = RealGate(..., holdout_touch=counter, holdout_expected=n)
+
+    `RealGate` calls it with no arguments and expects an int; `__call__` returns
+    `compute()['count']`. Nothing here is new behaviour - it exists so a caller
+    wiring the gate does not have to know this class's constructor, and so the
+    two places that build a counter today (`campaign.py:728`,
+    `scripts/probe-g7-g8.py:105`) have one shape to converge on.
+
+    `settle_seconds` DEFAULTS TO 0 HERE ON PURPOSE, matching the class. The
+    per-`compute()` sleep is the right tool when the gate is the only caller;
+    the transfer sequence calls `compute()` four times and settles ONCE, at the
+    one point that needs it, via `holdout_assert.wait_for_log_settlement`. Four
+    sleeps would be three minutes of nothing and would still not settle the read
+    that matters any better than one sleep in the right place.
+    """
+    return HoldoutTouchCounter(env, since=since, settle_seconds=settle_seconds,
+                               **kwargs)
+
+
 class HoldoutTouchCounter:
     """Zero-arg callable returning `holdout_touch_count` for a window.
 
@@ -1055,9 +1153,11 @@ def render_tally(result):
 __all__ = [
     "ATTESTATION_FLOOR_UTC", "ATTESTED_READS_RECORD", "CANARY_CAP",
     "CONTENT_READ", "ENUMERATION", "OTHER",
-    "DEFAULT_CAP", "NOT_A_TOUCH_METHODS", "NOT_A_TOUCH_METHOD_PREFIXES",
+    "DEFAULT_CAP", "DEFAULT_SETTLE_SECONDS",
+    "NOT_A_TOUCH_METHODS", "NOT_A_TOUCH_METHOD_PREFIXES",
     "HoldoutTouchCounter", "HoldoutTouchError",
     "HoldoutTouchInvalid", "HoldoutTouchUnevaluable", "attestation_key",
     "bucket_name", "build_filter", "classify", "gcloud_log_read", "is_granted",
-    "load_attested_reads", "render_tally", "storage_data_read_enabled", "tally",
+    "load_attested_reads", "make_counter", "now_utc", "open_audit_window",
+    "render_tally", "storage_data_read_enabled", "tally",
 ]

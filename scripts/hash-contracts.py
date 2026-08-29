@@ -27,7 +27,8 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 CONTRACTS = REPO / "contracts"
 MANIFEST = CONTRACTS / "MANIFEST.json"
 
-# TEN contracts as of 2026-08-20, ruling 31. It was nine through W0, and three of
+# ELEVEN contracts as of 2026-08-29; it was TEN from 2026-08-20 under ruling 31.
+# It was nine through W0, and three of
 # them are two files each - existing precedent (C4 and C7 were already two-file
 # contracts), which is why ruling 20's manifest split did NOT push the count up.
 #
@@ -37,6 +38,32 @@ MANIFEST = CONTRACTS / "MANIFEST.json"
 # all. It is the case ruling 27 defines a contract FOR: a data shape crossing a
 # blindness boundary, authored at D3 by one party and read by an evaluator that
 # is blind to attack intent by construction.
+#
+# C11 IS THE TRANSFER EVIDENCE BUNDLE, added 2026-08-29, and it is ruling 27's
+# case again. `contracts/transfer_evidence.schema.json` shipped OUTSIDE this
+# dict, which meant `contract-check.py` could report every pass green PRECISELY
+# BECAUSE the schema sat outside the hashed registry: its shape and its
+# semantics could move without any contract id or frozen digest moving with
+# them. The 132 tests around `crucible/transfer/` are strong local coverage and
+# local coverage is not a contract identity - a test pins behaviour, a manifest
+# entry pins bytes.
+#
+# It qualifies on the merits, not merely because it was unhashed. It is a data
+# shape crossing a blindness boundary: the transfer runner writes it and
+# `crucible/transfer/reader.py` reads it back OFFLINE, without access to the
+# run that produced it, and the whole point of the reader is that it recomputes
+# what the producer asserted rather than believing it. If the two disagree
+# about the shape, the disagreement surfaces on the one drive that may never be
+# repeated.
+#
+# THE ID. C11 is the next free number and nothing is registered as C11. Note
+# that `docs/design/red-discovery-capability.md` and
+# `docs/design/red-discovery-attack-spec.schema.json` both say that schema
+# "becomes C11 when something implements it". Nothing implements it, it is
+# deliberately not under `contracts/`, and a conditional sentence in a design
+# document is not a registration - but those two lines are now wrong and are
+# reported rather than edited here, because neither file is this change's to
+# touch.
 #
 # The count below is COMPUTED from this dict, never typed, so this comment cannot
 # go stale against it.
@@ -51,6 +78,7 @@ CONTRACT_FILES = {
     "C8": ["gate_rule.v1.yaml"],
     "C9": ["verdict.schema.json"],
     "C10": ["objective_set.schema.json"],
+    "C11": ["transfer_evidence.schema.json"],
 }
 
 OWNERS = {
@@ -64,6 +92,11 @@ OWNERS = {
     "C8": {"produced_by": "L1", "consumed_by": ["L4", "L5"]},
     "C9": {"produced_by": "L4", "consumed_by": ["L5", "L6"]},
     "C10": {"produced_by": "L2/coordinator", "consumed_by": ["L4", "L5", "L6"]},
+    # The transfer runner (`scripts/record-f4-transfer.py`) is the only writer;
+    # `crucible/transfer/reader.py` and the hardening report are the readers,
+    # and both sit in L6's evidence-and-presentation surface. The reader is
+    # OFFLINE by construction, which is the blindness this contract crosses.
+    "C11": {"produced_by": "coordinator", "consumed_by": ["L6"]},
 }
 
 FREEZES = {

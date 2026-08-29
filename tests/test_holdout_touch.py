@@ -840,3 +840,117 @@ def test_an_exclusion_clause_that_blanks_the_query_is_caught_by_the_canary():
         c()
     assert "CANARY QUERY RETURNED NOTHING" in str(ei.value)
     assert "over-broad" in str(ei.value)
+
+
+# ===========================================================================
+# THE WINDOW AND THE FACTORY, added 2026-08-29.
+#
+# `RealGate(holdout_touch=)` takes a zero-arg callable with no default, and the
+# transfer runner has to build one for a window it opened for itself. Both of
+# those were left to the call site, and both have a failure that returns a
+# number rather than raising:
+#
+#   a window opened before the attestation floor  -> a count over uncovered time
+#   a window that still holds the calibration read -> the run's own count is
+#                                                     short by that read
+#
+# `now_utc` / `open_audit_window` / `make_counter` are those two steps written
+# down once. Everything below drives them to red.
+# ===========================================================================
+
+def _at(stamp, micros=0):
+    import datetime
+    t = datetime.datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
+    return t.replace(microsecond=micros, tzinfo=datetime.timezone.utc)
+
+
+def test_now_utc_truncates_to_the_whole_second_and_never_rounds_up():
+    """DOWN, NOT UP, and the direction is the decision. Rounding up pushes the
+    boundary into the future and a read in that sliver is never counted - an
+    UNDERCOUNT, the one error direction that looks like a clean seal."""
+    assert ht.now_utc(lambda: _at("2026-08-29T12:00:00Z", micros=999999)) \
+        == "2026-08-29T12:00:00Z"
+
+
+def test_now_utc_produces_the_shape_the_window_comparator_accepts():
+    # `_iso_ge` refuses anything it cannot order, so a formatter that drifted
+    # would turn every window check into UNEVALUABLE.
+    assert ht._iso_ge(ht.now_utc(lambda: _at("2026-08-29T12:00:00Z")), FLOOR)
+
+
+def test_a_window_opened_before_the_attestation_floor_is_refused_at_the_door():
+    """Refused HERE as well as inside `compute()`, so the run stops before it
+    has spent anything rather than after the gate is queried."""
+    with pytest.raises(ht.HoldoutTouchUnevaluable) as e:
+        ht.open_audit_window(clock=lambda: _at("2026-08-20T00:00:00Z"))
+    assert "attestation floor" in str(e.value)
+
+
+def test_a_window_at_the_floor_itself_is_inside_the_attestable_period():
+    got = ht.open_audit_window(
+        clock=lambda: _at(FLOOR[:19] + "Z"))
+    assert got == FLOOR[:19] + "Z"
+
+
+def test_a_window_that_is_not_strictly_after_the_previous_phase_is_refused():
+    """Equality means the two windows share a whole second, and an event inside
+    that second belongs to both. The calibration read would then sit in the run's
+    own window and its count could not be attributed to its own reads."""
+    with pytest.raises(ht.HoldoutTouchUnevaluable) as e:
+        ht.open_audit_window(clock=lambda: _at("2026-08-29T12:00:00Z"),
+                             after="2026-08-29T12:00:00Z")
+    assert "strictly after" in str(e.value)
+
+
+def test_a_window_before_the_previous_phase_is_refused():
+    with pytest.raises(ht.HoldoutTouchUnevaluable):
+        ht.open_audit_window(clock=lambda: _at("2026-08-29T11:00:00Z"),
+                             after="2026-08-29T12:00:00Z")
+
+
+def test_a_window_strictly_after_the_previous_phase_is_returned():
+    assert ht.open_audit_window(clock=lambda: _at("2026-08-29T12:00:01Z"),
+                                after="2026-08-29T12:00:00Z") \
+        == "2026-08-29T12:00:01Z"
+
+
+def test_the_factory_returns_the_zero_arg_callable_the_gate_requires():
+    from crucible.conductor import real_gate as rg
+
+    c = ht.make_counter(ENV, since=AFTER_FLOOR,
+                        log_read=lambda p, f, cap: (
+                            [] if cap != ht.CANARY_CAP else list(LIVE_ENTRIES)),
+                        policy_fetch=lambda: LIVE_POLICY,
+                        sleep=lambda _s: None)
+    gate = rg.RealGate(ledger=None, run_id="r", blob_writer=None,
+                       blob_reader=None, repo_root=str(REPO),
+                       holdout_touch=c, holdout_expected=0)
+    f = gate._holdout_finding()                                # noqa: SLF001
+    assert f["status"] == rg.PASS
+
+
+def test_the_factory_does_not_sleep_per_compute_by_default():
+    """The transfer sequence calls `compute()` four times and settles ONCE, at
+    the point that needs it. Four sleeps would be three minutes of nothing and
+    would not settle the read that matters any better."""
+    slept = []
+    c = ht.make_counter(ENV, since=AFTER_FLOOR,
+                        log_read=lambda p, f, cap: list(LIVE_ENTRIES),
+                        policy_fetch=lambda: LIVE_POLICY, sleep=slept.append)
+    c.compute()
+    assert slept == []
+
+
+def test_the_factory_still_accepts_an_explicit_settle_interval():
+    slept = []
+    c = ht.make_counter(ENV, since=AFTER_FLOOR, settle_seconds=3.0,
+                        log_read=lambda p, f, cap: list(LIVE_ENTRIES),
+                        policy_fetch=lambda: LIVE_POLICY, sleep=slept.append)
+    c.compute()
+    assert slept == [3.0]
+
+
+def test_the_repo_wide_settle_default_exists_and_is_not_zero():
+    # Zero settlement makes "I did not wait" and "nothing was read" the same
+    # number on the run that cannot be repeated.
+    assert ht.DEFAULT_SETTLE_SECONDS > 0

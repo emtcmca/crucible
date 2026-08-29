@@ -136,7 +136,18 @@ def test_the_draft_is_not_a_contract_and_is_not_in_the_manifest():
     manifest = json.loads((CONTRACTS / "MANIFEST.json").read_text(encoding="utf-8"))
     named = {fn for entry in manifest["contracts"].values() for fn in entry["files"]}
     assert DRAFT.name not in named, named
-    assert manifest["contract_count"] == 10, (
+    # ELEVEN since 2026-08-29, and the move was READ rather than deleted, which
+    # is what the docstring above asks for. C11 is NOT discovery: it is
+    # `contracts/transfer_evidence.schema.json`, which had been shipping OUTSIDE
+    # the hashed registry - so `contract-check` reported every pass green
+    # precisely because nothing hashed it. Registering it moved this number.
+    #
+    # The count stays pinned deliberately. It is a PROXY - it fires on any new
+    # contract, not only on a discovery one - and the two assertions above are
+    # the direct facts. The proxy is kept because its job is to make somebody
+    # open this file whenever the contract set grows, and a self-updating count
+    # would do nothing at all.
+    assert manifest["contract_count"] == 11, (
         "the contract count moved. If discovery landed, this file is the "
         "checklist of what else had to move with it - read it, do not delete it.")
 
