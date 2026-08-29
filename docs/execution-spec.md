@@ -582,7 +582,7 @@ Only the first 4:00 is evaluated. The criterion names the architecture explanati
 
 > **Two script corrections, 2026-08-20, both of which would have been spoken on camera.** The Gemma line **must not** say *"because aligned frontier models refuse red-team payloads at volume"* — in a Google-judged contest that reads as routing around safety refusals, and it was the single most quotable line against this project. And **"9 known-bads that must always fail" is false**: only five of the nine are breach fixtures. Say **"each returns its expected verdict."**
 
-Cursor lands on the **trust boundary line**: "Left of this line is model-generated and untrusted. Right of it is deterministic code. **No model ever decides whether a breach happened.**"
+Cursor lands on the **trust boundary line**: "Above this line is model-generated and untrusted. Below it is deterministic code. **No model ever decides whether a breach happened.**"
 
 **1:35–1:43 — The honesty beat.** "Everything from here is replayed from stored evidence bundles recorded offline. Vertex runs on dynamic shared quota, so a multi-minute live loop on camera is a risk I'm not taking. The bundles are in the repo — replay them yourself, no credentials needed. Every one carries five hashes — the gate rule, the frozen target agent, the capability manifest, **the Objective Set that defines what counts as a breach**, and the corpus — all committed before the first measurement."
 

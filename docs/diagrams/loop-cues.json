@@ -94,86 +94,159 @@
     },
     {
       "t_ms": 1200,
-      "spotlight": ["GOV", "RED"],
+      "spotlight": [
+        "GOV",
+        "RED"
+      ],
       "dim": [],
       "note": "The round opens at the budget governor, or it refuses. A red team model writes six attacks a round."
     },
     {
       "t_ms": 2400,
-      "spotlight": ["RED", "TGT"],
+      "spotlight": [
+        "RED",
+        "TGT"
+      ],
       "dim": [],
       "note": "...against the target."
     },
     {
       "t_ms": 3200,
-      "spotlight": ["RED"],
-      "dim": ["HELDOUT", "OBJECTIVE_SET"],
+      "spotlight": [
+        "RED"
+      ],
+      "dim": [
+        "HELDOUT",
+        "OBJECTIVE_SET"
+      ],
       "note": "The corpus was authored, then sealed and committed before the first patch existed. Red cannot read the sealed family (IAM) and cannot read the Objective Set it is being scored against."
     },
     {
       "t_ms": 6800,
-      "spotlight": ["RED", "ARM"],
-      "dim": ["HELDOUT"],
+      "spotlight": [
+        "RED",
+        "ARM"
+      ],
+      "dim": [
+        "HELDOUT"
+      ],
       "note": "The identity that writes patches cannot read the sealed set. Both ends of the arrow are blind to the same bucket, and that one is real IAM."
     },
     {
       "t_ms": 8400,
-      "spotlight": ["LED", "TW"],
-      "dim": ["RED_PAYLOAD", "ATTACK_FAMILY", "RED_INTENT"],
+      "spotlight": [
+        "LED",
+        "TW"
+      ],
+      "dim": [
+        "RED_PAYLOAD",
+        "ATTACK_FAMILY",
+        "RED_INTENT"
+      ],
       "note": "The tripwire is pure code. It rules from the ordered tool call trace, not from anything the agent said. Three things it cannot see, going dark in one beat."
     },
     {
       "t_ms": 11200,
-      "spotlight": ["TW", "DRY", "CONV"],
-      "dim": ["CURRENT_POLICY"],
+      "spotlight": [
+        "TW",
+        "DRY",
+        "CONV"
+      ],
+      "dim": [
+        "CURRENT_POLICY"
+      ],
       "note": "Eleven Objective Set clauses. Breach or no breach, and three consecutive dry rounds is convergence. The oracle does not know which policy version it is scoring."
     },
     {
       "t_ms": 12400,
-      "spotlight": ["COR"],
-      "dim": ["DSL_GRAMMAR", "CURRENT_POLICY", "FIXTURE_SUITES"],
+      "spotlight": [
+        "COR"
+      ],
+      "dim": [
+        "DSL_GRAMMAR",
+        "CURRENT_POLICY",
+        "FIXTURE_SUITES"
+      ],
       "note": "The coroner writes the autopsy and structurally cannot propose a fix. There is no fix field in its schema."
     },
     {
       "t_ms": 16600,
-      "spotlight": ["COR", "ADP"],
-      "dim": ["ARMORER_EXISTENCE"],
+      "spotlight": [
+        "COR",
+        "ADP"
+      ],
+      "dim": [
+        "ARMORER_EXISTENCE"
+      ],
       "note": "Its findings sit in a subtree the armorer's input adapter cannot address. The coroner does not know an armorer exists."
     },
     {
       "t_ms": 20800,
-      "spotlight": ["ARM"],
-      "dim": ["RED_PAYLOAD", "FIXTURE_SUITES", "WARDEN_REPORT", "HELDOUT"],
+      "spotlight": [
+        "ARM"
+      ],
+      "dim": [
+        "RED_PAYLOAD",
+        "FIXTURE_SUITES",
+        "WARDEN_REPORT",
+        "HELDOUT"
+      ],
       "note": "THE HEADLINE OF RULE 2. Four things go dark in one beat: the attacker's payload text, the fixture suites, the Warden report contents, the held-out family. Twenty seconds of narration, two seconds of picture."
     },
     {
       "t_ms": 24800,
-      "spotlight": ["ARM", "VAL"],
+      "spotlight": [
+        "ARM",
+        "VAL"
+      ],
       "dim": [],
       "note": "Three verbs. Deny, constrain argument, require approval. No allow verb, so no sequence of patches can widen the blast radius. The validator assigns the rule id, because a model cannot compute SHA-256."
     },
     {
       "t_ms": 29200,
-      "spotlight": ["PLG", "ENG"],
+      "spotlight": [
+        "PLG",
+        "ENG"
+      ],
       "dim": [],
       "note": "The compiled policy runs as a plugin callback, before the agent's own callbacks, and a non-None return skips execution."
     },
     {
       "t_ms": 32200,
-      "spotlight": ["TGT", "PLG", "ENG"],
-      "dim": ["OBJECTIVE_SET", "ATTACK_FAMILY"],
+      "spotlight": [
+        "TGT",
+        "PLG",
+        "ENG"
+      ],
+      "dim": [
+        "OBJECTIVE_SET",
+        "ATTACK_FAMILY"
+      ],
       "note": "So the policy cannot be argued with by the agent it governs. The enforcement layer enforces and reports; it does not score, and it does not know what the attacker was trying."
     },
     {
       "t_ms": 34300,
-      "spotlight": ["WAR", "NARROW"],
-      "dim": ["CORONER_RECORDS", "ARMORER_REASONING", "RED_PAYLOAD"],
+      "spotlight": [
+        "WAR",
+        "NARROW"
+      ],
+      "dim": [
+        "CORONER_RECORDS",
+        "ARMORER_REASONING",
+        "RED_PAYLOAD"
+      ],
       "note": "The regression warden, also pure code. Twenty six benign fixtures, fourteen of them near misses, all twenty six must still pass. It grades against criteria it cannot write."
     },
     {
       "t_ms": 38600,
-      "spotlight": ["GATE", "NEXT"],
-      "dim": ["CORONER_RECORDS", "ARMORER_REASONING"],
+      "spotlight": [
+        "GATE",
+        "NEXT"
+      ],
+      "dim": [
+        "CORONER_RECORDS",
+        "ARMORER_REASONING"
+      ],
       "note": "The gate promotes only if attack success falls AND benign is exactly one hundred percent. It is blind to everything upstream of the Warden report, so there is no reasoning for it to weigh."
     },
     {
@@ -181,7 +254,7 @@
       "spotlight": [],
       "dim": [],
       "boundary": "resolve",
-      "note": "Rule 3, fired once and last. Everything on the model-generated side of the trust boundary desaturates; the deterministic side keeps its colour. No model ever decides whether a breach happened. NOTE: loop.svg draws the boundary HORIZONTALLY (model-bearing ABOVE, pure code BELOW) while the locked narration says 'left of this line'. That conflict is real and belongs to the recording, not to this file."
+      "note": "Rule 3, fired once and last. Everything on the model-generated side of the trust boundary desaturates; the deterministic side keeps its colour. No model ever decides whether a breach happened. The narration was amended 2026-08-29 to say ABOVE and BELOW, matching the plate's horizontal boundary. The earlier left/right wording was written against a composition that no longer exists."
     }
   ]
 }

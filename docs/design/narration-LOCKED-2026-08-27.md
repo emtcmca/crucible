@@ -25,6 +25,27 @@ run; N9 is the held-out block and is gated on the **2026-08-28 unseal**.
    zero. Version B is true right now and stays true whether or not a bundle ships.
 3. Everything else is unchanged from the corrected 08-24 script.
 
+## Amendment, 2026-08-29 — N4's boundary line, and nothing else
+
+**"Left of this line" became "Above this line", and "Right of it" became
+"Below it".** Eric's call, made before the take.
+
+The words and the picture disagreed. `loop.svg` draws the trust boundary
+HORIZONTALLY: its own `<desc>` reads *"a horizontal trust boundary separates the
+four model-bearing components above it from the thirteen pure-code components
+below it."* The line was written against an earlier left/right composition and
+was never re-read against the plate that replaced it.
+
+This is the whole amendment. The claim is identical, the length is identical,
+and every figure in this file stands as verified on 08-27. **Nothing else in
+N1 to N5 changes**, and this file remains locked verbatim.
+
+Corrected in the same pass: `narration-print.html` (the read-from copy),
+`narration-tonight.md` (the superseded 08-24 draft, which carried the dead
+wording where a wrong-file open would find it), and the conflict note in
+`docs/diagrams/loop-cues.json`, which recorded the disagreement rather than
+resolving it because resolving it was not the cue file's call to make.
+
 ---
 
 ## N1 · 0:00–0:12 · cold open, no title card
@@ -147,7 +168,7 @@ percent.
 **Then the cursor lands on the trust boundary line:**
 
 ```
-Left of this line is model generated and untrusted. Right of it is
+Above this line is model generated and untrusted. Below it is
 deterministic code.
 
 No model ever decides whether a breach happened.

@@ -1,5 +1,10 @@
 # RECORDING SCRIPT — chunks N1 to N5 only
 
+**SUPERSEDED 2026-08-27 by `narration-LOCKED-2026-08-27.md`. Read that file.**
+This one is kept for its 08-24 provenance and is not the take. Its N4 boundary line
+was corrected 2026-08-29 in place, so a wrong-file open cannot find the dead wording;
+no other figure here has been re-verified since 08-24.
+
 **Read from this file, not from `execution-spec.md` §4.** That one interleaves correction
 blocks with the words and is unreadable aloud. Corrections are already applied here.
 
@@ -147,7 +152,7 @@ percent.
 **Then the cursor lands on the trust boundary line:**
 
 ```
-Left of this line is model generated and untrusted. Right of it is deterministic
+Above this line is model generated and untrusted. Below it is deterministic
 code.
 
 No model ever decides whether a breach happened.

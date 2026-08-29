@@ -43,7 +43,7 @@ This is the most distinctive claim the project makes and no other entrant will h
 The boundary line is drawn the entire time, not revealed. On the closing line, everything
 left of it desaturates while the right stays full colour.
 
-Left of the line is model-generated and untrusted. Right of it is deterministic code.
+Above the line is model-generated and untrusted. Below it is deterministic code.
 **No model ever decides whether a breach happened.**
 
 One move, and the thesis lands visually before the sentence finishes.
