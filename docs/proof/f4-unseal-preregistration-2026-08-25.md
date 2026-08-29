@@ -566,3 +566,78 @@ rule that ends wherever the operator stops feeling unlucky.
 
 **This amendment is written while the seal is intact and no F4 object has been
 read. It may not be edited after the unseal.**
+
+
+---
+
+## A3.10 OUTCOME B IS UNREACHABLE. Written 2026-08-29, before the seal opens.
+
+**Ruled after an independent adversarial review of this document against the
+reader that implements it.** The seal is intact and no F4 object has been read.
+
+### The ruling
+
+**Outcome B can never be entered. It is not rare, it is empty.** The operative
+outcomes are **A, C, D and E**.
+
+Outcome B's condition is *"run VALID, exclusion over ceiling but the reader
+ACCEPTS the bundle."* No bundle can satisfy it, for two independent reasons.
+
+**One: the run-level ceiling cannot be under while an arm is over.** The
+run-level unit is the INSTANCE, not the drive, and an instance counts as
+excluded when it is excluded in EITHER arm, because the comparison is paired.
+The run's excluded set is therefore the union of the two arms' sets and
+contains each of them. Both tests use the same denominator, 24, and the same
+threshold function, and that function is monotone in the excluded count. So an
+exclusion count that trips the ceiling for one arm also trips it for the union,
+`E_EXCLUSION_CEILING_RUN` fires, and the run is **Outcome C**.
+
+**Two: `ACCEPTS` is defined as the absence of defects.** A ceiling violation is
+itself a defect. B fails on the accept clause before the union argument is even
+reached. Two independent reasons matter here rather than one: closing either
+would not revive the row.
+
+### What this changes and what it does not
+
+**The table above is NOT edited and Outcome B's row is NOT deleted.** This
+document is append-only and section 4 forbids rewriting it; a reader must be
+able to see what was pre-registered and what was later found to be empty. The
+row stands, and this amendment is what a reader finds when they check whether
+it can be taken.
+
+**Nothing about the run changes.** No threshold moves, no ceiling widens, no
+code changes to make B reachable. A branch that cannot be taken is a
+documentation defect, and widening a pre-registered ceiling four days before
+the run to give a dead row somewhere to live would be a measurement defect --
+which is the worse of the two by a wide margin.
+
+**Outcome E remains the likely outcome** for the reasons given in AMENDMENT 2,
+and none of that reasoning depended on B.
+
+### Why this is recorded rather than quietly fixed
+
+The pre-registration advertised five outcomes and possessed four. That is
+coverage this document did not have, published in the one artifact whose entire
+purpose is to fix the decision procedure before anyone knows the answer. Left
+alone until after the unseal, the correction would arrive at exactly the moment
+it could not be trusted -- a table pruned after the result is in is not a
+pre-registration, whatever it says at the top.
+
+**A dead branch is also not harmless while it stands.** Outcome B is the only
+row that would have licensed quoting a transfer figure alongside an
+over-ceiling exclusion rate. Its condition being unsatisfiable is what forces
+that case to **C**, where no rate is quoted at all. Anyone reading the table
+under pressure and finding B could reasonably have believed the softer
+reporting path was available to them. It never was.
+
+### The ruling is enforced, not merely written
+
+`tests/test_outcome_table.py` proves both arguments as executable checks:
+exhaustively over every arm pair a 24-instance holdout admits, and against the
+accept verdict directly. If a later change widens the run-level ceiling or
+makes the run test advisory, B becomes reachable again and those tests fail on
+that day. A fourth test asserts this amendment exists and that the original row
+was amended rather than deleted.
+
+**This amendment is written while the seal is intact and no F4 object has been
+read. It may not be edited after the unseal.**

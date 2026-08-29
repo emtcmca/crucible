@@ -17,6 +17,7 @@ Every fixture below is INVENTED. No sealed instance content appears in this file
 import json
 import pathlib
 import sys
+import tempfile
 
 import pytest
 
@@ -631,6 +632,13 @@ def test_the_family_guard_still_fires_before_the_corpus_validator():
 # day it matters." Moving the guard up reintroduced it, in the guard itself.
 # ============================================================================
 
+# Drive output goes OUTSIDE the repo. A sealed drive log is sealed material,
+# and a test that writes one into the working tree is one `git add -A` away
+# from committing it. Found when a stray drive header turned up at the repo
+# root during this work.
+_SCRATCH = pathlib.Path(tempfile.mkdtemp(prefix="crucible-transfer-tests-"))
+
+
 class _SealTouched(AssertionError):
     """Raised by the stub standing in for the sealed read. Reaching it is the
     failure the tests below are looking for, so it is loud and specific."""
@@ -651,8 +659,12 @@ def no_seal(monkeypatch):
 
 
 def _sealed_argv(phase="drive", **over):
-    argv = {"--phase": phase, "--out": "unused.json",
-            "--object-names": "unused.txt"}
+    argv = {"--phase": phase, "--out": str(_SCRATCH / "unused.json"),
+            "--object-names": "unused.txt",
+            # A path, not a file. The gate needs one before the read so the
+            # halt has somewhere to wait; whether anything is there yet is a
+            # different question, asked after the read.
+            "--adjudication": "unused-adjudication.json"}
     argv.update(over)
     out = ["--sealed", "--i-am-opening-the-seal"]
     for k, v in argv.items():
@@ -934,3 +946,212 @@ def test_the_seal_status_prefix_is_a_closed_vocabulary():
     assert pat.search(rt.seal_status_label(True))
     assert pat.search(rt.seal_status_label(False))
     assert not pat.search("the sealed family was not read")
+
+
+# ============================================================================
+# THE ADJUDICATION GATE, WHICH DID NOT EXIST
+#
+# `crucible/transfer/adjudication.py` was built, its vocabulary ratified by a
+# named human before any instance was seen, and covered by seventy-seven tests
+# with thirty-four mutations caught. The runner never imported it.
+#
+# An independent review named it precisely: "a thoroughly tested gate that
+# cannot fail the production run, because the run never calls it." That is this
+# project's signature defect in its purest form - not a check that measures the
+# wrong thing, but a check that is never reached.
+#
+# So the tests below deliberately do NOT re-test the ledger. They test the one
+# property the ledger could never establish about itself: that the production
+# path stops at it.
+# ============================================================================
+
+def _ratified_pass_code():
+    """The pass code, read from the signed ratification rather than typed.
+
+    Ruling 46. A test that hardcodes the vocabulary is a test that keeps
+    passing after the vocabulary is amended.
+    """
+    doc = json.loads((ROOT / "docs" / "proof"
+                      / "v1-v2-reason-codes-ratified-2026-08-29.json")
+                     .read_text(encoding="utf-8"))
+    return doc["codes"]["pass"]
+
+
+class _FakeAttack(object):
+    def __init__(self, iid):
+        self.corpus_instance_id = iid
+
+
+def _fake_instances(n=24):
+    return [_FakeAttack("atk_%012x" % i) for i in range(1, n + 1)]
+
+
+def test_a_sealed_run_without_an_adjudication_path_is_refused_before_the_read(no_seal):
+    """The cheapest possible moment to catch it.
+
+    Discovering that --adjudication was omitted AFTER the read would halt a
+    spent run over a command-line omission, so it is checked with the other
+    pre-registered parameters rather than at the gate.
+    """
+    argv = [a for a in _sealed_argv(**{"--live": None})]
+    i = argv.index("--adjudication")
+    del argv[i:i + 2]
+    with pytest.raises(rt.TransferRunError) as exc:
+        rt.main(argv)
+    assert exc.value.code == "E_SEALED_RUN_PARAMETERS"
+    assert "--adjudication" in str(exc.value)
+
+
+def test_the_worksheet_names_the_ids_that_arrived_not_the_published_manifest(tmp_path):
+    """The set adjudicated has to be the set that came off the wire.
+
+    If the worksheet were written from the published manifest, a read that
+    returned a different set would be adjudicated as though it had returned the
+    expected one, and the binding digest would agree with a document rather
+    than with the run.
+    """
+    from crucible.transfer.adjudication import instance_set_digest
+
+    out = tmp_path / "w.json"
+    ids = rt.write_adjudication_worksheet(_fake_instances(3), out)
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert doc["instance_ids"] == sorted(a.corpus_instance_id
+                                         for a in _fake_instances(3))
+    assert doc["instance_set_digest"] == instance_set_digest(ids)
+
+
+def test_the_worksheet_carries_no_attack_text():
+    """`atk_` ids are opaque, which is what lets this file sit on disk and be
+    edited by a human. A worksheet carrying instance content would publish the
+    thing the seal protects, to the one person who is allowed to see it and to
+    everyone else who can read the directory."""
+    import inspect
+    src = inspect.getsource(rt.write_adjudication_worksheet)
+    for leaky in ("input_turns", "trace", "scenario", "smuggled_arg_path",
+                  "slug", "doc"):
+        assert ("a.%s" % leaky) not in src and ('["%s"]' % leaky) not in src, (
+            "the worksheet reaches for %r, which is instance content" % leaky)
+
+
+def test_the_gate_waits_rather_than_proceeding_when_no_record_exists(tmp_path):
+    """THE POINT OF THE WHOLE THING.
+
+    Not "does it return a ledger" - it must NOT return anything at all while
+    the set is unadjudicated. A gate that logged a warning and continued would
+    pass every test that only checks the happy path.
+    """
+    ticks = []
+    record = tmp_path / "never-written.json"
+
+    with pytest.raises(rt.TransferRunError) as exc:
+        rt.await_adjudication(
+            _fake_instances(2), record, tmp_path / "w.json",
+            poll=1, timeout=3,
+            sleep=lambda s: ticks.append(s),
+            clock=lambda: len(ticks) * 2.0,
+            announce=lambda *a: None)
+    assert exc.value.code == "E_ADJUDICATION_TIMEOUT"
+    assert ticks, "the gate never waited at all"
+
+
+def test_a_record_that_binds_to_a_different_set_does_not_release_the_gate(tmp_path):
+    """The record could have been signed over some other twenty-four.
+
+    This is the failure `ratify.py` had before its own review, in a new place:
+    a signature valid over something other than what shipped.
+    """
+    from crucible.transfer.adjudication import build_adjudication
+
+    other = ["atk_%012x" % (900 + i) for i in range(2)]
+    rec = build_adjudication(
+        adjudicated_by="An Invented Person", adjudicated_on="2026-08-29",
+        instance_ids=other,
+        decisions={i: {"codes": [_ratified_pass_code()]} for i in other})
+    record = tmp_path / "adj.json"
+    record.write_text(json.dumps(rec), encoding="utf-8")
+
+    with pytest.raises(rt.TransferRunError) as exc:
+        rt.await_adjudication(
+            _fake_instances(2), record, tmp_path / "w.json",
+            poll=1, timeout=2, sleep=lambda s: None,
+            clock=iter([0.0, 1.0, 5.0, 9.0]).__next__,
+            announce=lambda *a: None)
+    assert exc.value.code == "E_ADJUDICATION_TIMEOUT"
+
+
+def test_a_binding_record_releases_the_gate_and_returns_the_ledger(tmp_path):
+    """The control. Without it every test above passes against a gate that
+    refuses unconditionally, which would be a different bug with identical
+    symptoms in this file."""
+    from crucible.transfer.adjudication import build_adjudication
+
+    instances = _fake_instances(2)
+    ids = sorted(a.corpus_instance_id for a in instances)
+    rec = build_adjudication(
+        adjudicated_by="An Invented Person", adjudicated_on="2026-08-29",
+        instance_ids=ids,
+        decisions={i: {"codes": [_ratified_pass_code()]} for i in ids})
+    record = tmp_path / "adj.json"
+    record.write_text(json.dumps(rec), encoding="utf-8")
+
+    ledger = rt.await_adjudication(
+        instances, record, tmp_path / "w.json",
+        poll=1, timeout=60, sleep=lambda s: None,
+        clock=iter([0.0, 1.0]).__next__, announce=lambda *a: None)
+    assert ledger.adjudicated_by == "An Invented Person"
+    assert ledger.instance_ids == tuple(ids)
+
+
+def test_the_sealed_path_calls_the_gate_before_the_model_is_built(monkeypatch, tmp_path):
+    """THE INTEGRATION ASSERTION, and the one the defect needed.
+
+    Every test above would pass with `await_adjudication` defined and never
+    called - which is exactly the state the reviewer found. This drives the
+    real `main()` and records the ORDER of the sealed read, the gate, and the
+    construction of the live model. The gate has to sit between them.
+    """
+    order = []
+
+    def read(*a, **k):
+        order.append("SEALED READ")
+        return (object(), _fake_instances(2), ["n"], [], [], 2)
+
+    def gate(*a, **k):
+        order.append("ADJUDICATION GATE")
+        raise rt.TransferRunError("E_STOP", "far enough")
+
+    monkeypatch.setattr(rt, "sealed_drive_lifecycle", read)
+    monkeypatch.setattr(rt, "await_adjudication", gate)
+
+    import target.refund_agent.agent as agent_mod
+
+    def model_built(*a, **k):
+        order.append("MODEL")
+    monkeypatch.setattr(agent_mod, "assert_provider_matches_descriptor", model_built)
+
+    names = tmp_path / "names.txt"
+    names.write_text(chr(10).join("F4-dest-%02d-invented.json" % n
+                                  for n in range(1, 25)), encoding="utf-8")
+
+    with pytest.raises(rt.TransferRunError) as exc:
+        rt.main(_sealed_argv(**{"--live": None, "--object-names": str(names),
+                                "--adjudication": str(tmp_path / "adj.json")}))
+    assert exc.value.code == "E_STOP"
+    assert order == ["SEALED READ", "ADJUDICATION GATE"], order
+    assert "MODEL" not in order, "a model was built before the set was adjudicated"
+
+
+def test_the_drive_log_carries_the_adjudication(offline_drive):
+    """The evidence has to survive the one-shot.
+
+    The bundle's own adjudication block is not built yet. If the ledger lived
+    only there, an assembly written later would have no source for it and the
+    one moment it could be captured - a named human ruling on the set that came
+    off the wire - would already have passed. The drive log is the only
+    artifact written while that is still true, so the key exists on every
+    drive, carrying None on a stand-in rather than being absent.
+    """
+    raw = rt.read_drive_file(offline_drive)
+    assert "adjudication" in raw, "the drive log has nowhere to put the ledger"
+    assert raw["adjudication"] is None, "a stand-in is not adjudicated"
+    assert raw["adjudication_counts"] is None

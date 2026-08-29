@@ -76,6 +76,13 @@ SEALED_FAMILY = "F4"
 # The offline path now carries a value that cannot be confused with a default.
 OFFLINE_STUB = "OFFLINE_SCRIPTED_STUB"
 
+# The ratified V1/V2 vocabulary and the criterion it comes from, both read from
+# the signed record rather than restated. Ruling 46: a frozen value has one
+# owner, and it is not this file.
+ADJ_RATIFIED = "docs/proof/v1-v2-reason-codes-ratified-2026-08-29.json"
+ADJ_CRITERION = ("docs/proof/f4-unseal-preregistration-2026-08-25.md "
+                 "section 2, codes ratified in " + ADJ_RATIFIED)
+
 # How many episodes finished, readable by the crash handler. A crash record
 # that cannot say how far the drive got is a record the crash rule cannot be
 # applied to.
@@ -685,6 +692,13 @@ def assert_sealed_parameters(args):
                       "chosen at the command line")
     if args.expect_instances != 24:
         locked.append("--expect-instances is pre-registered at 24")
+    if not args.adjudication:
+        # CHECKED WITH THE OTHER PRE-REGISTERED PARAMETERS, at the cheapest
+        # possible moment. Discovering a missing --adjudication path AFTER the
+        # read would halt a spent run on a command-line omission.
+        locked.append("--adjudication is required: a sealed set is not scored "
+                      "on the runner's own authority, and the path has to be "
+                      "known before the read so the halt has somewhere to wait")
     if locked:
         raise TransferRunError("E_SEALED_RUN_PARAMETERS", "; ".join(locked))
 
@@ -717,6 +731,131 @@ def assert_sealed_policy_pin(policies):
                pin["run_id"]))
 
 
+ADJUDICATION_POLL_SECONDS = 5
+ADJUDICATION_TIMEOUT_SECONDS = 3600
+
+
+def write_adjudication_worksheet(instances, path):
+    """The id set that came off the wire, handed to the adjudicator.
+
+    THE IDS ARE OPAQUE AND THAT IS THE POINT. `atk_` ids carry no attack text,
+    so this file can sit on disk and be edited by a human without publishing
+    anything the seal protects. The adjudicator reads the INSTANCES to decide;
+    this file only fixes which twenty-four they are ruling on, so a decision
+    cannot later be matched to a different set.
+
+    Written from the instances the read actually returned, never from the
+    published manifest. Those should agree, and if they do not, the thing to
+    adjudicate is what arrived rather than what was expected.
+    """
+    from crucible.transfer.adjudication import instance_set_digest
+
+    ids = sorted(a.corpus_instance_id for a in instances)
+    doc = {
+        "artifact": "adjudication worksheet. NOT a decision record.",
+        "written_at": _utc(),
+        "instance_ids": ids,
+        "instance_set_digest": instance_set_digest(ids),
+        "how_to_use": (
+            "Rule on every id with the ratified reason codes, write a decision "
+            "record with crucible.transfer.adjudication.build_adjudication, and "
+            "pass it back with --adjudication. The run is halted until you do."),
+        # READ AT USE TIME FROM THE SIGNED RECORD, never restated here.
+        # Ruling 46: a frozen value has exactly one owner, the artifact.
+        "reason_codes": json.loads(
+            (ROOT / ADJ_RATIFIED).read_text(encoding="utf-8"))["codes"],
+        "criterion": ADJ_CRITERION,
+    }
+    path = pathlib.Path(path)
+    path.write_text(json.dumps(doc, indent=2, sort_keys=True) + chr(10),
+                    encoding="utf-8", newline="")
+    return ids
+
+
+def await_adjudication(instances, record_path, worksheet_path,
+                       poll=ADJUDICATION_POLL_SECONDS,
+                       timeout=ADJUDICATION_TIMEOUT_SECONDS,
+                       sleep=None, clock=None, announce=print):
+    """HALT BETWEEN THE SEALED READ AND THE FIRST MODEL CALL.
+
+    THIS GATE DID NOT EXIST AND THAT WAS THE DEFECT. `adjudication.py` was
+    built, ratified, and covered by seventy-seven tests, and the runner never
+    imported it. An independent review called it exactly right: a thoroughly
+    tested gate that cannot fail the production run, because the run never
+    calls it. A gate nothing calls is the signature defect of this project in
+    its purest form - a check that passes while measuring nothing, where the
+    measuring is not even attempted.
+
+    WHY THE PAUSE IS IN-PROCESS AND NOT A SECOND INVOCATION. The obvious shape
+    is to stop after the read and let the operator re-run with the decisions.
+    That shape is unavailable: the sealed objects have already been read, the
+    audit count has already moved, and a second invocation would read them
+    again. A3.9 permits one retry for a TRANSPORT failure, not for a workflow
+    convenience, and spending it here would leave nothing for the case it was
+    written for. So the process holds the read in memory and waits.
+
+    WHY IT TIMES OUT INTO A REFUSAL RATHER THAN A PROCEED. An unattended run
+    that waited forever would eventually be killed by something with no opinion
+    about measurement validity, and one that proceeded on timeout would be
+    scoring a sealed set on the runner's own authority - which is the whole
+    thing the adjudication exists to prevent. Timing out is a bad outcome. It
+    is a much better one than either alternative.
+
+    `sleep` and `clock` are injectable so the wait is testable without one.
+    """
+    import time
+
+    from crucible.transfer.adjudication import (AdjudicationError,
+                                                load_adjudication)
+
+    sleep = sleep or time.sleep
+    clock = clock or time.monotonic
+
+    ids = write_adjudication_worksheet(instances, worksheet_path)
+
+    announce("=" * 78)
+    announce("HALTED. The sealed set has been read and NO MODEL HAS BEEN CALLED.")
+    announce("  instances read   : %d" % len(ids))
+    announce("  worksheet        : %s" % worksheet_path)
+    announce("  waiting for      : %s" % record_path)
+    announce("")
+    announce("  Adjudicate all %d instances against %s," % (len(ids), ADJ_CRITERION))
+    announce("  write the decision record to the path above, and this run")
+    announce("  continues on its own. It will NOT proceed without one.")
+    announce("=" * 78)
+
+    record_path = pathlib.Path(record_path)
+    started = clock()
+    last_error = None
+    while True:
+        if record_path.is_file():
+            try:
+                text = record_path.read_text(encoding="utf-8")
+                ledger = load_adjudication(json.loads(text), ids)
+            except (AdjudicationError, ValueError) as exc:
+                # A malformed or non-binding record is NOT a reason to give up.
+                # The adjudicator is standing here and can fix it; refusing
+                # outright would spend the read over a typo.
+                message = str(exc)
+                if message != last_error:
+                    announce("  still waiting: %s" % message)
+                    last_error = message
+            else:
+                announce("  adjudication accepted, signed by %s on %s"
+                         % (ledger.adjudicated_by, ledger.adjudicated_on))
+                return ledger
+        if clock() - started > timeout:
+            raise TransferRunError(
+                "E_ADJUDICATION_TIMEOUT",
+                "no binding adjudication record appeared at %s within %d "
+                "seconds. The sealed set was read and is NOT being scored on "
+                "the runner's own authority. Nothing was driven and no model "
+                "was called; classify this attempt under the pre-registration's "
+                "crash rule. Last error: %s"
+                % (record_path, timeout, last_error or "the file never appeared"))
+        sleep(poll)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -742,6 +881,10 @@ def main(argv=None):
                     help="denominator floor; below it no rate is defined")
     ap.add_argument("--live", action="store_true",
                     help="drive against the pinned target model. Costs money.")
+    ap.add_argument("--adjudication",
+                    help="path the V1/V2 decision record will be written to by "
+                         "the named adjudicator. Required with --sealed; the run "
+                         "halts after the read and waits for it.")
     args = ap.parse_args(argv)
 
     # THE PRE-REGISTERED NUMBERS FIRST, IN EITHER PHASE. They cost nothing to
@@ -780,10 +923,22 @@ def main(argv=None):
         (seeds, instances, sealed_names,
          before_read, after_read, expected_reads) = sealed_drive_lifecycle(
             _declared_names(args.object_names))
+        # THE HUMAN PAUSE. Nothing below this line runs until a named person
+        # has ruled on every instance that came off the wire. The next
+        # statement after this block constructs the model, and the one after
+        # that calls it - so this is the last moment at which the sealed set
+        # can be adjudicated without the decisions having seen any result.
+        adjudication = await_adjudication(
+            instances, args.adjudication,
+            pathlib.Path(args.out).with_suffix(".worksheet.json"))
     else:
         seeds, instances, sealed_names = load_instances(
             args.family, args.sealed, args.i_am_opening_the_seal)
         before_read, after_read, expected_reads = standin_preflight()
+        # None, not an empty ledger. A stand-in is not adjudicated because it
+        # is not the measurement, and an empty ledger would be indistinguishable
+        # downstream from a sealed run that was adjudicated and found nothing.
+        adjudication = None
 
     manifests = {}
     for arm in ARMS:
@@ -849,6 +1004,25 @@ def main(argv=None):
             "hashed_payload": policies[arm].get("hashed_payload") or {},
         } for arm in ARMS},
         "hash_locks": dict(locks.values),
+        # THE ADJUDICATION TRAVELS WITH THE DRIVE, not only with the bundle.
+        #
+        # The bundle's own top-level block is still being built. If the ledger
+        # lived only there, an assembly written after this run would have no
+        # source for it, and the one moment it can be captured - the moment a
+        # named human ruled on the set that came off the wire - would already
+        # have passed. The drive log is the only artifact written while that is
+        # still true.
+        #
+        # DIGESTS AND DERIVED COUNTS, never the reasoning. The codes are a
+        # closed vocabulary and the counts are computed from them by the
+        # ledger, so nothing here is a producer's assertion about itself.
+        # `to_record()` rather than a hand-built dict: the ledger owns its own
+        # serialization, and a second copy of that shape here would be a second
+        # source of truth for what an adjudication record IS.
+        "adjudication": (None if adjudication is None
+                         else adjudication.to_record()),
+        "adjudication_counts": (None if adjudication is None
+                                else dict(adjudication.counts())),
         "declared_object_names": sealed_names,
         "preflight_before_read": before_read,
         "preflight_after_read": after_read,
