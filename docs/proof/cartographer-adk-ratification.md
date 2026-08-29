@@ -1,15 +1,24 @@
 # Cartographer proposals, foreign ADK target — human ratification
 
-**Status: UNSIGNED. Nothing has been ratified and nothing has entered a manifest.**
-**A named human signs this sheet. No agent may sign it, and the lane that produced
-it was instructed not to.**
+**Status: SIGNED 2026-08-28 by Eric Tetzlaff. Eight accept, four amend, no
+rejections.** A named human signed it; no agent may, and `ratify.py` refuses a
+component name by construction.
+
+**The signature does not live in this file.** The machine-readable record is
+`cartographer-adk-ratification-record-2026-08-28.json` and the manifest it
+produced is `foreign-manifest-adk-customer-service-ratified-2026-08-28.json`,
+written only by `scripts/ratify-foreign-manifest.py` through
+`ratify.to_manifest_entries()`. Read the digests off the record at use time
+rather than from prose here (ruling 46).
 
 **Prepared** 2026-08-22 by lane GEMMA-CARTOGRAPHER · **first filled** 2026-08-22 by
 lane GEMMA-WIRE · **re-run and re-bound** 2026-08-23 by lane INERT
 (`lane/cartographer-inert`)
-· **Ratifier:** Eric Tetzlaff · **Signed on:** _(blank)_
-· **Proposal-set digest at signature:** _(blank — filled by `build_ratification()`,
-not by hand)_
+· **Ratifier:** Eric Tetzlaff · **Signed on:** 2026-08-28
+· **Proposal-set digest at signature:** recorded in
+`cartographer-adk-ratification-record-2026-08-28.json`, computed by
+`build_ratification()` and asserted against this sheet's recorded digest by the
+signing script, which refuses `E_SHEET_DIGEST_MOVED` if the proposals moved.
 
 **Digest of the proposal set on the table:**
 `24a0a3fb354e1c5fc37f53f8fc1a85f701e250f8903aa8283b2c1f1f88f2295c`
@@ -342,9 +351,67 @@ than free-tier.
 
 ## The ruling
 
-_(blank — unsigned. Twelve rows above await a per-tool `accept` / `amend` /
-`reject`. A tool with no recorded verdict blocks the whole ratification;
-`E_UNREVIEWED_TOOL`, no partial signature.)_
+**Twelve verdicts, 2026-08-28. Eight accept, four amend, no rejections.** Full
+per-tool reasoning is in the record's `decisions` map; this table is the index.
+
+| # | tool | verdict | final class set |
+|---|---|---|---|
+| 1 | `send_call_companion_link` | accept | `CAP_EXTERNAL_COMMS` |
+| 2 | `approve_discount` | **amend** | `CAP_MOVES_MONEY`, `CAP_ESCALATES_PRIVILEGE` |
+| 3 | `sync_ask_for_approval` | **amend** | `CAP_MOVES_MONEY`, `CAP_ESCALATES_PRIVILEGE` |
+| 4 | `update_salesforce_crm` | accept | `CAP_MUTATES_DURABLE_STATE` |
+| 5 | `access_cart_information` | **amend** | `CAP_READS_PII` |
+| 6 | `modify_cart` | accept | `CAP_MUTATES_DURABLE_STATE` |
+| 7 | `get_product_recommendations` | accept | `INERT` → empty set |
+| 8 | `check_product_availability` | accept | `INERT` → empty set |
+| 9 | `schedule_planting_service` | accept | `CAP_MUTATES_DURABLE_STATE` |
+| 10 | `get_available_planting_times` | accept | `INERT` → empty set |
+| 11 | `send_care_instructions` | accept | `CAP_EXTERNAL_COMMS` |
+| 12 | `generate_qr_code` | **amend** | `CAP_MOVES_MONEY` |
+
+**Row 12 is the row this gate existed for.** The model proposed `INERT` — a
+positive claim of no capability — over a tool taking a float `discount_value` and
+minting an instrument that redeems it. The stability run makes it worse rather
+than better: `INERT` 28 of 36, `CAP_MOVES_MONEY` 8 of 36. This is a human
+overruling a classifier that was *stable on the wrong answer*, not the correction
+of an unlucky draw.
+
+**Row 5 could not have been accepted.** `UNCLASSIFIED` is refused by name at
+`manifest/load.py` (`E_UNKNOWN_CAPABILITY_CLASS`), so the only legal verdicts
+were amend or reject.
+
+### A dissent on row 5, recorded and then settled at the source
+
+`third-party-target-recon-2026-08-22.md` §3 proposed `{}` INERT for
+`access_cart_information`, on the grounds that the returned cart holds product
+rows and a subtotal and no personal data. The ratifier ruled `CAP_READS_PII`
+anyway, because this sheet classifies **declared capability of the tool surface,
+not observed effect** — its own stated doctrine, two sections up.
+
+The source settles it. `tools.py:143` returns a hardcoded `mock_cart` under the
+comment `# MOCK API RESPONSE - Replace with actual API call`. The recon read the
+**placeholder**, not the tool. Classifying on that static dict would classify the
+stub. Recorded because the dissent was reasonable on the evidence available when
+it was written, and because the deciding fact was a source read rather than an
+argument.
+
+### What the ratification changed downstream, measured not asserted
+
+Re-running `scripts/foreign-agent-enforcement-probe.py` against the ratified
+manifest instead of the fail-closed one moved two things that matter:
+
+- **`CAP_INVOKES_AGENT` became globally absent.** Under the generated manifest no
+  class was absent, and that was an artefact of the encoding: two unsettled tools
+  were declared fail-closed-maximal and carried all six between them. Absence is
+  now a real reading of the surface. Any rule binding that class here is
+  **vacuously** clean and must be reported as vacuous, never as a pass.
+- **The matched-fact case became attributable.** `access_cart_information`
+  previously carried all six classes, so every rule bound it and the decision fell
+  to the lowest-id `deny` on a tie-break. Carrying exactly `CAP_READS_PII`, it is
+  now decided by `r_ceb7cbd4f589` — a rule the loop **learned**, which names no
+  tool — and the control that changes one argument value flips DENY to ALLOW.
+
+Artifacts: `foreign-agent-enforcement-probe-ratified-2026-08-28.txt` / `.json`.
 
 **Two rows the lane flags for the ratifier's attention, without prejudging them:**
 row **12** (`generate_qr_code`, proposed `INERT`, takes a float `discount_value`,
@@ -362,4 +429,29 @@ it cannot be accepted as proposed and still load. Flagged, not fixed.
 
 ## Ratifier's words
 
-_(blank)_
+On being handed a summary sheet rather than the twelve rows: *"we're looking at a
+blanket approval, which doesn't sit right with me. I'd like you to walk through
+each of the twelve amendments or items on the sheet so I know what I'm approving,
+modifying, or rejecting."*
+
+**That refusal is the reason this ratification is worth anything.** The summary he
+rejected was defective: it displayed the fail-closed manifest's all-six values
+rather than the Cartographer's actual proposals, and it recommended amending
+`generate_qr_code` to the empty set — which would have ratified the model's own
+regression as a human decision. The sheet in this repo was correct throughout; the
+summary built from it was not. A reviewer who insists on the rows is the control
+that a reviewer who signs the summary is not.
+
+## A defect in this gate, found during the same review
+
+An adversarial third-party review of `ratify.py` on 2026-08-28 found that
+`proposal_set_digest()` binds what the reviewer **saw** and nothing bound what the
+reviewer **decided**: an amendment class edited after signature changed the
+emitted manifest while the digest check stayed green. Reproduced, then closed by
+`decisions_digest()`, with `E_DECISIONS_DIGEST_MISMATCH` and
+`E_DECISIONS_DIGEST_MISSING` raised from `to_manifest_entries()`. Tests in
+`tests/test_cartographer_ratify_binding.py`, mutation-checked out of band.
+
+**This is the eighth instance of this project's signature defect** — a check that
+passes while measuring nothing. The digest check could not see the field that
+changes the manifest. The record signed above carries both digests.

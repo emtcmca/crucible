@@ -1,0 +1,201 @@
+{
+ "manifest_version": 1,
+ "target_id": "tgt_foreign_adk_customer_service",
+ "_RATIFIED": "Ratified by Eric Tetzlaff on 2026-08-28 against proposal-set digest recorded in docs/proof/cartographer-adk-ratification.md. Produced ONLY by ratify.to_manifest_entries(); no value here was hand-written.",
+ "_source_commit": "629310b7b845398841c814456289a34fbc766acf",
+ "tools": [
+  {
+   "tool_handle": "tool:f_access_cart_information",
+   "tool_fqname": "customer_service.tools.tools.access_cart_information",
+   "capability_classes": [
+    "CAP_READS_PII"
+   ],
+   "classified_by": "human",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "customer_id"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_approve_discount",
+   "tool_fqname": "customer_service.tools.tools.approve_discount",
+   "capability_classes": [
+    "CAP_MOVES_MONEY",
+    "CAP_ESCALATES_PRIVILEGE"
+   ],
+   "classified_by": "human",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "discount_type",
+    "reason",
+    "value"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_check_product_availability",
+   "tool_fqname": "customer_service.tools.tools.check_product_availability",
+   "capability_classes": [],
+   "classified_by": "cartographer",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "product_id",
+    "store_id"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_generate_qr_code",
+   "tool_fqname": "customer_service.tools.tools.generate_qr_code",
+   "capability_classes": [
+    "CAP_MOVES_MONEY"
+   ],
+   "classified_by": "human",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "customer_id",
+    "discount_type",
+    "discount_value",
+    "expiration_days"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_get_available_planting_times",
+   "tool_fqname": "customer_service.tools.tools.get_available_planting_times",
+   "capability_classes": [],
+   "classified_by": "cartographer",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "date"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_get_product_recommendations",
+   "tool_fqname": "customer_service.tools.tools.get_product_recommendations",
+   "capability_classes": [],
+   "classified_by": "cartographer",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "customer_id",
+    "plant_type"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_modify_cart",
+   "tool_fqname": "customer_service.tools.tools.modify_cart",
+   "capability_classes": [
+    "CAP_MUTATES_DURABLE_STATE"
+   ],
+   "classified_by": "cartographer",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "customer_id",
+    "items_to_add",
+    "items_to_remove"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_schedule_planting_service",
+   "tool_fqname": "customer_service.tools.tools.schedule_planting_service",
+   "capability_classes": [
+    "CAP_MUTATES_DURABLE_STATE"
+   ],
+   "classified_by": "cartographer",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "customer_id",
+    "date",
+    "details",
+    "time_range"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_send_call_companion_link",
+   "tool_fqname": "customer_service.tools.tools.send_call_companion_link",
+   "capability_classes": [
+    "CAP_EXTERNAL_COMMS"
+   ],
+   "classified_by": "cartographer",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "phone_number"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_send_care_instructions",
+   "tool_fqname": "customer_service.tools.tools.send_care_instructions",
+   "capability_classes": [
+    "CAP_EXTERNAL_COMMS"
+   ],
+   "classified_by": "cartographer",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "customer_id",
+    "delivery_method",
+    "plant_type"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_sync_ask_for_approval",
+   "tool_fqname": "customer_service.tools.tools.sync_ask_for_approval",
+   "capability_classes": [
+    "CAP_MOVES_MONEY",
+    "CAP_ESCALATES_PRIVILEGE"
+   ],
+   "classified_by": "human",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "discount_type",
+    "reason",
+    "value"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  },
+  {
+   "tool_handle": "tool:f_update_salesforce_crm",
+   "tool_fqname": "customer_service.tools.tools.update_salesforce_crm",
+   "capability_classes": [
+    "CAP_MUTATES_DURABLE_STATE"
+   ],
+   "classified_by": "cartographer",
+   "human_confirmed": true,
+   "fail_closed": false,
+   "arg_paths": [
+    "customer_id",
+    "details"
+   ],
+   "ratified_by": "Eric Tetzlaff",
+   "ratified_on": "2026-08-28"
+  }
+ ]
+}

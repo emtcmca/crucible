@@ -85,6 +85,46 @@ def proposal_set_digest(proposals) -> str:
     return hash_full(body)
 
 
+def decisions_digest(decisions) -> str:
+    """SHA-256 over what the human DECIDED, in canonical form.
+
+    THE COMPANION TO `proposal_set_digest`, AND THE HALF THAT WAS MISSING.
+
+    The proposal digest binds what the reviewer SAW. Until 2026-08-28 nothing
+    bound what the reviewer DECIDED, so an amendment class edited after signing
+    changed the manifest `to_manifest_entries` emits while the proposal digest
+    stayed valid. The record was tamper-evident on its inputs and tamper-blind
+    on its output - a check that passes while measuring nothing, which is this
+    project's signature defect and this was its eighth instance. Found by a
+    third-party adversarial review.
+
+    Covers the VERDICT and the AMENDMENT CLASSES: the only two fields that
+    decide what ships. Excludes the free-text `reason`, for the same stated
+    reason the proposal digest excludes the prompt - a record that expires
+    because a typo was fixed is a record people route around. That exclusion is
+    safe because `reason` never reaches the manifest, so rewriting one without
+    touching a class changes nothing that ships.
+
+    Sorted by tool name so two reviewers who record identical rulings in a
+    different order agree. Classes are hashed IN THE GIVEN ORDER, because the
+    emitted `capability_classes` tuple carries that order.
+
+    NOT A SIGNATURE. Anyone who can edit the record can recompute both digests.
+    The protection is that the signed sheet records them in a COMMITTED
+    document, so divergence is detectable against git - the same arrangement
+    `sealed-family-commitment.json` has.
+    """
+    body = [
+        {
+            "tool_name": name,
+            "decision": (d or {}).get("decision"),
+            "classes": list((d or {}).get("classes") or []),
+        }
+        for name, d in sorted((decisions or {}).items())
+    ]
+    return hash_full(body)
+
+
 def build_ratification(*, ratified_by, ratified_on, proposals, decisions, notes=None):
     """Assemble a ratification record for one proposal set.
 
@@ -160,6 +200,9 @@ def build_ratification(*, ratified_by, ratified_on, proposals, decisions, notes=
         "ratified_by": who,
         "ratified_on": ratified_on,
         "proposal_set_digest": proposal_set_digest(proposals),
+        # Taken over the NORMALIZED decisions, so the value a reviewer can
+        # recompute by hand from the signed sheet is the value checked here.
+        "decisions_digest": decisions_digest(clean),
         "decisions": clean,
         "notes": notes or "",
     }
@@ -226,6 +269,26 @@ def to_manifest_entries(proposal_set, ratification):
             % (got, expected))
 
     decisions = ratification.get("decisions") or {}
+
+    # The proposal digest above proves the reviewer saw these proposals. It says
+    # NOTHING about what they ruled, and the ruling is what this function emits.
+    # Fail closed on a missing digest rather than treating absence as consent:
+    # an optional check is one an attacker disables by deleting a field, and
+    # nothing has ever been ratified, so there is no legacy record to honour.
+    signed_decisions = ratification.get("decisions_digest")
+    if not signed_decisions:
+        raise RatificationError(
+            "E_DECISIONS_DIGEST_MISSING",
+            "the ratification carries no decisions_digest, so nothing binds the "
+            "verdicts to the person who recorded them. Re-sign with "
+            "build_ratification()")
+    if signed_decisions != decisions_digest(decisions):
+        raise RatificationError(
+            "E_DECISIONS_DIGEST_MISMATCH",
+            "the decisions changed after they were signed. The proposal set is "
+            "unmoved, so this is an edit to a verdict or an amendment class - "
+            "the fields that decide what enters the manifest")
+
     entries = []
     for p in proposals:
         name = p["tool_name"]
