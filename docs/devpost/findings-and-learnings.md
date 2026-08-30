@@ -12,19 +12,74 @@
      Nothing in that section may be aspirational: it lists what is wired and says
      out loud what is only specified.
 
-     Nothing has been measured: no attack round has run, no policy has been
-     scored, the README results table is all targets with an empty observed
-     column. Every claim below is about the build itself, never a measured
-     outcome. -->
+     SUPERSEDED 2026-08-30. This paragraph read: "Nothing has been measured: no
+     attack round has run, no policy has been scored, the README results table
+     is all targets with an empty observed column. Every claim below is about
+     the build itself, never a measured outcome." That was true when it was
+     written on 2026-08-22 and false by 2026-08-25. Six live batches have since
+     run against Vertex, policy has been promoted, and one measurement is the
+     most substantive finding in the project. The scope rule that replaces it is
+     narrower and still binding: NO RATE may be stated -- no attack-success
+     rate, no benign pass rate, no transfer figure, no convergence result -- and
+     no figure from RESULTS.md may be quoted at all. What may be stated is the
+     gate no-op measurement, with the caveats that travel with it. See the
+     README's "what is not defensible today" section, which is maintained by the
+     build and is the governing text. -->
 
 ## Building the checks, not just the system
 
-CRUCIBLE has not measured anything yet. No attack round has run, no policy has
-been scored, and the README's results table is still every row a target with an
-empty observed column. So this document cannot report what the system found. It
-reports what building it found, which turned out to be the more interesting
-material: across this eleven-day build, the checks were wrong more often than
-the code they were checking.
+**Corrected 2026-08-30.** This section opened, from 2026-08-22 until now, with:
+
+> ~~CRUCIBLE has not measured anything yet. No attack round has run, no policy
+> has been scored, and the README's results table is still every row a target
+> with an empty observed column.~~
+
+Every clause of that is now false, and leaving it up would have understated the
+project to a judge in the one document whose job is to say what was found. Six
+live batches have run against Vertex AI, policy has been promoted, and the
+project's most substantive measurement exists. What has *not* happened is the
+thing that sentence was really guarding against, so the guard is restated
+properly rather than dropped:
+
+- **No rate from `RESULTS.md` may be quoted, and none appears below.** Every
+  figure in that table came from the sixty-bundle batch of 2026-08-25, and the
+  offline reader this repository ships **refuses all sixty of them** — ruling 55
+  made `episodes[].target_responded` a required property after they were
+  written, and the corpus was re-frozen underneath them when instance F5-05 was
+  repaired. A figure that cannot be re-derived from the artifact it came from
+  stays out of circulation.
+- **One measured result is stateable, and it is negative.** Across the fifteen
+  bundles the shipped reader *does* accept, **32 rules were promoted: 13 closed
+  the breach they were written for, and 19 were no-ops on it**
+  (`docs/design/gate-noop-measurement-2026-08-25.md:8-36`, `AUDIT.md` C13). That
+  is a recount, dated 2026-08-27: it read ~~"14 bundles, 31 rules, 18 no-ops"~~
+  until `pilot-2026-08-25/run-08` finished writing and the reader began
+  accepting it, and the recount moved the finding in the *worse* direction. The
+  cause is not the Armorer being careless — the tripwire's aggregate clause
+  groups by a key the DSL the Armorer must write in cannot express, so a
+  well-formed patch can pass every gate and close nothing.
+- **The caveat travels with the number.** Those bundles live in `evidence/`,
+  which is gitignored. The finding is reproducible on the builder's machine and
+  **not from a clone.** It is stated here anyway, because a negative result
+  suppressed for being inconvenient to verify is worse than one published with
+  its verification boundary attached.
+- **Context for why the no-op count was possible at all.** Every promotion
+  published before 2026-08-27 came from a gate that checked a patch was well
+  formed and that benign traffic survived it, and never that it closed the
+  breach it was written for. The two criteria that ask the missing question —
+  **G4 attack reduction** and an originating-breach closure check — landed
+  2026-08-26 and have since run `mode=ENFORCING` in all 20 bundles of the
+  2026-08-27 measurement batch and in the replication batch at identical
+  configuration. **12 rules were promoted under enforcing efficacy gates in the
+  measurement batch and 14 in the replication batch.**
+
+That measurement is a finding about the harness, not about the target agent, and
+it belongs in the same category as everything else in this document. So the
+original framing survives its own correction: this document reports what
+building the system found, and across this build the checks were wrong more
+often than the code they were checking. The gate no-op count is simply the
+largest instance of that pattern, and the only one caught by a measurement
+rather than by a test failing.
 
 That is not a complaint about the process. It is the reason the process worked.
 Below are the findings worth a stranger's attention, each traceable to a commit
@@ -48,8 +103,33 @@ this document would rather say so than list it.
 Everything downstream of those models is deterministic Python with no model call
 in it at all: the tripwire that records what the target actually called, the
 evaluator that decides whether a breach occurred, the policy engine, and the
-promotion gate. The only third-party runtime dependencies are `jsonschema` and
-`PyYAML`.
+promotion gate.
+
+**Corrected 2026-08-30.** That paragraph used to end: ~~"The only third-party
+runtime dependencies are `jsonschema` and `PyYAML`."~~ Read off
+`requirements.txt`, which is pinned exactly, there are **five** runtime pins,
+not two: `google-adk==2.1.0` (the agent framework the target runs on and the
+enforcement plugin attaches to), `jsonschema==4.26.0` and `referencing==0.37.0`
+(contract and evidence-bundle validation, `$ref` resolution offline),
+`PyYAML==6.0.3` (reads the frozen gate rule `gate_rule.v1.yaml`), and
+`google-cloud-storage==3.10.1` (the sealed-holdout reader and the real gate's
+bucket access). `pytest==9.0.3` is pinned too and is test-only. The
+`google-cloud-storage` pin is itself one of this document's findings in
+miniature: it was installed on the build machine and named in no dependency file
+until 2026-08-28, so a cold clone resolved without it and every live path
+touching GCS would have failed at the import — found by adversarial review, and
+confirmed by a clean virtualenv that resolved all the other pins and still had
+no `google.cloud`. It is not transitive from `google-adk`. The sentence being
+corrected here was written before three of those five pins existed and was never
+re-derived from the file it describes, which is the same standing-still failure
+this document catalogues elsewhere.
+
+The narrower claim the original sentence was reaching for is true and is worth
+stating on its own: **the deterministic core calls no model and needs no
+credential.** `python scripts/w2-smoke.py` drives an attack against an empty
+policy until the refund executes, applies one hand-written rule, and stops the
+same attack with no tool executing while a legitimate episode survives both
+policies — exit 0, no model called, no credential, no cloud project.
 
 There is no real customer data in this project and there never was. The order
 ledger the target reads and writes is seeded with synthetic orders, and the

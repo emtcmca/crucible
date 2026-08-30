@@ -12,3 +12,44 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+--------------------------------------------------------------------------------
+THIRD-PARTY ATTRIBUTION
+--------------------------------------------------------------------------------
+
+This distribution contains material from the following third-party work. The
+scope stated here mirrors docs/devpost/third-party-disclosure.md section 2, which
+is the full disclosure.
+
+google/adk-samples
+Copyright 2025 Google LLC
+Licensed under the Apache License, Version 2.0.
+https://github.com/google/adk-samples
+Commit 629310b7b845398841c814456289a34fbc766acf
+
+    WHAT IS REDISTRIBUTED. One file:
+
+        crucible/cartographer/foreign/adk_customer_service.json
+
+    It is a frozen descriptor of the sample agent at
+    python/agents/customer-service. It carries the twelve tool declarations from
+    that sample -- tool names, docstrings, argument names, type annotations and
+    per-argument documentation -- extracted by `inspect` from
+    python/agents/customer-service/customer_service/tools/tools.py, with the tool
+    list mirroring the registry in .../customer_service/agent.py. The docstrings
+    and argument documentation are Google's authored text and are reproduced
+    verbatim, which is why this notice exists: the disclosure elsewhere in this
+    repository satisfies the contest's disclosure obligation, and this entry
+    satisfies Apache-2.0 section 4(b) and 4(c).
+
+    WHAT IS NOT REDISTRIBUTED. No executable code from google/adk-samples is
+    present in this repository. Nothing from the sample is imported, called, or
+    run. The descriptor is read as inert data by the Capability Cartographer.
+
+    UPSTREAM NOTICE FILE. As read at commit 629310b7 on 2026-08-30,
+    google/adk-samples carries no NOTICE file at its repository root and none in
+    the customer-service sample directory, so there is no upstream NOTICE content
+    for section 4(d) to relay. The copyright line above is the header carried by
+    both source files named above.
+
+    Google LLC has not reviewed, endorsed, or responded to this project.

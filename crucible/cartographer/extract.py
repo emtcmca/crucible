@@ -131,7 +131,8 @@ def extract_tool_specs(module_path, tool_names, *, declaring_agent,
 
 
 def freeze_target(*, target_name, repository, commit_sha, specs,
-                  extracted_on, notes=None):
+                  extracted_on, notes=None, license=None, license_url=None,
+                  copyright=None, attribution=None):
     """Assemble the committed fixture: specs plus how to re-derive them.
 
     `digest` is a SHA-256 over the canonical form of the spec list ALONE -
@@ -151,7 +152,7 @@ def freeze_target(*, target_name, repository, commit_sha, specs,
         raise ExtractionError(
             "commit_sha must be the full 40-char SHA. A short SHA is ambiguous "
             "and an abbreviation is what got retyped last time.")
-    return {
+    frozen = {
         "target_name": target_name,
         "repository": repository,
         "commit_sha": commit_sha,
@@ -161,6 +162,28 @@ def freeze_target(*, target_name, repository, commit_sha, specs,
         "notes": notes or "",
         "tools": specs,
     }
+
+    # THE LICENCE KEYS SURVIVE REGENERATION, AND THAT IS THE WHOLE POINT.
+    #
+    # The committed descriptor redistributes twelve tool declarations read out
+    # of `google/adk-samples` - names, docstrings, argument documentation. That
+    # is copied expression, so Apache-2.0 section 4 attribution is a condition
+    # of the contest rule permitting open source at all, not a courtesy.
+    #
+    # The attribution was added to the descriptor by hand on 2026-08-30 and
+    # this function did not emit it. Re-running the regeneration script would
+    # therefore have dropped all four keys and SILENTLY UNDONE THE COMPLIANCE
+    # FIX, leaving a file that still looked freshly generated. A correction
+    # that the next regeneration erases is not a correction; it is a countdown.
+    #
+    # These do NOT move `digest`, which is taken over the spec list alone -
+    # see the note above. So carrying them costs nothing and a caller that
+    # omits them gets exactly the old shape.
+    for key, value in (("license", license), ("license_url", license_url),
+                       ("copyright", copyright), ("attribution", attribution)):
+        if value:
+            frozen[key] = value
+    return frozen
 
 
 FROZEN_DIR = os.path.join(os.path.dirname(__file__), "foreign")

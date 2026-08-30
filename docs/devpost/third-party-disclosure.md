@@ -30,6 +30,17 @@ Every one is a published package, unmodified, installed from PyPI. Read off
 | `referencing` | 0.37.0 | MIT | `$ref` resolution for the contract set, offline |
 | `PyYAML` | 6.0.3 | MIT | Reads the frozen gate rule (`gate_rule.v1.yaml`) |
 | `pytest` | 9.0.3 | MIT | The test suite |
+| `google-cloud-storage` | **3.10.1** | Apache-2.0 | Reads the sealed holdout and the policies bucket (`crucible/transfer/gcs_reader.py`, `crucible/conductor/real_gate.py:718`) |
+
+**The `google-cloud-storage` row was added 2026-08-30 and the table was wrong
+without it.** This file claims each row is read off `requirements.txt` rather
+than recalled, and the pin has been in that file since 2026-08-28 — it was added
+after an adversarial review found that a clean virtualenv resolving all five
+prior pins still had no `google.cloud`, so it is not transitive from
+`google-adk` and every live GCS path would have failed at the import. A
+disclosure that under-reports a dependency is a smaller sin than one that
+over-reports a service, but it is the same defect: the document stopped being
+re-derived from the artifact it cites.
 
 **The pins are load-bearing, not hygiene.** `google-adk==2.1.0` is pinned because
 three behaviours the enforcement design depends on are true of that version and
@@ -90,8 +101,59 @@ asset, script, stylesheet or CDN is referenced by anything in this repository.
 
 ## 5. Google Cloud services used
 
-Cloud Run, Cloud Storage, Firestore, BigQuery, Cloud Build, Artifact Registry,
-Cloud Trace, Cloud Logging, IAM, Vertex AI.
+**Corrected 2026-08-30.** This section previously read, in full:
+
+> ~~Cloud Run, Cloud Storage, Firestore, BigQuery, Cloud Build, Artifact
+> Registry, Cloud Trace, Cloud Logging, IAM, Vertex AI.~~
+
+That was a flat list with no distinction between a service this project calls
+and a service `data-spec.md` designs for, and three of the ten were on the wrong
+side of that line. The list is now tiered, because the tier is the honest part.
+
+**Exercised by code or by a gate in this repository:**
+
+| Service | Where |
+|---|---|
+| **Vertex AI** | every model call, `global` endpoint |
+| **Cloud Run** | the target agent is deployed and serving, `--no-allow-unauthenticated` |
+| **Cloud Storage** | three buckets; `google-cloud-storage==3.10.1`, `crucible/transfer/gcs_reader.py`, `crucible/conductor/real_gate.py` |
+| **Cloud IAM** | the blindness boundary itself — gates G7/G8 read live IAM policy |
+| **Cloud Logging** | `infra/holdout_touch.py` reads `cloudaudit.googleapis.com%2Fdata_access` to prove no sealed object was read |
+| **Cloud Build**, **Artifact Registry** | invoked by `gcloud run deploy --source`; the Cloud Build identity's IAM grant is itself a documented finding (`deploy/RUNBOOK.md`) |
+
+**Provisioned or specified, and NOT exercised by any code here. Named so a judge
+does not have to discover it:**
+
+| Service | Actual status |
+|---|---|
+| **Firestore** | the database is provisioned. `data-spec.md` §2 names it as the production store, but the shipped ledger is local SQLite (`crucible/ledger/store.py`) and no module in this repository holds a Firestore client. |
+| **Cloud Trace** | the span design in `data-spec.md` §6 is a specification. **As of 2026-08-30** there is no OpenTelemetry dependency in `requirements.txt` and no instrumentation in the tree. |
+
+**Removed from the list entirely: BigQuery.** The dataset is not created and no
+client code exists — there is no `google-cloud-bigquery` dependency, no query,
+and no dataset. The project's own `docs/devpost/findings-and-learnings.md` has
+said so since 2026-08-22: *"The BigQuery export described in `data-spec.md` is
+specified and not yet wired."* This section listed it as used for six days after
+that sentence was written, which is the ordinary way a document goes stale — by
+standing still while the thing it describes moves.
+
+**Scope this correction precisely, because the opposite error is also
+available.** `grep -ri bigquery` over this repository is **not** empty. It
+returns three things, none of them a use. One: the name inside gate **G7(b)**,
+which asserts that the Armorer service account holds **no** project-level
+`storage|bigquery` role (`crucible/conductor/real_gate.py:429`,
+`infra/verify_iam.py:229,248,435-437,556`). Two: docstrings in
+`infra/holdout_touch.py:140-173` and `crucible/red/__init__.py:9` that name the
+sealed BigQuery dataset `data-spec.md` designs — and say in the same breath that
+this half of the holdout **is not read**. Three: `bq` commands inside the
+teardown script in `data-spec.md` §7.3, which has never been run and is now
+under an explicit hold until 2026-10-01. A role name inside a deny-check is the
+opposite of using the service. The accurate
+statement is **"BigQuery is named in an IAM deny-check and is not otherwise
+used,"** not "BigQuery does not appear in the repository" — the second is false
+and any reader with grep would catch it. This project has twice this week
+widened a narrow true correction into a false one; this is the guard against
+doing it a third time.
 
 ## 6. What this project's own licence is
 
@@ -107,4 +169,11 @@ git rev-list --count HEAD                            # commit count
 cat requirements.txt                                 # every pinned dependency
 python -c "import json; d=json.load(open('crucible/cartographer/foreign/adk_customer_service.json')); print(d['repository'], d['commit_sha'])"
 grep -rn "fonts.googleapis.com" docs/                # the only external host
+
+# Section 5, both directions. The first two return NOTHING -- no BigQuery client,
+# no Firestore client. The third returns only IAM deny-check strings and the
+# unrun teardown script, which is the whole distinction that section draws.
+grep -rn "google-cloud-bigquery\|opentelemetry" requirements.txt
+grep -rn "from google.cloud import bigquery\|from google.cloud import firestore" --include=*.py .
+grep -rin "bigquery" --include=*.py crucible/ infra/
 ```

@@ -298,8 +298,55 @@ $160.
 
 ## Teardown
 
-`data-spec.md` §7.3 covers teardown. Delete the service after the hackathon:
+> ### **HOLD. NO TEARDOWN STEP MAY RUN BEFORE 2026-10-01.**
+>
+> **Added 2026-08-30, before any teardown step had been executed.** Nothing here
+> has run, so this is a live obligation rather than a breach, and the point of
+> this banner is to keep it that way.
+>
+> The contest's official rules bind the entrant, verbatim:
+>
+> > "The Entrant must make the Project available free of charge and without any
+> > restriction, for testing, evaluation and use by the Sponsor, Administrator
+> > and Judges until the Judging Period ends."
+>
+> **The Judging Period runs 2026-09-01 to 2026-10-01**; winners are announced on
+> or around 2026-10-08. The **2026-08-31 17:00 PDT** submission deadline ends the
+> building and locks the repo, the video and the linked material. It does not end
+> the obligation to keep the deployed service reachable — that runs a further
+> month. **Earliest permitted teardown: 2026-10-01. Safest: on or after
+> 2026-10-08.**
+>
+> **CORRECTED 2026-08-30.** This section previously read, in full: *"`data-spec.md`
+> §7.3 covers teardown. Delete the service after the hackathon:"* followed by the
+> delete command below. ~~"after the hackathon"~~ is struck. It is wrong in the
+> way that matters, because for the submitter the hackathon feels finished at
+> 17:00 on 08-31 while evaluation has not yet started. Deleting this service on
+> 08-31 means a judge opening the deployment during the whole of September gets
+> nothing, and this side sees no error at all. The replacement is a **date**, not
+> the phrase "after the hackathon".
+>
+> **Two hazards in the fuller teardown at `data-spec.md` §7.3 land on this
+> service specifically, and neither announces itself:**
+>
+> - **Phase 4 disables every `crucible-*` service account, including the one this
+>   Cloud Run service runs as.** The service is not deleted, so it still appears
+>   in `gcloud run services list` and the teardown's own verification step still
+>   reads clean — while every request fails on identity. A listed service is not
+>   a serving service.
+> - **Phase 3 schedules deletion of `gs://crucible-policies-x7` at +15 days**,
+>   which from 08-31 is ≈ **2026-09-15**, mid-judging. That bucket holds the
+>   policy version objects a judge would use to check that a promoted rule is the
+>   rule whose hash the gate recorded.
+>
+> Verify before you run it, not after: `gcloud run services describe crucible
+> --region="$CRUCIBLE_REGION"` should still return a serving revision on every
+> day from 2026-09-01 through 2026-10-01.
+
+`data-spec.md` §7.3 covers teardown, and is under the same hold. **On or after
+2026-10-01**, delete the service:
 
 ```bash
+# DO NOT RUN BEFORE 2026-10-01 -- see the HOLD above.
 gcloud run services delete crucible --region="$CRUCIBLE_REGION"
 ```

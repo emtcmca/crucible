@@ -1357,6 +1357,52 @@ crucible.round                                     [orchestrator]
 
 ## 7. Retention and teardown
 
+> ### **HOLD. NO STEP IN THIS SECTION MAY RUN BEFORE 2026-10-01.**
+>
+> **Added 2026-08-30, before any teardown step had been executed.** This is a
+> live obligation, not a breach: nothing in §7.3 has run. It stays that way
+> until the Judging Period closes.
+>
+> The contest's official rules bind the entrant, verbatim:
+>
+> > "The Entrant must make the Project available free of charge and without any
+> > restriction, for testing, evaluation and use by the Sponsor, Administrator
+> > and Judges until the Judging Period ends."
+>
+> **The Judging Period runs 2026-09-01 to 2026-10-01.** Winners are announced on
+> or around 2026-10-08. The submission deadline of **2026-08-31 17:00 PDT** ends
+> the *building*; it does not end the entrant's availability obligation, which
+> runs a further month. **Every date phrase in this section that meant
+> "2026-08-31" was wrong by roughly thirty days**, and the two that were most
+> dangerous are named below.
+>
+> **Earliest permitted execution date for any command in §7.3: 2026-10-01.**
+> Running it earlier takes down a service the judges are entitled to exercise,
+> and the failure is silent from this side — a judge opens the URL, gets a 403
+> or a 404, and the entry is simply not evaluable. Safest date is after the
+> winners announcement, on or after **2026-10-08**.
+>
+> **The two hazards that would have fired on the old schedule:**
+>
+> 1. **Phase 4 disables every `crucible-*` service account, and Cloud Run runs
+>    as one of them.** `gcloud iam service-accounts disable` on the runtime
+>    identity does not delete the service, so `gcloud run services list` still
+>    shows it and a teardown log still reads clean — while every request to the
+>    deployed target fails on identity. This is the exact failure shape §7.3
+>    already warns about one line further down: *a delete command's success
+>    message is not evidence*. Here the inverse holds too — a service that is
+>    still listed is not evidence that it still serves.
+> 2. **Phase 3 schedules deletion of `gs://crucible-policies-x7` for +15 days.**
+>    Executed on 2026-08-31 that lands ≈ **2026-09-15**, squarely inside the
+>    Judging Period, and it deletes the policy version objects §7.1 calls
+>    evidence of record — the lineage a judge would use to check that a promoted
+>    rule is the rule whose hash the gate recorded. The +15 offset is not the
+>    defect; the start date was.
+>
+> **Nothing else in §7 is amended.** The export-first ordering, the verification
+> rules, and the retention defaults are all still correct. Only the *when*
+> changed, and it changed for every phase at once.
+
 ### 7.1 Must survive (evidence of record)
 
 All policy version objects (every version — without them the lineage cannot be verified); `gate_decisions`, `breaches`, `autopsies`, `patch_proposals`, `fixture_results`, `rounds`, `runs` via Firestore export; `sealed_summaries` + sealed results; `agent_events` exported to Avro; **trace exports for the 3–5 demo traces** (Cloud Trace retains **30 days** — after that a judge's click-through is dead, so export before teardown and screenshot the two best views as PNG); tool manifests + `tool_registry` snapshot; the `verify-chain` CLI output committed to the repo; and the Terraform/`gcloud` IAM scripts plus the §4.3 check-script output — *the security claim is only as good as the config that produced it.*
@@ -1365,8 +1411,20 @@ All policy version objects (every version — without them the lineage cannot be
 
 Full transcripts beyond the 4 KB excerpt for non-breach attempts; red-strategist intermediate drafts; Cloud Run request logs; the live BigQuery dataset once exported; Firestore collections once exported; scratch objects; the running infrastructure.
 
-### 7.3 Teardown checklist — run immediately after the demo is recorded
+> **"The running infrastructure" is discardable on 2026-10-01, not before** (added 2026-08-30). The deployed Cloud Run service is the thing the rules oblige the entrant to keep available to judges, so for the duration of the Judging Period it belongs in §7.1, not here. This line is not struck because it is right about the end state; it was only ever silent about the date.
 
+### 7.3 Teardown checklist — ~~run immediately after the demo is recorded~~ **DO NOT RUN BEFORE 2026-10-01**
+
+> **CORRECTED 2026-08-30.** The heading read *"run immediately after the demo is
+> recorded"* from the day it was written. That trigger is wrong and it is the
+> dangerous kind of wrong, because the demo recording is the last build task and
+> the sentence reads as permission to tear down the same evening. Recording the
+> demo is not the end of the entry's life; it is roughly its midpoint. The
+> replacement trigger is a **date, not an event** — 2026-10-01, the close of the
+> Judging Period — precisely because an event-shaped trigger is what let a
+> thirty-day obligation get compressed into "after the demo." See the HOLD
+> banner at the top of §7 for the rule text and the two specific hazards.
+>
 > **Export first, delete second. Every time.** The single most expensive mistake available here is deleting a dataset before exporting it.
 
 ```powershell
@@ -1418,8 +1476,18 @@ gcloud firestore databases delete --database='(default)' --quiet   # only after 
 gsutil lifecycle set lifecycle-365d.json gs://crucible-evidence-x7
 # NOTE: crucible-policies has a 14-day RETENTION POLICY. Objects cannot be deleted
 # before it expires. That is intentional. Schedule bucket deletion for +15 days.
+# HAZARD, added 2026-08-30: +15 days is measured from the day THIS SCRIPT RUNS.
+# Run on 2026-08-31 it lands ~2026-09-15, inside the 09-01..10-01 Judging Period,
+# and it deletes the policy version objects that 7.1 lists as evidence of record.
+# Run on or after 2026-10-01 it lands ~10-16, after judging and around the
+# winners announcement. The offset is fine; the start date was the defect.
 
 # ── PHASE 4: REVOKE AND CAP ────────────────────────────────────────────────────
+# HAZARD, added 2026-08-30: $allCrucibleSAs includes the identity the deployed
+# Cloud Run service RUNS AS. Disabling it does not delete the service, so
+# `gcloud run services list` still shows it and the Phase 2 verification above
+# still reads clean -- while every judge request fails on identity. A listed
+# service is not evidence of a serving service. Do not run before 2026-10-01.
 foreach ($sa in $allCrucibleSAs) { gcloud iam service-accounts disable $sa }
 gcloud billing budgets update $BUDGET_ID --budget-amount=1USD
 
