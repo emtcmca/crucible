@@ -494,8 +494,39 @@ def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None)
     ha.assert_preflight_clean(before, label="before read")
 
     # 7. The read, through the calibrated object.
+    #
+    # THE ATTEMPT IS MARKED SPENT BEFORE THE READ IS ATTEMPTED, NOT AFTER IT
+    # RETURNS, AND THIS IS THE CONSERVATIVE DIRECTION ON PURPOSE.
+    #
+    # The mark used to sit in `main()` after this whole function returned,
+    # which left a hole I asked about in a handoff and then found: steps 8-11
+    # below - the settle, the read-count assertion, the object-set assertion
+    # and the post-read preflight - ALL RUN AFTER THE OBJECTS ARE IN MEMORY AND
+    # ALL OF THEM CAN RAISE. `assert_read_exactly` in particular is an
+    # assertion about the audit log, and it failing is a realistic outcome.
+    # On that path the objects had been read, the flag was never set, and
+    # `release_reservation` deleted the reservation as though nothing had
+    # happened - the exact P0 that was just closed, still open on this branch.
+    #
+    # MARKING BEFORE THE ATTEMPT COSTS SOMETHING AND IT IS THE RIGHT TRADE. If
+    # `load_sealed_instances` fails having fetched nothing, A3.11 would have
+    # allowed one retry, and this forfeits it. The alternative is a window in
+    # which a partially-completed read leaves no record. Erasing a spent
+    # attempt manufactures a false retryable state and destroys the only
+    # account of it; forfeiting an allowed retry costs the run and is visible.
+    # The second failure is recoverable by a human reading the record. The
+    # first is not.
+    #
+    # THE RUNNER'S FLAG IS A CONSERVATIVE PROXY, NOT THE MEASUREMENT. How many
+    # objects were actually read is the holdout counter's question - it is the
+    # pre-registered instrument and it is what A3.11 turns on. The stage
+    # recorded either side of this line is what tells whoever adjudicates which
+    # of the two they are looking at.
+    note_stage("about to read the sealed objects; the attempt is now spent")
+    mark_seal_opened()
     seeds, instances, names = load_sealed_instances(
         object_names=object_names, downloader=cal, bucket=bucket)
+    note_stage("sealed read returned; asserting the audit log against it")
 
     # 8-10. Settle, then assert the STRUCTURED result: count, distinct reads and
     #       the object set. A count of 24 is satisfied by one object read 24
@@ -1481,13 +1512,19 @@ def main(argv=None):
         (seeds, instances, sealed_names,
          before_read, after_read, expected_reads) = sealed_drive_lifecycle(
             _declared_names(args.object_names))
-        # THE ATTEMPT IS NOW SPENT, AND EVERYTHING DOWNSTREAM HAS TO KNOW IT.
+        # ALREADY MARKED, INSIDE `sealed_drive_lifecycle`, BEFORE THE READ.
         #
-        # One statement, immediately after the objects come back, before
-        # anything that can fail. From here `release_reservation` will never
-        # delete the record and will write a terminal account of wherever the
-        # run stopped - which for every failure between here and the header
-        # used to be nothing at all.
+        # This call is idempotent and deliberately kept. It is NOT a second
+        # source of truth - there is one flag, it is one-way, and nothing
+        # clears it - but it is a second SETTER, so the reason it stays is
+        # worth writing down: a caller that stubs the lifecycle (every sealed
+        # test in this repository does) would otherwise proceed with the flag
+        # unset, and the guards downstream would be exercised against the wrong
+        # answer in exactly the tests written to check them.
+        #
+        # The authoritative call is the one beside the read. If these two ever
+        # disagree it is because someone deleted that one, and the test named
+        # `..._even_when_the_lifecycle_raises_after_the_read` is what fails.
         mark_seal_opened()
         # THE HUMAN PAUSE. Nothing below this line runs until a named person
         # has ruled on every instance that came off the wire. The next

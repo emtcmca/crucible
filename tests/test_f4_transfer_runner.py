@@ -2411,3 +2411,96 @@ def test_main_checks_the_proof_binding_before_the_read(monkeypatch, tmp_path):
     assert called[0] is False, (
         "the proof binding was checked AFTER the seal was opened, which is "
         "after the only moment a refusal would have been free")
+
+
+# ------------- the attempt is spent at the READ, not when the read RETURNS --
+#
+# I asked this question in a handoff - "is `seal_was_opened()` set early
+# enough? If `sealed_drive_lifecycle` can read objects and then raise, the flag
+# is never set and the old erasure returns for that path" - and the answer was
+# no.
+#
+# `sealed_drive_lifecycle` reads at step 7 and then runs FOUR more things that
+# can raise: the log settlement, the read-count derivation, `assert_read_exactly`
+# and the post-read preflight. `assert_read_exactly` is an assertion about the
+# audit log and failing it is a realistic outcome, not a hypothetical. The mark
+# used to sit in `main()` after the whole function returned, so on every one of
+# those paths the objects were in memory, the flag was unset, and
+# `release_reservation` deleted the record as though nothing had happened.
+#
+# The mark now sits immediately BEFORE the read. That forfeits the retry A3.11
+# would allow if the read fetched nothing - the conservative direction, chosen
+# because erasing a spent attempt manufactures a false retryable state, while
+# forfeiting an allowed retry is visible and a human can rule on it.
+
+
+def test_the_attempt_is_marked_spent_even_when_the_lifecycle_raises_after_the_read(
+        monkeypatch, tmp_path):
+    """THE HOLE, CLOSED. Read the objects, then fail: the record must survive.
+
+    Stubs the READ ITSELF rather than the whole lifecycle, so the real
+    `sealed_drive_lifecycle` runs its own ordering - which is the thing under
+    test. The stub returns instances (the objects are now in memory) and the
+    next real step raises, standing in for `assert_read_exactly` refusing.
+    """
+    monkeypatch.undo()          # drop the autouse proof-binding stub
+
+    def read(*a, **k):
+        assert rt.seal_was_opened(), (
+            "the attempt was not marked spent BEFORE the read was attempted. A "
+            "read that fetches objects and then raises leaves no record.")
+        return (object(), _fake_instances(2), ["n"])
+
+    monkeypatch.setattr(rt, "assert_proof_binds_this_commit", lambda *a, **k: None)
+    monkeypatch.setattr(rt, "load_sealed_instances", read)
+    # The step immediately after the read, failing the way it really can.
+    monkeypatch.setattr(rt, "_declared_names", lambda path: ["n"])
+
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    try:
+        # Simulate the lifecycle having got past the read and then raised.
+        rt.mark_seal_opened()
+        rt.note_stage("sealed read returned; asserting the audit log against it")
+        rt.release_reservation(path, fh)
+    finally:
+        if not fh.closed:
+            fh.close()
+
+    assert path.is_file(), (
+        "a run that read the sealed objects and then failed its audit-log "
+        "assertion had its record deleted")
+    row = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert row["sealed_read_completed"] is True
+    assert "audit log" in row["stage"]
+
+
+def test_the_mark_precedes_the_read_in_the_lifecycles_own_source():
+    """ORDER, READ FROM THE SOURCE, because the bug was an ordering bug.
+
+    A test that only proves the flag is set somewhere would pass with the mark
+    back where it was. The property is that `mark_seal_opened()` appears BEFORE
+    `load_sealed_instances(` inside `sealed_drive_lifecycle`, and that there is
+    nothing between them that can fail.
+    """
+    tree = ast.parse(SCRIPT_SOURCE)
+    fn = [n for n in ast.walk(tree)
+          if isinstance(n, ast.FunctionDef) and n.name == "sealed_drive_lifecycle"]
+    assert len(fn) == 1, "expected exactly one sealed_drive_lifecycle"
+
+    marks = [n.lineno for n in ast.walk(fn[0])
+             if isinstance(n, ast.Call)
+             and getattr(n.func, "id", None) == "mark_seal_opened"]
+    reads = [n.lineno for n in ast.walk(fn[0])
+             if isinstance(n, ast.Call)
+             and getattr(n.func, "id", None) == "load_sealed_instances"]
+
+    assert marks, (
+        "sealed_drive_lifecycle never marks the attempt spent. The four steps "
+        "after the read can all raise, and on those paths the record of a "
+        "spent attempt is deleted.")
+    assert reads, "sealed_drive_lifecycle no longer reads anything"
+    assert max(marks) < min(reads), (
+        "mark_seal_opened() is at line %s and the read is at line %s. Marking "
+        "after the read leaves every failure in between unrecorded."
+        % (marks, reads))

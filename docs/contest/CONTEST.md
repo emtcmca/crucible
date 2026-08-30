@@ -10,6 +10,58 @@ against the rules text Eric pasted the same day.
 > — a deadline, a hard requirement, a prize — is re-checked against the live page
 > before the submission goes in, not recalled from this file.
 
+## RE-VERIFIED 2026-08-30 against the full Official Rules text and the organiser's one-week checklist email
+
+Eric pasted both. **The dates, the mandatory technology, the Stage One/Two/Three
+structure, the weightings and the nine prizes all match what this file already
+said.** Four obligations were NOT in this file and one entry in it was wrong.
+Participants on the Devpost page that day: **11,842**.
+
+**A. The project must stay AVAILABLE until the Judging Period ends, 2026-10-01.**
+Verbatim: *"The Entrant must make the Project available free of charge and
+without any restriction, for testing, evaluation and use by the Sponsor,
+Administrator and Judges until the Judging Period ends."* Judging runs
+2026-09-01 → 2026-10-01; winners on or around 10-08.
+
+**This collides with the planned teardown.** `data-spec.md` §7.3 tears down the
+GCS buckets, and the retention-policy reasoning in `CLAUDE.md` is written around
+"a hackathon ending 08-31". **The hackathon does not end for the submitter on
+08-31 — evaluation runs for another month.** Nothing may be torn down before
+2026-10-01.
+
+**B. Everything LOCKS at the deadline.** The organiser's checklist: *"Once the
+deadline passes, everything locks — don't touch your repo, video, or linked
+materials until after winners are announced."* Anything that must be in the
+repository has to land before **2026-08-31 17:00 PT**. This is a wall, not a
+preference, and it governs whether the sealed run happens at all.
+
+**C. A private hosted URL requires credentials in the submission.** Verbatim:
+*"If Entrant's website is private, Entrant must include login credentials in its
+testing instructions."* The Cloud Run service is `--no-allow-unauthenticated`,
+and this project has a standing rule never to link that URL publicly. **The two
+constraints are in tension and only Eric can resolve it.** A hosted URL remains
+*highly encouraged*, not mandatory — so declining to submit one is a legitimate
+option and avoids the conflict entirely.
+
+**D. Two submission-form fields this file never listed:** which Google SDK was
+used — the official list is **ADK, GenAI SDK, Antigravity SDK, Genkit**, and the
+answer here is ADK — and **the date the project was started**, which must fall
+inside the Submission Period beginning 2026-08-03. First commit here is
+2026-08-20.
+
+**E. Pre-existing code must be disclosed; AI coding assistants need not be.**
+Verbatim: *"Participants may use standard development tools, including
+frameworks, libraries, starter templates, and AI coding assistants, but must
+disclose any other pre-existing code or work incorporated into the Project."*
+The disclosure obligation attaches to pre-existing code, not to how the new code
+was written.
+
+**F. Startup Excellence needs an incorporated organisation and a corporate email
+address.** Solo and unaffiliated is not eligible for that one; do not opt in.
+Eligible prizes here are the category prize (Fortified Enterprise Fleet),
+Individual/Hobbyist (2 awarded), Best Architectural Design (2 awarded), the Grand
+Prize, and Honorable Mentions. **A project may win at most one.**
+
 ---
 
 ## 1. Dates. All Pacific Time.
@@ -180,13 +232,40 @@ Final score is **1 to 6**: up to 5 from Stage Two, up to **1.0** from bonuses.
 |---|---|---|
 | Publish a piece of content (blog, podcast, video) covering how the project was built, public, **stating it was created for this hackathon** | **+0.2** | not done |
 | A public social post on X, LinkedIn, Instagram or Facebook with **`#AllThingsAgenticHackathon`** | **+0.2** | not done |
-| Each **additional Google AI model** integrated (Gemma, Veo, Lyria…), max three | **+0.2 each, up to +0.6** | **All three unclaimed as of 2026-08-22.** *(This cell read "Gemma planned for corpus generation (ADR-0009) = +0.2". **`ADR-0018` superseded `ADR-0009` on 2026-08-21 and withdrew that claim** — Gemma was never built and appears in no code. Counting a planned integration as a claimed bonus is how a +0.2 becomes a disallowed one.)* |
+| Each **additional Google AI model** integrated (Gemma, Veo, Lyria…), max three | **+0.2 each, up to +0.6** | **GEMMA IS INTEGRATED AND +0.2 IS CLAIMABLE. Corrected 2026-08-30.** See the note below. Veo and Lyria are not integrated and are not claimable. | |
+
+### The Gemma cell was wrong, and it was wrong in the direction that costs points
+
+**Corrected 2026-08-30, verified from source.** This cell read *"Gemma was never
+built and appears in no code."* That is false. Gemma is pinned at
+`crucible/cartographer/vertex.py:94` as
+`DEFAULT_MODEL_ID = "google/gemma-4-26b-a4b-it-maas"`, the component is
+`crucible/cartographer/gemma.py`, and it has **run live against Vertex MaaS** —
+`docs/proof/vertex-gemma-maas-probe-2026-08-22.txt`,
+`docs/proof/cartographer-live-run-2026-08-22.json` and `-2026-08-23.json`,
+`docs/proof/cartographer-stability-2026-08-24.json`, and a ratification record
+at `docs/proof/cartographer-adk-ratification-record-2026-08-28.json`.
+
+**How it went wrong is the shape this repository keeps recording.** `ADR-0018`
+withdrew a specific claim — that Gemma generated the corpus — and that
+withdrawal was correct and stands. Someone then generalised it from *"Gemma did
+not do that"* to *"Gemma was never built"*, and the generalisation was written
+into the one document that decides what work is worth doing. **Closing an
+instance and reporting the class.** The result was a bonus point recorded as
+unclaimable while the integration sat in the tree, live-run artifacts and all.
+
+**What may be claimed, and how to word it:** Gemma is used for **capability
+classification** — the CAPABILITY_CARTOGRAPHER — and for nothing else. It did
+not generate the corpus, and `ADR-0018` says that sentence may not be written or
+spoken anywhere.
 
 **A full point on a five-point scale is twenty percent of the maximum score, and
 none of it requires the loop to work.** The two publishing bonuses are an
 afternoon. Eric already writes for LinkedIn.
 
-**Status 2026-08-22: the entire 1.0 is still unclaimed.** Devpost updates 3 and 4
+**Status 2026-08-30: 0.2 of the 1.0 is already EARNED (Gemma) and needs only to be claimed on the form. The remaining 0.8 — two publishing bonuses at 0.2 each and two further model integrations at 0.2 each — is unclaimed.**
+
+*(The previous line read "the entire 1.0 is still unclaimed", which was true of the two publishing bonuses and false of Gemma.)* Devpost updates 3 and 4
 went public that afternoon, but **Devpost is the submission platform** and the
 write-up bonus plausibly requires content published off it — **unresolved, and
 recorded as unresolved rather than assumed either way** (`BUILD-LIST.md` T1-1).
