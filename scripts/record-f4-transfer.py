@@ -708,6 +708,99 @@ def assert_sealed_parameters(args):
         raise TransferRunError("E_SEALED_RUN_PARAMETERS", "; ".join(locked))
 
 
+#: Directory names that mark a cloud-sync root, matched case-insensitively
+#: against every component of the resolved output path.
+#:
+#: NOT EXHAUSTIVE, AND THAT IS ACCEPTED. A refusal list cannot enumerate every
+#: way a directory becomes published, so this is the cheap half of the control.
+#: The expensive half - the one that actually generalises - is the .git walk
+#: below, which catches every repository including ones nobody thought of.
+_SYNC_ROOT_NAMES = (
+    "onedrive", "dropbox", "google drive", "googledrive", "gdrive",
+    "icloud", "iclouddrive", "com~apple~clouddocs", "box", "box sync",
+    "nextcloud", "owncloud", "syncthing", "mega", "pcloud",
+)
+
+
+def assert_out_path_is_offtree(out):
+    """WHERE THE ONE-SHOT SEALED DRIVE LOG MAY BE WRITTEN. Refuses; never relocates.
+
+    THE DRIVE LOG IS SEALED MATERIAL AND --out TOOK ANY PATH AT ALL.
+
+    Every episode this phase writes carries the sealed instruction verbatim,
+    and three sibling files derived from the same base are worse: the
+    adjudication WORKSHEET renders every turn of all twenty-four instances so a
+    human can read them, and the progress and challenge files sit beside it.
+    The comment at that call site says they sit "beside the output, not in the
+    repo" - which was a statement about where the operator was expected to
+    point --out, not about anything that would stop them pointing it somewhere
+    else. One mistyped path put the whole holdout inside a public repository,
+    and a public commit is served by SHA forever.
+
+    The tests passed an external temporary directory. That was CONVENTION, and
+    convention is not a control - the same distinction this project makes about
+    the .gitignore entry on corpus/sealed, which is documented as explicitly
+    NOT the boundary because IAM is.
+
+    THREE REFUSALS, cheapest first, and the middle one is the load-bearing one:
+
+      1. THE TARGET ALREADY EXISTS. The drive opens it "w", which truncates. On
+         a run that cannot be repeated, silently destroying the previous record
+         is the worst available outcome and it is one keystroke away when a
+         command is recalled from shell history.
+      2. ANY ANCESTOR CONTAINS .git. This catches this repository, every
+         worktree of it, the SEAL worktree, and any other repository on the
+         machine - without naming one of them. A path is refused for being
+         inside version control, not for being inside a directory on a list.
+         Both a .git DIRECTORY and a .git FILE count: a worktree's is a file.
+      3. ANY COMPONENT NAMES A CLOUD-SYNC ROOT. Weaker, and listed second in
+         importance for that reason, but a sealed drive log inside OneDrive is
+         published to a vendor the moment it lands.
+
+    IT REFUSES RATHER THAN CHOOSING A SAFE PATH. Relocating the operator's
+    output would put the one-shot record somewhere they did not ask for and
+    will not look, and "the harness moved it" is not a thing anybody wants to
+    discover while reconstructing where the measurement went.
+
+    Raises:
+        TransferRunError: E_SEALED_OUT_PATH, naming which refusal fired.
+    """
+    target = pathlib.Path(out).expanduser()
+    # strict=False: the file does not exist yet and neither may its parent.
+    # This still normalises .. and resolves symlinks on the part that does
+    # exist, so a link out of a temp directory into the repo is caught.
+    target = target.resolve()
+
+    if target.exists():
+        raise TransferRunError(
+            "E_SEALED_OUT_PATH",
+            "%s already exists. The drive opens its output for writing, which "
+            "truncates, and the sealed drive happens once - so this would "
+            "destroy an existing record rather than add to it. Choose a path "
+            "that does not exist, or move the old record yourself." % target)
+
+    for ancestor in target.parents:
+        marker = ancestor / ".git"
+        if marker.exists():
+            raise TransferRunError(
+                "E_SEALED_OUT_PATH",
+                "%s is inside the git work tree at %s. The sealed drive log "
+                "carries the held-out instructions verbatim, and so does the "
+                "adjudication worksheet written beside it. A gitignore entry "
+                "is not the control here - the same reason corpus/sealed names "
+                "IAM as its boundary. Write it outside every repository."
+                % (target, ancestor))
+
+    lowered = {part.lower() for part in target.parts}
+    hit = sorted(lowered & set(_SYNC_ROOT_NAMES))
+    if hit:
+        raise TransferRunError(
+            "E_SEALED_OUT_PATH",
+            "%s is under a cloud-sync root (%s). Sealed material written there "
+            "is uploaded to a third party as soon as it lands, and deleting it "
+            "afterwards does not un-upload it." % (target, ", ".join(hit)))
+
+
 def assert_sealed_policy_pin(policies):
     """THE FINAL POLICY IS PINNED, NOT CHOSEN AT THE PROMPT.
 
@@ -892,6 +985,15 @@ def main(argv=None):
     # check and they are the cheapest thing that can be wrong.
     if args.sealed:
         assert_sealed_parameters(args)
+        if args.phase == "drive":
+            # AND WHERE THE OUTPUT MAY LAND, BEFORE ANYTHING OPENS A FILE.
+            #
+            # Drive only. The drive log and the three files derived from its
+            # base - worksheet, progress, challenge - carry the sealed
+            # instructions; the assemble phase writes the BUNDLE, which is the
+            # artifact this project exists to publish and which therefore has
+            # to be allowed to live in the repository.
+            assert_out_path_is_offtree(args.out)
 
     if args.phase == "assemble":
         return _assemble(args)
@@ -1057,9 +1159,22 @@ def main(argv=None):
         except BaseException as exc:                          # noqa: BLE001
             # A CRASH RECORD, WRITTEN BEFORE THE EXCEPTION PROPAGATES. Without
             # it a failed one-shot leaves a truncated file that cannot say how
-            # far it got, and the pre-registration's crash rule turns on exactly
-            # that: VOID with one retry before any scored episode, INVALID with
-            # none after. Nobody applies a rule to evidence that was not kept.
+            # far it got, and nobody applies a rule to evidence that was not
+            # kept.
+            #
+            # WHICH RULE APPLIES CHANGED, AND THIS COMMENT USED TO STATE THE
+            # OLD ONE. It said "VOID with one retry before any scored episode,
+            # INVALID with none after" - A3.4's scored-episode boundary.
+            # AMENDMENT A3.11 SUPERSEDES THAT for anything downstream of the
+            # read: zero sealed reads is VOID and retryable, one or more is
+            # TERMINAL INVALID with no retry AT ANY STAGE. Execution reaches
+            # this line only after the sealed objects are already in memory, so
+            # on a sealed run every crash caught here is terminal and
+            # episodes_completed_before_crash does not change that. It is
+            # recorded because the record should say what happened, not because
+            # a threshold is read off it.
+            #
+            # The count still governs a STAND-IN drive, where nothing was read.
             _append(fh, {"kind": "crash", "at": _utc(),
                          "error_class": type(exc).__name__,
                          "code": getattr(exc, "code", None),
@@ -1388,6 +1503,23 @@ def _assemble(args):
                         "before the loop and that arm was never taken")},
             execution_provenance={
                 "mode": "live" if raw["live"] else "offline",
+                # THE MACHINE AUTHORITY ON WHETHER THIS IS THE HELD-OUT RUN.
+                #
+                # It decides whether the reader DEMANDS an adjudication, and
+                # that branch used to be taken on the prefix of
+                # labels.seal_status - a 400-character sentence written to be
+                # read by a person. The boolean was added to the schema and
+                # then left optional and unemitted, which made it a second
+                # opinion rather than an authority: production never wrote it,
+                # so the security-relevant branch still ran on prose.
+                #
+                # This is now REQUIRED by the schema, and the label below is
+                # DERIVED from the same `raw["sealed"]` value by
+                # seal_status_label(). One authority, one derivation. The
+                # reader still checks the two agree and refuses rather than
+                # resolving a disagreement, because picking a winner between
+                # them is how the wrong one wins.
+                "sealed_run": bool(raw.get("sealed")),
                 # EVERY COMPONENT NAMED, INCLUDING THE ONES THAT DID NOT RUN.
                 # not_applicable is required for the CORONER, ARMORER and WARDEN:
                 # a transfer arm authors no patch and neither pass calls them.

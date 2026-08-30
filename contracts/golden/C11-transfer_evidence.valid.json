@@ -339,7 +339,14 @@
     "scoreable_ids": [
       "atk_aaaaaaaaaaaa",
       "atk_bbbbbbbbbbbb"
-    ]
+    ],
+    "post_read_challenge": {
+      "minted_at": "2026-08-28T00:00:00Z",
+      "instance_set_digest": "6ffeeefc57b828d5c3005f7bb3be1ca546a7fa90dea6487c11d814bbe6d658fb",
+      "nonce_digest": "d93968f996bb9cb2cdab503f7c2b94809b681bff4a38f51ac59663f0e660fa85",
+      "response_digest": "e7ff8552fff60802da008ec3af0d599585358fcd5c9e46032bf9de55d2e7f4c2",
+      "binding": "sha256 over the post-read nonce, the instance set digest and the decisions digest"
+    }
   },
   "preflight": {
     "before_read": [
@@ -412,6 +419,7 @@
       }
     },
     "model_calls": 0,
+    "sealed_run": false,
     "cost": {
       "input_tokens": 0,
       "output_tokens": 0,

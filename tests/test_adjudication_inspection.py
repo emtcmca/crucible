@@ -47,8 +47,10 @@ bucket, and no `gcloud` command was run.
 import json
 import pathlib
 
+import jsonschema
 import pytest
 
+from crucible.canon.canonical import canonicalize
 from crucible.conductor.corpus_seeds import CorpusAttack
 from crucible.transfer.adjudication import (
     PASS_CODE,
@@ -351,6 +353,118 @@ def test_the_emitted_record_is_accepted_by_load_adjudication(tmp_path, instances
     # The record on disk is the record returned, byte for byte.
     on_disk = json.loads((tmp_path / "adjudication.json").read_text(encoding="utf-8"))
     assert on_disk == record
+
+
+# ---------------------------------------------------------------------------
+# The binding has to SURVIVE THE LEDGER, or it is enforced in memory and
+# published nowhere.
+#
+# WHY THIS SECTION EXISTS. An independent adversarial review found the binding
+# correct right up to the last step, and dropped there:
+#
+#     [P1] Post-read freshness is enforced in-process but disappears from
+#     published evidence. The published bundle cannot establish that the
+#     adjudication occurred after the read.
+#
+# The runner does not publish the record `attach_challenge` returned. It calls
+# `ledger_for` -> `load_adjudication`, and serializes `AdjudicationLedger
+# .to_record()`. Every test above this line checks the record BEFORE that
+# conversion, so all of them stayed green while the block was being thrown away
+# - a check that passes while measuring nothing, in its eighteenth shape. These
+# tests check the record on the far side of the ledger, which is the only record
+# a reader of the bundle ever sees.
+# ---------------------------------------------------------------------------
+
+def _bound_record(challenge, decisions=None):
+    """A record with the post-read binding attached, exactly as the flow makes it."""
+    return attach_challenge(
+        build_adjudication(
+            adjudicated_by=HUMAN, adjudicated_on=WHEN, instance_ids=IDS,
+            decisions=decisions or {i: {"codes": [PASS_CODE]} for i in IDS}),
+        challenge)
+
+
+def test_the_post_read_binding_survives_the_ledger_round_trip(challenge):
+    """The published record carries the block, byte for byte after canonicalization.
+
+    BYTE FOR BYTE AND NOT MERELY EQUAL. The block is a COMMITMENT: three of its
+    fields are digests a reader recomputes offline and compares. A ledger that
+    rebuilt any of them from its own state would be answering the challenge on
+    the runner's authority instead of carrying the answer the human's record
+    gave, and the comparison downstream would still pass - which is the whole
+    failure this project keeps finding. So the assertion is over the canonical
+    bytes, not over a field-by-field spot check.
+    """
+    record = _bound_record(challenge)
+    ledger = load_adjudication(record, IDS)
+    emitted = ledger.to_record()
+
+    assert RECORD_CHALLENGE_KEY in emitted, (
+        "the ledger dropped the post-read binding; the published bundle then "
+        "cannot establish that the adjudication happened after the read")
+    assert (canonicalize(emitted[RECORD_CHALLENGE_KEY])
+            == canonicalize(record[RECORD_CHALLENGE_KEY]))
+
+
+def test_the_re_emitted_record_still_answers_the_challenge(challenge):
+    """The end-to-end property, checked through the real verifier.
+
+    Stronger than comparing the block: `verify_post_read` recomputes the
+    response digest over the decisions in the record it is handed. If the ledger
+    carried the block through but moved a code, or carried a code through but
+    rebuilt the block, this fails.
+    """
+    record = _bound_record(challenge)
+    verify_post_read(record, challenge)                       # before the ledger
+    verify_post_read(load_adjudication(record, IDS).to_record(), challenge)
+
+
+def test_the_published_block_validates_against_the_bundle_schema(challenge):
+    """What `to_record()` emits is what the schema boundary will judge.
+
+    `contracts/transfer_evidence.schema.json` now makes `post_read_challenge`
+    REQUIRED inside `adjudication`, with `additionalProperties: false` and three
+    64-hex digests. A ledger that emitted the block in a shape of its own would
+    be refused at assembly time, on the day of the run, with the sealed set
+    already read and unrepeatable.
+    """
+    schema = json.loads(
+        pathlib.Path("contracts/transfer_evidence.schema.json").read_text(
+            encoding="utf-8"))
+    adjudication_schema = schema["properties"]["adjudication"]
+    emitted = load_adjudication(_bound_record(challenge), IDS).to_record()
+    jsonschema.validate(emitted, adjudication_schema)
+
+
+def test_the_ledger_does_not_normalize_the_block_it_was_handed(challenge):
+    """A field the ledger does not understand is carried, not dropped or fixed.
+
+    The point of a commitment is that it is opaque to everything downstream of
+    the signer. This is the control over a future "tidy up the block" edit: the
+    binding text is not a value this module computes, and a ledger that
+    rewrote it to its own constant would silently break every offline
+    recomputation of the response digest.
+    """
+    record = _bound_record(challenge)
+    record[RECORD_CHALLENGE_KEY]["binding"] = "sha256 over the nonce (reworded)"
+    emitted = load_adjudication(record, IDS).to_record()
+    assert (emitted[RECORD_CHALLENGE_KEY]["binding"]
+            == "sha256 over the nonce (reworded)")
+
+
+def test_editing_the_emitted_block_cannot_reach_back_into_the_ledger(challenge):
+    """The ledger is frozen, and a dict field would make that frozen in name only.
+
+    `to_record()` is called more than once on the same ledger. If it handed out
+    the ledger's own mapping, a caller that edited its copy would change what
+    the next call emits - a signed value moving after signature, which is the
+    exact hole `ratify.py` shipped with.
+    """
+    ledger = load_adjudication(_bound_record(challenge), IDS)
+    first = ledger.to_record()
+    first[RECORD_CHALLENGE_KEY]["nonce_digest"] = "0" * 64
+    assert ledger.to_record()[RECORD_CHALLENGE_KEY]["nonce_digest"] != "0" * 64
+    verify_post_read(ledger.to_record(), challenge)
 
 
 # ---------------------------------------------------------------------------

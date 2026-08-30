@@ -541,6 +541,76 @@ def test_the_record_round_trips_through_the_ledger_unchanged():
     assert ledger.to_record() == record
 
 
+# ---------------------------------------------------------------------------
+# The post-read binding, from this module's side of the wall.
+#
+# `crucible/transfer/inspect.py` mints the challenge and attaches the block;
+# this module does not compute a single field of it. What it owes is custody:
+# carry the block off an incoming record and re-emit it unchanged, and spell
+# "there was no challenge" as an ABSENT key rather than a null. Tests for the
+# minting side live in `tests/test_adjudication_inspection.py`.
+# ---------------------------------------------------------------------------
+
+_CHALLENGE = {
+    "minted_at": "2026-08-30T09:00:00Z",
+    "instance_set_digest": instance_set_digest([A, B, C, D]),
+    "nonce_digest": "1a" * 32,
+    "response_digest": "2b" * 32,
+    "binding": "sha256 over the post-read nonce, the instance set digest and "
+               "the decisions digest",
+}
+
+
+def test_a_record_carrying_a_post_read_challenge_re_emits_it_unchanged():
+    record = dict(_build())
+    record["post_read_challenge"] = dict(_CHALLENGE)
+    emitted = load_adjudication(record, [A, B, C, D]).to_record()
+    assert emitted["post_read_challenge"] == _CHALLENGE
+    # And the record round-trips whole, not just the block.
+    assert emitted == record
+
+
+def test_a_record_with_no_challenge_is_accepted_and_the_key_stays_ABSENT():
+    """Absent, never null, and never invented.
+
+    The ledger type is used in non-sealed contexts and by every test above, so
+    refusing a record without a binding here would break the type for its other
+    callers and would put the sealed-run check in the wrong place. The schema
+    makes `post_read_challenge` REQUIRED inside a bundle's `adjudication`, so a
+    sealed bundle assembled without one is refused at the schema boundary, which
+    is where it belongs.
+
+    What this module must not do is spell the absence as `null`: the canonical
+    form the bundle is hashed through admits no null at all, so a null here is
+    an un-hashable payload that looks like good JSON.
+    """
+    emitted = load_adjudication(_build(), [A, B, C, D]).to_record()
+    assert "post_read_challenge" not in emitted
+    assert emitted.get("post_read_challenge", "ABSENT") == "ABSENT"
+
+
+def test_an_explicit_null_challenge_is_refused_rather_than_read_as_absent():
+    """A null is the wrong spelling of absent and it is loud, not silent.
+
+    Accepting it would mean the ledger decides what a null means, and the two
+    readings - "nobody attached one" and "the block was deleted after signature"
+    - are not the same event.
+    """
+    record = dict(_build())
+    record["post_read_challenge"] = None
+    with pytest.raises(AdjudicationError) as e:
+        load_adjudication(record, [A, B, C, D])
+    assert e.value.code == "E_MALFORMED_POST_READ_CHALLENGE"
+
+
+def test_a_challenge_that_is_not_an_object_is_refused():
+    record = dict(_build())
+    record["post_read_challenge"] = "sha256 over the nonce"
+    with pytest.raises(AdjudicationError) as e:
+        load_adjudication(record, [A, B, C, D])
+    assert e.value.code == "E_MALFORMED_POST_READ_CHALLENGE"
+
+
 def test_the_ledger_is_immutable():
     ledger = load_adjudication(_build(), [A, B, C, D])
     with pytest.raises(dataclasses.FrozenInstanceError):

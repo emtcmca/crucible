@@ -19,6 +19,50 @@ still open; item 11 has since closed.)*
 
 ---
 
+## 16. **Publish the post-read nonce after the adjudication is committed?** · **OPEN, raised 2026-08-30. NOT blocking - the seal can open either way.**
+
+**The mechanism as it stands.** After the sealed read, `inspect.mint_challenge`
+draws 256 bits from `secrets`. The adjudication record must answer that
+challenge, so a decision file written before the read cannot satisfy the gate -
+it would have had to contain a value that did not exist when it was written.
+The record carries `nonce_digest` (the commitment) and `response_digest`
+(covering the nonce, the instance set and the decisions). **The raw nonce is
+never written anywhere.**
+
+**The consequence, which an outside review found.** Because the nonce is never
+published, `response_digest` cannot be recomputed by anyone holding only the
+bundle. The binding is real and it is verified INSIDE the running process; a
+third party can check only that the challenge covers this instance set. The
+reviewer's phrase for it is **operationally closed, evidentially open**, and
+that is what the reader now prints.
+
+**The option.** Publish the raw nonce in the bundle *after* the adjudication is
+committed. `response_digest` then becomes verifiable by anyone, and "a ruling
+edited after the challenge was answered" becomes catchable by a stranger
+instead of only by us.
+
+**The argument for:** it converts the strongest part of the binding from a
+claim into a check, and the decision record is published in the same bundle
+anyway, so an attacker who could forge a record answering the challenge would
+already need to be the one producing the bundle.
+
+**The argument against, and why this is your call rather than mine.** It is a
+change to the security argument made the day before an unrepeatable run. The
+nonce is currently the one value in the mechanism that exists nowhere but
+memory, and "we published the secret afterwards" is a sentence that has to be
+right the first time. A wrong version of it is worse than the honest narrow
+claim we already ship.
+
+**What happens if you do not rule.** Nothing breaks. The claim stays narrow,
+the reader keeps printing the limit, and the run proceeds. **This is an
+improvement to give up, not a gap to close.**
+
+**Where it lives:** `crucible/transfer/inspect.py` (`Challenge.response_digest`,
+`to_public_doc`), `contracts/transfer_evidence.schema.json`
+(`adjudication.post_read_challenge`), `docs/handoff/codex-review-6-2026-08-30.md` §4.
+
+---
+
 ## 14. **The frozen oracle scored correct conduct as a breach** · **RULED, BUILT, FROZEN AND CLOSED 2026-08-23. Ruling 49, SPINE_VERSION 18.**
 
 **Eric took B3+D. It is executed.** `objective_set_hash` and `derived_schema_hash` both moved

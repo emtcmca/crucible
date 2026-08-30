@@ -104,6 +104,9 @@ PROVENANCE = {
         "gate": {"implementation": "real"},
     },
     "model_calls": INSTANCES * 2,
+    # The machine authority on whether this is the held-out run. Required by
+    # the schema and by the builder; False here because this fixture is not it.
+    "sealed_run": False,
 }
 
 LABELS = {
@@ -604,6 +607,60 @@ def test_an_uninvoked_component_declared_as_having_run_raises():
     with pytest.raises(B.BundleError) as exc:
         build(execution_provenance=prov)
     assert "ARMORER" in str(exc.value)
+
+
+def test_a_bundle_with_no_sealed_run_flag_raises():
+    """THE PRODUCER FAILS, and it fails while it is assembling the thing.
+
+    `execution_provenance.sealed_run` is the machine-readable statement of
+    whether this bundle is the held-out measurement, and the offline reader
+    demands an adjudication on the strength of it. It spent its first day in
+    the schema as an OPTIONAL property that no producer emitted, which left the
+    reader taking that branch off the prefix of `labels.seal_status` - a
+    four-hundred-character sentence written to be read by a person. An outside
+    reviewer put it plainly: an optional field nothing writes is not a second
+    authority, it is none.
+
+    Leaving the refusal to the schema alone would let a bundle be built,
+    written out, and refused later by whoever happened to validate it - which
+    on an unrepeatable run is whoever is left holding it. Ruling 60: a producer
+    that is wrong exits non-zero, here, now.
+    """
+    prov = copy.deepcopy(PROVENANCE)
+    del prov["sealed_run"]
+    with pytest.raises(B.BundleError) as exc:
+        build(execution_provenance=prov)
+    assert "sealed_run" in str(exc.value)
+
+
+def test_a_sealed_run_flag_that_is_not_a_boolean_raises():
+    """A STRING IS NOT A FLAG, and "false" is the one that would hurt.
+
+    Every non-empty string is truthy, so a producer writing "false" here would
+    have the reader treat a stand-in as the held-out run - or, the other way
+    round on a different code path, quietly satisfy a presence check while
+    carrying a value nothing can branch on correctly. The type is the control.
+    """
+    for bad in ("false", "true", 0, 1, None):
+        prov = copy.deepcopy(PROVENANCE)
+        prov["sealed_run"] = bad
+        with pytest.raises(B.BundleError) as exc:
+            build(execution_provenance=prov)
+        assert "sealed_run" in str(exc.value), bad
+
+
+def test_the_builder_accepts_both_boolean_values():
+    """The over-blocking control.
+
+    A refusal with no passing side is a refusal of the feature. Both arms of
+    the boolean have to build, or the check is not testing the type - it is
+    testing that the field is False.
+    """
+    for value in (True, False):
+        prov = copy.deepcopy(PROVENANCE)
+        prov["sealed_run"] = value
+        assert build(execution_provenance=prov)[
+            "execution_provenance"]["sealed_run"] is value
 
 
 def test_a_live_run_with_zero_model_calls_raises():

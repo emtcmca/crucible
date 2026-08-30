@@ -1,0 +1,240 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-labelledby="ttl desc" font-family="'Segoe UI',Arial,Helvetica,sans-serif">
+ <title id="ttl">CRUCIBLE — the cast, and what each one is not allowed to see</title>
+ <desc id="desc">A dark-ground poster of the CRUCIBLE hardening loop, drawn as a cast of characters in three regions. Region A, at the left, is the agent under test: a card for TARGET_AGENT on gemini-3.5-flash-lite, above a panel listing its eight tools grouped under the six capability classes they carry - CAP_MOVES_MONEY, CAP_MUTATES_DURABLE_STATE, CAP_READS_PII, CAP_EXTERNAL_COMMS, CAP_ESCALATES_PRIVILEGE and CAP_INVOKES_AGENT. Region B, at the right, is the cast: six numbered cards read left to right and top to bottom in the order of one round - RED_STRATEGIST, CRUCIBLE_PLUGIN with POLICY_ENGINE, TRIPWIRE, CORONER, ARMORER, and REGRESSION_WARDEN with PROMOTION_GATE. Each card gives the component's role in plain English, what it does, and what it is deliberately blind to. A filled marker means that blindness is enforced in Cloud IAM; a hollow marker means it is held by convention plus a code check. An arrow runs from RED_STRATEGIST into the target, hand-off arrows run between the cards, and a dashed return rail runs from the promotion gate back to the attacker for the next round. Region C, a band across the foot, is the sealed held-out attack family: F4, destination smuggling, twenty-four attacks written by hand and locked in a Cloud Storage bucket that the patch-writing identity holds no read permission on. Nine components are named in total: four contain a language model - TARGET_AGENT, RED_STRATEGIST, CORONER and ARMORER - and five are pure code - CRUCIBLE_PLUGIN, POLICY_ENGINE, TRIPWIRE, REGRESSION_WARDEN and PROMOTION_GATE. No rate, percentage or measured result appears anywhere on the plate.</desc>
+ <defs>
+  <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+   <stop offset="0" stop-color="#0D0C0B"/>
+   <stop offset="0.58" stop-color="#14110F"/>
+   <stop offset="1" stop-color="#0B0B0B"/>
+  </linearGradient>
+  <linearGradient id="model-surface" x1="0" y1="0" x2="1" y2="1">
+   <stop offset="0" stop-color="#311C0F"/>
+   <stop offset="1" stop-color="#1B1410"/>
+  </linearGradient>
+  <linearGradient id="code-surface" x1="0" y1="0" x2="1" y2="1">
+   <stop offset="0" stop-color="#172127"/>
+   <stop offset="1" stop-color="#151515"/>
+  </linearGradient>
+  <linearGradient id="sealed-surface" x1="0" y1="0" x2="1" y2="0">
+   <stop offset="0" stop-color="#2B1111"/>
+   <stop offset="0.48" stop-color="#1B1110"/>
+   <stop offset="1" stop-color="#131011"/>
+  </linearGradient>
+  <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+   <path d="M32 0H0V32" fill="none" stroke="#40372F" stroke-width="1" opacity="0.16"/>
+  </pattern>
+  <pattern id="seal-stripe" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+   <rect width="8" height="18" fill="#C9564E" opacity="0.18"/>
+  </pattern>
+  <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+   <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.4"/>
+  </filter>
+  <marker id="arrow-brass" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+   <path d="M0 0.6L10 5 0 9.4Z" fill="#E8933A"/>
+  </marker>
+  <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+   <path d="M0 0.6L10 5 0 9.4Z" fill="#7C736B"/>
+  </marker>
+  <clipPath id="sealed-clip"><path d="M56 844H1864V1044H56Z"/></clipPath>
+ </defs>
+
+ <rect width="1920" height="1080" fill="url(#ground)"/>
+ <rect width="1920" height="1080" fill="url(#grid)"/>
+ <path d="M0 0H610L360 1080H0Z" fill="#E8933A" opacity="0.025"/>
+
+ <!-- Header: the eye enters on the thesis, not the legend. -->
+ <text x="56" y="49" font-size="24" fill="#E8933A" font-weight="700" letter-spacing="0.28em">CRUCIBLE</text>
+ <text x="56" y="107" font-size="54" fill="#F3EEE8" font-weight="700" letter-spacing="-0.02em">The cast, and what each one is</text>
+ <rect x="736" y="67" width="558" height="54" fill="#C9564E" opacity="0.95"/>
+ <text x="752" y="107" font-size="54" fill="#FFF8F1" font-weight="700" letter-spacing="-0.02em">not allowed to see</text>
+ <text x="57" y="151" font-size="24" fill="#B3AAA1">A pre-deployment hardening harness for an AI agent that holds real permissions.</text>
+
+ <g transform="translate(1322 30)">
+  <rect x="0" y="0" width="542" height="132" fill="#11100F" stroke="#3A342E" stroke-width="1"/>
+  <rect x="0" y="0" width="6" height="132" fill="#7C736B"/>
+  <rect x="22" y="18" width="20" height="20" fill="#2A1A0F" stroke="#E8933A" stroke-width="2"/>
+  <text x="56" y="36" font-size="24" fill="#B3AAA1">[M] contains a language model</text>
+  <rect x="22" y="50" width="20" height="20" fill="#1E1A17" stroke="#7FA0B0" stroke-width="2"/>
+  <text x="56" y="68" font-size="24" fill="#B3AAA1">[C] pure code, no model on the path</text>
+  <circle cx="32" cy="91" r="8" fill="#C9564E"/>
+  <text x="56" y="99" font-size="24" fill="#B3AAA1">a boundary enforced in Cloud IAM</text>
+  <circle cx="32" cy="119" r="7" fill="none" stroke="#CFC6BD" stroke-width="2.5"/>
+  <text x="56" y="127" font-size="24" fill="#B3AAA1">a boundary held by convention plus a code check</text>
+ </g>
+ <line x1="56" y1="180" x2="1864" y2="180" stroke="#4B423A" stroke-width="1"/>
+
+ <!-- Region labels -->
+ <text x="56" y="216" font-size="24" fill="#E8933A" font-weight="700" letter-spacing="0.12em">A · THE AGENT UNDER TEST</text>
+ <text x="648" y="216" font-size="24" fill="#9D938A" font-weight="700" letter-spacing="0.06em">B · THE CAST —</text>
+ <text x="844" y="216" font-size="24" fill="#7C736B">one round, in order. Each one is blind to something on purpose.</text>
+
+ <!-- Target agent dossier -->
+ <g filter="url(#shadow)">
+  <path d="M56 234H596L620 258V364H56Z" fill="url(#model-surface)" stroke="#E8933A" stroke-width="2"/>
+  <path d="M56 234H64V364H56Z" fill="#E8933A"/>
+  <path d="M596 234V258H620" fill="none" stroke="#E8933A" stroke-width="2"/>
+  <text x="82" y="272" font-size="28" fill="#F3EEE8" font-weight="700">TARGET_AGENT</text>
+  <text x="594" y="272" font-size="24" fill="#C8B6A7" font-family="Consolas,'Courier New',monospace" text-anchor="end">gemini-3.5-flash-lite</text>
+  <text x="82" y="307" font-size="24" fill="#C8BFB6">The agent on trial. A refund agent with real</text>
+  <text x="82" y="333" font-size="24" fill="#C8BFB6">authority: it moves money in a real ledger.</text>
+  <text x="82" y="359" font-size="24" fill="#C8BFB6">Hash-locked before the run, tool bodies too.</text>
+ </g>
+
+ <g filter="url(#shadow)">
+  <rect x="56" y="376" width="564" height="440" fill="#131211" stroke="#403831" stroke-width="1.5"/>
+  <rect x="56" y="376" width="564" height="54" fill="#201B17"/>
+  <text x="82" y="411" font-size="24" fill="#F3EEE8" font-weight="700" letter-spacing="0.04em">EIGHT TOOLS AND WHAT THEY CAN DO</text>
+  <line x1="82" y1="446" x2="594" y2="446" stroke="#443C35"/>
+  <text x="82" y="452" font-size="24" fill="#F3EEE8" font-weight="600" font-family="Consolas,'Courier New',monospace">CAP_MOVES_MONEY</text>
+  <text x="320" y="452" font-size="24" fill="#7C736B">moves value out</text>
+  <text x="100" y="478" font-size="24" fill="#B3AAA1" font-family="Consolas,'Courier New',monospace">issue_refund · issue_store_credit</text>
+  <text x="82" y="509" font-size="24" fill="#F3EEE8" font-weight="600" font-family="Consolas,'Courier New',monospace">CAP_MUTATES_DURABLE_STATE</text>
+  <text x="462" y="509" font-size="24" fill="#7C736B">writes state</text>
+  <text x="100" y="535" font-size="24" fill="#B3AAA1" font-family="Consolas,'Courier New',monospace">issue_refund · issue_store_credit</text>
+  <text x="100" y="561" font-size="24" fill="#B3AAA1" font-family="Consolas,'Courier New',monospace">update_case_notes · escalate_to_human</text>
+  <text x="100" y="587" font-size="24" fill="#B3AAA1" font-family="Consolas,'Courier New',monospace">delegate_to_specialist</text>
+  <text x="82" y="618" font-size="24" fill="#F3EEE8" font-weight="600" font-family="Consolas,'Courier New',monospace">CAP_READS_PII</text>
+  <text x="287" y="618" font-size="24" fill="#7C736B">reads personal data</text>
+  <text x="100" y="644" font-size="24" fill="#B3AAA1" font-family="Consolas,'Courier New',monospace">lookup_order · lookup_customer</text>
+  <text x="100" y="670" font-size="24" fill="#B3AAA1" font-family="Consolas,'Courier New',monospace">email_customer</text>
+  <text x="82" y="701" font-size="24" fill="#F3EEE8" font-weight="600" font-family="Consolas,'Courier New',monospace">CAP_EXTERNAL_COMMS · email_customer</text>
+  <text x="82" y="732" font-size="24" fill="#F3EEE8" font-weight="600" font-family="Consolas,'Courier New',monospace">CAP_ESCALATES_PRIVILEGE</text>
+  <text x="432" y="732" font-size="24" fill="#7C736B">calls a human</text>
+  <text x="100" y="758" font-size="24" fill="#B3AAA1" font-family="Consolas,'Courier New',monospace">escalate_to_human</text>
+  <text x="82" y="789" font-size="24" fill="#F3EEE8" font-weight="600" font-family="Consolas,'Courier New',monospace">CAP_INVOKES_AGENT</text>
+  <text x="342" y="789" font-size="24" fill="#7C736B">calls another agent</text>
+  <text x="100" y="811" font-size="24" fill="#B3AAA1" font-family="Consolas,'Courier New',monospace">delegate_to_specialist</text>
+ </g>
+
+ <!-- The attack enters the target. -->
+ <path d="M648 277H625" fill="none" stroke="#E8933A" stroke-width="4" marker-end="url(#arrow-brass)"/>
+
+ <!-- Cast card 1 -->
+ <g filter="url(#shadow)">
+  <path d="M648 234H1216L1232 250V416H648Z" fill="url(#model-surface)" stroke="#E8933A" stroke-width="2"/>
+  <rect x="648" y="234" width="58" height="182" fill="#E8933A" opacity="0.09"/>
+  <text x="677" y="278" font-size="40" fill="#E8933A" font-weight="700" text-anchor="middle">1</text>
+  <text x="724" y="270" font-size="28" fill="#F3EEE8" font-weight="700">RED_STRATEGIST</text>
+  <text x="1206" y="270" font-size="24" fill="#C8B6A7" font-family="Consolas,'Courier New',monospace" text-anchor="end">gemini-3.6-flash</text>
+  <text x="724" y="306" font-size="24" fill="#C8BFB6">The attacker. Six attacks a round, picked</text>
+  <text x="724" y="332" font-size="24" fill="#C8BFB6">by seeded code from a hand-written corpus;</text>
+  <text x="724" y="358" font-size="24" fill="#C8BFB6">the model only varies the wording.</text>
+  <rect x="706" y="364" width="526" height="52" fill="#0D0C0B" opacity="0.78"/>
+  <circle cx="728" cy="382" r="8" fill="none" stroke="#D4CBC2" stroke-width="2.5"/>
+  <text x="748" y="390" font-size="24" fill="#E1D9D1">Never sees the policy, its rules, or the</text>
+  <text x="748" y="412" font-size="24" fill="#E1D9D1">clauses that decide what a breach is.</text>
+ </g>
+
+ <!-- Cast card 2 -->
+ <g filter="url(#shadow)">
+  <path d="M1250 234H1848L1864 250V416H1250Z" fill="url(#code-surface)" stroke="#7FA0B0" stroke-width="2"/>
+  <rect x="1250" y="234" width="58" height="182" fill="#7FA0B0" opacity="0.1"/>
+  <text x="1279" y="278" font-size="40" fill="#7FA0B0" font-weight="700" text-anchor="middle">2</text>
+  <text x="1326" y="270" font-size="28" fill="#F3EEE8" font-weight="700">CRUCIBLE_PLUGIN</text>
+  <text x="1838" y="270" font-size="24" fill="#AFC1CA" text-anchor="end">pure code</text>
+  <text x="1326" y="306" font-size="24" fill="#C8BFB6">and POLICY_ENGINE: the gate between the</text>
+  <text x="1326" y="332" font-size="24" fill="#C8BFB6">agent and its tools. Every call gets one</text>
+  <text x="1326" y="358" font-size="24" fill="#C8BFB6">of ALLOW, DENY, APPROVAL_REQUIRED.</text>
+  <text x="1326" y="384" font-size="24" fill="#C8BFB6">A blocked call's tool body never runs.</text>
+  <rect x="1308" y="390" width="556" height="26" fill="#0D0C0B" opacity="0.78"/>
+  <circle cx="1328" cy="403" r="8" fill="none" stroke="#D4CBC2" stroke-width="2.5"/>
+  <text x="1348" y="411" font-size="24" fill="#E1D9D1">Blind to the attack. It never scores.</text>
+ </g>
+ <path d="M1234 325H1246" fill="none" stroke="#7C736B" stroke-width="2" marker-end="url(#arrow-muted)"/>
+
+ <!-- Cast card 3 -->
+ <g filter="url(#shadow)">
+  <path d="M648 430H1216L1232 446V612H648Z" fill="url(#code-surface)" stroke="#7FA0B0" stroke-width="2"/>
+  <rect x="648" y="430" width="58" height="182" fill="#7FA0B0" opacity="0.1"/>
+  <text x="677" y="474" font-size="40" fill="#7FA0B0" font-weight="700" text-anchor="middle">3</text>
+  <text x="724" y="466" font-size="28" fill="#F3EEE8" font-weight="700">TRIPWIRE</text>
+  <text x="1206" y="466" font-size="24" fill="#AFC1CA" text-anchor="end">pure code</text>
+  <text x="724" y="502" font-size="24" fill="#C8BFB6">The witness. Rules breach or no breach from</text>
+  <text x="724" y="528" font-size="24" fill="#C8BFB6">the calls that actually happened, not from</text>
+  <text x="724" y="554" font-size="24" fill="#C8BFB6">anything the agent said, against eleven</text>
+  <text x="724" y="580" font-size="24" fill="#C8BFB6">human-written clauses.</text>
+  <rect x="706" y="586" width="526" height="26" fill="#0D0C0B" opacity="0.78"/>
+  <circle cx="728" cy="599" r="8" fill="none" stroke="#D4CBC2" stroke-width="2.5"/>
+  <text x="748" y="607" font-size="24" fill="#E1D9D1">Blind to the payload, family and policy.</text>
+ </g>
+
+ <!-- Cast card 4 -->
+ <g filter="url(#shadow)">
+  <path d="M1250 430H1848L1864 446V612H1250Z" fill="url(#model-surface)" stroke="#E8933A" stroke-width="2"/>
+  <rect x="1250" y="430" width="58" height="182" fill="#E8933A" opacity="0.09"/>
+  <text x="1279" y="474" font-size="40" fill="#E8933A" font-weight="700" text-anchor="middle">4</text>
+  <text x="1326" y="466" font-size="28" fill="#F3EEE8" font-weight="700">CORONER</text>
+  <text x="1838" y="466" font-size="24" fill="#C8B6A7" font-family="Consolas,'Courier New',monospace" text-anchor="end">gemini-3.5-flash-lite</text>
+  <text x="1326" y="502" font-size="24" fill="#C8BFB6">The pathologist. Writes the autopsy of one</text>
+  <text x="1326" y="528" font-size="24" fill="#C8BFB6">breach: what was called, in what order, and</text>
+  <text x="1326" y="554" font-size="24" fill="#C8BFB6">where. It cannot propose a fix.</text>
+  <rect x="1308" y="562" width="556" height="50" fill="#0D0C0B" opacity="0.8"/>
+  <circle cx="1328" cy="577" r="8" fill="none" stroke="#D4CBC2" stroke-width="2.5"/>
+  <text x="1348" y="585" font-size="24" fill="#E1D9D1">No fix field exists in its output schema.</text>
+  <circle cx="1328" cy="601" r="8" fill="#C9564E"/>
+  <text x="1348" y="607" font-size="24" fill="#F1C7C3">Its account cannot write policy. IAM.</text>
+ </g>
+ <path d="M1234 521H1246" fill="none" stroke="#7C736B" stroke-width="2" marker-end="url(#arrow-muted)"/>
+
+ <!-- Cast card 5 -->
+ <g filter="url(#shadow)">
+  <path d="M648 626H1216L1232 642V816H648Z" fill="url(#model-surface)" stroke="#E8933A" stroke-width="2"/>
+  <rect x="648" y="626" width="58" height="190" fill="#E8933A" opacity="0.09"/>
+  <text x="677" y="670" font-size="40" fill="#E8933A" font-weight="700" text-anchor="middle">5</text>
+  <text x="724" y="662" font-size="28" fill="#F3EEE8" font-weight="700">ARMORER</text>
+  <text x="1206" y="662" font-size="24" fill="#C8B6A7" font-family="Consolas,'Courier New',monospace" text-anchor="end">gemini-3.7-flash</text>
+  <text x="724" y="698" font-size="24" fill="#C8BFB6">The smith. Writes the patch in three verbs:</text>
+  <text x="724" y="724" font-size="24" fill="#F3EEE8" font-family="Consolas,'Courier New',monospace">deny, constrain_arg, require_approval.</text>
+  <text x="724" y="750" font-size="24" fill="#C8BFB6">There is no allow verb, so no patch can</text>
+  <text x="724" y="776" font-size="24" fill="#C8BFB6">widen what the agent is permitted to do.</text>
+  <rect x="706" y="790" width="526" height="26" fill="#0D0C0B" opacity="0.78"/>
+  <circle cx="728" cy="803" r="8" fill="none" stroke="#D4CBC2" stroke-width="2.5"/>
+  <text x="748" y="811" font-size="24" fill="#E1D9D1">Blind to the attacker's own words.</text>
+ </g>
+
+ <!-- Cast card 6 -->
+ <g filter="url(#shadow)">
+  <path d="M1250 626H1848L1864 642V816H1250Z" fill="url(#code-surface)" stroke="#7FA0B0" stroke-width="2"/>
+  <rect x="1250" y="626" width="58" height="190" fill="#7FA0B0" opacity="0.1"/>
+  <text x="1279" y="670" font-size="40" fill="#7FA0B0" font-weight="700" text-anchor="middle">6</text>
+  <text x="1326" y="662" font-size="28" fill="#F3EEE8" font-weight="700">REGRESSION_WARDEN</text>
+  <text x="1838" y="662" font-size="24" fill="#AFC1CA" text-anchor="end">pure code</text>
+  <text x="1326" y="698" font-size="24" fill="#C8BFB6">and PROMOTION_GATE. Ruler and clerk.</text>
+  <text x="1326" y="724" font-size="24" fill="#C8BFB6">The Warden replays 26 benign fixtures</text>
+  <text x="1326" y="750" font-size="24" fill="#C8BFB6">and 9 known-bads against the new rule.</text>
+  <text x="1326" y="776" font-size="24" fill="#C8BFB6">The Gate writes the rule, reads the bytes</text>
+  <text x="1326" y="802" font-size="24" fill="#C8BFB6">back off disk, and promotes or rolls back.</text>
+ </g>
+ <path d="M1234 721H1246" fill="none" stroke="#7C736B" stroke-width="2" marker-end="url(#arrow-muted)"/>
+
+ <!-- Return rail -->
+ <path d="M1557 818V832H635V408H644" fill="none" stroke="#7C736B" stroke-width="1.5" stroke-dasharray="10 8" marker-end="url(#arrow-muted)"/>
+ <rect x="839" y="816" width="556" height="28" fill="#0E0D0C"/>
+ <text x="1117" y="834" font-size="24" fill="#7C736B" text-anchor="middle">promoted, or rolled back — and the next round starts here</text>
+
+ <!-- Sealed set: the visual anchor. -->
+ <g filter="url(#shadow)">
+  <path d="M56 844H1864V1044H56Z" fill="url(#sealed-surface)" stroke="#C9564E" stroke-width="2.5"/>
+  <rect x="56" y="844" width="1808" height="200" fill="url(#seal-stripe)" clip-path="url(#sealed-clip)" opacity="0.3"/>
+  <rect x="56" y="844" width="12" height="200" fill="#C9564E"/>
+  <path d="M92 878V861A18 18 0 0 1 128 861V878" fill="none" stroke="#C9564E" stroke-width="4"/>
+  <rect x="84" y="878" width="52" height="40" rx="3" fill="#171111" stroke="#C9564E" stroke-width="4"/>
+  <circle cx="110" cy="896" r="4" fill="#C9564E"/>
+  <path d="M110 900V908" stroke="#C9564E" stroke-width="3"/>
+  <text x="164" y="883" font-size="28" fill="#FFF4EC" font-weight="700">C · THE SEALED SET — F4, destination smuggling: 24 attacks, sealed before the first patch existed.</text>
+  <line x1="164" y1="902" x2="1838" y2="902" stroke="#6E2F2B" stroke-width="1"/>
+  <text x="82" y="936" font-size="24" fill="#D3C7BE">The 24 live in a Cloud Storage bucket,</text>
+  <text x="82" y="962" font-size="24" fill="#D3C7BE">never committed here. Fingerprint first:</text>
+  <text x="82" y="988" font-size="24" fill="#9F9289" font-family="Consolas,'Courier New',monospace">docs/proof/sealed-family-commitment.json</text>
+  <circle cx="682" cy="930" r="9" fill="#C9564E"/>
+  <text x="704" y="938" font-size="24" fill="#F1C7C3">The identity that writes the patches</text>
+  <text x="704" y="964" font-size="24" fill="#F1C7C3">holds no read permission on that bucket.</text>
+  <text x="704" y="990" font-size="24" fill="#F1C7C3">Cloud IAM, not a prompt, not a promise.</text>
+  <text x="1284" y="936" font-size="24" fill="#D3C7BE">It aims at capability classes no rule was</text>
+  <text x="1284" y="962" font-size="24" fill="#D3C7BE">trained on. The question is not whether a</text>
+  <text x="1284" y="988" font-size="24" fill="#D3C7BE">fix worked where it was written.</text>
+  <line x1="82" y1="1000" x2="1838" y2="1000" stroke="#56302D" stroke-width="1"/>
+  <text x="82" y="1029" font-size="24" fill="#9F9289">UNCLASSIFIED is a sentinel, not a seventh class.</text>
+  <text x="1838" y="1029" font-size="24" fill="#9F9289" text-anchor="end">One of the 24 was named in a public commit on 2026-08-21, and deliberately not replaced.</text>
+ </g>
+</svg>

@@ -30,7 +30,23 @@ would be the most expensive kind of check there is.
 owner, the artifact. This records that the recompute AGREED and cites the file;
 copying the value here would create a second source for it.
 
-**It prints no sealed content**, and neither does anything it calls.
+**What it captures from the tools it calls, and the residual in that.** The
+earlier claim here was "it prints no sealed content, and neither does anything
+it calls." The second half is FALSE: `seal-leak-check.py` prints the offending
+line beside every hit it finds, which is the only way a leak report is useful
+to the person fixing it.
+
+What is actually enforced is narrower, and it is enforced rather than hoped:
+this script keeps **only the last line** of each tool's stdout, **truncated to
+160 characters**, and the last line of both tools is a fixed summary by
+construction. So no leak DETAIL line reaches the artifact.
+
+The residual is that the tools' last line is a property of those files rather
+than a check in this one. A future edit that let a hit be the final thing
+printed would put it in the artifact. Stated here rather than closed, because a
+narrowed channel described as closed is worse than an open one described
+accurately -- the same rule the transfer reader applies to its own argument
+surface.
 
     python scripts/pre-read-seal-proof.py            # check and print
     python scripts/pre-read-seal-proof.py --write    # and emit the artifact
@@ -69,6 +85,33 @@ def _run(args, label):
 def git(*args):
     return subprocess.run(["git"] + list(args), cwd=str(ROOT),
                           capture_output=True, text=True).stdout.strip()
+
+
+def stray_dirty_paths(porcelain, expected):
+    """Paths dirty in `porcelain` other than `expected`. Pure; testable.
+
+    SPLIT OUT SO IT CAN BE PROVEN. Inline, its only execution would have been
+    inside `--write`, which writes into a tracked directory - so the check
+    guarding the proof's central claim would itself have been a check nobody
+    had watched fire. That is the seventeen-instance defect in this
+    repository, and putting a new one inside the fix for an old one is how it
+    got to seventeen.
+
+    Porcelain lines are `XY <path>`; a path containing a space or a quote is
+    emitted quoted. Rename lines carry `orig -> new` and the NEW path is what
+    is dirty, so only the right-hand side is kept.
+    """
+    out = []
+    for line in (porcelain or "").splitlines():
+        if not line.strip():
+            continue
+        path = line[3:].strip()
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        path = path.strip('"')
+        if path != expected:
+            out.append(path)
+    return sorted(out)
 
 
 def gather():
@@ -136,7 +179,17 @@ def main(argv=None):
             "unattested operator read marks the run INVALID.",
             "It prints no fingerprint value. Ruling 46: the hash has one owner, "
             "and it is " + COMMITMENT + ".",
-            "It prints no sealed content.",
+            "It keeps only the LAST LINE of each tool it calls, "
+            "truncated to 160 characters, and the last line of both is a "
+            "fixed summary. seal-leak-check.py does print the offending "
+            "line beside a hit, so this is a bound on what is captured "
+            "rather than a claim that nothing is ever printed.",
+            "It does NOT avoid opening the sealed files on local disk - it "
+            "cannot, because hashing them is how it proves the set is intact. "
+            "That is FINGERPRINTING: bytes in, a digest out, nothing surfaced. "
+            "The pre-registration's unit at A3.1 and A3.2 is a granted "
+            "storage.objects.get naming a real object in the bucket, and this "
+            "command issues none.",
         ],
         "_what_it_does_not_prove": [
             "That nothing read the bucket. That is the holdout counter's job, "
@@ -146,6 +199,25 @@ def main(argv=None):
             "on the PUBLIC COMMIT TIMESTAMP of the commitment, which a reader "
             "checks against the repository history rather than against this "
             "file.",
+        ],
+        "_the_ordering_OF_THIS_ARTIFACT": [
+            "THIS FILE CANNOT BE SIMULTANEOUSLY NEW, COMMITTED, BOUND TO THE "
+            "CURRENT HEAD, AND LEAVE A CLEAN TREE. An adversarial review "
+            "pointed that out and it is correct: `head` below is read BEFORE "
+            "this file exists, writing it makes the tree dirty, and committing "
+            "it moves HEAD past the value recorded here.",
+            "So the claim is deliberately SEQUENTIAL rather than "
+            "simultaneous. It is: the tree was clean at the commit named in "
+            "`head`; this artifact was then the ONLY path that changed; the "
+            "commit carrying it therefore has `head` as its PARENT.",
+            "A READER CHECKS IT WITHOUT TRUSTING THIS FILE. Find the commit "
+            "that adds this artifact. `git log -1 --format=%P` on it must "
+            "print the `head` value below, and `git show --stat` on it must "
+            "list this file and nothing else. Both are properties of the "
+            "repository, not assertions of this document.",
+            "The single-path property is not left to the reader either: "
+            "--write re-runs git status after writing and REFUSES if anything "
+            "other than this artifact is dirty.",
         ],
         "generated_at": stamp,
         "head": head,
@@ -177,7 +249,33 @@ def main(argv=None):
             print("REFUSED: the artifact was not written, or is too small to "
                   "hold the record.")
             return 2
+
+        # THE SEQUENTIAL CLAIM, ENFORCED RATHER THAN ASSERTED.
+        #
+        # The document above says the tree was clean at `head` and that THIS
+        # ARTIFACT was the only path that changed afterwards. The first half
+        # was checked before the write. This is the second half, and without it
+        # the sentence is a description of what the operator hoped happened.
+        #
+        # Anything else appearing here means the tree changed during the run -
+        # an editor saving, a parallel session committing, a generated file
+        # landing - and the commit that carries this proof would then also
+        # carry that, which is exactly the ambiguity the proof exists to
+        # remove.
+        expect = out.relative_to(ROOT).as_posix()
+        stray = stray_dirty_paths(git("status", "--porcelain"), expect)
+        if stray:
+            print("REFUSED: writing the artifact was not the only change to "
+                  "the tree. Also dirty: %s" % ", ".join(stray[:8]))
+            print("  The proof claims this file was the single path that "
+                  "changed after %s. Commit or stash the rest and re-run; the "
+                  "artifact just written is stale and should be deleted."
+                  % head[:12])
+            return 2
+
         print("  artifact %s" % out.relative_to(ROOT))
+        print("  the only dirty path is that artifact; its commit's parent "
+              "will be %s" % head[:12])
 
     return 0 if doc["verdict"] == "PASS" else 1
 

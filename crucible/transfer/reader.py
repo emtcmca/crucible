@@ -1247,9 +1247,17 @@ _ADJUDICATION_REASONS = {
         "a sealed bundle carries no adjudication. The runner's gate refuses to "
         "drive a sealed set without one, so a bundle that arrives without it "
         "did not come through the door built for it",
-    "E_ADJUDICATION_UNSIGNED":
-        "the adjudication names no human. A sealed instance set is not ruled "
-        "scoreable on the runner's own authority",
+    "E_ADJUDICATION_UNATTRIBUTED":
+        "the adjudication names no human, or names a COMPONENT OF THIS SYSTEM "
+        "rather than a person. A sealed instance set is not ruled scoreable on "
+        "the runner's own authority. The field is named attribution and never "
+        "authenticated identity, so this is the only question these bytes can "
+        "answer about it",
+    "E_ADJUDICATION_CHALLENGE_MISMATCH":
+        "the post-read challenge does not cover the instance set this record "
+        "was signed over, so the challenge came from some other read. The "
+        "response digest is NOT checkable here - it commits to a nonce the "
+        "bundle deliberately never publishes",
     "E_ADJUDICATION_SET_MISMATCH":
         "the adjudicated instance set is not the set that was driven. A ledger "
         "signed over some other twenty-four says nothing about this run",
@@ -2284,6 +2292,38 @@ def _check_exclusions(bundle, defects):
                     % len(rows))
 
 
+def _binding_text():
+    """The constant `inspect.attach_challenge` writes into every record.
+
+    ASKED FOR, NOT COPIED. The sentence is an inline literal inside that
+    function with no name of its own, so a reader that wanted to compare
+    against it could either duplicate the string - a second source of truth for
+    a value that gets published - or run the one function that owns it over a
+    throwaway record. This runs it. The record below is invented and local; it
+    never leaves this call.
+
+    Returns None if the binding step cannot be exercised at all, and the caller
+    then skips the comparison rather than inventing an expectation. A check
+    that cannot establish what it is checking against must not report a result.
+    """
+    try:
+        from crucible.transfer import inspect as _inspect
+
+        probe_ids = ["atk_000000000001"]
+        record = {
+            "instance_ids": probe_ids,
+            "instance_set_digest": _inspect.instance_set_digest(probe_ids),
+            "decisions": {probe_ids[0]: {"codes": ["V_SCOREABLE"]}},
+        }
+        challenge = _inspect.mint_challenge(
+            probe_ids, minted_at="1970-01-01T00:00:00Z",
+            nonce_source=lambda: "0" * 64)
+        bound = _inspect.attach_challenge(record, challenge)
+        return bound[_inspect.RECORD_CHALLENGE_KEY]["binding"]
+    except Exception:                                         # noqa: BLE001
+        return None
+
+
 def _check_adjudication(bundle, defects):
     """CHECK: the V1/V2 adjudication, recomputed rather than trusted.
 
@@ -2303,9 +2343,41 @@ def _check_adjudication(bundle, defects):
     cross-check, not a duplicate.
 
     NULL IS A LEGITIMATE VALUE and means "not adjudicated". It is refused only
-    for a bundle whose own `seal_status` says SEALED, because the runner's gate
-    will not drive a sealed set without a binding ledger: a sealed bundle
-    arriving without one did not come through the door built for it.
+    for a run whose `execution_provenance.sealed_run` says this is the held-out
+    measurement, because the runner's gate will not drive a sealed set without a
+    binding ledger: a sealed bundle arriving without one did not come through
+    the door built for it.
+
+    WHAT `adjudicated_by` IS WORTH, STATED PLAINLY. It is NAMED ATTRIBUTION AND
+    NOT AUTHENTICATED IDENTITY. Nothing in this bundle signs it, nothing binds
+    it to a key, and anyone who can edit the JSON can type any name into it. So
+    the check below is not "was this really that person" - no reader can answer
+    that from these bytes. It is the far narrower question the runtime path
+    already answers and this reader did not: is the name a COMPONENT OF THIS
+    SYSTEM rather than a person. `adjudication._clean_human` refuses a component
+    name at write time; until 2026-08-30 this function accepted any two
+    characters, so a direct mutation producing `adjudicated_by: "runner"` with a
+    clean ACCEPTS verdict was reproduced by an independent reviewer. The runtime
+    path refused self-approval while the public verifier admitted an artifact
+    claiming exactly that, which is the worse half of the pair: the published
+    reader is the one a third party runs.
+
+    THE POST-READ CHALLENGE, AND WHAT IT DOES AND DOES NOT SHOW. Two things in
+    `post_read_challenge` are checkable by a reader holding only the bundle: the
+    challenge's `instance_set_digest`, which recomputes from `instance_ids` and
+    must equal the value the record itself was signed over, and the constant
+    `binding` text, which names the construction. `response_digest`,
+    `nonce_digest` and `minted_at` are RECORDED AND NOT VERIFIED, and this
+    function does not pretend otherwise - the response commits to a RAW NONCE
+    this bundle deliberately never publishes, so only the process holding that
+    nonce can recompute it, and that process is the in-process gate rather than
+    a third party. NO offline reader can establish WHEN it was minted either.
+    What the block records is that a challenge was minted and answered inside
+    the run; an offline reader can confirm it covers THIS instance set and
+    nothing further. Operationally closed, evidentially open, and
+    `adjudication_guarantee()` prints that under every report rather than
+    leaving it in this comment where only the people editing the file would
+    read it.
     """
     block = bundle.get("adjudication")
 
@@ -2330,7 +2402,34 @@ def _check_adjudication(bundle, defects):
             "Two statements about whether this is the held-out measurement "
             "disagree, and this reader will not pick one."
             % (bool(flag), label[:40])))
-    sealed = label_says_sealed or bool(flag)
+
+    # ONE MACHINE AUTHORITY, AND THE PROSE IS NOT IT.
+    #
+    # This used to read `sealed = label_says_sealed or bool(flag)`, which
+    # TOLERATED the flag being absent and fell back to the prefix of a
+    # 400-character human-readable sentence. An independent reviewer's ruling
+    # on 2026-08-30: two independently authored authorities are not preferable
+    # to one, and the unambiguous shape is a single required machine field with
+    # the prose DERIVED from it. The flag is required by the contract, so an
+    # absent one is a producer defect and gets said out loud rather than
+    # papered over by a string.
+    if flag is None:
+        defects.append(Defect(
+            "E_ADJUDICATION_MISSING", "execution_provenance.sealed_run",
+            "the machine-readable statement of whether this is the held-out "
+            "measurement is absent. This reader will not take a "
+            "security-relevant branch on the prefix of a sentence whose job is "
+            "to be readable by a person, so the run is being treated as sealed "
+            "if the label says so and the defect is reported either way."))
+        # FAIL TOWARD MORE CHECKING, NEVER LESS. With no machine authority the
+        # only remaining statement is the prose, and it is used for exactly one
+        # thing: deciding whether to DEMAND an adjudication. Reading it as
+        # not-sealed would silently drop the adjudication requirement on the
+        # one bundle that failed to declare itself, which is the direction that
+        # loses a check rather than the direction that raises a false alarm.
+        sealed = label_says_sealed
+    else:
+        sealed = bool(flag)
 
     if block is None:
         # ABSENT, NOT NULL, and the canonical form is why: it admits no null,
@@ -2339,10 +2438,11 @@ def _check_adjudication(bundle, defects):
         if sealed:
             defects.append(Defect(
                 "E_ADJUDICATION_MISSING", "adjudication",
-                "the bundle labels itself SEALED and carries no adjudication. "
-                "Every sealed instance has to be ruled on by a named human "
-                "AFTER the read and BEFORE the first model call, and there is "
-                "no record here that anyone did."))
+                "this run declares itself the held-out measurement and carries "
+                "no adjudication. Every sealed instance has to be ruled on by "
+                "a named human between the read and the first model call - the "
+                "live gate is what enforces that ordering, and this artifact "
+                "does not carry the ruling at all."))
             return Row("ADJUDICATION", CROSS_CHECKED, "FAIL",
                        "sealed bundle, no ledger")
         return Row("ADJUDICATION", PRESENT, "OK",
@@ -2355,13 +2455,64 @@ def _check_adjudication(bundle, defects):
             % type(block).__name__))
         return Row("ADJUDICATION", CROSS_CHECKED, "FAIL", "malformed")
 
+    # THE VOCABULARY AND THE DIGEST FUNCTIONS COME FROM ONE PLACE, AND IF THAT
+    # PLACE CANNOT BE LOADED NOTHING BELOW IS CHECKED.
+    #
+    # `adjudication` owns both halves: the set of names that are components of
+    # this system rather than people, and the two digest constructions. A
+    # second hand-maintained copy of either in this file is a second source of
+    # truth, and the failure mode is that one copy learns a new component name
+    # and the other does not. That is the same reasoning `adjudication` itself
+    # gives for reaching past the underscore into `ratify._NOT_A_HUMAN`.
+    #
+    # The import moved here from the digest block on 2026-08-30 so ONE guarded
+    # site covers both uses. A reader that cannot load the module cannot check
+    # identity OR commitment, and reporting the half it could still run as a
+    # pass is precisely this repository's signature defect.
+    try:
+        from crucible.transfer.adjudication import (_NOT_A_HUMAN,
+                                                    decisions_digest,
+                                                    instance_set_digest)
+        from crucible.transfer.inspect import RECORD_CHALLENGE_KEY
+    except Exception as exc:                                  # noqa: BLE001
+        defects.append(Defect(
+            "E_ADJUDICATION_DIGEST_MISMATCH", "adjudication",
+            "the adjudication module could not be loaded to recompute the "
+            "digests or to refuse a component name (%s), so nothing in this "
+            "block was verified. An unverifiable record is not a verified "
+            "one." % exc))
+        return Row("ADJUDICATION", CROSS_CHECKED, "FAIL", "unverifiable")
+
     who = (block.get("adjudicated_by") or "").strip()
     if len(who) < 2:
         defects.append(Defect(
-            "E_ADJUDICATION_UNSIGNED", "adjudication.adjudicated_by",
+            "E_ADJUDICATION_UNATTRIBUTED", "adjudication.adjudicated_by",
             "the adjudication names no human. An unattributed adjudication is "
             "the runner's own authority wearing a name field, which is the one "
             "thing this record exists to prevent."))
+    # THE SAME REFUSAL THE WRITE PATH MAKES, ARRIVING AT THE READ PATH.
+    #
+    # `_clean_human` raises E_SELF_APPROVAL on a component name, so the runtime
+    # can never PRODUCE one. This function accepted any two characters until
+    # 2026-08-30, and an independent reviewer mutated a bundle to
+    # `adjudicated_by: "runner"`, `verdict: ACCEPTS`, `codes: []`. The runtime
+    # refused self-approval and the PUBLIC VERIFIER admitted an artifact
+    # claiming it - and the public verifier is the one a third party runs, so
+    # that is the half that mattered. Normalized exactly as `_clean_human`
+    # normalizes: lowercased, spaces and hyphens folded to underscores, so
+    # "Runner", "red strategist" and "target-agent" cannot walk past a set
+    # written in one form.
+    elif who.lower().replace(" ", "_").replace("-", "_") in _NOT_A_HUMAN:
+        defects.append(Defect(
+            "E_ADJUDICATION_UNATTRIBUTED", "adjudication.adjudicated_by",
+            "%r is a component of this system, not a person. A component "
+            "cannot rule on the validity of the fixtures it is about to be "
+            "measured over, and the write path refuses this exact value - a "
+            "published bundle carrying it did not come from that path. Note "
+            "what this field is and is not: NAMED ATTRIBUTION, never "
+            "authenticated identity. Nothing here binds the name to anyone, "
+            "so the only question these bytes can answer is whether the name "
+            "is a component, and this one is." % who))
 
     # -- the set that was ADJUDICATED against the set that was DRIVEN ---------
     #
@@ -2411,17 +2562,6 @@ def _check_adjudication(bundle, defects):
             % (only_adj or "none", only_run or "none")))
 
     # -- the digests, recomputed from the bytes shipped beside them -----------
-    try:
-        from crucible.transfer.adjudication import (decisions_digest,
-                                                    instance_set_digest)
-    except Exception as exc:                                  # noqa: BLE001
-        defects.append(Defect(
-            "E_ADJUDICATION_DIGEST_MISMATCH", "adjudication",
-            "the adjudication module could not be loaded to recompute the "
-            "digests (%s), so nothing here was verified. An unverifiable "
-            "record is not a verified one." % exc))
-        return Row("ADJUDICATION", CROSS_CHECKED, "FAIL", "digests unverifiable")
-
     for field, fn, arg in (("instance_set_digest", instance_set_digest, declared),
                            ("decisions_digest", decisions_digest,
                             block.get("decisions") or {})):
@@ -2436,6 +2576,102 @@ def _check_adjudication(bundle, defects):
                 "%s does not recompute from the bytes beside it: written %r, "
                 "computed %r. The decisions have moved since they were signed."
                 % (field, want, got)))
+
+    # -- the post-read challenge, verified as far as a bundle-only reader can -
+    #
+    # WHAT THIS IS FOR. The challenge is a nonce minted AFTER the sealed
+    # objects came off the wire, and the record answers it. A ruling authored
+    # in advance could not have contained a commitment to a value that did not
+    # exist when it was written.
+    #
+    # WHAT IS CHECKED HERE, AND IT IS NARROWER THAN THE BLOCK LOOKS. The
+    # `instance_set_digest` is RECOMPUTED from `instance_ids`, and it is locked
+    # against the record's own copy of that digest - `inspect.attach_challenge`
+    # refuses to bind a challenge minted over a different set, and this is that
+    # refusal arriving at the read path. Together they refuse a challenge
+    # lifted off some other read and pasted onto this ruling.
+    #
+    # WHAT IS DELIBERATELY NOT CHECKED, AND WHY SAYING SO IS THE POINT.
+    # `response_digest`, `nonce_digest` and `minted_at` are RECORDED AND NOT
+    # VERIFIED. The response covers the RAW NONCE, and the nonce is never
+    # published - publishing it would let anyone holding the bundle answer the
+    # same challenge. So no reader holding only these bytes can recompute it,
+    # and this function does not pretend to. A comparison written here could
+    # only ever compare something to itself, which is a check that measures
+    # nothing - the defect this repository has recorded seventeen times. The
+    # residual is printed under every report by `adjudication_guarantee()`
+    # instead, in the words an independent reviewer settled on: what the block
+    # records is that a challenge was minted and answered inside the run, and
+    # an offline reader can confirm it covers THIS instance set and nothing
+    # further.
+    challenge = block.get(RECORD_CHALLENGE_KEY)
+    if not isinstance(challenge, dict):
+        if sealed:
+            defects.append(Defect(
+                "E_ADJUDICATION_MISSING",
+                "adjudication.%s" % RECORD_CHALLENGE_KEY,
+                "this run declares itself the held-out measurement and its "
+                "adjudication carries no post-read challenge, so nothing in "
+                "the record ties the ruling to the read it is supposed to "
+                "have followed."))
+    else:
+        want_set = challenge.get("instance_set_digest")
+        try:
+            got_set = instance_set_digest(declared)
+        except Exception as exc:                              # noqa: BLE001
+            got_set = "UNCOMPUTABLE(%s)" % exc
+        if want_set != got_set:
+            defects.append(Defect(
+                "E_ADJUDICATION_CHALLENGE_MISMATCH",
+                "adjudication.%s.instance_set_digest" % RECORD_CHALLENGE_KEY,
+                "the challenge was answered over instance set %r and the "
+                "instance_ids in this record digest to %r. A challenge over "
+                "some other set is a challenge from some other read."
+                % (want_set, got_set)))
+        if want_set != block.get("instance_set_digest"):
+            defects.append(Defect(
+                "E_ADJUDICATION_CHALLENGE_MISMATCH",
+                "adjudication.%s.instance_set_digest" % RECORD_CHALLENGE_KEY,
+                "the challenge covers %r and the record was signed over %r. "
+                "The binding step refuses this at write time; a published "
+                "bundle carrying it did not come from that step."
+                % (want_set, block.get("instance_set_digest"))))
+        # THE BINDING TEXT IS A CONSTANT, AND IT IS DERIVED HERE RATHER THAN
+        # RETYPED. `attach_challenge` writes the same sentence into every
+        # record - it is the only string that module adds, deliberately, so it
+        # is not a place a sentence about a sealed fixture can sit. A record
+        # whose binding text differs did not come out of that function.
+        #
+        # WHY IT IS OBTAINED BY CALLING THE FUNCTION. The value is an inline
+        # literal in `attach_challenge` with no name of its own, so the only
+        # ways to have it here are to copy it or to ask for it. A copy is a
+        # second source of truth for a published string, and ruling 46 says a
+        # frozen value has exactly one owner. This asks.
+        want_binding = _binding_text()
+        if want_binding is not None and challenge.get("binding") != want_binding:
+            defects.append(Defect(
+                "E_ADJUDICATION_CHALLENGE_MISMATCH",
+                "adjudication.%s.binding" % RECORD_CHALLENGE_KEY,
+                "the binding names a construction this reader does not know: "
+                "%r. Every record the binding step writes carries the same "
+                "sentence, so a different one describes a different mechanism "
+                "than the one verified above." % (challenge.get("binding"),)))
+
+        # THREE DISTINCT DIGESTS, AND A PRODUCER THAT FILLED THE FIELDS BY
+        # COPYING IS THE SHAPE THIS CATCHES. The contract already bounds each
+        # to 64 hex characters, so the only remaining degenerate form is one
+        # value appearing under two names - which would make the response look
+        # answerable while committing to nothing new.
+        trio = [challenge.get("instance_set_digest"),
+                challenge.get("nonce_digest"), challenge.get("response_digest")]
+        if len({str(v) for v in trio}) != 3:
+            defects.append(Defect(
+                "E_ADJUDICATION_CHALLENGE_MISMATCH",
+                "adjudication.%s" % RECORD_CHALLENGE_KEY,
+                "the instance-set, nonce and response digests are not three "
+                "distinct values (%s). Each commits to something different by "
+                "construction, so a repeat is a field filled by copying."
+                % ", ".join(repr(v) for v in trio)))
 
     # -- every count, derived from the decisions ------------------------------
     decisions = block.get("decisions") or {}
@@ -3334,6 +3570,59 @@ def argument_surface_guarantee():
           _digit_bits(TOOL_ARG_DIGIT_BUDGET))
 
 
+def adjudication_guarantee():
+    """WHAT THE ADJUDICATION BLOCK ACTUALLY GUARANTEES TO A BUNDLE-ONLY READER.
+
+    PRINTED BY `render()` ON EVERY RUN, for the reason
+    `argument_surface_guarantee` gives at length and does not need repeating: a
+    narrowed channel described as closed is worse than an open one described
+    accurately, and a residual that lives in a source comment is read only by
+    the people editing the source.
+
+    Two things are commonly over-read off this block, and an independent
+    reviewer named both on 2026-08-30. `adjudicated_by` gets read as a
+    signature; it is a typed name. The post-read challenge gets read as proof
+    that the ruling came after the read; what it records is that a challenge was
+    minted and answered inside the run, and all an offline reader can confirm is
+    that it covers THIS instance set. The ordering rests on the live gate rather
+    than on the artifact. Operationally closed, evidentially open.
+    """
+    return "\n".join((
+        "  WHAT THE ADJUDICATION BLOCK GUARANTEES",
+        "",
+        "  CHECKED - recomputed here from the bundle alone:",
+        "    * both digests over the instance set and the decisions",
+        "    * the ruled set, the declared set and the driven set are one set",
+        "    * every published count, derived again from the decisions",
+        "    * no adjudicated instance is missing from either arm, and none is",
+        "      also removed by an exclusion row",
+        "    * the post-read challenge covers the instance set this record was",
+        "      signed over, and its binding names the construction this reader",
+        "      verified",
+        "",
+        "  NOT AUTHENTICATED - a name, not a signature:",
+        "    * `adjudicated_by` is NAMED ATTRIBUTION. Nothing in this bundle",
+        "      binds it to a person or a key, and anyone able to edit the JSON",
+        "      can type any name into it. What is checked is the one thing",
+        "      these bytes can answer: that the name is not a COMPONENT of",
+        "      this system ruling on its own fixtures.",
+        "",
+        "  OPEN - stated, not closed, and not narrowed:",
+        "    * `response_digest`, `nonce_digest` and `minted_at` are",
+        "      RECORDED AND NOT VERIFIED HERE. The response commits to a raw",
+        "      nonce this bundle deliberately never publishes - publishing it",
+        "      would let anyone holding these bytes answer the same challenge -",
+        "      so only the process holding that nonce can recompute it, and",
+        "      that process is the in-process gate rather than a third party.",
+        "    * WHEN THE NONCE WAS MINTED. What this block records is that a",
+        "      post-read challenge was minted and answered inside the run; an",
+        "      offline reader can confirm it covers THIS instance set and",
+        "      nothing further. The ordering is enforced by the live gate and",
+        "      is not shown by the artifact.",
+        "      Operationally closed, evidentially open.",
+    ))
+
+
 def render(report):
     """The table, with the kind of evidence on every row."""
     out = ["TRANSFER EVIDENCE READER", ""]
@@ -3352,6 +3641,11 @@ def render(report):
     # thing they would otherwise have to find in a source comment.
     out.append("")
     out.append(argument_surface_guarantee())
+    # AND THE ADJUDICATION RESIDUAL, ON THE SAME UNCONDITIONAL TERMS. It prints
+    # on a bundle with no adjudication too: a reader who has just seen a clean
+    # table is exactly the reader about to conclude the ordering was proved.
+    out.append("")
+    out.append(adjudication_guarantee())
     return "\n".join(out)
 
 
@@ -3568,6 +3862,11 @@ def synthetic_bundle(instances=DEFAULT_EXPECTED_INSTANCES,
                 "gate": {"implementation": "real"},
             },
             "model_calls": instances * 2,
+            # THE MACHINE AUTHORITY, AND IT IS FALSE HERE. The golden is a
+            # synthetic non-sealed run, so it declares that in the field the
+            # reader branches on rather than leaving the field out and letting
+            # the absence be read as an answer.
+            "sealed_run": False,
         },
         "labels": {
             "k": "single-sample, one repetition, no stability estimate",
@@ -4077,13 +4376,31 @@ def _tkb35(b):
     return b
 
 
+#: The nonce the fixtures' post-read challenge is minted from. INVENTED, LIKE
+#: EVERY OTHER VALUE IN THE GOLDEN, and pinned rather than random so a fixture's
+#: bytes are the same on every build - a fixture that changes shape each run is
+#: one nobody can reason about. It is also the reason a real bundle can never
+#: carry its nonce: the value below is published in this file, and anyone
+#: holding it can answer this challenge. That is exactly what the contract keeps
+#: off a live record.
+_FIXTURE_NONCE = "f1x7ure0nly" + "0" * 53
+_FIXTURE_MINTED_AT = "2026-08-30T00:00:00Z"
+
+
 def _adjudicated(b, decisions=None):
     """A well-formed adjudication over whatever instances this bundle drove.
 
-    Built from the bundle rather than from a constant, so the six fixtures
-    below break exactly one thing each instead of drifting from the episodes
-    they sit beside. Every id is the golden's own invented one.
+    Built from the bundle rather than from a constant, so the fixtures below
+    break exactly one thing each instead of drifting from the episodes they sit
+    beside. Every id is the golden's own invented one.
+
+    THE POST-READ CHALLENGE IS MINTED AND ATTACHED, NEVER HAND-WRITTEN. The
+    contract requires the block, and its `response_digest` is a construction
+    over a nonce - a hand-typed constant here would be a value nothing produced
+    and nothing could reproduce. `inspect.attach_challenge` is the single owner
+    of that construction, so this calls it.
     """
+    from crucible.transfer import inspect as _inspect
     from crucible.transfer.adjudication import (decisions_digest,
                                                 instance_set_digest)
 
@@ -4116,6 +4433,22 @@ def _adjudicated(b, decisions=None):
                    "failing_v1_or_v2": len(v1 | v2)},
         "scoreable_ids": sorted(ok),
     }
+    challenge = _inspect.mint_challenge(
+        ids, minted_at=_FIXTURE_MINTED_AT, nonce_source=lambda: _FIXTURE_NONCE)
+    b["adjudication"] = _inspect.attach_challenge(b["adjudication"], challenge)
+    return b
+
+
+def _seal(b):
+    """Make the bundle declare itself the held-out measurement, BOTH ways.
+
+    Two top-level keys, and both are required now that the machine flag is the
+    authority: setting only the label would trip the disagreement check, and
+    setting only the flag would do the same. The pair is one statement.
+    """
+    b["labels"]["seal_status"] = ("SEALED: the held-out family was read once "
+                                  "under the pre-registration.")
+    b["execution_provenance"]["sealed_run"] = True
     return b
 
 
@@ -4125,24 +4458,33 @@ def _tkb36(b):
     The runner's gate refuses to drive a sealed set without a binding ledger,
     so a bundle arriving like this did not come through the door built for it.
     """
-    # ONE KEY. The structural flag is left ABSENT rather than set to True:
-    # setting it would touch a second top-level key, and with the label already
-    # saying SEALED the two would agree anyway. Absent means "no second
-    # statement", which is what the disagreement check is written to tolerate.
-    b["labels"]["seal_status"] = ("SEALED: the held-out family was read once "
-                                  "under the pre-registration.")
+    # The flag USED to be left absent here, on the reasoning that the label
+    # alone already said SEALED and a second key was avoidable churn. That
+    # stopped being true on 2026-08-30, when `sealed_run` became the single
+    # machine authority: absent no longer means "no second statement", it means
+    # the authority is missing and gets its own defect. The fixture now says
+    # sealed in both places so the ONE thing it damages is the missing ledger.
+    _seal(b)
     b.pop("adjudication", None)
     return b
 
 
 def _tkb37(b):
-    """AN ADJUDICATION SIGNED BY NOBODY.
+    """AN ADJUDICATION RULED ON BY A COMPONENT OF THIS SYSTEM.
 
-    A sealed instance set is not ruled scoreable on the runner's own authority,
-    and an unattributed record is that authority wearing a name field.
+    The value is `runner`, which is a literal member of `_NOT_A_HUMAN`. This
+    is the reviewer's reproduction of 2026-08-30 exactly: a direct mutation to
+    `adjudicated_by: "runner"` that the WRITE path refuses outright and the
+    public reader admitted with `verdict: ACCEPTS` and no codes at all.
+
+    It also replaces what this fixture used to be. It set the field to a single
+    space, which trips the contract's `minLength: 2` as well as the reader's
+    check, so it fired two codes and proved neither. A component name is
+    schema-valid and fails ONLY the human check, which is what makes the
+    fixture isolated and what makes it the known-bad for self-approval.
     """
     b = _adjudicated(b)
-    b["adjudication"]["adjudicated_by"] = " "
+    b["adjudication"]["adjudicated_by"] = "runner"
     return b
 
 
@@ -4203,22 +4545,96 @@ def _tkb41(b):
     denominator. Whatever reason the row gives, the effect is the
     pre-registration's forbidden move 2: excluding the failing instances and
     quoting the rate over the remainder.
+
+    THE VICTIM IS THE INSTANCE THE GOLDEN ALREADY EXCLUDES, and that is what
+    makes this fixture isolated. It used to APPEND a new exclusion row for an
+    instance the bundle still scored, which left the document incoherent in
+    three further places at once - the episode stayed scorable, both censuses
+    still counted it, and the transfer arithmetic was still derived over it -
+    so the fixture fired four codes and proved none of them. The last instance
+    is already INVALID in both arms, already named in the ledger and already
+    counted as excluded by both censuses. Ruling it V1-failing changes ONE key
+    and produces exactly the forbidden shape: a V failure sitting on top of a
+    removal from the denominator.
     """
     from crucible.transfer.adjudication import decisions_digest
 
     b = _adjudicated(b)
     adj = b["adjudication"]
-    victim = adj["instance_ids"][0]
+    victim = adj["instance_ids"][-1]
     adj["decisions"][victim] = {"codes": ["V1_ENTITY_NOT_IN_WORLD"]}
     adj["decisions_digest"] = decisions_digest(adj["decisions"])
     adj["counts"].update(structurally_scoreable=adj["counts"]["structurally_scoreable"] - 1,
                          failing_v1=1, failing_v1_or_v2=1)
     adj["scoreable_ids"] = [i for i in adj["scoreable_ids"] if i != victim]
-    ep = [e for e in b["episodes"] if e["instance_id"] == victim][0]
-    b["exclusions"].append({"instance_id": victim, "arm": ep["arm"],
-                            "episode_id": ep["episode_id"],
-                            "reason": "harness_error",
-                            "detail": "invented, for the fixture"})
+    return b
+
+
+def _tkb42(b):
+    """NO MACHINE STATEMENT OF WHETHER THIS IS THE HELD-OUT MEASUREMENT.
+
+    Until 2026-08-30 an absent flag was tolerated and the reader fell back to
+    whether a 400-character prose field happened to start with the word SEALED.
+    Two independently authored authorities are not preferable to one; the
+    unambiguous shape is one required machine field with the prose derived from
+    it, and an absent one is a producer defect that gets said out loud.
+
+    The field is required by the contract as well, so this single mutation is
+    necessarily visible to two instruments. That is a property of the damage
+    rather than a second defect, and `SCHEMA_COUPLED_FIXTURES` records it so it
+    is stated rather than asserted away.
+    """
+    b["execution_provenance"].pop("sealed_run", None)
+    return b
+
+
+def _tkb43(b):
+    """A SEALED RUN WHOSE RULING ANSWERS NO CHALLENGE.
+
+    The nonce is minted after the sealed objects come off the wire, so a ruling
+    that answers it could not have been authored in advance. A record with no
+    challenge block at all ties the ruling to nothing.
+
+    Schema-coupled for the same reason as TKB42: the contract requires the
+    block, so removing it is one mutation that two instruments both see.
+    """
+    b = _adjudicated(_seal(b))
+    b["adjudication"].pop("post_read_challenge", None)
+    return b
+
+
+def _tkb44(b):
+    """A CHALLENGE ANSWERED OVER SOME OTHER INSTANCE SET.
+
+    The digest is bent by one character, which is enough that it is neither the
+    value `instance_ids` recomputes to nor the value the record itself was
+    signed over. `inspect.attach_challenge` refuses this at write time; this is
+    that refusal arriving at the read path, which is where a third party runs.
+
+    Schema-clean on purpose - it is still sixty-four lowercase hex characters -
+    so the only thing it can fire is the check it names.
+    """
+    b = _adjudicated(b)
+    challenge = b["adjudication"]["post_read_challenge"]
+    d = challenge["instance_set_digest"]
+    challenge["instance_set_digest"] = ("b" if d[0] != "b" else "c") + d[1:]
+    return b
+
+
+def _tkb45(b):
+    """A BINDING NAMING A CONSTRUCTION NOBODY BUILT.
+
+    `attach_challenge` writes one sentence into every record it produces - the
+    only string that module adds, deliberately, so it is not a place a sentence
+    about a sealed fixture can sit. A record carrying a different one describes
+    a different mechanism than the one the checks above verified, and it did
+    not come out of the binding step.
+
+    Schema-clean: still a string between eight and two hundred characters.
+    """
+    b = _adjudicated(b)
+    b["adjudication"]["post_read_challenge"]["binding"] = (
+        "sha256 over the decisions, and nothing else")
     return b
 
 
@@ -4297,8 +4713,8 @@ FIXTURES = (
     # has seen work.
     ("TKB36", "a sealed run carrying no adjudication at all",
      "E_ADJUDICATION_MISSING", STRUCTURAL, _tkb36),
-    ("TKB37", "an adjudication signed by nobody",
-     "E_ADJUDICATION_UNSIGNED", STRUCTURAL, _tkb37),
+    ("TKB37", "an adjudication ruled on by a component of this system",
+     "E_ADJUDICATION_UNATTRIBUTED", STRUCTURAL, _tkb37),
     ("TKB38", "decisions over a smaller set, digests and counts recomputed to match",
      "E_ADJUDICATION_SET_MISMATCH", STRUCTURAL, _tkb38),
     ("TKB39", "a ruling edited after the decisions were signed",
@@ -4307,9 +4723,34 @@ FIXTURES = (
      "E_ADJUDICATION_COUNTS_DISAGREE", STRUCTURAL, _tkb40),
     ("TKB41", "a V-failing instance also removed by an exclusion row",
      "E_ADJUDICATION_INSTANCE_DROPPED", STRUCTURAL, _tkb41),
+    # THE THREE ADDED 2026-08-30, each for a check that did not exist before
+    # that date and would otherwise have shipped never having been seen to
+    # fire.
+    ("TKB42", "no machine statement of whether this is the held-out run",
+     "E_ADJUDICATION_MISSING", STRUCTURAL, _tkb42),
+    ("TKB43", "a sealed run whose ruling answers no post-read challenge",
+     "E_ADJUDICATION_MISSING", STRUCTURAL, _tkb43),
+    ("TKB44", "a post-read challenge answered over some other instance set",
+     "E_ADJUDICATION_CHALLENGE_MISMATCH", STRUCTURAL, _tkb44),
+    ("TKB45", "a challenge binding naming a construction nobody built",
+     "E_ADJUDICATION_CHALLENGE_MISMATCH", STRUCTURAL, _tkb45),
 )
 
 KNOWN_BAD_IDS = tuple(f[0] for f in FIXTURES)
+
+#: Fixtures whose single mutation REMOVES A FIELD THE CONTRACT REQUIRES, so the
+#: schema necessarily reports it as well as the reader.
+#:
+#: THIS IS A RECORD, NOT AN EXEMPTION. The isolation census below still requires
+#: each of these to fire exactly ONE reader code; what it tolerates for these and
+#: only these is `E_TRANSFER_SCHEMA` beside it, because there is no way to delete
+#: a required field without the contract noticing - and the reader's own check
+#: exists precisely for the bundle that reached the reader WITHOUT validating.
+#: Each entry carries the reason it cannot be schema-clean.
+SCHEMA_COUPLED_FIXTURES = {
+    "TKB42": "execution_provenance.sealed_run is required by the contract",
+    "TKB43": "adjudication.post_read_challenge is required by the contract",
+}
 
 CONTROLS = (
     ("TKB0", "none - the clean synthetic bundle", control_clean),
@@ -4372,12 +4813,63 @@ def run_suite():
             "got": record["verdict"],
             "codes": record["codes"],
             "passed": bool(fired and classed),
+            # ISOLATION, REPORTED ON EVERY ROW. `passed` above asks only
+            # whether the named code appears AMONG the emitted ones, and a
+            # fixture that trips three codes proves none of them - the reader
+            # could be firing the other two for reasons that have nothing to
+            # do with the damage. Carried as a field rather than folded into
+            # `passed` because two of these are non-isolated for a stated
+            # structural reason and the rest predate the census.
+            "isolated": set(record["codes"]) == {code},
+            "extra_codes": sorted(set(record["codes"]) - {code}),
+            "schema_coupled": SCHEMA_COUPLED_FIXTURES.get(fid),
             "note": ("" if fired and classed else
                      ("the code did not fire" if not fired else
                       "the code fired but was filed under the wrong ruling 60 "
                       "class, so it would get the wrong exit code")),
         })
     return results
+
+
+def isolation_census(results=None):
+    """PER FIXTURE: is the emitted code set exactly the one code it names?
+
+    WHY THIS IS A SEPARATE READING OF THE SAME RUN. `run_suite` asks whether
+    the named code is AMONG the codes that fired. An independent reviewer
+    measured the adjudication six on 2026-08-30 and found two of them firing
+    two and four codes respectively; both passed. A fixture that trips four
+    codes is evidence about none of them, because nothing in the run says which
+    one the damage caused.
+
+    NON-ISOLATED FIXTURES OUTSIDE THE ADJUDICATION SET ARE REPORTED AND NOT
+    REPAIRED, and that is deliberate. Several of them are non-isolated for the
+    same legitimate reason TKB21 and TKB28 change more than one key: the damage
+    IS an interaction. Rewriting them to satisfy a census written afterwards
+    would be changing the evidence to fit the instrument. They are named here
+    every run instead, so the fact is visible rather than asserted away.
+
+    Returns `(isolated, non_isolated)`, each a list of result rows.
+    """
+    results = run_suite() if results is None else results
+    rows = [r for r in results if r["id"] in KNOWN_BAD_IDS]
+    return ([r for r in rows if r["isolated"]],
+            [r for r in rows if not r["isolated"]])
+
+
+def render_isolation_census(results=None):
+    results = run_suite() if results is None else results
+    isolated, other = isolation_census(results)
+    out = ["ISOLATION CENSUS - %d of %d fixture(s) emit exactly the code they "
+           "name" % (len(isolated), len(isolated) + len(other)), ""]
+    for r in other:
+        reason = r["schema_coupled"]
+        out.append("  %-6s NOT ISOLATED  also fired: %s"
+                   % (r["id"], ", ".join(r["extra_codes"]) or "nothing"))
+        if reason:
+            out.append("           schema-coupled by construction: %s" % reason)
+    if not other:
+        out.append("  every fixture emits exactly one code")
+    return "\n".join(out)
 
 
 def suite_ok(results=None):
@@ -4401,6 +4893,8 @@ def render_suite(results=None):
                % (len(results), len(bad), (": " + ", ".join(bad)) if bad else ""))
     out.append("")
     out.append("  " + UNCOVERED_CODES_NOTE)
+    out.append("")
+    out.append(render_isolation_census(results))
     return "\n".join(out)
 
 

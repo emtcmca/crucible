@@ -484,14 +484,23 @@ def test_every_fixture_changes_one_thing_and_says_when_it_changes_more():
     # the value under test. Every one of the four is required for the document
     # to be internally consistent everywhere except the pairing.
     #
-    # TKB41 moves two because the defect IS the interaction: a V-failing
-    # instance that also appears in exclusions[]. One key cannot express it -
-    # the adjudication has to record the failure and the exclusions row has to
-    # do the removing, and it is the pair that constitutes the
-    # pre-registration's forbidden move 2. Every other adjudication fixture
-    # moves exactly one.
+    # TKB41 USED TO MOVE TWO and now moves one. It appended a fresh exclusion
+    # row for an instance the bundle still scored, which is three further
+    # incoherences at once, and it fired four codes. It now rules the instance
+    # the golden ALREADY excludes, so the removal from the denominator is
+    # already in the document and the adjudication is the only thing that
+    # changes.
+    #
+    # TKB36 moves two because `sealed_run` became the single machine authority
+    # on 2026-08-30. Saying SEALED in the label alone now means the machine
+    # statement is missing, which is its own defect; the pair is one statement
+    # about the run and the fixture damages neither half.
+    #
+    # TKB43 moves three for the same reason plus its own: the run has to
+    # declare itself sealed (two keys) before an absent post-read challenge is
+    # a defect at all, and the adjudication is the key it damages.
     multi = {"TKB4": 3, "TKB13": 4, "TKB20": 2, "TKB21": 3, "TKB28": 4,
-             "TKB41": 2}
+             "TKB36": 2, "TKB43": 3}
     for fid, _, _, _, _ in TR.FIXTURES:
         damaged = TR.build(fid)
         changed = {k for k in set(golden) | set(damaged)
@@ -2548,3 +2557,347 @@ def test_the_guarantee_is_a_check_that_can_fail(monkeypatch):
     monkeypatch.setattr(TR, "TOOL_ARG_DIGIT_BUDGET", 4242)
     assert "4242" in TR.argument_surface_guarantee()
     assert "2151" not in TR.argument_surface_guarantee()
+
+
+# ==========================================================================
+# THE ADJUDICATION BLOCK, AND THE FOUR THINGS AN INDEPENDENT REVIEWER FOUND
+# WRONG WITH IT ON 2026-08-30.
+#
+#   F3  the public reader ACCEPTED a bundle claiming the system approved
+#       itself, while the runtime path refused to write one
+#   F5  two authorities said whether the run was sealed, and the reader
+#       tolerated the machine one being absent and read the prose instead
+#   F4  the post-read challenge was published and never verified, and the
+#       prose around it claimed more than any offline reader can show
+#   F7  two of the six adjudication fixtures fired more than one code, so
+#       they were evidence about none of them
+#
+# Every test below either reproduces the reviewer's mutation or proves the
+# new check can fail. A check nobody has watched fail is this repository's
+# signature defect, recorded seventeen times.
+# ==========================================================================
+
+def _sealed_bundle(with_adjudication=True):
+    """A bundle that declares itself the held-out measurement, both ways."""
+    bundle = TR._seal(TR.control_clean())
+    return TR._adjudicated(bundle) if with_adjudication else bundle
+
+
+# -- F3: the reader must refuse what the writer refuses ----------------------
+
+def test_the_reviewers_self_approval_mutation_is_refused():
+    """THE EXACT REPRODUCTION. `adjudicated_by: "runner"`, verdict ACCEPTS,
+    codes []. That is what the public reader returned before 2026-08-30."""
+    bundle = _sealed_bundle()
+    bundle["adjudication"]["adjudicated_by"] = "runner"
+    record = _accepts(bundle)
+    assert record["verdict"] == V.REJECTS
+    assert "E_ADJUDICATION_UNATTRIBUTED" in record["codes"], (
+        "the runtime refuses this value outright and the PUBLIC verifier "
+        "admitted it. The public one is what a third party runs.")
+
+
+@pytest.mark.parametrize("who", ["runner", "Runner", "RUNNER", "target agent",
+                                 "target-agent", "crucible sealed eval",
+                                 "adjudicator", "coroner"])
+def test_a_component_name_is_refused_however_it_is_spelled(who):
+    """`_clean_human` lowercases and folds spaces and hyphens to underscores
+    before it looks the name up. A reader that matched the raw string would let
+    "Runner" and "target-agent" walk straight past a set written in one form."""
+    bundle = _sealed_bundle()
+    bundle["adjudication"]["adjudicated_by"] = who
+    assert "E_ADJUDICATION_UNATTRIBUTED" in _accepts(bundle)["codes"], who
+
+
+def test_the_refusal_set_is_the_one_the_write_path_uses_and_not_a_copy():
+    """A SECOND HAND-MAINTAINED LIST IS A SECOND SOURCE OF TRUTH, and the
+    failure mode is that one list learns a new component and the other does
+    not. This walks EVERY name the write path refuses through the read path."""
+    from crucible.transfer.adjudication import _NOT_A_HUMAN
+
+    assert len(_NOT_A_HUMAN) >= 10, "the set arrived empty or truncated"
+    for who in sorted(_NOT_A_HUMAN):
+        bundle = _sealed_bundle()
+        bundle["adjudication"]["adjudicated_by"] = who
+        assert "E_ADJUDICATION_UNATTRIBUTED" in _accepts(bundle)["codes"], (
+            "%r is refused by adjudication._clean_human and admitted by the "
+            "reader, so the two have diverged" % who)
+
+
+def test_the_write_path_refuses_exactly_what_the_read_path_refuses():
+    """The other direction, on the same names: `build_adjudication` must raise
+    on every one of them. If it ever stops, the reader is refusing something
+    the producer can legitimately emit."""
+    from crucible.transfer.adjudication import (AdjudicationError, _NOT_A_HUMAN,
+                                                build_adjudication)
+
+    for who in sorted(_NOT_A_HUMAN):
+        with pytest.raises(AdjudicationError):
+            build_adjudication(adjudicated_by=who, adjudicated_on="2026-08-30",
+                               instance_ids=["atk_0000000000aa"],
+                               decisions={"atk_0000000000aa":
+                                          {"codes": ["V_SCOREABLE"]}})
+
+
+def test_a_real_persons_name_is_not_refused():
+    """THE OVER-BLOCKING CONTROL, and this repository's most transferable
+    finding is that a rule which over-blocks passes every gate. A reader that
+    refused every name would satisfy every test above and be useless."""
+    bundle = _sealed_bundle()
+    bundle["adjudication"]["adjudicated_by"] = "An Invented Adjudicator"
+    assert _accepts(bundle)["verdict"] == V.ACCEPTS, TR.render(
+        TR.verify_transfer_bundle(bundle))
+
+
+def test_the_reader_says_the_name_is_attribution_and_not_a_signature():
+    """Codex called the overclaim out by name. The field is a typed string;
+    nothing binds it to a person, and the published report has to say so."""
+    text = TR.adjudication_guarantee()
+    assert "NAMED ATTRIBUTION" in text
+    assert "NOT AUTHENTICATED" in text
+    assert "can type any name into it" in text
+
+
+# -- F5: one machine authority, and the prose is not it ----------------------
+
+def test_an_absent_sealed_run_flag_is_a_defect_in_its_own_right():
+    """The reader will not take a security-relevant branch on the prefix of a
+    400-character sentence, and it says so rather than falling back quietly."""
+    bundle = TR.control_clean()
+    bundle["execution_provenance"].pop("sealed_run")
+    record = _accepts(bundle)
+    assert "E_ADJUDICATION_MISSING" in record["codes"]
+    named = [d for d in TR.verify_transfer_bundle(bundle).defects
+             if d.where == "execution_provenance.sealed_run"]
+    assert named, "the defect must name the field that is missing"
+
+
+def test_with_the_flag_absent_the_reader_fails_toward_more_checking():
+    """FAIL TOWARD MORE CHECKING, NEVER LESS. With no machine authority the
+    prose still decides ONE thing - whether an adjudication is demanded - and
+    reading it as not-sealed would silently drop that demand on the one bundle
+    that failed to declare itself."""
+    bundle = TR.control_clean()
+    bundle["labels"]["seal_status"] = "SEALED: read once under the pre-reg."
+    bundle["execution_provenance"].pop("sealed_run")
+    bundle.pop("adjudication", None)
+    paths = {d.where for d in TR.verify_transfer_bundle(bundle).defects}
+    assert "adjudication" in paths, (
+        "the adjudication requirement was dropped for a bundle carrying no "
+        "machine flag, which is the direction that loses a check")
+    assert "execution_provenance.sealed_run" in paths
+
+
+def test_the_flag_decides_and_the_prose_does_not():
+    """PRESENT MEANS IT DECIDES. A bundle whose flag says false carries no
+    adjudication requirement even if a sentence somewhere says SEALED - and
+    the disagreement is reported, which is what makes that safe."""
+    bundle = TR.control_clean()
+    bundle["labels"]["seal_status"] = "SEALED: read once under the pre-reg."
+    bundle["execution_provenance"]["sealed_run"] = False
+    bundle.pop("adjudication", None)
+    paths = {d.where for d in TR.verify_transfer_bundle(bundle).defects}
+    assert "execution_provenance.sealed_run" in paths, (
+        "the two statements disagree and the reader must refuse rather than "
+        "resolve - picking a winner is how the wrong one wins")
+    assert "adjudication" not in paths
+
+
+def test_the_disagreement_check_still_fires_in_both_directions():
+    for flag, label in ((True, None), (False, "SEALED: read once.")):
+        bundle = TR.control_clean()
+        bundle["execution_provenance"]["sealed_run"] = flag
+        if label is None:
+            bundle["labels"].pop("seal_status", None)
+        else:
+            bundle["labels"]["seal_status"] = label
+        record = _accepts(bundle)
+        assert "E_ADJUDICATION_MISSING" in record["codes"], (flag, label)
+
+
+# -- F4: the challenge, verified as far as the bundle allows -----------------
+
+def test_a_sealed_run_whose_ruling_answers_no_challenge_is_refused():
+    bundle = _sealed_bundle()
+    bundle["adjudication"].pop("post_read_challenge")
+    defects = TR.verify_transfer_bundle(bundle).defects
+    assert any(d.where == "adjudication.post_read_challenge"
+               and d.code == "E_ADJUDICATION_MISSING" for d in defects)
+
+
+def test_a_challenge_minted_over_another_set_is_caught_from_the_bundle_alone():
+    """THE ONE THING THIS BUYS, AND IT IS REAL. The challenge's instance-set
+    digest recomputes from `instance_ids`, so a challenge lifted off some other
+    read and pasted onto this ruling is caught by a reader holding only these
+    bytes."""
+    bundle = _sealed_bundle()
+    bundle["adjudication"]["post_read_challenge"]["instance_set_digest"] = "a" * 64
+    assert "E_ADJUDICATION_CHALLENGE_MISMATCH" in _accepts(bundle)["codes"]
+
+
+def test_the_challenge_is_locked_to_the_set_the_record_was_signed_over():
+    """`inspect.attach_challenge` refuses to bind a challenge minted over a
+    different set. This is that refusal arriving at the read path."""
+    from crucible.transfer import inspect as TI
+
+    bundle = _sealed_bundle()
+    adj = bundle["adjudication"]
+    other = list(adj["instance_ids"])[:-1]
+    challenge = TI.mint_challenge(other, minted_at="2026-08-30T00:00:00Z",
+                                  nonce_source=lambda: "z" * 64)
+    adj["post_read_challenge"]["instance_set_digest"] = \
+        challenge.instance_set_digest
+    assert "E_ADJUDICATION_CHALLENGE_MISMATCH" in _accepts(bundle)["codes"]
+
+
+def test_a_binding_naming_another_construction_is_refused():
+    """The binding is a CONSTANT that `attach_challenge` writes into every
+    record. A different one describes a different mechanism than the one the
+    other checks verified."""
+    bundle = _sealed_bundle()
+    bundle["adjudication"]["post_read_challenge"]["binding"] = (
+        "sha256 over the decisions, and nothing else")
+    assert "E_ADJUDICATION_CHALLENGE_MISMATCH" in _accepts(bundle)["codes"]
+
+
+def test_the_expected_binding_text_is_asked_for_and_not_transcribed():
+    """A SECOND COPY OF A PUBLISHED STRING IS A SECOND SOURCE OF TRUTH.
+    `_binding_text` runs the one function that owns the sentence, so the two
+    cannot drift; this asserts they agree today."""
+    from crucible.transfer import inspect as TI
+
+    ids = ["atk_000000000001"]
+    record = {"instance_ids": ids,
+              "instance_set_digest": TI.instance_set_digest(ids),
+              "decisions": {ids[0]: {"codes": ["V_SCOREABLE"]}}}
+    challenge = TI.mint_challenge(ids, minted_at="1970-01-01T00:00:00Z",
+                                  nonce_source=lambda: "0" * 64)
+    bound = TI.attach_challenge(record, challenge)
+    assert TR._binding_text() == bound[TI.RECORD_CHALLENGE_KEY]["binding"]
+
+
+def test_a_challenge_whose_digests_were_filled_by_copying_is_refused():
+    """Three values that commit to three different things by construction. A
+    repeat is a field filled in rather than computed."""
+    bundle = _sealed_bundle()
+    challenge = bundle["adjudication"]["post_read_challenge"]
+    challenge["response_digest"] = challenge["nonce_digest"]
+    assert "E_ADJUDICATION_CHALLENGE_MISMATCH" in _accepts(bundle)["codes"]
+
+
+def test_a_well_formed_challenge_is_not_flagged():
+    """THE OVER-BLOCKING CONTROL for the challenge checks. Without it, four
+    tests above are satisfied by a reader that refuses every challenge."""
+    bundle = _sealed_bundle()
+    record = _accepts(bundle)
+    assert "E_ADJUDICATION_CHALLENGE_MISMATCH" not in record["codes"], (
+        TR.render(TR.verify_transfer_bundle(bundle)))
+
+
+def test_the_reader_does_not_claim_the_artifact_proves_the_ordering():
+    """CODEX'S PHRASE, AND IT IS THE HONEST ONE: operationally closed,
+    evidentially open. The response digest commits to a raw nonce the bundle
+    never publishes, so no offline reader can recompute it and none can
+    establish when it was minted. The report has to carry that, not the
+    source."""
+    text = TR.render(TR.verify_transfer_bundle(_sealed_bundle()))
+    for required in ("RECORDED AND NOT VERIFIED HERE",
+                     "WHEN THE NONCE WAS MINTED",
+                     "never publishes",
+                     "covers THIS instance set and",
+                     "Operationally closed, evidentially open"):
+        assert required in text, (
+            "the rendered report does not state %r, and a residual that lives "
+            "only in a source comment is read only by the people editing the "
+            "source" % required)
+
+
+def test_the_reader_makes_no_after_the_read_claim_in_its_output():
+    """The prose sweep, asserted rather than remembered. No rendered defect or
+    published reason may say the ARTIFACT shows the ruling followed the read."""
+    bundle = _sealed_bundle(with_adjudication=False)
+    bundle.pop("adjudication", None)
+    text = (TR.render(TR.verify_transfer_bundle(bundle))
+            + TR.adjudication_guarantee()
+            + "\n".join(TR.REASONS.values()))
+    assert "AFTER the read" not in text
+    assert "after the sealed read" not in text
+
+
+# -- F7: isolation, measured rather than assumed -----------------------------
+
+_ADJUDICATION_FIXTURES = ("TKB36", "TKB37", "TKB38", "TKB39", "TKB40", "TKB41",
+                          "TKB42", "TKB43", "TKB44", "TKB45")
+
+
+def test_every_adjudication_fixture_emits_exactly_the_code_it_names():
+    """A FIXTURE THAT TRIPS THREE CODES PROVES NONE OF THEM. Before this,
+    TKB37 fired two and TKB41 fired four, and both were reported as passes
+    because `run_suite` only asked whether the named code was AMONG them."""
+    results = {r["id"]: r for r in TR.run_suite()}
+    for fid in _ADJUDICATION_FIXTURES:
+        row = results[fid]
+        named = row["expect"].split(" / ")[0]
+        tolerated = ({"E_TRANSFER_SCHEMA"}
+                     if fid in TR.SCHEMA_COUPLED_FIXTURES else set())
+        assert set(row["codes"]) <= {named} | tolerated, (
+            "%s emits %s as well; a fixture that trips more than the code it "
+            "names is evidence about none of them" % (fid, row["extra_codes"]))
+        assert named in row["codes"]
+
+
+def test_a_schema_coupled_fixture_is_recorded_with_its_reason():
+    """The two that cannot be schema-clean are NAMED, with why. An unexplained
+    exemption is where a fixture that has quietly stopped isolating hides."""
+    results = {r["id"]: r for r in TR.run_suite()}
+    for fid, reason in TR.SCHEMA_COUPLED_FIXTURES.items():
+        assert fid in TR.KNOWN_BAD_IDS
+        assert "required by the contract" in reason
+        assert "E_TRANSFER_SCHEMA" in results[fid]["codes"], (
+            "%s is recorded as schema-coupled and the contract no longer "
+            "reports it, so the record is stale" % fid)
+
+
+def test_the_isolation_census_reports_the_fixtures_that_are_not_isolated():
+    """NOT AN ASSERTION THAT EVERY FIXTURE IS ISOLATED - it is not, and several
+    are non-isolated for the same legitimate reason TKB21 and TKB28 change more
+    than one key: the damage IS an interaction. They are printed every run so
+    the fact is visible rather than asserted away."""
+    results = TR.run_suite()
+    isolated, other = TR.isolation_census(results)
+    assert isolated, "no fixture isolates at all, which is not credible"
+    text = TR.render_isolation_census(results)
+    for row in other:
+        assert row["id"] in text, row["id"]
+        assert row["extra_codes"], (
+            "%s is filed non-isolated with no extra codes" % row["id"])
+
+
+def test_the_isolation_census_is_a_check_that_can_fail(monkeypatch):
+    """MUTATION CHECK ON THE CENSUS ITSELF. Damage a fixture so it trips a
+    second code and the census must move it out of the isolated set. A census
+    that reported everything isolated whatever happened would be the exact
+    defect it was written to catch."""
+    def _also_breaks_the_census(bundle):
+        bundle = TR._tkb44(bundle)
+        # A SECOND, UNRELATED DEFECT. The count no longer agrees with the
+        # decisions beside it, so the fixture now trips two codes and the
+        # census has to notice.
+        bundle["adjudication"]["counts"]["structurally_scoreable"] += 1
+        return bundle
+
+    patched = tuple((fid, damage, code, cls,
+                     _also_breaks_the_census if fid == "TKB44" else fn)
+                    for fid, damage, code, cls, fn in TR.FIXTURES)
+    monkeypatch.setattr(TR, "FIXTURES", patched)
+    isolated, other = TR.isolation_census()
+    assert "TKB44" in {r["id"] for r in other}, (
+        "the census reported a fixture as isolated while it was firing two "
+        "codes, so it is measuring nothing")
+    assert "TKB44" not in {r["id"] for r in isolated}
+
+
+def test_the_new_code_is_classified_and_carries_a_reason():
+    assert TR.CLASSIFICATION.get("E_ADJUDICATION_CHALLENGE_MISMATCH") == \
+        V.STRUCTURAL
+    assert TR.REASONS.get("E_ADJUDICATION_CHALLENGE_MISMATCH")

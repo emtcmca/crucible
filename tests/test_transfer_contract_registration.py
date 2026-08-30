@@ -490,10 +490,73 @@ def test_the_fixtures_adjudication_re_derives_from_its_own_inputs():
         instance_ids=block["instance_ids"],
         decisions={i: {"codes": list(d["codes"])}
                    for i, d in block["decisions"].items()})
-    assert rebuilt == block, (
+
+    # EVERYTHING EXCEPT THE CHALLENGE, WHICH IS NOT DERIVABLE AND MUST NOT BE.
+    #
+    # `post_read_challenge` is a COMMITMENT, not a derivation. Two of its
+    # digests cover a 256-bit nonce that exists only in the memory of the
+    # process that minted it after the sealed read, so `build_adjudication`
+    # cannot produce it and nothing offline can recompute it. Re-deriving it
+    # here would mean this test had invented a nonce, and a commitment a test
+    # can regenerate is not a commitment.
+    #
+    # Popped from a COPY. Mutating the fixture dict would leave the next test
+    # in the module looking at a block with the field missing, and the failure
+    # would surface as a schema error three tests away from its cause.
+    derivable = {k: v for k, v in block.items() if k != "post_read_challenge"}
+    assert rebuilt == derivable, (
         "the committed adjudication block is not what build_adjudication() "
         "emits for its own inputs. Whichever is right, a digest or a count in "
         "the fixture has been typed rather than derived.")
+
+
+def test_the_fixtures_challenge_covers_the_fixtures_own_instance_set():
+    """The one half of the post-read binding an offline reader CAN check.
+
+    WHAT THIS BLOCK PROVES IS SMALLER THAN IT LOOKS, and the test is written to
+    the smaller claim on purpose. `response_digest` and `nonce_digest` both
+    cover the raw nonce, which is never published - so a third party holding
+    only the bundle cannot recompute either one, and a test pretending to would
+    be checking a value against itself.
+
+    `instance_set_digest` is different: it is a pure function of the ids, so it
+    must agree in THREE places - the challenge block, the record's own field,
+    and a fresh derivation from `instance_ids`. That catches a challenge minted
+    over one set and stapled onto a ruling about another, which is the forgery
+    the binding is actually there to refuse.
+    """
+    from crucible.transfer.adjudication import instance_set_digest
+
+    block = _adjudication()
+    challenge = block["post_read_challenge"]
+    derived = instance_set_digest(block["instance_ids"])
+    assert challenge["instance_set_digest"] == derived, (
+        "the challenge covers a different instance set than the ids it was "
+        "attached to")
+    assert block["instance_set_digest"] == derived, (
+        "the record's own instance_set_digest does not derive from its ids")
+
+
+def test_the_fixtures_challenge_binding_text_is_the_constant_one():
+    """The binding string is FIXED, and that is the whole point of it.
+
+    It is the only free-text-shaped field in a record that describes sealed
+    attack instances, and it is safe precisely because it is identical on every
+    record `attach_challenge` produces. If it can vary, it is a place a
+    sentence about a sealed fixture can sit - which is the property the closed
+    adjudication object exists to deny.
+    """
+    import crucible.transfer.inspect as insp
+
+    block = _adjudication()
+    challenge = insp.mint_challenge(block["instance_ids"],
+                                    minted_at="2026-08-30T00:00:00Z")
+    reference = insp.attach_challenge(
+        {k: v for k, v in block.items() if k != "post_read_challenge"},
+        challenge)[insp.RECORD_CHALLENGE_KEY]
+    assert block["post_read_challenge"]["binding"] == reference["binding"], (
+        "the fixture's binding text is not the constant one this module "
+        "emits, so either the fixture was hand-edited or the constant moved")
 
 
 def test_the_fixtures_adjudication_is_accepted_by_the_loader():

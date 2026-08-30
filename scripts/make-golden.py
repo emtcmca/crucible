@@ -526,6 +526,37 @@ _T_ADJUDICATION = {
         "failing_v1_or_v2": 1,
     },
     "scoreable_ids": [_T_ADJ_IDS[0], _T_ADJ_IDS[1]],
+    # THE POST-READ BINDING. Required by the schema since 2026-08-30.
+    #
+    # In a real run `inspect.mint_challenge` draws 256 bits from `secrets`
+    # AFTER the sealed objects come off the wire, and the record must answer
+    # it - so a decision file written before the read cannot satisfy the gate,
+    # because it would have had to contain a value that did not exist yet.
+    #
+    # THIS FIXTURE'S NONCE IS FIXED AND INVENTED: f*32 + 0*32. A fixture has to
+    # be deterministic, and a fixture's nonce protects nothing.
+    #
+    # Written out like the digests above, for the same stdlib-only reason, and
+    # owned the same way: `tests/test_transfer_contract_registration.py`
+    # recomputes this block with `inspect.attach_challenge` over the fixture's
+    # own ids and decisions and fails if a digit here was typed.
+    #
+    # ONLY `instance_set_digest` IS CHECKABLE BY A THIRD PARTY. The other two
+    # digests cover the raw nonce, which is never published - the binding is
+    # verified inside the process that minted it and nowhere else. That limit
+    # is stated in the schema, in the reader's output and here, and it is not
+    # narrowed in any of the three.
+    "post_read_challenge": {
+        "minted_at": "2026-08-28T00:00:00Z",
+        "instance_set_digest":
+            "6ffeeefc57b828d5c3005f7bb3be1ca546a7fa90dea6487c11d814bbe6d658fb",
+        "nonce_digest":
+            "d93968f996bb9cb2cdab503f7c2b94809b681bff4a38f51ac59663f0e660fa85",
+        "response_digest":
+            "e7ff8552fff60802da008ec3af0d599585358fcd5c9e46032bf9de55d2e7f4c2",
+        "binding": ("sha256 over the post-read nonce, the instance set digest "
+                    "and the decisions digest"),
+    },
 }
 
 F["C11-transfer_evidence.valid.json"] = {
@@ -634,6 +665,17 @@ F["C11-transfer_evidence.valid.json"] = {
             "gate": {"implementation": "real"},
         },
         "model_calls": 0,
+        # FALSE, AND IT HAS TO AGREE WITH THE LABEL BELOW.
+        #
+        # This is the machine-readable statement of whether the bundle is the
+        # held-out measurement, and the reader demands an adjudication on the
+        # strength of it. It became REQUIRED on 2026-08-30 after a review found
+        # it optional and unemitted, which left the reader taking that branch
+        # off the prefix of `labels.seal_status` - a sentence written for a
+        # human. The reader now REFUSES a bundle whose flag and label disagree
+        # rather than picking one, so `false` here and "STAND-IN: ..." there
+        # are one statement in two forms, not two opinions.
+        "sealed_run": False,
         "cost": {"input_tokens": 0, "output_tokens": 0, "wall_clock_ms": 7200,
                  "retries": 0},
     },

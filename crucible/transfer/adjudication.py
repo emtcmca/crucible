@@ -1,4 +1,16 @@
-"""adjudication.py - the human gate on F4 validity, recorded before the unseal.
+"""adjudication.py - the human gate on F4 validity, between the read and the run.
+
+WHEN IT HAPPENS, because the ordering is the claim and it CHANGED. The
+adjudication is recorded AFTER the sealed set is read and BEFORE the first model
+call of the transfer run. It was originally specified the other way - ruled in
+advance, over ids alone - and an adversarial review on 2026-08-29 found that
+position undecidable: both criteria are semantic and both need the fixture in
+front of a human, so a ruling made before the read was a guess recorded as a
+judgement. The whole of `inspect.py` exists to move the ruling after the read
+without giving up what "in advance" was buying, and its post-read nonce is what
+replaces the old ordering argument. Anything in this file still asserting that
+the record is committed before the unseal is stale prose, not a second
+procedure.
 
 Plain English first. `docs/proof/f4-unseal-preregistration-2026-08-25.md` section 2
 fixes two validity criteria before anyone has read the sealed family:
@@ -74,6 +86,7 @@ the union, `failing_v1_or_v2`, and it is reported under that name so it cannot
 be confused with either part.
 """
 
+import copy
 import re
 from dataclasses import dataclass
 
@@ -88,6 +101,18 @@ from ..cartographer.ratify import _NOT_A_HUMAN as _RATIFY_NOT_A_HUMAN
 
 RECORD_KIND = "f4_adjudication"
 CONTRACT_VERSION = 1
+
+#: The post-read binding's key on a record. `inspect.py` MINTS the block and
+#: this module never computes a field of it; what lives here is the key name,
+#: because both modules have to agree on it and two string literals is two
+#: sources of truth. `inspect.RECORD_CHALLENGE_KEY` re-exports this one.
+#:
+#: The block is a COMMITMENT and this module's whole duty toward it is custody:
+#: carry it off an incoming record and re-emit it unchanged. Three of its five
+#: fields are digests a reader of the published bundle recomputes offline, so a
+#: ledger that rebuilt any of them would be answering the challenge on the
+#: runner's own authority while every comparison downstream still passed.
+RECORD_CHALLENGE_KEY = "post_read_challenge"
 
 # The criterion is not restated here in a form code could drift from the
 # document. This is the citation, and the document is the text.
@@ -409,9 +434,13 @@ def decisions_digest(decisions) -> str:
     rulings hash differently.
 
     NOT A SIGNATURE. Anyone who can edit the record can recompute both digests.
-    The protection is that the record is committed BEFORE the unseal, so later
-    divergence is detectable against git - the same arrangement
-    `sealed-family-commitment.json` has.
+    What the digest is worth comes from the record's `post_read_challenge`
+    block, which covers this value: the response could only be computed by a
+    process holding a nonce that did not exist before the sealed read, so a
+    recomputed digest does not survive re-verification against that challenge.
+    (This paragraph used to say the protection was that the record is committed
+    BEFORE the unseal, which was true of the superseded procedure and is not
+    true of this one - see the module docstring.)
     """
     body = [
         {"instance_id": instance_id, "codes": sorted(codes or ())}
@@ -486,6 +515,54 @@ def _clean_human(adjudicated_by):
     return who
 
 
+def _carried_post_read_challenge(record):
+    """The record's post-read binding, taken into custody and never inspected.
+
+    THIS FUNCTION DELIBERATELY VALIDATES ALMOST NOTHING, and the almost is the
+    interesting part. The block is minted by `inspect.py` and verified against a
+    `Challenge` object held in memory; this module computes no field of it and
+    has no way to check one. Reading the digests here and re-deriving them would
+    be the ledger answering the challenge on its own authority, which is the
+    failure the block exists to make impossible. So: carried, not checked.
+
+    Three cases, and the middle one is the ruling:
+
+        ABSENT   accepted, and the ledger carries `None`. The type is used in
+                 non-sealed contexts and by tests that never mint a challenge,
+                 so refusing here would break the type for its other callers and
+                 would put the sealed-run requirement in the wrong module. That
+                 requirement lives at the schema boundary instead:
+                 `contracts/transfer_evidence.schema.json` makes
+                 `post_read_challenge` REQUIRED inside `adjudication`, so a
+                 sealed bundle assembled without one is refused at assembly.
+
+        NULL     REFUSED. `null` is the wrong spelling of absent and it is not a
+                 harmless one: the canonical form this record is hashed through
+                 admits no null at all, so a null here is an un-hashable payload
+                 that looks like good JSON. Absence is how this codebase spells
+                 "not present", and a module that quietly read `null` as absence
+                 would be deciding that "nobody attached one" and "the block was
+                 deleted after signature" are the same event. They are not.
+
+        OBJECT   deep-copied and held. The copy is what makes the frozen
+                 dataclass honest about a mapping field - see the class
+                 docstring - and it severs the alias to the caller's record, so
+                 an edit to that record after loading cannot move what this
+                 ledger publishes.
+    """
+    if RECORD_CHALLENGE_KEY not in record:
+        return None
+    block = record[RECORD_CHALLENGE_KEY]
+    if not isinstance(block, dict):
+        raise AdjudicationError(
+            "E_MALFORMED_POST_READ_CHALLENGE",
+            "%s is %r. The post-read binding is an object, or the key is "
+            "ABSENT - the canonical form this record is hashed through admits "
+            "no null, so a null is an un-hashable payload wearing the shape of "
+            "good JSON" % (RECORD_CHALLENGE_KEY, block))
+    return copy.deepcopy(block)
+
+
 @dataclass(frozen=True)
 class AdjudicationLedger:
     """The adjudicated set, with every count derived and nothing free-text.
@@ -497,6 +574,15 @@ class AdjudicationLedger:
     `decisions` is a tuple of `(instance_id, codes_tuple)` pairs, sorted by id,
     rather than a dict - a frozen dataclass holding a mutable mapping is frozen
     in name only.
+
+    `post_read_challenge` is the one exception to that rule and it is a
+    deliberate one. It is `None` or the record's block, held as a mapping,
+    because the block must come back out in exactly the shape it went in and
+    converting it to pairs and back would be this module rebuilding a value it
+    did not compute. The mutability the tuple rule exists to prevent is closed
+    off a different way instead: `load_adjudication` deep-copies the block on
+    the way in and `to_record` deep-copies it on the way out, so neither the
+    caller's record nor any emitted copy shares a handle with the ledger's.
     """
 
     adjudicated_by: str
@@ -505,6 +591,9 @@ class AdjudicationLedger:
     decisions: tuple
     instance_set_digest: str
     decisions_digest: str
+    #: Defaulted, because a ledger built for a non-sealed context has no
+    #: challenge to carry and every existing caller constructs positionally.
+    post_read_challenge: dict = None
 
     def _as_map(self):
         return {instance_id: codes for instance_id, codes in self.decisions}
@@ -564,14 +653,34 @@ class AdjudicationLedger:
         return counts
 
     def to_record(self):
-        """The serializable record. Committed before the unseal, published after.
+        """The serializable record. Written after the read, published with the run.
+
+        THE ORDERING THIS DESCRIBES CHANGED, so read the sentence rather than
+        remembering it. This record is assembled AFTER the sealed set has been
+        read and BEFORE the first model call of the transfer run. It used to say
+        "committed before the unseal, published after", which was the superseded
+        procedure: the ruling could not honestly be made before the read, and the
+        `post_read_challenge` block below is precisely what took over the job the
+        old ordering was doing. A stale operating instruction on an
+        unrepeatable run is dangerous even where it changes no execution, which
+        is why the correction is stated instead of quietly applied.
 
         Carries no free text of any kind: no notes, no detail, no reason prose.
         `ratify.py` has a record-level `notes` field and this deliberately does
         not, because that record describes tool docstrings and this one describes
-        sealed attack instances.
+        sealed attack instances. The one string the challenge block carries is
+        constant text about the construction, identical on every record.
+
+        `post_read_challenge` is emitted only when there is one, and its ABSENCE
+        is how "no challenge was attached" is spelled. NEVER `null`: the
+        canonical form this record is hashed through admits no null at all, so a
+        null here is an un-hashable payload wearing the shape of good JSON. The
+        bundle schema makes the key REQUIRED inside `adjudication`, so a sealed
+        bundle assembled without one is refused at the schema boundary - which
+        is the right place for that failure, and is why this method does not
+        make the key mandatory for every caller of the type.
         """
-        return {
+        record = {
             "record_kind": RECORD_KIND,
             "contract_version": CONTRACT_VERSION,
             "criterion_source": CRITERION_SOURCE,
@@ -588,6 +697,15 @@ class AdjudicationLedger:
             "counts": self.counts(),
             "scoreable_ids": list(self.scoreable_ids),
         }
+        if self.post_read_challenge is not None:
+            # Deep-copied, not aliased. `to_record()` is called more than once on
+            # the same ledger, and handing out the ledger's own mapping would let
+            # a caller that edited its copy change what the next call emits - a
+            # signed value moving after signature, which is the hole `ratify.py`
+            # shipped with. Copied and NOT rebuilt field by field: every byte
+            # came from the record and none of it is this module's to compute.
+            record[RECORD_CHALLENGE_KEY] = copy.deepcopy(self.post_read_challenge)
+        return record
 
 
 def build_adjudication(*, adjudicated_by, adjudicated_on, instance_ids,
@@ -602,8 +720,13 @@ def build_adjudication(*, adjudicated_by, adjudicated_on, instance_ids,
             `instance_ids` needs one. `note` is accepted and dropped.
         expected_counts: optional cross-check; any disagreement raises.
 
-    Returns the serializable record. Commit it BEFORE the unseal - the digests
-    are only worth something because git can show when they were written.
+    Returns the serializable record. It does NOT carry a post-read binding:
+    this function computes no field of one, and `inspect.attach_challenge` adds
+    the block afterwards from a nonce minted after the sealed read. The
+    superseded instruction here was "commit it BEFORE the unseal - the digests
+    are only worth something because git can show when they were written", and
+    that is no longer the procedure: the ruling is made after the read, and the
+    ordering claim rests on the challenge rather than on a commit timestamp.
 
     Raises `AdjudicationError` on: an unnamed or component adjudicator, an id
     that is not opaque, a missing or unknown-instance decision, a code outside
@@ -728,4 +851,11 @@ def load_adjudication(record, instance_ids, expected_counts=None):
         decisions=tuple((i, clean[i]) for i in ids),
         instance_set_digest=expected_set,
         decisions_digest=signed_decisions,
+        # Carried, not recomputed. Without this the binding was enforced
+        # in-process by `inspect.verify_post_read` and then dropped on the floor
+        # here, because the runner publishes THIS ledger's `to_record()` and not
+        # the record the challenge was attached to. An adversarial review found
+        # it on 2026-08-29: "the published bundle cannot establish that the
+        # adjudication occurred after the read."
+        post_read_challenge=_carried_post_read_challenge(record),
     )

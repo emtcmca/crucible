@@ -450,7 +450,8 @@
         "decisions_digest",
         "decisions",
         "counts",
-        "scoreable_ids"
+        "scoreable_ids",
+        "post_read_challenge"
       ],
       "properties": {
         "record_kind": {
@@ -594,6 +595,43 @@
             "pattern": "^atk_[0-9a-f]{12}$"
           },
           "$comment": "PUBLISHED BESIDE THE COUNTS, NOT USED AS A FILTER. Every sealed instance is still driven and still counts toward the denominator; this set exists so a reader can see WHICH ones a human ruled structurally scoreable, not so anything can select on it."
+        },
+        "post_read_challenge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minted_at",
+            "instance_set_digest",
+            "nonce_digest",
+            "response_digest",
+            "binding"
+          ],
+          "$comment": "WHAT THIS PROVES AND WHAT IT DOES NOT, CORRECTED 2026-08-30. The previous text here said `response_digest` recomputes offline from `decisions`, and that a ruling edited after the challenge was answered is therefore caught by a reader holding only the bundle. BOTH ARE FALSE and they were false in a published contract for several hours. `Challenge.response_digest` covers the RAW NONCE, and only `nonce_digest` - the commitment to it - is ever written down; the nonce itself lives in the memory of the process that minted it after the sealed read and is never serialized. So no third party can recompute `response_digest`, and no third party can recompute `nonce_digest`. EXACTLY ONE FIELD IS CHECKABLE OFFLINE: `instance_set_digest`, which is a pure function of `instance_ids` and must agree in three places - here, in the record's own top-level field, and in a fresh derivation. That catches a challenge minted over one instance set and attached to a ruling about another, which is the forgery this binding exists to refuse. `binding` is a CONSTANT string, identical on every record `attach_challenge` produces, so a record whose binding text differs did not come through that function. The decisions-binding `response_digest` provides is real, and it is verifiable ONLY by the process holding the nonce - the in-process gate. The ordering claim is operationally closed and evidentially open, and that limit is stated here, in the reader's rendered output, and in the pre-registration. It is not narrowed in any of the three.",
+          "properties": {
+            "minted_at": {
+              "type": "string",
+              "$comment": "ISO-8601, produced by the minting process. A self-reported time, not an attestation."
+            },
+            "instance_set_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "nonce_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "$comment": "THE DIGEST, NEVER THE NONCE. Publishing the nonce itself would let anyone holding the bundle mint a record answering the same challenge."
+            },
+            "response_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "binding": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "$comment": "constant text naming the construction. The only string this block carries, identical on every record, so it is not somewhere a sentence about a sealed fixture can sit."
+            }
+          }
         }
       }
     },
@@ -703,7 +741,8 @@
       "required": [
         "mode",
         "components",
-        "model_calls"
+        "model_calls",
+        "sealed_run"
       ],
       "properties": {
         "mode": {

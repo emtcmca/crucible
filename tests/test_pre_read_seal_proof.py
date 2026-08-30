@@ -15,10 +15,47 @@ Two properties matter more than anything the proof reports:
      unattested read by the operator identity marks the run INVALID. A proof
      that reached for the bucket would be the most expensive check available.
 
-Nothing here reads the sealed corpus.
+WHAT "READ" MEANS HERE, BECAUSE THIS MODULE GOT IT WRONG AND SAID SO WRONGLY.
+
+This docstring used to end "Nothing here reads the sealed corpus." That was
+FALSE, and an independent reviewer found it by declining to run the suite: the
+end-to-end test below executes the real proof command, which shells out to
+`seal-commitment.py` and `seal-leak-check.py`, and BOTH of those open and parse
+every sealed JSON file on the local disk. An ordinary `pytest` run therefore
+opened the holdout.
+
+Three different things were being called "a read" and only one of them is the
+one that costs anything:
+
+  BUCKET DATA ACCESS  a granted `storage.objects.get` naming a real object in
+                      gs://crucible-sealed-x7, inside the run's own window.
+                      THIS IS THE ONLY UNIT THE PRE-REGISTRATION DEFINES, at
+                      A3.1 and A3.2 of
+                      docs/proof/f4-unseal-preregistration-2026-08-25.md, and
+                      it is what marks a run INVALID. Not restated here; that
+                      document owns it.
+  LOCAL FINGERPRINTING  a process opens the files, hashes the bytes, and
+                      surfaces nothing. This is how the seal is PROVEN intact.
+                      It is not a violation, and forbidding it would forbid the
+                      proof.
+  A CONTENT READ      sealed text reaching a human's eyes or a model's context.
+                      This is what the single attempt is spent on, and what the
+                      adjudication gate exists to sequence.
+
+The claim "no F4 object has been read" is the first of those and it survives
+untouched. But a test module asserting the second had never happened, while
+performing it on every CI run, is the same defect as a check that passes while
+measuring nothing - it just points outward instead of inward.
+
+SO THE END-TO-END TEST NOW POINTS AT AN INVENTED FIXTURE DIRECTORY via
+`CRUCIBLE_SEALED_DIR`, and a test below asserts it cannot do otherwise. The
+PASSING branch of the proof is exercised by the OPERATOR immediately before the
+read, which is the only place it can honestly be exercised: reproducing it in
+CI would mean reading the holdout on every commit.
 """
 
 import ast
+import os
 import pathlib
 import subprocess
 import sys
@@ -137,20 +174,170 @@ def test_the_proof_publishes_no_fingerprint_value():
                for c in checks), "the proof does not say where the value lives"
 
 
+#: A sealed set that is not the sealed set. Every filename and every value is
+#: INVENTED. Only the SHAPE is borrowed: `seal-commitment.py` hashes filenames
+#: plus bytes and reads `capability_classes`, and `seal-leak-check.py` derives
+#: its signal vocabulary from the file stems.
+_FIXTURE_INSTANCES = {
+    "f9-01-zzqx-vunlo-brimmage.json": {
+        "instance_id": "atk_ffffffff0001",
+        "capability_classes": ["CAP_MOVES_MONEY"],
+        "turns": ["an invented turn", "an invented instruction"],
+    },
+    "f9-02-zzqx-praddle-yoxen.json": {
+        "instance_id": "atk_ffffffff0002",
+        "capability_classes": ["CAP_EXTERNAL_COMMS"],
+        "turns": ["another invented turn", "another invented instruction"],
+    },
+}
+
+
+def _stand_in_sealed_dir(tmp_path):
+    """Write the invented set and hand back its directory."""
+    import json
+    d = tmp_path / "not-the-sealed-set"
+    d.mkdir()
+    for name, doc in _FIXTURE_INSTANCES.items():
+        (d / name).write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    return d
+
+
 @pytest.mark.skipif(not SCRIPT.is_file(), reason="script missing")
-def test_the_script_runs_end_to_end_and_returns_a_real_exit_code():
-    """Assert the postcondition, not the log line.
+def test_the_script_runs_end_to_end_and_returns_a_real_exit_code(tmp_path):
+    """Assert the postcondition, not the log line - over an INVENTED set.
 
     Exit 0 with a healthy-looking print is a known failure shape here. This
     runs the real script and requires the exit code to AGREE with the verdict
-    it printed - a proof that says FAIL and exits 0 would be read by any
-    scheduler as a pass.
+    it printed: a proof that says FAIL and exits 0 is read by any scheduler as
+    a pass.
+
+    IT POINTS AT A FIXTURE, AND THAT IS THE POINT. This test used to run the
+    proof against whatever `seal-commitment.py` resolved on its own, which on
+    the build machine is the SEAL worktree - so an ordinary `pytest` run opened
+    and parsed all twenty-four held-out instances. Nothing was published and no
+    bucket was touched, but a suite that reaches for the holdout is a suite an
+    outside reviewer is right to decline to run, and one did.
+
+    Against an invented set the fingerprint cannot match the published
+    commitment, so the verdict here is FAIL. That is the branch worth pinning:
+    agreement between what the proof SAYS and what it RETURNS is what a
+    scheduler acts on, and it is only interesting when the two could disagree.
     """
+    env = dict(os.environ)
+    env["CRUCIBLE_SEALED_DIR"] = str(_stand_in_sealed_dir(tmp_path))
     proc = subprocess.run([sys.executable, str(SCRIPT)], cwd=str(ROOT),
-                          capture_output=True, text=True, timeout=900)
+                          capture_output=True, text=True, timeout=900, env=env)
     out = proc.stdout or ""
     assert "VERDICT" in out, out[-400:]
     said_pass = "VERDICT  PASS" in out
     assert (proc.returncode == 0) == said_pass, (
         "the exit code and the printed verdict disagree: rc=%d, printed %s"
         % (proc.returncode, "PASS" if said_pass else "FAIL"))
+    # AND THE COMMITMENT CHECK MUST HAVE DISAGREED, which is the assertion
+    # that actually discriminates.
+    #
+    # `assert not said_pass` was the first attempt and it was worthless: the
+    # working tree is dirty in any live session, so the verdict is FAIL whether
+    # or not the override was honoured, and the assertion passes either way.
+    # That is a check that passes while measuring nothing, written INTO the
+    # test for a fix whose whole subject is checks that pass while measuring
+    # nothing.
+    #
+    # The fingerprint recomputed over an invented set CANNOT equal the
+    # published commitment. If this said AGREED, the override was ignored and
+    # the real holdout was hashed - which is precisely the defect being
+    # removed, and it is now the thing that fails.
+    assert "DISAGREED" in out, (
+        "the commitment check did not disagree over an invented sealed set. "
+        "CRUCIBLE_SEALED_DIR was ignored and the real holdout was read.\n"
+        + out[-800:])
+    assert not said_pass, out[-400:]
+
+
+@pytest.mark.skipif(not SCRIPT.is_file(), reason="script missing")
+def test_no_test_in_this_module_runs_the_proof_without_an_override():
+    """The guard on the guard, read from this file's own source.
+
+    The defect was never that the end-to-end test should not exist. It was that
+    reaching the holdout was the DEFAULT and nothing said so. A future edit
+    adding a second subprocess call, or dropping the `env=` kwarg from this
+    one, restores the defect silently and no assertion in the module notices.
+
+    So: every `subprocess.run` in this file that launches SCRIPT must pass an
+    explicit `env`. Checked over the AST rather than by string search, because
+    a comment mentioning `env=` satisfies a grep.
+    """
+    tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+    checked = 0
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+        if name != "run" or "SCRIPT" not in ast.dump(node):
+            continue
+        checked += 1
+        assert any(kw.arg == "env" for kw in node.keywords), (
+            "a subprocess.run launching the proof does not pass env=, so it "
+            "inherits CRUCIBLE_SEALED_DIR from whatever shell ran pytest and "
+            "falls back to the real holdout when that is unset")
+    # THE CENSUS, NOT ONLY THE PREDICATE. A loop over an empty list asserting
+    # nothing is the purest form of a check that passes while measuring
+    # nothing, and this repository has seventeen recorded instances of it.
+    assert checked >= 1, "this test found no proof invocations to check"
+
+
+# ------------------------------- the artifact's own sequential ordering claim --
+#
+# An adversarial review put it exactly: the proof "cannot simultaneously be
+# newly written, committed, current-HEAD-bound, and leave the tree clean."
+# Reading HEAD happens before the file exists; writing it dirties the tree;
+# committing it moves HEAD past the value recorded inside it.
+#
+# The resolution is to stop claiming simultaneity. The artifact claims a
+# SEQUENCE - clean at HEAD X, then this file and nothing else, so the commit
+# carrying it has X as its parent - and `--write` enforces the middle link
+# instead of describing it.
+
+
+def test_only_the_artifact_may_be_dirty_after_it_is_written():
+    """The link that makes the parent-commit claim true rather than hoped."""
+    mod = _module()
+    expected = "docs/proof/pre-read-seal-proof-20260830T000000Z.json"
+    assert mod.stray_dirty_paths("?? " + expected, expected) == []
+
+
+def test_anything_else_dirty_is_reported_by_name():
+    """A second dirty path means the commit carrying the proof carries it too.
+
+    That is the ambiguity the proof exists to remove: a reader looking at the
+    commit can no longer tell which of its contents the clean-tree claim was
+    taken over.
+    """
+    mod = _module()
+    expected = "docs/proof/pre-read-seal-proof-20260830T000000Z.json"
+    porcelain = "\n".join((" M crucible/transfer/reader.py",
+                            "?? " + expected,
+                            "?? docs/diagrams/a-plate.svg"))
+    assert mod.stray_dirty_paths(porcelain, expected) == [
+        "crucible/transfer/reader.py", "docs/diagrams/a-plate.svg"]
+
+
+def test_a_renamed_path_is_read_as_its_destination():
+    """Porcelain renames are `orig -> new`, and `new` is the dirty one.
+
+    Splitting on the arrow was not obvious and getting it wrong fails OPEN:
+    the whole `orig -> new` string never equals the expected path, so the
+    rename would be reported as a stray and the operator would be refused on a
+    real run for a path that is genuinely the artifact.
+    """
+    mod = _module()
+    expected = "docs/proof/pre-read-seal-proof-20260830T000000Z.json"
+    porcelain = "R  docs/proof/old-name.json -> " + expected
+    assert mod.stray_dirty_paths(porcelain, expected) == []
+
+
+def test_a_quoted_path_with_a_space_is_unquoted():
+    """Git quotes paths containing spaces. Left quoted, one would never match."""
+    mod = _module()
+    expected = "docs/proof/a file.json"
+    assert mod.stray_dirty_paths('?? "docs/proof/a file.json"', expected) == []

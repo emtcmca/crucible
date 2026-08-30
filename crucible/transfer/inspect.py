@@ -77,6 +77,7 @@ from ..canon.hashing import hash_full
 from .adjudication import (
     PASS_CODE,
     REASON_CODES,
+    RECORD_CHALLENGE_KEY,
     V1_CODES,
     V2_CODES,
     AdjudicationError,
@@ -100,10 +101,15 @@ RATIFIED_CODES_PATH = "docs/proof/v1-v2-reason-codes-ratified-2026-08-29.json"
 
 CRITERION_SOURCE = "docs/proof/f4-unseal-preregistration-2026-08-25.md section 2"
 
-#: The key this module adds to an adjudication record. `load_adjudication` reads
-#: the fields it knows and ignores the rest, so the record stays acceptable to
-#: the existing gate with the binding attached.
-RECORD_CHALLENGE_KEY = "post_read_challenge"
+# `RECORD_CHALLENGE_KEY` is the key this module adds to an adjudication record,
+# and it is IMPORTED FROM `adjudication` above rather than defined here. Both
+# modules have to agree on the string and two literals is two sources of truth.
+# It lives in the lower module because that is the one holding custody of the
+# block: `load_adjudication` carries it onto the ledger and
+# `AdjudicationLedger.to_record()` re-emits it unchanged, which is what puts the
+# binding in the published bundle rather than only in this process. Until an
+# adversarial review found it on 2026-08-29, the ledger dropped it and the
+# freshness claim reached no reader.
 
 #: Domain separation on every digest this module takes, so a value produced here
 #: can never be mistaken for one of `adjudication`'s.

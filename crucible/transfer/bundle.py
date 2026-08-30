@@ -865,6 +865,26 @@ def _build_execution_provenance(execution_provenance):
         raise BundleError(
             "a live run with zero model calls is the exact shape of a scripted "
             "run wearing a live label.")
+
+    # WHETHER THIS IS THE HELD-OUT RUN IS A BOOLEAN, AND IT IS NOT OPTIONAL.
+    #
+    # The reader decides from this whether an adjudication is MANDATORY. It was
+    # added to the schema as an optional property and no producer ever emitted
+    # it, so the reader kept falling back to the prefix of labels.seal_status -
+    # a four-hundred-character sentence whose job is to be readable by a human.
+    # An optional field that nothing writes is not a second authority; it is
+    # zero authorities and a comment.
+    #
+    # Refused here rather than only at the schema so the PRODUCER fails, and
+    # fails at the moment it is assembling the thing. Ruling 60: a producer
+    # that is wrong exits non-zero.
+    if not isinstance(prov.get("sealed_run"), bool):
+        raise BundleError(
+            "execution_provenance.sealed_run is %r and must be a boolean. It "
+            "is the machine-readable statement of whether this bundle is the "
+            "held-out measurement, and the reader demands an adjudication on "
+            "the strength of it. Absent, the only remaining statement is prose."
+            % (prov.get("sealed_run"),))
     return prov
 
 

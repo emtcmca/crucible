@@ -157,65 +157,39 @@ ending 08-31. **G8 asserts the policy exists, not that it is locked.**
 exit 2. Do not route around it.
 
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
+## Session State (auto-maintained)
 
-**Updated:** 2026-08-29 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-30 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**THE SEAL IS INTACT AND NO F4 OBJECT HAS BEEN READ.** Two adversarial NO-GO verdicts stand
-between the runner and the unseal. Eight of ten findings from the first are closed; **four P0s
-from the second are open**. Checkpoint moved twice and will not move again: **midday 08-30**.
-**Hard abort gate: if the code is not green and Codex-cleared by 08:00 on 08-30, the seal does
-not open.** A time, not a feeling. Suite ~2511 passed 1 skipped, contract-check seven.
+**THE SEAL IS INTACT AND NO F4 OBJECT HAS BEEN READ.** Four adversarial NO-GO
+verdicts; **every P0 from reviews 3 and 4 is closed**. Suite ~2829 exit 0,
+contract-check **eight** passes, and also green with every bash/sh directory
+stripped from PATH. Hard abort gate: **green and Codex-cleared by 08:00 on
+08-30** or the seal does not open. Deadline 08-31 17:00 PT.
 
-**Shipped today:** the foreign manifest RATIFIED (8 accept, 4 amend; `generate_qr_code` was the
-human override, proposed INERT while stable at 28 of 36 on that wrong answer) · `ratify.py`'s
-missing decisions-digest closed · the probe re-run against the ratified manifest, where the
-matched-fact case is now decided by `r_ceb7cbd4f589`, a rule the loop LEARNED · Devpost Update 9
-posted · the transfer runner · **A3.9** appended while the seal is shut · the final policy
-PINNED to `run_20260827_194532_5100ff` · the transfer contract registered as **C11**.
-
-**THE TWO THINGS I GOT WRONG, both found by others**
-- **I reported the live path as proven when it had never made a call.** `--live` and offline both
-  set `model = None`; `drive()` read that as "build the offline stub" while
-  `build_real_target(model=None)` means "use the pinned live default". The run printed the Gemini
-  id from a constant and I read it as evidence, shipped a proof artifact, and wrote a README
-  asserting it. **The check that would have caught it in five seconds - any token count, any
-  telemetry - is the check I never ran.** Artifacts deleted; they were never true, never pushed.
-  The repaired live run shows **94 model calls, 544,608 prompt tokens across 16 episodes**; the
-  fabricated `len(episodes)` figure would have been 16.
-- **I then wrote three tests that assert nothing** - one checks a function exists, one writes its
-  own crash record instead of exercising the production path, one greps source text. All stay
-  green if the protected behaviour is deleted. **Eleventh instance, authored while repairing the
-  other eight.**
+**Ratified before the seal opened:** A3.10 (Outcome B is UNREACHABLE - the
+run-level excluded set is the union of the arms, and ACCEPTS means zero
+defects; the row is superseded, not deleted). A3.11 (zero sealed reads VOID
+with one retry; one or more reads terminal **INVALID**, no retry, any stage -
+deliberately not called VOID because A3.4 defines that word as retryable).
 
 **Open threads**
-- **FOUR P0s:** sealed assembly bypasses the experiment locks; **breach arithmetic counts UNPAIRED
-  observations, which is a wrong transfer number**; printable whitespace-free strings still carry
-  prose (underscores pass); pre-read obligations not ordered before the read.
-- **MUST before unseal:** fresh pre-read seal proof; `validate_instance()` on every sealed
-  instance (a CORRECTNESS gap, not robustness); V1/V2 adjudication by a named human before the
-  first model call, counts derived from the ledger.
-- **In flight:** agent on paired arithmetic + args grammar; agent on the V1/V2 ledger.
-- **V1/V2 REASON CODES RATIFIED by Eric 2026-08-29**, before any instance was adjudicated:
-  `docs/proof/v1-v2-reason-codes-ratified-2026-08-29.json`. Six, closed. The ledger is built
-  (`crucible/transfer/adjudication.py`, 77 tests, 34 mutations all caught).
-  **A V1/V2 failure is REPORTED, never subtracted** - every sealed instance is still driven and
-  the denominator stays whole. It must NOT go in the bundle's `exclusions[]`, which would remove
-  it from the denominator through the schema.
-- **ERIC OWES:** adjudicate 24 instances after the read and before the first model call.
-  **Record the video regardless** - the only Stage One pass/fail item still missing.
-- **Ask Codex:** is Outcome B reachable at all? Under the paired ceiling a per-arm breach also
-  breaches the union ceiling, which may leave B a dead row.
+- **ERIC OWES:** adjudicate 24 instances after the read and before the first
+  model call - the in-process path now exists and nobody has walked it. And
+  **record the video**, the only Stage One pass/fail item still missing.
+- Codex review 5 handoff written; it asks one question - is an OPEN ordering
+  channel publishable behind the confidentiality claim.
+- My three tests that assert nothing. Oldest debt on the list.
+- `--out` path guard: the drive log is sealed material and writes anywhere.
+- Claude Design on pass 3 of the hero plate against a hard 160-word budget.
 
 **Watch out for**
-- **A CHECK THAT PASSES WHILE MEASURING NOTHING - ELEVEN INSTANCES, THREE AUTHORED TODAY WHILE
-  FIXING THE OTHER EIGHT.** Assume the twelfth is in something written in the last twelve hours.
-- **NEVER REPORT A RUN AS LIVE WITHOUT TELEMETRY.** Token counts or it did not happen.
-- **`GOOGLE_GENAI_USE_VERTEXAI=1` for any live drive** - ADK reads it when building TOOL
-  DECLARATIONS, so a wrong value ships a different payload for all eight tools while
-  `target_agent_hash` stays identical.
-- Editing `contracts/transfer_evidence.schema.json` requires re-running `scripts/hash-contracts.py`
-  in the same change (C11), or contract-check goes red.
-- **Codex stays READ-ONLY.** It is the Coroner: it writes the autopsy and cannot propose the fix.
-  If capacity binds, add in-house agents rather than giving the reviewer a pen.
-
+- **A CHECK THAT PASSES WHILE MEASURING NOTHING - SEVENTEEN INSTANCES.** Six
+  adjudication checks were written, wired and green while never once observed
+  to fire; only the coverage census caught it.
+- **A guard must probe the DEPENDENCY, not the world.** Five tests kept skipping
+  on `shutil.which("bash")` hours after the bash dependency was removed.
+- **Verify a mutation revert against the BYTES, not a grep.** A timed-out run
+  left `if False:` in a live guard and three greps missed it.
+- The canonical form admits **no null**: "not adjudicated" is the ABSENT key.
 <!-- VAULT:SESSION-STATE end -->

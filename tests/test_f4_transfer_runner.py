@@ -1245,3 +1245,174 @@ def test_a_reviewer_who_declines_to_sign_gets_no_record(tmp_path):
             challenge_path=tmp_path / "challenge.json")
 
     assert not record.exists(), "an unsigned adjudication was written anyway"
+
+
+# ------------------------------------------------- where the drive log lands --
+#
+# THE GUARD THESE PROVE EXISTS BECAUSE --out TOOK ANY PATH AT ALL.
+#
+# The sealed drive log carries the held-out instructions verbatim, and so do
+# the worksheet, progress and challenge files derived from the same base. The
+# call site said they "sit beside the output, not in the repo" - a description
+# of where the operator was expected to point --out, not a control that stopped
+# them pointing it elsewhere. The tests used an external temporary directory by
+# convention, and convention is not a control: the same distinction this
+# project makes about corpus/sealed, whose gitignore entry is documented as
+# explicitly NOT the boundary because IAM is.
+
+
+def _refusal(fn, *args, **kwargs):
+    """Run something expected to refuse and hand back the error, or fail.
+
+    Named so the assertion below reads as the property rather than the
+    plumbing, and so a guard that silently returns is a FAILURE here rather
+    than a test that quietly passes on the wrong branch.
+    """
+    with pytest.raises(rt.TransferRunError) as caught:
+        fn(*args, **kwargs)
+    assert caught.value.code == "E_SEALED_OUT_PATH", caught.value.code
+    return str(caught.value)
+
+
+def test_the_drive_log_may_not_be_written_inside_a_git_work_tree(tmp_path):
+    """The refusal that generalises, and the reason it walks for .git.
+
+    Refusing a LIST of directories would refuse this repository and miss the
+    SEAL worktree, a sibling clone, and whatever else exists on the machine on
+    the day of the run. Refusing anything under version control refuses all of
+    them without naming one.
+    """
+    repo = tmp_path / "some-repo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / "evidence").mkdir()
+    message = _refusal(rt.assert_out_path_is_offtree,
+                       repo / "evidence" / "drive.jsonl")
+    assert "git work tree" in message
+    # AND IT NAMES WHICH ANCESTOR. A refusal that does not say where the
+    # boundary was crossed sends the operator to guess at 1am on a run that
+    # cannot be repeated.
+    assert str(repo.resolve()) in message
+
+
+def test_a_worktree_counts_even_though_its_dot_git_is_a_file(tmp_path):
+    """A git WORKTREE carries a .git FILE, not a directory.
+
+    Checking `.is_dir()` would have let every one of this project's six lane
+    worktrees through - including the SEAL worktree, which is where the sealed
+    corpus actually lives on this machine.
+    """
+    wt = tmp_path / "a-worktree"
+    wt.mkdir()
+    (wt / ".git").write_text("gitdir: /elsewhere/.git/worktrees/a",
+                             encoding="utf-8")
+    message = _refusal(rt.assert_out_path_is_offtree, wt / "drive.jsonl")
+    assert "git work tree" in message
+
+
+def test_a_cloud_sync_root_anywhere_in_the_path_is_refused(tmp_path):
+    """Uploaded to a third party the moment it lands, and deleting does not undo it."""
+    synced = tmp_path / "OneDrive" / "runs"
+    synced.mkdir(parents=True)
+    message = _refusal(rt.assert_out_path_is_offtree, synced / "drive.jsonl")
+    assert "cloud-sync root" in message
+    assert "onedrive" in message
+
+
+def test_an_existing_target_is_refused_rather_than_truncated(tmp_path):
+    """The drive opens its output "w". On a one-shot, that is destruction.
+
+    One keystroke away whenever a command is recalled from shell history, and
+    the thing destroyed is the only copy of an unrepeatable measurement.
+    """
+    already = tmp_path / "drive.jsonl"
+    already.write_text("a previous record", encoding="utf-8")
+    message = _refusal(rt.assert_out_path_is_offtree, already)
+    assert "already exists" in message
+    # THE POSTCONDITION, NOT THE EXCEPTION. The guard must not have touched it.
+    assert already.read_text(encoding="utf-8") == "a previous record"
+
+
+def test_a_symlink_out_of_a_temp_directory_into_a_repo_is_still_refused(tmp_path):
+    """Resolution happens before the walk, or the guard checks the wrong path.
+
+    Skipped where the platform will not create the link - on Windows that needs
+    Developer Mode or elevation, and a test that silently passes because it
+    could not build its own fixture is the failure mode this repository has
+    recorded seventeen times.
+    """
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / "inside").mkdir()
+    link = tmp_path / "looks-safe"
+    try:
+        link.symlink_to(repo / "inside", target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip("this platform refused to create the symlink: %s" % exc)
+    _refusal(rt.assert_out_path_is_offtree, link / "drive.jsonl")
+
+
+def test_an_ordinary_off_tree_path_is_allowed(tmp_path):
+    """The guard has to have a passing side, or it is a refusal of everything.
+
+    A control that cannot pass and a control that cannot fail are the same
+    defect seen from two directions.
+    """
+    good = tmp_path / "runs" / "2026-08-30" / "drive.jsonl"
+    rt.assert_out_path_is_offtree(good)      # returns None, raises nothing
+
+
+def test_the_guard_refuses_this_repository_by_name(tmp_path):
+    """The specific typo the reviewer described: the log lands in the repo.
+
+    Not a synthetic .git - the real one, resolved from this test file, because
+    the finding was about THIS tree and a fixture cannot be wrong about it.
+    """
+    message = _refusal(rt.assert_out_path_is_offtree,
+                       ROOT / "evidence" / "invented-drive.jsonl")
+    assert "git work tree" in message
+
+
+# ------------------------------- the machine authority on a held-out run --
+#
+# `execution_provenance.sealed_run` decides whether the offline reader DEMANDS
+# an adjudication. It was added to the schema as an optional boolean and then
+# left unemitted by every producer, so the reader kept taking that branch off
+# the prefix of `labels.seal_status` - a four-hundred-character sentence whose
+# job is to be readable by a person. An outside reviewer put it plainly: an
+# optional field nothing writes is not a second authority, it is none.
+#
+# The shape now is ONE required machine authority with the prose DERIVED from
+# it. Both come from the drive log's own `sealed` flag, in adjacent statements.
+
+
+def test_the_assembled_bundle_carries_the_sealed_run_boolean(
+        offline_drive, tmp_path, monkeypatch):
+    """A boolean, on the production path, in both directions.
+
+    Not a schema test. The schema can require a field forever while no producer
+    writes one, which is exactly what happened, and the schema alone reported
+    nothing wrong because no bundle was ever validated against it in that
+    window.
+    """
+    stand_in = _assemble_to(offline_drive, tmp_path, monkeypatch, sealed=False)
+    sealed = _assemble_to(offline_drive, tmp_path, monkeypatch, sealed=True)
+    assert stand_in["execution_provenance"]["sealed_run"] is False
+    assert sealed["execution_provenance"]["sealed_run"] is True
+
+
+def test_the_boolean_and_the_prose_cannot_disagree(
+        offline_drive, tmp_path, monkeypatch):
+    """Derived from one value, so there is nothing for them to disagree about.
+
+    The reader REFUSES a bundle whose flag and label disagree rather than
+    picking a winner, and this is the producer half of that: the label is
+    generated by `seal_status_label()` from the same `raw["sealed"]` the
+    boolean is cast from. Two statements, one source.
+    """
+    for sealed in (False, True):
+        b = _assemble_to(offline_drive, tmp_path, monkeypatch, sealed=sealed)
+        flag = b["execution_provenance"]["sealed_run"]
+        label_says_sealed = b["labels"]["seal_status"].startswith("SEALED")
+        assert flag == label_says_sealed, (
+            "sealed_run=%r beside a label that reads %r"
+            % (flag, b["labels"]["seal_status"][:60]))

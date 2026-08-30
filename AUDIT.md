@@ -178,7 +178,36 @@ about what happened before it was published. The controls for that window are di
 the IAM boundary the Armorer's service account cannot cross, and the public commit history of
 everything else.
 
-**10. Work is open and it is written down.** `docs/contest/BUILD-LIST.md` Tier 4 lists the
+**10. The bundle's confidentiality claim is narrow, and call ORDER sits outside it.**
+*(Added 2026-08-30, after an outside reviewer refused to let the broad version stand.)*
+
+A published transfer bundle carries every tool call the target agent made, in the order it
+made them. Argument VALUES are bounded or redacted — that work is real, it is checked on
+every run, and the reader names which channels are closed, which are bounded and which are
+open. **Call order is none of those. It is open, and a permutation carries information.** For
+a trace of a couple of hundred calls the ordering alone has room for something on the order
+of a thousand bits; the reader prints the actual trace length and `log2(n!)` beside every
+report rather than leaving anyone to work it out, and marks the row **ORDERING OPEN**.
+
+**Disclosure is not confidentiality, and this project had been treating them as the same
+thing.** The reader annotates the channel accurately and then ACCEPTS the document with zero
+defects — a regression test requires exactly that. Saying "the order got out" is honest; it
+does not stop the order getting out. The producer still chose to publish it.
+
+**So the claim is narrowed rather than defended.** What may be said is: *selected argument
+values are bounded or redacted, and call-order confidentiality is not provided.* What may
+**not** be said, in the README, a demo, a submission, or a post, is anything of the shape
+*"sealed content cannot escape the published evidence."* That sentence is false and it is now
+named as false here so it cannot be reached for later.
+
+**Why the channel is not simply capped.** A cap on trace length is a cap on what the TARGET
+AGENT did. The target called what it called; that is the measurement. Refusing to publish a
+run because the agent under test was talkative would file a run FACT as a producer DEFECT,
+and the resulting number would describe the agent's brevity as much as its behaviour. The
+trade is stated rather than taken quietly: **the bundle is publishable because the claim is
+small, not because the channel is closed.**
+
+**11. Work is open and it is written down.** `docs/contest/BUILD-LIST.md` Tier 4 lists the
 threads that block scored work — ~~the D5 corpus freeze that must land before the first patch
 is written~~ *(CORRECTED 2026-08-26: D5 was frozen, superseded three times, and re-frozen on
 2026-08-25 after the F5-05 repair — `docs/proof/d5-corpus-freeze.json` and the superseded
@@ -189,7 +218,7 @@ rule that fails validator V4, a parked corpus branch that breaks two frozen coun
 benign fixtures authored after the reviewer's pass — so *"the ordinary benign set was
 reviewed"* is not true of the set as it stands.
 
-**11. Not reviewed, endorsed, or responded to by Google in any way.** Not production-ready.
+**12. Not reviewed, endorsed, or responded to by Google in any way.** Not production-ready.
 Not enterprise-grade. Eleven days, one person, one target agent. There are no users, no
 downloads, and no adoption of any kind.
 
