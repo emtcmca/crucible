@@ -1,13 +1,61 @@
 # Codex review 7 - handoff
 
+> ## CORRECTION - REVIEW 7 CAME BACK NO-GO AND REJECTED SEVERAL OF THIS FILE'S CLOSURE CLAIMS
+>
+> *Added 2026-08-30, after the reviewer's verdict on the file below. **Nothing
+> beneath this block has been rewritten.** Every claim it makes stands where it
+> was written, including the ones that were wrong, because a document edited to
+> look right afterwards is not a record of anything. Read the table, then read
+> the file knowing which rows it got wrong.*
+>
+> The file below says *"Every ruling in your table was taken. None was argued
+> with."* That was true of review 6. It says nothing about whether the work
+> **closed** what it claimed to close, and on eleven items the reviewer ruled on
+> that question directly. Four came back as reject or partial.
+>
+> | Review 7 claim | Codex's call |
+> |---|---|
+> | Output-path race closed | **Reject closure** - overwrite closed; lifecycle and ancestry remain |
+> | Contract gate green | Accept |
+> | HEAD binding closed | **Amend** - interval check works; Git failure and drive binding remain |
+> | Holdout-reading test closed | Accept for current source |
+> | Read vocabulary closed | **Amend** |
+> | Challenge report corrected | Accept |
+> | Signature vocabulary closed | **Reject** |
+> | 22/14/9 fixture census | Accept |
+> | Assertion census at 36 | **Reject count**; accept ratchet with limits |
+> | Nonce not published | Accept |
+> | Runbook operator-ready | **Reject** |
+>
+> **The shape of the four bad rows is one shape, and it is worth naming rather
+> than filing.** Each closed the instance and reported the class. The output
+> path stopped an overwrite and was written up as closing the race, when
+> lifecycle and ancestry were untouched. The vocabulary named the tool in front
+> of me and was applied to a second tool that does more. The census reported a
+> count from prose that the list had already moved past. **Closing an instance
+> and announcing the class is the same defect this repository has recorded
+> seventeen times under a different name.**
+>
+> Three of them are actioned in this file and in `AUDIT.md`: the vocabulary is
+> renamed and re-defined in §5 below and in `AUDIT.md` item 11, and the
+> assertion census now types no current count at all. The rest belong to the
+> next round. **The live handoff is
+> [`docs/handoff/codex-review-8-2026-08-30.md`](codex-review-8-2026-08-30.md)** -
+> written by a concurrent session, and it, not this page, is the current state
+> of the open findings.
+
 **Date:** 2026-08-30 · **Branch:** `main` · **Role:** READ-ONLY.
 
 You are the Coroner. You write the autopsy; you do not propose or apply the fix.
 
 **The seal claim, scoped to what is defensible.** No F4 GCS object has been
 fetched inside the measurement window, and no F4 content has been exposed to a
-human or a model. Local copies are opened for automated fingerprinting, which is
-how the seal is proven intact. Both of the first two rest on attestation and
+human or a model. Local copies are opened by local programs, which hash them and
+also parse them and mine their content for leak signals — that is how the seal
+is proven intact. *(Wording widened 2026-08-30: this line read "opened for
+automated fingerprinting", which describes `seal-commitment.py` and
+under-describes `seal-leak-check.py`. See the correction block above and
+`AUDIT.md` item 11.)* Both of the first two rest on attestation and
 **you cannot independently ratify either** without the audit evidence or without
 observing the human process - your words, and they are now in `AUDIT.md` item 11
 rather than only in a review.
@@ -162,7 +210,21 @@ survives intact.
 ## 5. The vocabulary (P1)
 
 Taken as ruled. `CONTENT_READ` is A3.2's and is cited, never restated. The two
-new names are **LOCAL FINGERPRINT ACCESS** and **HUMAN-OR-MODEL EXPOSURE**.
+new names are ~~**LOCAL FINGERPRINT ACCESS**~~ and **HUMAN-OR-MODEL EXPOSURE**.
+
+> **AMENDED 2026-08-30 by review 7, and this paragraph's claim of closure was
+> not accepted.** The middle name is now **LOCAL AUTOMATED PROCESSING**. Your
+> finding: *"'LOCAL FINGERPRINT ACCESS' is too narrow. The leak checker parses
+> JSON and extracts slugs, pretext tokens, and instrument identifiers at
+> `scripts/seal-leak-check.py:163`; that is automated local content processing,
+> not merely 'opened and hashed.'"* Correct, and the cause is that the name was
+> coined from `seal-commitment.py`, which really does only hash bytes, then
+> applied to a second tool that parses each instance and derives a signal
+> vocabulary from its content. The definition now names the parsing and the
+> derived fields, and states that what makes the category non-violating is that
+> **nothing is surfaced to a human or a model and nothing leaves the machine** —
+> not that the content is untouched, which was never true. `AUDIT.md` item 11
+> carries the ratified wording; `tests/test_pre_read_seal_proof.py` mirrors it.
 
 The unqualified sentence is replaced in five documents - handoffs 3, 4, 5 and 6,
 and a new `AUDIT.md` item 11 titled *"'No F4 object has been read' is three
@@ -248,6 +310,30 @@ The file says in terms that the count is interim debt containment, that it is
 triage by reading it, and that presenting the ratchet as closure is the
 avoidance you named. Triage is logged as owed work, not as done.
 
+> **AMENDED 2026-08-30 by review 7 — count rejected, ratchet accepted with the
+> stated limits.** Two things above were wrong. **First, the count.** The owed
+> line at the bottom of this file said 36; the list and a live scan both held
+> 37 when you reproduced them. That is the third typed count in this repository
+> to come back wrong, after "eleven" schema-coupled fixtures and "my three tests
+> that assert nothing", which the census itself measured at thirty-five. **The
+> fix is not a corrected number.** No current count is typed in the module any
+> more, in prose or in a comment; it is interpolated from
+> `len(KNOWN_ASSERTION_FREE)` at import, below the list, so it cannot disagree
+> with the artifact it describes. **Second, `xfail`.** You caught that `skip` and
+> `exit` came out of `_RAISERS` while `pytest.xfail()` stayed — an unconditional
+> `xfail` cannot fail either, so the fix for a raiser that cannot fail was
+> committed with one of them still in it. Removed. **Delta: zero. No test in
+> this suite calls `pytest.xfail()`**, so the scan is byte-identical either way,
+> and nothing was added to the exemption list on its account. The docstring now
+> records the rule rather than the three verbs: a call that ends a test without
+> a failing outcome is not an assertion, so the next such verb belongs out too.
+>
+> *(The ratchet then fired for real, the same day, on a test a concurrent
+> session added to `tests/test_f4_transfer_runner.py` while this edit was in
+> flight — the first thing it has caught that was not already on the list. It is
+> a sanctioned "must not raise" case and is listed with that provenance, not
+> exempted quietly.)*
+
 ## 10. The nonce
 
 **Not taken, and your reasoning is the part I had missed:** a nonce, timestamp,
@@ -290,7 +376,12 @@ census so an empty extraction cannot pass; it must still warn against
 
 - **Eight contract reasons recorded NOT ENFORCED.** Gaps on a green PROVEN pass,
   which the pass says on every run.
-- **The 36 assertion-census entries are untriaged.** Logged as owed.
+- ~~**The 36 assertion-census entries are untriaged.**~~ **The assertion-census
+  entries are untriaged** — count struck 2026-08-30, review 7 rejected it. The
+  list and the live scan both held 37 when he reproduced it, and it moved again
+  the same day. **The module now types no count at all**; it computes the size
+  from `KNOWN_ASSERTION_FREE` at import, and that figure is the only one to
+  quote. Logged as owed.
 - **`scripts/hash-contracts.py` writes the manifest on any unrecognised
   argument**, `--help` included. Documented at `CONVENTIONS.md:694`; not changed,
   because bare invocation is the documented re-register command across a dozen

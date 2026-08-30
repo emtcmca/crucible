@@ -61,7 +61,9 @@ from crucible.transfer.adjudication import (
     load_adjudication,
 )
 from crucible.transfer.inspect import (
+    PROMPT_RESUME,
     RECORD_CHALLENGE_KEY,
+    AdjudicationDeclined,
     Challenge,
     InspectionError,
     ProgressStore,
@@ -181,6 +183,41 @@ class Keyboard:
         if not self.answers:
             raise EOFError("the scripted keyboard is exhausted")
         return self.answers.pop(0)
+
+
+class BoundedKeyboard:
+    """A scripted `read_line` with a HARD CALL CAP, for the anti-spin tests.
+
+    `Keyboard` above raises `EOFError` when its script runs out, which is the
+    right stand-in for a closed stdin. It is the wrong stand-in for the other
+    dead-input shape: a stub, or a caller that swallowed EOF, that RETURNS an
+    empty string forever. Against a re-prompting loop that input does not raise,
+    it wedges - and a wedged test on the day before a deadline is a self-
+    inflicted outage.
+
+    So this raises `AssertionError` past the cap. A loop that would have hung
+    fails in milliseconds and says why, which is the only way a hang can be
+    asserted about at all.
+    """
+
+    def __init__(self, *answers, cap=40, then=""):
+        self.answers = list(answers)
+        self.prompts = []
+        self.cap = cap
+        self.then = then
+
+    def __call__(self, prompt=""):
+        self.prompts.append(prompt)
+        if len(self.prompts) > self.cap:
+            raise AssertionError(
+                "read_line was called %d times against a cap of %d. The prompt "
+                "is spinning: last prompt %r"
+                % (len(self.prompts), self.cap, prompt))
+        if self.answers:
+            return self.answers.pop(0)
+        if self.then is None:
+            raise EOFError("the scripted keyboard is exhausted")
+        return self.then
 
 
 def _all_answers(*extra):
@@ -568,6 +605,327 @@ def test_review_resumes_without_re_presenting_a_decided_instance(tmp_path,
     # The instance already ruled on was not shown again.
     assert "%s-instruction-a" % MARK not in second.text
     assert "%s-instruction-b" % MARK in second.text
+
+
+# ---------------------------------------------------------------------------
+# PAUSE AND RESUME, THROUGH `adjudicate` - the promise the exception makes.
+#
+# `ReviewPaused` told the operator to "re-enter the review in this same process
+# to carry on" and nothing in the codebase did. The real runner let the
+# exception out of `await_adjudication`; the rehearsal caught it, printed
+# REFUSED and exited. An independent review reproduced it on 2026-08-30 and was
+# right that the runbook's "you may stop partway, progress is saved and resumes"
+# was operationally false: a new invocation cannot pick it up, because it would
+# have to read the holdout again to mint a nonce, and a second sealed read is
+# terminal rather than merely wasteful.
+#
+# The tests below drive `adjudicate`, not `run_review`, because `adjudicate` is
+# what both callers call. A loop proved only at the `run_review` layer would be
+# a loop neither the runner nor the rehearsal ever enters.
+# ---------------------------------------------------------------------------
+
+def test_a_paused_review_resumes_in_the_same_process_and_completes(tmp_path,
+                                                                   instances,
+                                                                   challenge):
+    """THE END-TO-END CASE. Pause, resume, finish, and every instance is ruled.
+
+    The scripted operator rules on A, types `pause`, waits, types `resume`, and
+    then rules on B and C. One call to `adjudicate`, one process, one challenge,
+    and a record that covers all three ids.
+    """
+    keys = Keyboard("V_SCOREABLE", "pause", "resume",
+                    "V1_ORPHANED_TURN", "V2_NO_CLAUSE_REACHABLE", "ACCEPT")
+    sink = Sink()
+    record, used = adjudicate(
+        instances,
+        read_line=keys,
+        write=sink,
+        adjudicated_by=HUMAN,
+        adjudicated_on=WHEN,
+        record_path=tmp_path / "adjudication.json",
+        progress_path=tmp_path / "progress.json",
+        challenge=challenge,
+    )
+
+    assert set(record["decisions"]) == set(IDS), (
+        "the resumed review did not rule on every instance")
+    assert record["decisions"][A]["codes"] == ["V_SCOREABLE"]
+    assert record["decisions"][B]["codes"] == ["V1_ORPHANED_TURN"]
+    assert record["decisions"][C]["codes"] == ["V2_NO_CLAUSE_REACHABLE"]
+
+    # The record is the real thing: it still loads, and it still answers the
+    # challenge minted before the pause. Resuming did not mint a second one.
+    assert load_adjudication(record, IDS).adjudicated_by == HUMAN
+    verify_post_read(record, used)
+    assert used is challenge
+
+    # The operator was actually held at a prompt, and told where they were.
+    assert PROMPT_RESUME in keys.prompts, (
+        "the review never asked whether to resume, so it did not pause - it "
+        "re-entered on its own, which is not a pause")
+    assert "PAUSED. 1 of 3" in sink.text
+    assert (tmp_path / "adjudication.json").is_file()
+
+
+def test_a_pause_resumes_even_with_no_progress_file_configured(instances,
+                                                               challenge):
+    """The rulings ride out on the exception, not only through the store.
+
+    `progress_path` is optional and `await_adjudication` is not the only caller.
+    With no store, `run_review`'s decisions lived in a local dict that died with
+    the exception, so a resume restarted at instance one and silently re-asked
+    for rulings the operator had already made. The exception carries them now.
+    """
+    keys = Keyboard("V_SCOREABLE", "pause", "resume",
+                    "V1_ORPHANED_TURN", "V_SCOREABLE", "ACCEPT")
+    sink = Sink()
+    record, _ = adjudicate(
+        instances,
+        read_line=keys,
+        write=sink,
+        adjudicated_by=HUMAN,
+        adjudicated_on=WHEN,
+        challenge=challenge,
+    )
+    assert record["decisions"][A]["codes"] == ["V_SCOREABLE"]
+    assert record["decisions"][B]["codes"] == ["V1_ORPHANED_TURN"]
+    # A was ruled on BEFORE the pause and must not be presented again after it.
+    # Everything after the resume banner is the second pass.
+    after = sink.text.split("PAUSED. 1 of 3", 1)[1]
+    assert "%s-instruction-a" % MARK not in after, (
+        "the instance already ruled on was shown again, so the resume threw "
+        "away the ruling the operator had just made")
+    assert "%s-instruction-b" % MARK in after
+
+
+def test_abandoning_at_the_pause_prompt_is_terminal_and_writes_nothing(
+        tmp_path, instances, challenge):
+    """A pause the operator cannot leave is not a pause, it is a trap.
+
+    The reviewer must be able to stop for good. Abandoning re-raises the pause
+    so the caller sees a terminal outcome, and the rulings stay in the store so
+    the read is not what was spent.
+    """
+    keys = Keyboard("V_SCOREABLE", "pause", "abandon")
+    with pytest.raises(ReviewPaused) as exc:
+        adjudicate(
+            instances,
+            read_line=keys,
+            write=Sink(),
+            adjudicated_by=HUMAN,
+            adjudicated_on=WHEN,
+            record_path=tmp_path / "adjudication.json",
+            progress_path=tmp_path / "progress.json",
+            challenge=challenge,
+        )
+    assert exc.value.code == "E_REVIEW_PAUSED"
+    assert exc.value.resumable is True
+    assert set(exc.value.decided) == {A}
+    # THE CONTROL. Without these two, this test passes against a build that has
+    # no pause prompt at all - the pause simply propagates and every assertion
+    # above still holds. That is the shape this project keeps finding: a check
+    # that is green while measuring nothing. The operator must have been ASKED,
+    # and their `abandon` must have been the thing that ended it.
+    assert PROMPT_RESUME in keys.prompts, (
+        "nothing ever asked whether to resume, so this asserted a pause that "
+        "was never offered a way out rather than an abandon")
+    assert not keys.answers, "the `abandon` answer was never consumed"
+    assert not (tmp_path / "adjudication.json").exists()
+    assert json.loads((tmp_path / "progress.json").read_text(
+        encoding="utf-8"))["decisions"] == {A: ["V_SCOREABLE"]}
+
+
+def test_declining_to_commit_is_terminal_and_does_not_reopen_the_review(
+        tmp_path, instances, challenge):
+    """THE DISTINCTION THE LOOP TURNS ON. "Not signing" must not resume.
+
+    Pausing and declining were the same exception. A resume loop that could not
+    tell them apart would answer "I am not putting my name on this" by
+    re-opening the review the reviewer had just refused, which is worse than no
+    loop at all.
+
+    The keyboard is exhausted after the refusal, so a loop that DID re-enter
+    would surface as `E_REVIEW_INPUT_EXHAUSTED` rather than as this.
+    """
+    with pytest.raises(AdjudicationDeclined) as exc:
+        adjudicate(
+            instances,
+            read_line=Keyboard(*_all_answers("no")),
+            write=Sink(),
+            adjudicated_by=HUMAN,
+            adjudicated_on=WHEN,
+            record_path=tmp_path / "adjudication.json",
+            progress_path=tmp_path / "progress.json",
+            challenge=challenge,
+        )
+    assert exc.value.code == "E_ADJUDICATION_DECLINED"
+    assert exc.value.resumable is False
+    # It stays a ReviewPaused for every existing caller: declining does stop the
+    # review part way and does keep the progress.
+    assert isinstance(exc.value, ReviewPaused)
+    assert not (tmp_path / "adjudication.json").exists()
+
+
+def test_eof_at_the_resume_prompt_terminates_instead_of_looping(instances,
+                                                               challenge):
+    """A NON-INTERACTIVE CALLER MUST DIE, NOT SPIN.
+
+    The whole resume mechanism is a `while True` around a prompt. Against a
+    closed stdin - a pipe that ran out, a CI runner, a scripted driver - a loop
+    that swallowed the end of input would turn a refusal into a hung process
+    holding an unrepeatable read, and nobody would be watching the terminal it
+    was hanging on.
+
+    The cap on the keyboard is what makes this assertable: a spin fails fast and
+    loudly here rather than hanging the suite.
+    """
+    keys = BoundedKeyboard("V_SCOREABLE", "pause", then=None)
+    with pytest.raises(InspectionError) as exc:
+        adjudicate(
+            instances,
+            read_line=keys,
+            write=Sink(),
+            adjudicated_by=HUMAN,
+            adjudicated_on=WHEN,
+            challenge=challenge,
+        )
+    assert exc.value.code == "E_REVIEW_INPUT_EXHAUSTED"
+    assert PROMPT_RESUME in keys.prompts, "it never reached the resume prompt"
+
+
+def test_an_input_that_answers_nothing_does_not_spin_the_resume_prompt(
+        instances, challenge):
+    """The other dead-input shape: a stream that RETURNS nothing rather than raising.
+
+    `EOFError` is what a closed stdin raises and `_ask` already terminates on
+    it. A stub, or a caller that swallowed the EOF, returns `""` forever
+    instead, and against a bare re-prompt that is an infinite loop with no
+    exception to catch. The prompt gives up after a bounded number of
+    unanswered turns.
+    """
+    keys = BoundedKeyboard("V_SCOREABLE", "pause", then="")
+    with pytest.raises(InspectionError) as exc:
+        adjudicate(
+            instances,
+            read_line=keys,
+            write=Sink(),
+            adjudicated_by=HUMAN,
+            adjudicated_on=WHEN,
+            challenge=challenge,
+        )
+    assert exc.value.code == "E_RESUME_UNANSWERED"
+
+
+def test_a_typo_at_the_resume_prompt_is_re_asked_rather_than_guessed(
+        instances, challenge):
+    """An unrecognised word is neither a resume nor an abandon.
+
+    Guessing either way is a decision this module has no standing to make: one
+    reading throws away the operator's stop, the other ends a review they meant
+    to continue.
+    """
+    keys = Keyboard("V_SCOREABLE", "pause", "resmue", "resume",
+                    "V_SCOREABLE", "V_SCOREABLE", "ACCEPT")
+    sink = Sink()
+    record, _ = adjudicate(
+        instances,
+        read_line=keys,
+        write=sink,
+        adjudicated_by=HUMAN,
+        adjudicated_on=WHEN,
+        challenge=challenge,
+    )
+    assert set(record["decisions"]) == set(IDS)
+    assert keys.prompts.count(PROMPT_RESUME) == 2
+    assert "Type `resume` to carry on" in sink.text
+
+
+def test_a_resumed_ruling_over_a_foreign_instance_is_refused(instances,
+                                                             challenge):
+    """`resume_from` is public, so it is validated rather than trusted.
+
+    Seeding a ruling for an id that is not in the set would attribute a
+    judgement to an instance nobody looked at.
+    """
+    with pytest.raises(InspectionError) as exc:
+        run_review(instances, challenge, read_line=Keyboard(), write=Sink(),
+                   resume_from={"atk_ffffffffffff": (PASS_CODE,)})
+    assert exc.value.code == "E_RESUME_WRONG_SET"
+
+
+def test_a_resumed_ruling_carrying_a_bad_code_is_refused_at_re_entry(
+        instances, challenge):
+    """The seed goes through the ledger's own validator, not around it."""
+    with pytest.raises(AdjudicationError):
+        run_review(instances, challenge, read_line=Keyboard(), write=Sink(),
+                   resume_from={A: ("NOT_A_RATIFIED_CODE",)})
+
+
+# ---------------------------------------------------------------------------
+# The commitment prompt claims no signature.
+# ---------------------------------------------------------------------------
+
+def test_the_confirmation_the_operator_reads_claims_no_signature(tmp_path,
+                                                                 instances,
+                                                                 challenge):
+    """The last string in the system still saying `sign`, and the worst one.
+
+    `adjudicated_by` is a name somebody types. Nothing authenticates it and no
+    key exists anywhere in this system; the reader and the runner were both
+    corrected on 2026-08-30 and this prompt was not. It is the sentence the
+    operator reads at the instant they commit to twenty-four rulings on an
+    unrepeatable read, which is the one place the overclaim could actually
+    change what somebody believes they are doing.
+
+    Asserted over the PROMPTS AND THE RENDERED OUTPUT rather than over the
+    source, because the source legitimately contains the dead phrasing inside
+    the correction notes that exist to keep it dead.
+    """
+    keys = Keyboard(*_all_answers("ACCEPT"))
+    sink = Sink()
+    adjudicate(
+        instances,
+        read_line=keys,
+        write=sink,
+        adjudicated_by=HUMAN,
+        adjudicated_on=WHEN,
+        record_path=tmp_path / "adjudication.json",
+        challenge=challenge,
+    )
+    confirm = [p for p in keys.prompts if "ACCEPT" in p]
+    assert len(confirm) == 1, keys.prompts
+    assert "commit to this adjudication" in confirm[0]
+    assert "sign" not in confirm[0].lower(), confirm[0]
+
+    # ASSERTIONS OF A SIGNATURE ARE THE DEFECT; DENIALS OF ONE ARE THE FIX. The
+    # repository keeps `NOT AUTHENTICATED - a name, not a signature` on purpose,
+    # so a flat ban on the substring would delete the correction along with the
+    # error. Every line the operator sees that says `sign` has to be a denial.
+    for line in sink.text.splitlines():
+        if "sign" not in line.lower():
+            continue
+        assert "not a signature" in line.lower(), (
+            "a line the operator reads asserts a signature: %r" % line)
+    # And it says what the record actually is.
+    assert "named attribution" in sink.text
+    assert "not authenticated" in sink.text.lower()
+
+
+def test_declining_says_it_was_not_committed_to_rather_than_not_signed(
+        instances, challenge):
+    with pytest.raises(AdjudicationDeclined) as exc:
+        adjudicate(
+            instances,
+            read_line=Keyboard(*_all_answers("no")),
+            write=Sink(),
+            adjudicated_by=HUMAN,
+            adjudicated_on=WHEN,
+            challenge=challenge,
+        )
+    message = str(exc.value).lower()
+    assert "not committed to" in message
+    for banned in ("sign", "signed", "signature"):
+        assert banned not in message
 
 
 def test_progress_holds_ids_and_codes_and_nothing_else(tmp_path, instances,

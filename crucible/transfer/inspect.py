@@ -95,7 +95,7 @@ from .adjudication import (
 # spends twenty-four rulings and is refused at the end.
 from .adjudication import _clean_codes as _validate_codes
 
-#: The signed vocabulary. Ruling 46: a frozen value has exactly one owner, the
+#: The ratified vocabulary. Ruling 46: a frozen value has exactly one owner, the
 #: artifact. The six codes are READ from here at runtime, never retyped.
 RATIFIED_CODES_PATH = "docs/proof/v1-v2-reason-codes-ratified-2026-08-29.json"
 
@@ -140,7 +140,42 @@ _CMD_HELP = ("?", "help", "codes")
 _CMD_SHOW = ("show", "again", "r")
 _CMD_PAUSE = ("pause", "stop", "quit", "q", "exit")
 
+#: Words the PAUSE prompt understands. `r` is deliberately absent even though it
+#: would be a natural abbreviation for "resume": it already means "show me that
+#: instance again" one prompt earlier, and one letter meaning two things to an
+#: operator who has just stepped away is how a resume becomes an abandon.
+_CMD_RESUME = ("resume", "continue", "carry on", "go", "y", "yes")
+_CMD_ABANDON = ("abandon", "abort", "stop", "quit", "q", "exit", "n", "no")
+
+#: How many unrecognised answers the pause prompt tolerates before it gives up.
+#:
+#: THIS IS THE ANTI-SPIN BOUND, AND IT IS NOT ABOUT TYPOS. `_ask` already
+#: terminates on EOFError, which is what a closed stdin raises. A `read_line`
+#: that instead RETURNS an empty string forever - a stub, a pipe read wrapped by
+#: a caller that swallows EOF, a non-interactive driver - would keep a
+#: re-prompting loop turning for the rest of the process's life, holding an
+#: unrepeatable read, with no output anybody is watching. Five is generous for a
+#: human and fatal for a dead stream.
+_RESUME_UNANSWERED_LIMIT = 5
+
+#: The prompt strings, owned here and imported by anything that has to recognise
+#: them. Ruling 46 applied to a prompt: a driver that matched on its own copy of
+#: `"resume or abandon> "` would keep answering a question this module had
+#: stopped asking, and the failure would look like an operator who never resumed.
+PROMPT_CODES_SUFFIX = "codes> "
+PROMPT_RESUME = "resume or abandon> "
+PROMPT_NAME = "adjudicator name> "
+
 _CONFIRM_WORD = "ACCEPT"
+
+#: WHAT THE OPERATOR IS ASKED TO DO, IN THE PROJECT'S OWN VOCABULARY. This said
+#: "Type ACCEPT to sign this adjudication" until 2026-08-30. Nothing signs an
+#: adjudication: `adjudicated_by` is a name somebody types, no key exists
+#: anywhere in this system, and the reader and the runner had both already been
+#: corrected to say so. This was the last string still claiming a signature, and
+#: it was the worst place for it - the one sentence the operator reads at the
+#: instant they commit to twenty-four rulings on an unrepeatable read.
+_CONFIRM_PROMPT = "Type %s to commit to this adjudication> " % _CONFIRM_WORD
 
 _RULE = "-" * 74
 
@@ -154,10 +189,53 @@ class InspectionError(RuntimeError):
 
 
 class ReviewPaused(InspectionError):
-    """The human stopped part way. Progress is kept; the read is not respent."""
+    """The human stopped part way. Progress is kept; the read is not respent.
 
-    def __init__(self, message):
-        super().__init__("E_REVIEW_PAUSED", message)
+    IT CARRIES THE PARTIAL RULINGS, AND THAT IS LOAD-BEARING RATHER THAN A
+    CONVENIENCE. `run_review` accumulates its decisions in a local dict. Before
+    2026-08-30 that dict died with the exception, so a caller that caught the
+    pause and called `run_review` again started at instance one - and a review
+    with no `progress_path` lost every ruling the operator had just made. The
+    rulings ride out on the exception, and `adjudicate` hands them straight back
+    in, so resuming works whether or not a progress file was configured. The
+    progress file is crash tolerance; this is the resume.
+
+    `decided` is `{instance_id: codes}` - ids and codes, never content. An
+    exception carrying an instruction would put a sealed turn into a traceback,
+    which is the leak relocated to a log.
+    """
+
+    def __init__(self, message, *, code="E_REVIEW_PAUSED", decided=None,
+                 total=None, resumable=True):
+        InspectionError.__init__(self, code, message)
+        self.decided = dict(decided or {})
+        self.total = total
+        self.resumable = resumable
+
+
+class AdjudicationDeclined(ReviewPaused):
+    """The reviewer refused to commit at the confirmation prompt. TERMINAL.
+
+    PAUSING AND DECLINING ARE DIFFERENT EVENTS AND ONLY ONE OF THEM RESUMES.
+    "I want to stop for ten minutes" and "I am not putting my name on this" were
+    the same exception until 2026-08-30, and a resume loop that could not tell
+    them apart would answer the second by re-opening the review the reviewer had
+    just refused - the one outcome worse than no loop at all.
+
+    WHY A SUBCLASS RATHER THAN A SIBLING. `tests/test_f4_transfer_runner.py`
+    already asserts `pytest.raises(ReviewPaused)` over the runner's decline
+    path, and that assertion is correct English: declining does stop the review
+    part way and does keep the progress. Making the decline a sibling would have
+    broken a true test to express a distinction a flag expresses just as well.
+    Code that needs to tell them apart uses the type or `resumable`, and
+    `adjudicate`'s loop re-raises this class by name before it looks at
+    `ReviewPaused` at all, so the distinction does not rest on where the `try`
+    block happens to end.
+    """
+
+    def __init__(self, message, *, decided=None, total=None):
+        ReviewPaused.__init__(self, message, code="E_ADJUDICATION_DECLINED",
+                              decided=decided, total=total, resumable=False)
 
 
 def _repo_root():
@@ -174,7 +252,7 @@ def _utc_now():
 # ---------------------------------------------------------------------------
 
 def load_ratified_codes(path=None):
-    """The six codes, read from the record Eric signed before any instance was seen.
+    """The six codes, read from the record Eric ratified before any instance was seen.
 
     Returns `{"pass": str, "v1": tuple, "v2": tuple, "all": tuple}`.
 
@@ -209,7 +287,7 @@ def load_ratified_codes(path=None):
             "disagree about the closed vocabulary. Ratified: pass=%r v1=%s "
             "v2=%s. Ledger: pass=%r v1=%s v2=%s. One of them moved, and a run "
             "that picked either silently would be validating against a "
-            "vocabulary nobody signed"
+            "vocabulary nobody ratified"
             % (target, ratified_pass, list(v1), list(v2),
                PASS_CODE, list(V1_CODES), list(V2_CODES)))
 
@@ -517,8 +595,8 @@ def attach_challenge(record, challenge):
     """Return the record with its post-read binding attached.
 
     A NEW DICT. Mutating the caller's record in place would make the binding a
-    side effect of reading it, and this value gets compared against what was
-    signed.
+    side effect of reading it, and this value gets compared against what the
+    record commits to.
     """
     if not isinstance(record, dict):
         raise InspectionError(
@@ -527,7 +605,7 @@ def attach_challenge(record, challenge):
         raise InspectionError(
             "E_CHALLENGE_WRONG_SET",
             "the challenge was minted over a different instance set than the "
-            "record was signed over. Binding them would assert that this read "
+            "record commits to. Binding them would assert that this read "
             "produced a ruling it did not")
     bound = dict(record)
     bound[RECORD_CHALLENGE_KEY] = {
@@ -831,15 +909,23 @@ def _parse_codes(raw):
 
 
 def run_review(instances, challenge, *, read_line, write=print, progress=None,
-               codes=None, objective_set=None):
+               codes=None, objective_set=None, resume_from=None):
     """Walk the instances, one at a time, and return `{instance_id: codes}`.
 
     Every code entered is validated by `adjudication._clean_codes` - the same
     function the ledger will apply - so a ruling accepted here cannot be refused
-    at signing time, and a rejection here says exactly what the ledger would say.
+    at commitment time, and a rejection here says exactly what the ledger would
+    say.
 
-    Raises `ReviewPaused` when the human stops. Progress, if a store was given,
-    is already flushed: the read is not respent by stopping.
+    Raises `ReviewPaused` when the human stops, carrying the rulings made so
+    far. Progress, if a store was given, is already flushed as well.
+
+    `resume_from` is `{instance_id: codes}` from an earlier pass of this same
+    review, and it is what makes re-entry work when no progress file was
+    configured. The codes are re-validated rather than trusted: this is a public
+    keyword, and a caller who handed in a code the ledger will later refuse must
+    be told now, while the human is still at the keyboard, rather than after
+    twenty-four rulings.
     """
     codes = codes or load_ratified_codes()
     ordered = _ordered(instances)
@@ -851,6 +937,14 @@ def run_review(instances, challenge, *, read_line, write=print, progress=None,
             "one being reviewed")
 
     decided = dict(progress.load()) if progress is not None else {}
+    for instance_id, seeded in (resume_from or {}).items():
+        if instance_id not in ids:
+            raise InspectionError(
+                "E_RESUME_WRONG_SET",
+                "a resumed ruling names %r, which is not in the set being "
+                "reviewed. Carrying it over would attribute a ruling to an "
+                "instance nobody looked at" % instance_id)
+        decided[instance_id] = _validate_codes(instance_id, seeded)
     total = len(ordered)
 
     write(render_header(objective_set))
@@ -867,7 +961,7 @@ def run_review(instances, challenge, *, read_line, write=print, progress=None,
         rendered = render_instance(instance, index=index, total=total)
         write(rendered)
         while True:
-            raw = _ask(read_line, "%s codes> " % instance_id)
+            raw = _ask(read_line, "%s %s" % (instance_id, PROMPT_CODES_SUFFIX))
             word = (raw or "").strip()
             low = word.lower()
             if not word:
@@ -880,11 +974,16 @@ def run_review(instances, challenge, *, read_line, write=print, progress=None,
                 write(rendered)
                 continue
             if low in _CMD_PAUSE:
+                # The rulings ride out with the exception. `adjudicate` catches
+                # this, waits for the operator, and hands `decided` straight
+                # back in as `resume_from`, which is how the promise in this
+                # very sentence is kept rather than merely made.
                 raise ReviewPaused(
                     "the review was stopped after %d of %d instances. Every "
                     "ruling so far is kept and the sealed read has NOT been "
                     "respent; re-enter the review in this same process to carry "
-                    "on" % (len(decided), total))
+                    "on" % (len(decided), total),
+                    decided=decided, total=total)
             try:
                 clean = _validate_codes(instance_id, _parse_codes(word))
             except AdjudicationError as exc:
@@ -897,6 +996,66 @@ def run_review(instances, challenge, *, read_line, write=print, progress=None,
             break
 
     return {i: decided[i] for i in ids}
+
+
+def _await_resume(paused, *, read_line, write, total, progress_path=None):
+    """Hold at a pause until the operator says which way this goes.
+
+    Returns True to re-enter the review, False to let the caller re-raise.
+
+    WHY THERE IS A WAIT HERE AND NOT AN IMMEDIATE RE-ENTRY. A loop that caught
+    the pause and went straight back to the next instance would be a review that
+    cannot be paused, wearing the word "pause". The operator typed it because
+    they want to stand up, check a document, or ask somebody a question, and the
+    process has to sit still while they do - holding the sealed instances in
+    memory, which is the only place they exist.
+
+    WHY IT ASKS RATHER THAN ASSUMING. Abandoning has to stay reachable. A
+    reviewer who stops half way and then decides they cannot finish must be able
+    to end the process with a terminal outcome, not be trapped in a loop that
+    only exits by finishing the thing they stopped doing.
+    """
+    done = len(paused.decided or {})
+    write("")
+    write(_RULE)
+    write("PAUSED. %d of %d instances ruled on. Nothing has been written and no"
+          % (done, total))
+    write("model has been called. The sealed set is still in this process's")
+    write("memory and has NOT been respent.")
+    if progress_path:
+        write("  rulings so far : %s" % progress_path)
+    write("")
+    write("  resume   carry on from instance %d" % (done + 1))
+    write("  abandon  stop here for good. Nothing is recorded, and this")
+    write("           process ends - which is the only place the review")
+    write("           could have been picked up again.")
+    write("")
+    write("  A NEW INVOCATION CANNOT PICK THIS UP. The challenge nonce was")
+    write("  minted after the read and lives only in this process's memory,")
+    write("  and the instances live only here too. Another process would have")
+    write("  to read the holdout again to mint a new one, which A3.11 makes")
+    write("  terminal. Re-entry has to happen here or it does not happen.")
+    write(_RULE)
+
+    unanswered = 0
+    while True:
+        # `_ask` and not a bare `read_line`: EOFError and KeyboardInterrupt
+        # terminate with E_REVIEW_INPUT_EXHAUSTED there, so a closed stdin ends
+        # the process instead of spinning a prompt nobody can answer.
+        word = (_ask(read_line, PROMPT_RESUME) or "").strip().lower()
+        if word in _CMD_RESUME:
+            return True
+        if word in _CMD_ABANDON:
+            return False
+        unanswered += 1
+        if unanswered >= _RESUME_UNANSWERED_LIMIT:
+            raise InspectionError(
+                "E_RESUME_UNANSWERED",
+                "the pause prompt was asked %d times and never got `resume` or "
+                "`abandon`. An input that answers nothing is not a human "
+                "thinking it over, and a loop that kept asking would hold an "
+                "unrepeatable read open forever" % unanswered)
+        write("  Type `resume` to carry on, or `abandon` to stop here.")
 
 
 def _render_summary(decisions, codes):
@@ -922,7 +1081,7 @@ def adjudicate(instances, *, read_line, write=print, adjudicated_by=None,
                adjudicated_on=None, record_path=None, progress_path=None,
                challenge_path=None, objective_set=None, challenge=None,
                nonce_source=None, today=None, require_confirmation=True):
-    """The whole path: mint, review, confirm, sign, verify, write.
+    """The whole path: mint, review, confirm, commit, verify, write.
 
     Returns `(record, challenge)`. The record is what `load_adjudication`
     accepts, with the post-read binding attached; the challenge is the in-memory
@@ -948,25 +1107,88 @@ def adjudicate(instances, *, read_line, write=print, adjudicated_by=None,
 
     progress = (ProgressStore(progress_path, challenge, ordered)
                 if progress_path else None)
-    decisions = run_review(ordered, challenge, read_line=read_line, write=write,
-                           progress=progress, codes=codes,
-                           objective_set=objective_set)
+
+    # THE RESUME LOOP, AND IT BELONGS HERE RATHER THAN IN EITHER CALLER.
+    #
+    # `ReviewPaused` tells the operator to "re-enter the review in this same
+    # process to carry on". Until 2026-08-30 nothing in this repository did:
+    # the real runner let the exception out of `await_adjudication` and the
+    # rehearsal caught it only to print REFUSED and exit. An independent review
+    # reproduced it and was right to call the runbook's "you may stop partway,
+    # progress is saved and resumes" operationally false. The code made a
+    # promise to the operator at the exact moment they are most likely to need
+    # it, on a run that cannot be repeated, and did not keep it.
+    #
+    # IN THIS FUNCTION, so both callers get it without either of them changing.
+    # A loop that lived in the rehearsal would have made the rehearsal diverge
+    # from the thing it stands in for, which is worse than no loop: the operator
+    # would have practised a resume the real run does not have.
+    #
+    # SAME PROCESS, SAME CHALLENGE, AND THAT IS WHY RE-ENTRY IS THE ONLY OPTION.
+    # `challenge` was minted after the sealed read and its nonce exists nowhere
+    # but this process's memory - `ProgressStore` refuses a file from any other
+    # read by design. A fresh invocation could not reuse it; it would have to
+    # read the holdout a second time to mint a new one, and a second sealed read
+    # is terminal (A3.11), not merely wasteful. Resuming in place reuses the
+    # nonce, the instances and the rulings that are already here.
+    resume_from = None
+    while True:
+        try:
+            decisions = run_review(ordered, challenge, read_line=read_line,
+                                   write=write, progress=progress, codes=codes,
+                                   objective_set=objective_set,
+                                   resume_from=resume_from)
+            break
+        except AdjudicationDeclined:
+            # BEFORE the `ReviewPaused` clause, and by name. Declining is
+            # terminal and must never re-enter the review the reviewer just
+            # refused. Nothing below can raise it today - the confirmation
+            # prompt is past this loop - and that is exactly why it is written
+            # down: the clause costs nothing now and keeps the distinction from
+            # depending on where this `try` block happens to end.
+            raise
+        except ReviewPaused as paused:
+            if not _await_resume(paused, read_line=read_line, write=write,
+                                 total=len(ordered),
+                                 progress_path=progress_path):
+                raise
+            resume_from = paused.decided
 
     write(_render_summary(decisions, codes))
 
     who = adjudicated_by
     if not who:
-        who = _ask(read_line, "adjudicator name> ")
+        who = _ask(read_line, PROMPT_NAME)
     when = adjudicated_on or (today or datetime.date.today().isoformat())
 
     if require_confirmation:
-        answer = _ask(read_line,
-                      "Type %s to sign this adjudication> " % _CONFIRM_WORD)
+        # SAID PLAINLY AT THE MOMENT IT MATTERS. The operator is about to commit
+        # to twenty-four rulings, and the honest description of what that
+        # produces is named attribution plus a digest over the decisions. It is
+        # not a signature, there is no key anywhere in this system, and telling
+        # them otherwise here would be the one place the overclaim actually
+        # changes somebody's behaviour.
+        write("")
+        write("COMMITMENT, NOT A SIGNATURE. `adjudicated_by` is a name that was")
+        write("typed. Nothing authenticates it, and the digests below are")
+        write("commitments computed over bytes with no key involved. What you")
+        write("are about to record is named attribution, not authenticated")
+        write("identity.")
+        answer = _ask(read_line, _CONFIRM_PROMPT)
         if (answer or "").strip().upper() != _CONFIRM_WORD:
-            raise ReviewPaused(
-                "the adjudication was not signed. Nothing was written. Every "
-                "ruling is kept in the progress file, so declining here does "
-                "not cost the read")
+            # THE SENTENCE ABOUT THE PROGRESS FILE IS CONDITIONAL BECAUSE THE
+            # PROGRESS FILE IS. `progress_path` is optional and this message
+            # asserted the file unconditionally, which would have told an
+            # operator with no store that rulings were kept somewhere they were
+            # not. What is true in both cases is the part that matters: the
+            # sealed read was not respent by declining.
+            kept = ("Every ruling is kept in %s" % progress_path if progress_path
+                    else "No progress file was configured, so the rulings end "
+                         "with this process")
+            raise AdjudicationDeclined(
+                "the adjudication was not committed to. Nothing was written. "
+                "%s. The sealed read is not what declining costs" % kept,
+                decided=decisions, total=len(ordered))
 
     record = build_adjudication(
         adjudicated_by=who,

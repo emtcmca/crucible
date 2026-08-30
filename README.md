@@ -118,9 +118,10 @@ you.** This is the section a judge should read before any number:
 - **The seal claim is narrower than the shorthand, and half of it is attested
   rather than demonstrated.** As of 2026-08-30, no F4 GCS object has been
   fetched inside the measurement window and no F4 content has been exposed to a
-  human or a model. Local copies **are** opened, repeatedly, for automated
-  fingerprinting — that is how the seal is proven intact, and it is why the flat
-  form *"no F4 object has been read"* is not written here. An outside reviewer
+  human or a model. Local copies **are** opened repeatedly by local programs,
+  which hash them and also parse them and mine their content for leak signals —
+  that is how the seal is proven intact, and it is why the flat form *"no F4
+  object has been read"* is not written here. An outside reviewer
   cannot ratify either narrow claim without the Cloud Audit Logs or without
   observing the human process. [`AUDIT.md`](AUDIT.md) item 11.
 

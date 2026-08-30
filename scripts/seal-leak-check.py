@@ -197,8 +197,44 @@ EXEMPT = SOURCE_VOCABULARY | SELF
 
 
 def tracked_files():
-    out = subprocess.run(["git", "-C", str(REPO), "ls-files"],
-                         capture_output=True, text=True).stdout.split("\n")
+    """Every tracked file, or a refusal. NEVER an empty population on failure.
+
+    THE SAME FAIL-OPEN THE PRE-READ PROOF HAD, with a worse consequence.
+
+    `.stdout.split()` discarded the return code, so a git that could not run
+    yielded an empty list - and this scanner would then compare its signals
+    against NOTHING, find no leaks, and print a clean result. "I scanned zero
+    files and found zero leaks" and "I scanned the repository and it is clean"
+    were the same output.
+
+    This file already refuses to run when it has no SIGNALS, for exactly this
+    reasoning - "a green light nobody earned". Having no FILES is the same
+    failure from the other side, and it was not guarded.
+    """
+    try:
+        proc = subprocess.run(["git", "-C", str(REPO), "ls-files"],
+                              capture_output=True, text=True)
+    except OSError as exc:
+        # git ABSENT, not merely unhappy. `returncode` never exists in this
+        # case, so a check that only looked at it would let the exception
+        # propagate as a traceback - or, worse, be caught somewhere upstream
+        # and turned back into an empty list.
+        raise SystemExit(
+            "REFUSING TO RUN: git could not be executed (%s).%s" % (
+                exc,
+                chr(10) + "  With no file list this scan compares the sealed "
+                "signals against an empty population, finds nothing, and "
+                "reports a clean repository. That is not a clean repository - "
+                "it is no scan at all, wearing the same words."))
+    if proc.returncode != 0:
+        raise SystemExit(
+            "REFUSING TO RUN: git ls-files exited %d (%s).%s"
+            % (proc.returncode, (proc.stderr or "").strip()[:200] or "no stderr",
+               chr(10) + "  With no file list this scan compares the sealed "
+               "signals against an empty population, finds nothing, and reports "
+               "a clean repository. That is not a clean repository - it is no "
+               "scan at all, wearing the same words."))
+    out = proc.stdout.split("\n")
     keep = []
     for rel in out:
         rel = rel.strip()

@@ -380,3 +380,53 @@ def test_no_path_here_can_reach_the_real_held_out_set():
         "_run does not set CRUCIBLE_SEALED_DIR exactly once, unconditionally, "
         "at the top level of its body (found %d). Setting it inside a branch "
         "means some path through _run does not set it at all." % assignments)
+
+
+def test_an_unreadable_git_is_refused_rather_than_scanned_as_empty(tmp_path):
+    """"I scanned zero files and found zero leaks" must not print as "clean".
+
+    `tracked_files()` discarded git's return code, so a git that could not run
+    produced an empty file population - and the scanner then compared its
+    sealed signals against nothing, found nothing, and reported a clean
+    repository. The two outcomes were the same output.
+
+    This module already proves the scanner refuses when it has no SIGNALS, on
+    the reasoning that anything else is "a green light nobody earned". Having
+    no FILES is the identical failure from the other side, and it was unguarded
+    until 2026-08-30.
+
+    RUN AS A SUBPROCESS WITH GIT REMOVED FROM PATH, not by importing the
+    module. Importing it executes module-level code that RESOLVES THE SEALED
+    DIRECTORY, and a test that reaches for the holdout to prove the suite does
+    not reach for the holdout would be its own headline. The subprocess gets a
+    fixture directory like every other test here.
+    """
+    sealed = _stand_in_sealed_dir(tmp_path, 3)
+
+    # Strip every PATH entry holding a git executable. This is the realistic
+    # failure - git absent or shadowed - and it exercises the OSError branch
+    # rather than only the non-zero-exit one.
+    kept = [d for d in os.environ.get("PATH", "").split(os.pathsep)
+            if d.strip() and not any(
+                pathlib.Path(d, name).is_file()
+                for name in ("git", "git.exe"))]
+    env = dict(os.environ)
+    env["PATH"] = os.pathsep.join(kept)
+    env["CRUCIBLE_SEALED_DIR"] = str(sealed)
+
+    probe = subprocess.run([sys.executable, "-c",
+                            "import shutil,sys; sys.exit(0 if shutil.which('git') "
+                            "is None else 1)"],
+                           env=env, capture_output=True, text=True)
+    if probe.returncode != 0:
+        pytest.skip("git is still reachable with PATH stripped; cannot stage "
+                    "the failure this test is about")
+
+    proc = subprocess.run([sys.executable, str(SCRIPT)], cwd=str(REPO),
+                          env=env, capture_output=True, text=True, timeout=900)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, (
+        "with git unavailable the scanner exited 0. It scanned no files and "
+        "reported no leaks, which reads identically to a clean repository.")
+    assert "REFUSING TO RUN" in out, out[-600:]
+    assert "no scan at all" in out, out[-600:]

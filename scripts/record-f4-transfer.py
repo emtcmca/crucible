@@ -47,6 +47,7 @@ import hashlib
 import json
 import os
 import pathlib
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -825,6 +826,174 @@ def assert_out_path_is_offtree(out):
     return target
 
 
+PROOF_GLOB = "pre-read-seal-proof-*.json"
+
+
+def _git_or_refuse(*args):
+    """One git command, or E_PROOF_NOT_BOUND. Never an empty string on failure.
+
+    The same fail-open a reviewer found in the pre-read proof: `.stdout` with
+    the return code discarded reads an unreadable repository as a clean one.
+    Here it would be worse, because the caller is about to spend the attempt.
+    """
+    proc = subprocess.run(["git"] + list(args), cwd=str(ROOT),
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "git %s exited %d (%s). The drive cannot establish which commit it "
+            "is running, and an unreadable repository is not a clean one."
+            % (" ".join(args), proc.returncode,
+               (proc.stderr or "").strip()[:160] or "no stderr"))
+    return proc.stdout.strip()
+
+
+def assert_proof_binds_this_commit(proof_dir=None, git=None):
+    """The pre-read proof must describe THE TREE ABOUT TO BE DRIVEN.
+
+    THE GAP A REVIEWER NAMED, IN HIS WORDS: *"A separate end-to-end gap remains
+    between proof generation, committing its artifact, and opening the seal. A
+    real commit landed during this review, moving HEAD from 78a3f7b to 5720610
+    while leaving the tree clean. The proof binds its own checks, not
+    automatically the later drive invocation."*
+
+    Exactly so. The proof reads HEAD before and after its own checks and
+    refuses if it moved - which makes the ARTIFACT internally sound and says
+    nothing about the drive that runs an hour later. Between them the operator
+    commits the artifact, and may commit anything else too. Every claim the
+    proof makes - the seal recomputes, no tracked file leaks it, the tree is
+    clean - is a claim about a commit, and a drive at a different commit
+    inherits none of it.
+
+    THE BINDING IS THE PARENT RELATIONSHIP, which is the one the proof already
+    claims for itself. The documented procedure is: run the proof at X, write
+    the artifact, commit it and nothing else, producing a commit whose parent
+    is X. So at drive time:
+
+        HEAD              -> Y
+        Y's first parent  -> must equal the newest proof's recorded `head`
+        the tree          -> must be clean
+
+    If the operator committed something else after the proof, Y's parent is not
+    X and this refuses - correctly, because the proof no longer describes the
+    tree being driven. It is checked BEFORE the read, where a refusal costs
+    nothing.
+
+    WHAT IT DOES NOT DO. It does not re-verify the seal fingerprint; that is
+    the proof's job and re-doing it here would be a second implementation of a
+    check with one owner. It establishes only that the proof on disk is about
+    this commit.
+
+    `proof_dir` and `git` are injectable ONLY so this can be exercised. Both
+    default to the real thing. A guard whose first execution is the
+    irreplaceable run is a guard nobody has tested, and the repository state
+    this one reads - a specific parent commit, a clean tree, a matching
+    artifact - cannot be staged in an ordinary unit test any other way.
+
+    Args:
+        proof_dir: where the artifacts live. Defaults to `docs/proof/`.
+        git: a callable taking git arguments and returning stdout, raising
+            `TransferRunError` on failure. Defaults to `_git_or_refuse`.
+
+    Raises:
+        TransferRunError: E_PROOF_NOT_BOUND.
+    """
+    proof_dir = pathlib.Path(proof_dir) if proof_dir else (ROOT / "docs" / "proof")
+    git = git or _git_or_refuse
+    proofs = sorted(proof_dir.glob(PROOF_GLOB))
+    if not proofs:
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "no pre-read seal proof exists under docs/proof/. Run "
+            "`python scripts/pre-read-seal-proof.py --write`, commit that file "
+            "and nothing else, then re-run this.")
+    newest = proofs[-1]
+    try:
+        doc = json.loads(newest.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "%s could not be read as a proof: %s" % (newest.name, exc))
+
+    if doc.get("verdict") != "PASS":
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "%s records verdict %r. The seal may not be opened on a failing "
+            "proof." % (newest.name, doc.get("verdict")))
+
+    dirty = git("status", "--porcelain")
+    if dirty:
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "the working tree has %d modified path(s). The proof's claims are "
+            "about a commit, and this tree is not one."
+            % len(dirty.splitlines()))
+
+    head = git("rev-parse", "HEAD")
+    parents = git("rev-parse", "HEAD^@").split()
+    recorded = (doc.get("head") or "").strip()
+    if not recorded:
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "%s records no head. Its claims cannot be attached to any commit."
+            % newest.name)
+
+    # The proof's commit has the proven commit as its PARENT. Accepting HEAD
+    # itself as well would be wrong: that is the state the proof ran BEFORE,
+    # which means the artifact has not been committed yet and the tree it
+    # describes is not the one on disk.
+    if recorded not in parents:
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "%s proves the tree at %s, and HEAD is %s whose parent(s) are %s. "
+            "The proof does not describe the commit about to be driven. Re-run "
+            "the proof, commit its artifact and nothing else, then re-run this."
+            % (newest.name, recorded[:12], head[:12],
+               ", ".join(x[:12] for x in parents) or "none"))
+
+
+def assert_directory_still_offtree(target):
+    """Re-run the ANCESTRY refusals on a path that now exists. Cheap; not a lock.
+
+    `assert_out_path_is_offtree` cannot be re-run once the path is reserved:
+    its first refusal is "the target already exists", and after the reservation
+    it always does. So the ancestry half is split out and run again immediately
+    before the first content-bearing byte.
+
+    WHAT THIS BUYS AND WHAT IT HONESTLY DOES NOT. A reviewer put it exactly:
+    exclusive creation "atomically claims the final filename, which correctly
+    closes the overwrite race. It does not atomically bind the earlier ancestor
+    classification to that creation." Between the check and the creation, and
+    again during the hour that follows, an ancestor can become a repository or
+    be replaced by a link or a junction.
+
+    Nothing available here makes that atomic. What this does is shrink the
+    window from "the whole read and adjudication" to "the microseconds between
+    this call and the write", and it is DEFENCE IN DEPTH rather than a
+    concurrency lock. Said plainly, because a narrowed channel described as
+    closed is worse than an open one described accurately - which is the rule
+    this project applies to its own argument surface.
+
+    Raises:
+        TransferRunError: E_SEALED_OUT_PATH.
+    """
+    target = pathlib.Path(target)
+    for ancestor in target.parents:
+        if (ancestor / ".git").exists():
+            raise TransferRunError(
+                "E_SEALED_OUT_PATH",
+                "%s is NOW inside the git work tree at %s. It was not when the "
+                "path was approved, so a repository appeared underneath the "
+                "reservation while the run was in progress. Nothing has been "
+                "written to it." % (target, ancestor))
+    hit = sorted({part.lower() for part in target.parts} & set(_SYNC_ROOT_NAMES))
+    if hit:
+        raise TransferRunError(
+            "E_SEALED_OUT_PATH",
+            "%s is NOW under a cloud-sync root (%s), which it was not when the "
+            "path was approved." % (target, ", ".join(hit)))
+
+
 def reserve_out_path(out):
     """Approve the path AND TAKE IT, atomically. Returns (path, open handle).
 
@@ -900,6 +1069,56 @@ def reserve_out_path(out):
     return target, handle
 
 
+#: HAS THE SEAL BEEN OPENED IN THIS PROCESS, AND WHERE DID WE GET TO.
+#:
+#: A list rather than a module global assigned with `global`, matching
+#: `_COMPLETED` beside it: the `atexit` hook and the crash paths both read this
+#: and neither of them is inside `main()`.
+#:
+#: THIS EXISTS BECAUSE FILE SIZE WAS BEING USED TO INFER IT, AND THAT INFERENCE
+#: WAS WRONG. `release_reservation` deleted any zero-byte reservation on the
+#: reasoning that an empty file meant the header had never been written, which
+#: meant the read had not happened, which meant the run was retryable. An
+#: adversarial review took that apart: **empty means only that the header has
+#: not landed.** The window between the reservation and the header spans the
+#: sealed read AND the entire human adjudication, so an empty file is equally
+#: consistent with
+#:
+#:   - the sealed objects having been read;
+#:   - the adjudicator pausing, declining to sign, or hitting EOF;
+#:   - provider validation failing;
+#:   - the model failing to construct;
+#:   - the manifest or header failing to build.
+#:
+#: Every one of those is terminal under A3.11, and the old code deleted the
+#: record for all of them - erasing a spent attempt and leaving a path that
+#: looked available for a retry that is not allowed. That is the worst failure
+#: this runner could have: it does not merely lose evidence, it manufactures
+#: the appearance of the opposite outcome.
+_SEAL_OPENED = [False]
+
+#: The last milestone reached, in plain words, for the terminal record below.
+#: Updated at each point where a failure would mean something different to
+#: whoever has to rule on the wreckage.
+_SEAL_STAGE = ["setup, before the read"]
+
+
+def note_stage(text):
+    """Record where we got to. Cheap, and the only account a crash may leave."""
+    _SEAL_STAGE[0] = text
+
+
+def seal_was_opened():
+    """True once the sealed objects are in memory. Never reset."""
+    return _SEAL_OPENED[0]
+
+
+def mark_seal_opened():
+    """Called the instant `sealed_drive_lifecycle` returns. One-way."""
+    _SEAL_OPENED[0] = True
+    note_stage("sealed read completed, before adjudication")
+
+
 def release_reservation(path, handle):
     """Give an EMPTY reservation back. Never removes a file with bytes in it.
 
@@ -914,14 +1133,47 @@ def release_reservation(path, handle):
     opening another is how this repository got to seventeen instances of a
     check that measures nothing.
 
-    THE ZERO-BYTE TEST IS THE WHOLE SAFETY ARGUMENT. A file with anything in it
-    is evidence: it means the header was written, which means the read had
-    already happened, which under A3.11 means the run is terminally INVALID and
-    the record must be kept. So this removes only a file it can prove is empty,
-    and a failure to remove is swallowed rather than raised - it is cleanup on
-    an error path, and an exception here would replace the real cause with a
-    filesystem complaint.
+    WHAT "EMPTY" ACTUALLY PROVES, WHICH IS LESS THAN THIS USED TO ASSUME.
+
+    The first version deleted any zero-byte reservation, reasoning that an
+    empty file meant the header had never been written, which meant the read
+    had not happened. **That inference is invalid and a reviewer took it
+    apart.** Empty means only that the header has not landed, and the window
+    between the reservation and the header contains the sealed read and the
+    whole adjudication. An empty file is equally consistent with a spent
+    attempt that died at the signing prompt.
+
+    So the question is no longer asked of the FILE. It is asked of
+    `seal_was_opened()`, which is set the instant the sealed objects come back
+    and is never cleared:
+
+      SEAL OPENED - the file is NEVER removed, whatever its size. If it is
+                    still empty, a terminal record is written INTO it naming
+                    the stage, because the alternative is a spent attempt with
+                    no account of itself. A3.11 makes this outcome terminal
+                    INVALID and the runbook promises a record survives; that
+                    promise was false for every failure between the read and
+                    the header, which is most of the ones a human can cause.
+
+      NOT OPENED  - and empty. Removed, so the single retry A3.11 allows is not
+                    refused by the guard that protects it. This is the only
+                    branch that deletes anything, and it is now reached only
+                    when the holdout was demonstrably never touched.
+
+    Bytes present with the seal unopened cannot happen - nothing writes before
+    the read - but the size test is kept as a second condition rather than
+    dropped, because a delete guarded by one condition is a delete guarded by
+    whatever that condition turns out to mean.
+
+    Failures here are swallowed. This runs while an exception is propagating
+    and on interpreter shutdown; raising would replace the real cause with a
+    filesystem complaint, and on an unrepeatable attempt the real cause is the
+    only thing worth having.
     """
+    if seal_was_opened():
+        _write_terminal_record(path, handle)
+        return
+
     try:
         handle.close()
     except OSError:
@@ -930,6 +1182,49 @@ def release_reservation(path, handle):
         if path.is_file() and path.stat().st_size == 0:
             path.unlink()
     except OSError:
+        pass
+
+
+def _write_terminal_record(path, handle):
+    """Leave an account of a spent attempt that never reached its header.
+
+    THE CRASH HANDLER COULD NOT DO THIS, and that was the gap. It sits inside
+    the `with` block and wraps only `drive()`, so it covers nothing that
+    happens between the sealed read and the header - which is where the
+    adjudication lives, and where an operator declining to sign, an EOF, a
+    provider validation failure or a model that will not construct all land.
+
+    Written through the reservation's own handle where possible, so the bytes
+    go into the inode reserved before the seal was touched. If that handle is
+    already closed the path is reopened in APPEND mode - never `"w"`, which
+    would truncate the very record this function exists to preserve.
+    """
+    row = {
+        "kind": "terminal",
+        "at": _utc(),
+        "sealed_read_completed": True,
+        "stage": _SEAL_STAGE[0],
+        "episodes_completed_before_stop": _COMPLETED[0],
+        "ruling": (
+            "A3.11: one or more sealed reads makes the attempt terminal "
+            "INVALID, at any stage, with no retry. This record is written "
+            "because the attempt was spent and would otherwise have no account "
+            "of itself. It states what happened; it does not adjudicate the "
+            "outcome."),
+    }
+    try:
+        if handle is not None and not handle.closed:
+            _append(handle, row)
+            handle.flush()
+            return
+    except (OSError, ValueError):
+        pass
+    try:
+        with open(path, "a", encoding="utf-8", newline="") as fh:
+            _append(fh, row)
+    except OSError:
+        # Nothing further can be done, and it must not raise. The important
+        # half already happened: the file was NOT deleted.
         pass
 
 
@@ -1128,6 +1423,10 @@ def main(argv=None):
     if args.sealed:
         assert_sealed_parameters(args)
         if args.phase == "drive":
+            # THE PROOF MUST BE ABOUT THIS COMMIT. Checked here, before the
+            # read, because a refusal costs nothing at this point and the whole
+            # of the proof's value is that it describes the tree being driven.
+            assert_proof_binds_this_commit()
             # AND WHERE THE OUTPUT MAY LAND - APPROVED AND CLAIMED IN ONE STEP.
             #
             # Drive only. The DRIVE LOG carries the sealed instructions
@@ -1178,9 +1477,18 @@ def main(argv=None):
         # THE READ IS THE LAST THING THAT HAPPENS IN SETUP. Nothing below this
         # line may be moved above it without asking what it costs to discover
         # that failure with the attempt already spent.
+        note_stage("the sealed read itself")
         (seeds, instances, sealed_names,
          before_read, after_read, expected_reads) = sealed_drive_lifecycle(
             _declared_names(args.object_names))
+        # THE ATTEMPT IS NOW SPENT, AND EVERYTHING DOWNSTREAM HAS TO KNOW IT.
+        #
+        # One statement, immediately after the objects come back, before
+        # anything that can fail. From here `release_reservation` will never
+        # delete the record and will write a terminal account of wherever the
+        # run stopped - which for every failure between here and the header
+        # used to be nothing at all.
+        mark_seal_opened()
         # THE HUMAN PAUSE. Nothing below this line runs until a named person
         # has ruled on every instance that came off the wire. The next
         # statement after this block constructs the model, and the one after
@@ -1193,6 +1501,7 @@ def main(argv=None):
         # instructions, so this is tidiness with a safety margin rather than
         # the leak control - which is the reservation above.
         out_base = reserved_path
+        note_stage("waiting for the human adjudication")
         adjudication = await_adjudication(
             instances, args.adjudication,
             out_base.with_suffix(".worksheet.json"),
@@ -1319,12 +1628,24 @@ def main(argv=None):
     # log would be a guard firing on correct behaviour.
     if reserved_fh is not None:
         p, opened = reserved_path, reserved_fh
-        # THE RESERVATION IS ABOUT TO BECOME EVIDENCE. From the next statement
-        # on, the file has a header in it and release_reservation would decline
-        # to remove it anyway - but leaving the hook registered would mean an
-        # interpreter shutdown running a close() over an already-closed handle
-        # and re-stat-ing a path for no reason. Say what we mean instead.
-        atexit.unregister(release_reservation)
+        # THE HOOK IS DELIBERATELY NOT UNREGISTERED HERE ANY MORE.
+        #
+        # It was, and the unregister ran BEFORE `_append` wrote the header - so
+        # a failure in between left no cleanup and no record. Worse, the reason
+        # given for unregistering was that the file would have bytes in it and
+        # the release "would decline to remove it anyway", which was reasoning
+        # about file size at exactly the point where a reviewer showed that
+        # file size proves nothing.
+        #
+        # The release is now driven by `seal_was_opened()`, so leaving the hook
+        # in place is both harmless and correct: after a clean run it finds a
+        # closed handle and a file with bytes and does nothing at all.
+        #
+        # AND THE ANCESTRY IS RE-CHECKED, immediately before the first
+        # content-bearing byte. Not a lock - see the function's own docstring -
+        # but the window it leaves is microseconds instead of an hour.
+        assert_directory_still_offtree(p)
+        note_stage("writing the header")
     else:
         p = pathlib.Path(args.out)
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -1335,6 +1656,7 @@ def main(argv=None):
     with opened as fh:
         _append(fh, header)
         try:
+            note_stage("driving the arms")
             episodes = drive(seeds, instances, policies, manifests, model,
                              objective_set, fh=fh, limit=args.limit)
         except BaseException as exc:                          # noqa: BLE001

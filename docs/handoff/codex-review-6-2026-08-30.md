@@ -182,6 +182,16 @@ were all being called "a read":
   the seal is *proven* intact; forbidding it would forbid the proof.
 - **A CONTENT READ** - sealed text reaching a human's eyes or a model's context.
 
+> **SUPERSEDED TWICE, 2026-08-30. Left standing because the two wrong cuts are
+> the record.** Review 7 rejected `A CONTENT READ` for colliding with A3.2's
+> ratified term; it became **HUMAN-OR-MODEL EXPOSURE**. Review 7's own reply
+> then renamed `LOCAL FINGERPRINTING` to **LOCAL FINGERPRINT ACCESS**, and the
+> reviewer rejected that in turn as too narrow - `seal-leak-check.py` parses
+> instance JSON and derives slugs, pretext token pairs and instrument
+> identifiers from it, which is not "bytes in, digest out". The live term is
+> **LOCAL AUTOMATED PROCESSING**, defined in `AUDIT.md` item 11. Cite that;
+> nothing on this page is current vocabulary.
+
 `"no F4 object has been read"` is the first, and it survives untouched. The test
 now points `CRUCIBLE_SEALED_DIR` at an invented fixture set, **and asserts the
 commitment check DISAGREED** - because my first attempt asserted only `not

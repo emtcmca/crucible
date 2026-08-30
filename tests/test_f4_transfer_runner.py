@@ -18,6 +18,7 @@ import ast
 import itertools
 import json
 import pathlib
+import re
 import sys
 import tempfile
 
@@ -36,6 +37,59 @@ _spec.loader.exec_module(rt)
 
 SCRIPT_SOURCE = (ROOT / "scripts" / "record-f4-transfer.py").read_text(
     encoding="utf-8")
+
+#: The REAL proof binding, captured at import before any fixture can stub it.
+#:
+#: `_stub_the_proof_binding` is autouse, so every test in this file sees a
+#: no-op - including the ones written to exercise the binding itself, which
+#: failed as a block the moment they were added. Holding the original here is
+#: what lets the guard be stubbed for everyone and still be tested by someone.
+REAL_PROOF_BINDING = rt.assert_proof_binds_this_commit
+
+
+# ---------------------------------------------------- process-wide seal state --
+#
+# `_SEAL_OPENED` is deliberately ONE-WAY in production: once the sealed objects
+# are in memory nothing may un-spend the attempt, and there is no reset in the
+# module for exactly that reason. That is correct for a CLI that runs once and
+# exits, and it makes a test session order-dependent - a test that marks the
+# seal open leaves every later test in this file believing the holdout was read.
+#
+# Two of them started failing that way the moment the flag was introduced, which
+# is the pollution announcing itself. The fixture restores the module's own list
+# contents rather than calling a production reset, because a reset that exists
+# can be called by something that is not a test.
+
+
+@pytest.fixture(autouse=True)
+def _stub_the_proof_binding(monkeypatch):
+    """Every sealed test would otherwise be refused by the proof binding.
+
+    `assert_proof_binds_this_commit` reads real repository state - a clean
+    tree, a committed proof artifact, a specific parent commit - and a working
+    checkout under test has none of those. Left live, it refuses every sealed
+    path here with E_PROOF_NOT_BOUND before the test reaches whatever it was
+    written to exercise, which is what happened the moment it was wired: eight
+    tests failed at once, all of them reporting the wrong error.
+
+    Stubbed here and exercised FOR REAL below, against injected seams. The
+    alternative - leaving it live and staging a commit graph per test - would
+    make every test in this file depend on the state of the repository it
+    happens to be run in.
+    """
+    monkeypatch.setattr(rt, "assert_proof_binds_this_commit",
+                        lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_seal_state():
+    opened = list(rt._SEAL_OPENED)
+    stage = list(rt._SEAL_STAGE)
+    completed = list(rt._COMPLETED)
+    yield
+    rt._SEAL_OPENED[:] = opened
+    rt._SEAL_STAGE[:] = stage
+    rt._COMPLETED[:] = completed
 
 
 # --------------------------------------------------------------- the arms --
@@ -1665,6 +1719,7 @@ def test_an_empty_reservation_is_handed_back(tmp_path):
     nothing.
     """
     target = tmp_path / "drive.jsonl"
+    assert not rt.seal_was_opened(), "this test requires an unspent attempt"
     path, fh = rt.reserve_out_path(target)
     rt.release_reservation(path, fh)
     assert not path.exists(), "an empty reservation was not handed back"
@@ -1685,6 +1740,7 @@ def test_a_reservation_WITH_BYTES_IN_IT_IS_NEVER_REMOVED(tmp_path):
     while tidying up after it.
     """
     target = tmp_path / "drive.jsonl"
+    assert not rt.seal_was_opened(), "this test requires an unspent attempt"
     path, fh = rt.reserve_out_path(target)
     fh.write('{"kind": "header"}\n')
     fh.flush()
@@ -1837,3 +1893,521 @@ def test_the_runbook_states_the_retry_rule_by_sealed_reads_not_by_episodes():
     assert "A3.11" in text
     assert "Zero sealed reads" in text and "one retry remains" in text
     assert "Terminal **INVALID**" in text
+
+
+# ----------------------- a spent attempt may never be erased or look retryable --
+#
+# THE INFERENCE THAT WAS WRONG: "the file is empty, therefore the header never
+# landed, therefore the read never happened, therefore this is retryable."
+#
+# A reviewer took it apart. Empty means only that the header has not landed, and
+# the window between the reservation and the header spans the sealed read AND
+# the whole human adjudication. An empty file is equally consistent with the
+# objects having been read and the operator declining to sign.
+#
+# The old code deleted the record in every one of those cases - erasing a spent
+# attempt AND leaving a path that looks available for a retry A3.11 forbids.
+# That is worse than losing evidence: it manufactures the appearance of the
+# opposite outcome.
+
+
+def test_an_empty_reservation_is_KEPT_once_the_seal_has_been_opened(tmp_path):
+    """The P0, stated as the thing that must not happen."""
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    rt.mark_seal_opened()
+    rt.release_reservation(path, fh)
+    assert path.is_file(), (
+        "a spent attempt was erased. The path now looks available for a retry "
+        "the pre-registration does not allow.")
+
+
+def test_a_spent_attempt_that_never_reached_its_header_still_leaves_a_record(tmp_path):
+    """The crash handler could not cover this, which was the gap.
+
+    It sits inside the `with` block and wraps only `drive()`, so it covers
+    nothing between the read and the header - which is where the adjudication
+    lives, and where declining to sign, an EOF, a provider validation failure
+    and a model that will not construct all land.
+    """
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    rt.mark_seal_opened()
+    rt.note_stage("waiting for the human adjudication")
+    rt.release_reservation(path, fh)
+
+    rows = [json.loads(ln) for ln in
+            path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    assert len(rows) == 1, rows
+    row = rows[0]
+    assert row["kind"] == "terminal"
+    assert row["sealed_read_completed"] is True
+    assert row["stage"] == "waiting for the human adjudication", (
+        "the record does not say where the attempt stopped, which is the one "
+        "thing whoever rules on it needs")
+    assert "A3.11" in row["ruling"]
+
+
+def test_the_terminal_record_states_what_happened_and_does_not_rule_on_it(tmp_path):
+    """A record that adjudicates its own outcome is a producer grading itself.
+
+    The runner's job is to say the attempt was spent and where it stopped.
+    Whether that makes the run VOID or INVALID is the pre-registration's call
+    applied to the evidence, not a verdict the stopping process gets to write
+    about itself - and this project's whole architecture is built on components
+    that cannot approve their own output.
+
+    ASSERTED OVER THE EMITTED ROW, NOT THE SOURCE. The first version of this
+    test grepped `inspect.getsource` for a sentence, and failed because the
+    sentence was split across two string literals by line wrapping. A check
+    that a line break can defeat measures the formatting, not the property -
+    the same defect the rendered-output sweep in the reader hit two reviews
+    ago. The row is the artifact; assert on the artifact.
+    """
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    rt.mark_seal_opened()
+    rt.release_reservation(path, fh)
+    row = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+
+    # NO VERDICT FIELD. The facts a ruling is applied to, and nothing that
+    # looks like the ruling itself.
+    for key in ("verdict", "outcome", "valid", "void", "invalid"):
+        assert key not in row, (
+            "the terminal record carries a %r field. It reports; it does not "
+            "decide." % key)
+    assert "does not adjudicate" in row["ruling"]
+    assert row["stage"] and row["sealed_read_completed"] is True
+
+
+def test_a_record_with_bytes_survives_the_release_after_the_seal_opened(tmp_path):
+    """Both conditions, not either. The delete branch is reached only when the
+    holdout was demonstrably never touched AND nothing was written."""
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    rt._append(fh, {"kind": "header"})
+    rt.mark_seal_opened()
+    rt.release_reservation(path, fh)
+    text = path.read_text(encoding="utf-8")
+    assert '"header"' in text, "the header was lost"
+    assert '"terminal"' in text, "no account of the stop was appended"
+
+
+def test_the_release_never_truncates_when_it_reopens(tmp_path):
+    """Reopened in APPEND mode, never `"w"`.
+
+    `_write_terminal_record` falls back to opening by path when the handle is
+    already closed - which is the ordinary case at interpreter shutdown. `"w"`
+    there would truncate the very record the function exists to preserve, and
+    it is one character away.
+    """
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    rt._append(fh, {"kind": "header"})
+    fh.close()                                    # as at interpreter shutdown
+    rt.mark_seal_opened()
+    rt.release_reservation(path, fh)
+    rows = [json.loads(ln) for ln in
+            path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    assert [r["kind"] for r in rows] == ["header", "terminal"], rows
+
+
+def test_the_ancestry_is_rechecked_and_a_new_repository_is_refused(tmp_path):
+    """The residual a reviewer refused to accept under an unqualified guarantee.
+
+    Exclusive creation closes the overwrite race. It does not bind the earlier
+    ancestor classification to the creation, so a directory can become a
+    repository during the hour that follows. This does not make it atomic -
+    nothing here can - it shrinks the window to the moment before the write.
+    """
+    good = tmp_path / "runs" / "drive.jsonl"
+    good.parent.mkdir(parents=True)
+    rt.assert_directory_still_offtree(good)       # returns; raises nothing
+
+    (tmp_path / "runs" / ".git").mkdir()
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.assert_directory_still_offtree(good)
+    assert caught.value.code == "E_SEALED_OUT_PATH"
+    assert "NOW inside the git work tree" in str(caught.value)
+
+
+def test_the_recheck_does_not_refuse_a_path_that_now_exists(tmp_path):
+    """It must NOT re-run the existence test, or it refuses every reservation.
+
+    `assert_out_path_is_offtree` refuses a target that already exists, which is
+    right at preflight and catastrophic at the write - by then the reservation
+    has created the file, so re-running the whole guard would refuse every
+    sealed run at the last possible moment. That is a guard firing on correct
+    behaviour, and this repository has already paid for one of those.
+    """
+    target = tmp_path / "drive.jsonl"
+    target.write_text("reserved", encoding="utf-8")
+    rt.assert_directory_still_offtree(target)     # returns; raises nothing
+
+
+# ------------------------- the lifecycle calls must actually happen in main() --
+#
+# A MUTATION RUN FOUND THESE UNCOVERED, which is the whole reason they exist.
+# `release_reservation` was correct and separately proven; `mark_seal_opened`,
+# `note_stage` and `assert_directory_still_offtree` were correct and separately
+# proven. Deleting any of their CALL SITES from `main()` broke no test at all.
+#
+# That is the seventeen-instance defect in its purest form: every piece works,
+# every piece is tested, and nothing checks that the pieces are connected. A
+# spent attempt would have been erased by a runner whose deletion guard was
+# fully unit-tested.
+
+
+def test_main_marks_the_attempt_spent_the_moment_the_read_returns(
+        monkeypatch, tmp_path):
+    """`mark_seal_opened()` fires, and it fires before anything that can fail.
+
+    Everything downstream of the read - the deletion guard, the terminal record,
+    the stage it names - hangs off this one call. Without it the process
+    believes the holdout was never touched, and `release_reservation` deletes
+    the record of a spent attempt.
+    """
+    def read(*a, **k):
+        assert not rt.seal_was_opened(), (
+            "the run believed the seal was open BEFORE the read returned")
+        return (object(), _fake_instances(2), ["n"], [], [], 2)
+
+    def gate(*a, **k):
+        raise rt.TransferRunError("E_STOP", "far enough")
+
+    monkeypatch.setattr(rt, "sealed_drive_lifecycle", read)
+    monkeypatch.setattr(rt, "await_adjudication", gate)
+
+    names = tmp_path / "names.txt"
+    names.write_text(chr(10).join("F4-dest-%02d-invented.json" % n
+                                  for n in range(1, 25)), encoding="utf-8")
+
+    with pytest.raises(rt.TransferRunError):
+        rt.main(_sealed_argv(**{"--live": None, "--object-names": str(names),
+                                "--out": str(tmp_path / "drive.jsonl"),
+                                "--adjudication": str(tmp_path / "adj.json")}))
+
+    assert rt.seal_was_opened(), (
+        "main() completed a sealed read without marking the attempt spent. "
+        "Every guard downstream of the read is now looking at the wrong answer.")
+
+
+def test_main_records_the_stage_it_reached(monkeypatch, tmp_path):
+    """The stage is the only thing a terminal record can say about WHERE.
+
+    A record that says an attempt was spent but not where it stopped leaves
+    whoever rules on it unable to tell a failed read from a declined signature,
+    and those are different events with different consequences.
+    """
+    stage_at_gate = [None]
+
+    def read(*a, **k):
+        return (object(), _fake_instances(2), ["n"], [], [], 2)
+
+    def gate(*a, **k):
+        # Captured HERE, at the moment the run is waiting for the human. That
+        # is the moment a terminal record would be written on an EOF or a
+        # declined signature, so it is the moment the stage has to be right.
+        stage_at_gate[0] = rt._SEAL_STAGE[0]
+        raise rt.TransferRunError("E_STOP", "far enough")
+
+    monkeypatch.setattr(rt, "sealed_drive_lifecycle", read)
+    monkeypatch.setattr(rt, "await_adjudication", gate)
+
+    names = tmp_path / "names.txt"
+    names.write_text(chr(10).join("F4-dest-%02d-invented.json" % n
+                                  for n in range(1, 25)), encoding="utf-8")
+
+    with pytest.raises(rt.TransferRunError):
+        rt.main(_sealed_argv(**{"--live": None, "--object-names": str(names),
+                                "--out": str(tmp_path / "drive.jsonl"),
+                                "--adjudication": str(tmp_path / "adj.json")}))
+
+    # NOT `"adjudication" in stage`. That was the first version and it measured
+    # nothing: `mark_seal_opened()` already sets "sealed read completed, before
+    # adjudication", which contains the word - so deleting the note_stage call
+    # entirely left this test green. A mutation run caught it, which is the
+    # only reason it is written this way now.
+    #
+    # The property is that the stage MOVED PAST the one the read set. Compared
+    # against the value `mark_seal_opened()` actually writes rather than a
+    # string typed here, so it cannot drift from the source.
+    rt._SEAL_STAGE[:] = ["unset"]
+    rt.mark_seal_opened()
+    post_read = rt._SEAL_STAGE[0]
+    rt._SEAL_STAGE[:] = [stage_at_gate[0]]
+
+    assert stage_at_gate[0] != post_read, (
+        "the recorded stage never moved past %r, so a terminal record written "
+        "while waiting for the adjudication would name the wrong moment - and "
+        "the difference between a failed read and a declined signature is the "
+        "whole of what such a record is for." % post_read)
+    assert stage_at_gate[0], "no stage was recorded at all"
+
+
+def test_the_reserved_path_is_rechecked_before_the_header_is_written():
+    """READ FROM THE SOURCE, and assert the ORDER as well as the presence.
+
+    A recheck that runs after the header has been written checks nothing: the
+    content-bearing byte it exists to guard has already landed. Presence alone
+    would pass with the call in the wrong place, so the line numbers are
+    compared - the one property that cannot be satisfied by moving it.
+    """
+    tree = ast.parse(SCRIPT_SOURCE)
+    main = [n for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name == "main"]
+    assert len(main) == 1, "expected exactly one main()"
+
+    rechecks = [n.lineno for n in ast.walk(main[0])
+                if isinstance(n, ast.Call)
+                and getattr(n.func, "id", None) == "assert_directory_still_offtree"]
+    assert rechecks, (
+        "main() never re-checks the reserved path's ancestry. The reservation "
+        "closes the overwrite race; it does not bind the ancestor "
+        "classification to the creation, and an hour passes in between.")
+
+    appends = [n.lineno for n in ast.walk(main[0])
+               if isinstance(n, ast.Call)
+               and getattr(n.func, "id", None) == "_append"]
+    assert appends, "main() writes no records at all, which cannot be right"
+    assert min(rechecks) < min(appends), (
+        "the ancestry recheck at line %d runs after the first _append at line "
+        "%d, so the byte it guards has already been written."
+        % (min(rechecks), min(appends)))
+
+
+def test_the_runbooks_powershell_block_actually_parses_as_powershell():
+    """PASTED, NOT PROOFREAD. The first version could not be run at all.
+
+    The runbook's primary command used Bash `\\` line continuations on a machine
+    whose shell is PowerShell, so the document billed as the "exact invocation"
+    was one that fails the moment it is pasted into the only terminal that will
+    ever run it. A reviewer found that by trying it.
+
+    PARSED, NEVER EXECUTED. `[Parser]::ParseInput` builds the AST and reports
+    syntax errors without running a statement, which is the only safe way to
+    check a block that ends in the command that opens the seal.
+
+    Skipped rather than failed where PowerShell is absent: this asserts a
+    property of the DOCUMENT, and on a machine with no PowerShell the assertion
+    cannot be made either way. A test that passes because it could not run is
+    the defect this repository counts.
+    """
+    import shutil
+    import subprocess as sp
+
+    shell = shutil.which("powershell") or shutil.which("pwsh")
+    if not shell:
+        pytest.skip("no PowerShell on this machine; the document property "
+                    "cannot be checked here either way")
+
+    text = (ROOT / "docs" / "F4-DRIVE-RUNBOOK.md").read_text(encoding="utf-8")
+    blocks = [b for b in re.findall(r"```powershell(.*?)```", text, re.S)]
+    assert blocks, (
+        "the runbook has no powershell-tagged block. The operator's shell is "
+        "PowerShell and the command they paste has to be written for it.")
+
+    probe = (
+        "$errs = $null; $null = "
+        "[System.Management.Automation.Language.Parser]::ParseInput("
+        "[Console]::In.ReadToEnd(), [ref]$null, [ref]$errs); "
+        "if ($errs.Count) { $errs | ForEach-Object { $_.Message }; exit 1 }")
+    for i, block in enumerate(blocks):
+        proc = sp.run([shell, "-NoProfile", "-NonInteractive", "-Command", probe],
+                      input=block, capture_output=True, text=True, timeout=120)
+        assert proc.returncode == 0, (
+            "powershell block %d in the runbook does not parse:%s%s"
+            % (i, chr(10), (proc.stdout + proc.stderr)[:600]))
+
+
+def test_the_runbook_has_no_bash_line_continuations():
+    """The specific defect, kept dead by name.
+
+    A trailing backslash is a line continuation in Bash and a literal in
+    PowerShell, so a command written that way silently becomes several broken
+    commands when pasted. Checked over the fenced blocks only - Windows paths
+    in prose legitimately contain backslashes.
+    """
+    text = (ROOT / "docs" / "F4-DRIVE-RUNBOOK.md").read_text(encoding="utf-8")
+    for block in re.findall(r"```(.*?)```", text, re.S):
+        offenders = [ln for ln in block.splitlines() if ln.rstrip().endswith("\\")]
+        assert not offenders, (
+            "a fenced block ends %d line(s) with a backslash continuation, "
+            "which PowerShell does not honour: %s"
+            % (len(offenders), offenders[:3]))
+
+
+# --------------------------- the proof must be about the commit being driven --
+#
+# THE GAP, IN THE REVIEWER'S WORDS: "A separate end-to-end gap remains between
+# proof generation, committing its artifact, and opening the seal. A real commit
+# landed during this review, moving HEAD from 78a3f7b to 5720610 while leaving
+# the tree clean. The proof binds its own checks, not automatically the later
+# drive invocation."
+#
+# The proof refuses if HEAD moves during ITS OWN checks, which makes the
+# artifact internally sound and says nothing about a drive an hour later. The
+# binding is the parent relationship the proof already claims for itself.
+
+
+def _proof(tmp_path, head, verdict="PASS", name="pre-read-seal-proof-20260830T000000Z.json"):
+    d = tmp_path / "proof"
+    d.mkdir(exist_ok=True)
+    (d / name).write_text(json.dumps({"head": head, "verdict": verdict}),
+                          encoding="utf-8")
+    return d
+
+
+def _fake_git(head, parents, dirty=""):
+    def git(*args):
+        if args[0] == "status":
+            return dirty
+        if args == ("rev-parse", "HEAD"):
+            return head
+        if args == ("rev-parse", "HEAD^@"):
+            return " ".join(parents)
+        raise AssertionError("unexpected git call: %r" % (args,))
+    return git
+
+
+def test_a_proof_whose_commit_is_the_parent_of_head_is_accepted(tmp_path):
+    """The documented procedure, and it has to have a passing side.
+
+    WRITTEN AS A PAIR, not as a bare call. The assertion census flagged the
+    first version - it called the guard and asserted nothing, so it would have
+    passed against a guard that had been deleted. The over-blocking control and
+    the discrimination are the same test here: the identical inputs with the
+    parent changed must be REFUSED, which is what makes the acceptance mean
+    something.
+    """
+    d = _proof(tmp_path, "a" * 40)
+    REAL_PROOF_BINDING(proof_dir=d, git=_fake_git("b" * 40, ["a" * 40]))
+
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(proof_dir=d, git=_fake_git("b" * 40, ["z" * 40]))
+    assert caught.value.code == "E_PROOF_NOT_BOUND", (
+        "the guard accepted a proof whose commit is not a parent of HEAD, so "
+        "the acceptance above proves nothing")
+
+
+def test_a_commit_landing_after_the_proof_is_refused(tmp_path):
+    """The reviewer's exact case: HEAD moved on, the tree is clean, and the
+    proof's claims no longer describe what is about to be driven."""
+    d = _proof(tmp_path, "a" * 40)
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(
+            proof_dir=d, git=_fake_git("c" * 40, ["b" * 40]))
+    assert caught.value.code == "E_PROOF_NOT_BOUND"
+    assert "does not describe the commit about to be driven" in str(caught.value)
+
+
+def test_an_uncommitted_proof_is_refused(tmp_path):
+    """`head` equal to HEAD means the artifact has not been committed yet.
+
+    That is the state the proof ran BEFORE, so the tree it describes is not the
+    one on disk - and accepting it would let a proof be generated, left
+    uncommitted, and driven against a tree nobody recorded.
+    """
+    d = _proof(tmp_path, "a" * 40)
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(
+            proof_dir=d, git=_fake_git("a" * 40, ["z" * 40]))
+    assert caught.value.code == "E_PROOF_NOT_BOUND"
+
+
+def test_a_dirty_tree_is_refused(tmp_path):
+    """The proof's claims are about a commit, and a dirty tree is not one."""
+    d = _proof(tmp_path, "a" * 40)
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(
+            proof_dir=d,
+            git=_fake_git("b" * 40, ["a" * 40], dirty=" M some/file.py"))
+    assert "modified path" in str(caught.value)
+
+
+def test_a_failing_proof_is_refused(tmp_path):
+    """A FAIL artifact on disk is not a licence, it is a record of a refusal."""
+    d = _proof(tmp_path, "a" * 40, verdict="FAIL")
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(
+            proof_dir=d, git=_fake_git("b" * 40, ["a" * 40]))
+    assert "failing proof" in str(caught.value)
+
+
+def test_no_proof_at_all_is_refused(tmp_path):
+    """The likeliest case on the day, and it must name the fix."""
+    d = tmp_path / "proof"
+    d.mkdir()
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(
+            proof_dir=d, git=_fake_git("b" * 40, ["a" * 40]))
+    assert "pre-read-seal-proof.py --write" in str(caught.value)
+
+
+def test_the_newest_proof_is_the_one_that_counts(tmp_path):
+    """Several proofs accumulate over a build. The stale ones are not evidence.
+
+    BOTH DIRECTIONS, because one direction does not distinguish "reads the
+    newest" from "reads them all". A stale proof beside a current one must be
+    ignored; a stale proof beside a STALE one must still be refused.
+    """
+    d = _proof(tmp_path, "0ld" + "a" * 37,
+               name="pre-read-seal-proof-20260101T000000Z.json")
+    _proof(tmp_path, "a" * 40,
+           name="pre-read-seal-proof-20260830T235959Z.json")
+    REAL_PROOF_BINDING(proof_dir=d, git=_fake_git("b" * 40, ["a" * 40]))
+
+    # Now make the NEWEST one stale as well. If the guard were reading the
+    # oldest, or the first that happened to match, this would still pass.
+    _proof(tmp_path, "9one" + "a" * 36,
+           name="pre-read-seal-proof-20260831T000000Z.json")
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(proof_dir=d, git=_fake_git("b" * 40, ["a" * 40]))
+    assert caught.value.code == "E_PROOF_NOT_BOUND", (
+        "a stale newest proof was accepted, so the guard is not reading the "
+        "newest one")
+
+
+def test_git_failing_refuses_rather_than_reading_as_clean():
+    """Fail closed. An unreadable repository is not a clean one, and the caller
+    is about to spend the single attempt."""
+    def broken(*args):
+        raise rt.TransferRunError("E_PROOF_NOT_BOUND", "git exited 128")
+    with pytest.raises(rt.TransferRunError):
+        REAL_PROOF_BINDING(proof_dir=None, git=broken)
+
+
+def test_main_checks_the_proof_binding_before_the_read(monkeypatch, tmp_path):
+    """Wired, not merely written - and wired BEFORE the read.
+
+    Three lifecycle calls in this runner were fully unit-tested and never
+    called from `main()`; a mutation run found all three. The same test is owed
+    here, and the ordering matters as much as the presence: a binding checked
+    after the read costs the attempt to learn something a file read answers for
+    nothing.
+    """
+    monkeypatch.undo()          # drop the autouse stub for this test only
+    called = []
+
+    def spy(*a, **k):
+        called.append(rt.seal_was_opened())
+
+    monkeypatch.setattr(rt, "assert_proof_binds_this_commit", spy)
+    monkeypatch.setattr(rt, "sealed_drive_lifecycle",
+                        lambda *a, **k: (object(), _fake_instances(2), ["n"], [], [], 2))
+    monkeypatch.setattr(rt, "await_adjudication",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            rt.TransferRunError("E_STOP", "far enough")))
+
+    names = tmp_path / "names.txt"
+    names.write_text(chr(10).join("F4-dest-%02d-invented.json" % n
+                                  for n in range(1, 25)), encoding="utf-8")
+    with pytest.raises(rt.TransferRunError):
+        rt.main(_sealed_argv(**{"--live": None, "--object-names": str(names),
+                                "--out": str(tmp_path / "drive.jsonl"),
+                                "--adjudication": str(tmp_path / "adj.json")}))
+
+    assert called, "main() never checked that the proof binds this commit"
+    assert called[0] is False, (
+        "the proof binding was checked AFTER the seal was opened, which is "
+        "after the only moment a refusal would have been free")

@@ -219,13 +219,25 @@ Three distinct events were being carried under one word:
 | | |
 |---|---|
 | `CONTENT_READ` | Defined by **A3.2** of [`docs/proof/f4-unseal-preregistration-2026-08-25.md`](docs/proof/f4-unseal-preregistration-2026-08-25.md). That document owns the definition and it is not restated here. It is the unit the holdout counter measures and the one that marks a run INVALID. |
-| **LOCAL FINGERPRINT ACCESS** | A local file opened, hashed, and never surfaced. This is how the seal is PROVEN intact; forbidding it would forbid the proof. |
+| **LOCAL AUTOMATED PROCESSING** | A local copy opened and processed **by a program only**. It covers more than hashing: `scripts/seal-commitment.py` hashes bytes, but `scripts/seal-leak-check.py` parses each instance's JSON and derives a signal vocabulary from its content — instance slugs, pretext tails, adjacent pretext token pairs, and the smuggled payout instrument identifier (`scripts/seal-leak-check.py:125-178`). **What makes it non-violating is not that the content is untouched — it is read, parsed and mined.** It is that nothing is surfaced to a human or a model and nothing leaves the machine. This is how the seal is PROVEN intact; forbidding it would forbid the proof. |
 | **HUMAN-OR-MODEL EXPOSURE** | Sealed text reaching a person's eyes or a model's context. This is what the single attempt is spent on, and what the adjudication gate exists to sequence. |
 
 **What may be said:** no F4 GCS object has been fetched inside the measurement window, and no
-F4 content has been exposed to a human or a model. Local copies are opened for automated
-fingerprinting. **What may not be said** is the unqualified form, which reads as a claim
-about all three and is false about the third.
+F4 content has been exposed to a human or a model. Local copies are opened, parsed, and mined
+for signal by local programs. **What may not be said** is the unqualified form, which reads as
+a claim about all three and is false about the third.
+
+*(Middle term renamed 2026-08-30, second attempt at this vocabulary. It read **LOCAL
+FINGERPRINT ACCESS**, and the same reviewer rejected that too: "the leak checker parses JSON
+and extracts slugs, pretext tokens, and instrument identifiers; that is automated local
+content processing, not merely 'opened and hashed.'" He is right, and the error is worth
+keeping visible — the name was taken from `seal-commitment.py`, which really does only hash
+bytes, and then applied to a second tool that does considerably more. **A term coined from one
+of the two things it covers will under-describe the other.** Replacing one
+under-description with another is the failure this rename is trying not to repeat, so the
+definition above names the parsing and the derived fields explicitly and puts the
+non-violating property where it actually sits: in the fact that nothing is surfaced and
+nothing leaves the machine, not in a claim that the content is untouched.)*
 
 **And the reviewer cannot ratify the first two, which is part of the claim rather than a
 footnote to it.** His words, 2026-08-30: *"I cannot independently ratify the first two
@@ -237,7 +249,7 @@ demonstrated** — the same standing as item 7, and for the same reason.
 One consequence landed in the suite the same day. `tests/test_seal_leak_check_refuses.py`
 had been searching for the local held-out set and, where it found one, running the real
 scanner against it with no override — so on the build machine an ordinary `pytest` performed
-LOCAL FINGERPRINT ACCESS on every held-out instance. That is category two and not a
+LOCAL AUTOMATED PROCESSING on every held-out instance. That is category two and not a
 violation, but it is why the reviewer twice declined to run the suite at all, and a claim a
 reviewer cannot verify without breaking his own rule is worth less than one he can. Both that
 module and `tests/test_pre_read_seal_proof.py` now run against invented fixtures.

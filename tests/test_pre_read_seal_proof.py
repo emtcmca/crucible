@@ -438,3 +438,83 @@ def test_the_moved_head_check_says_which_two_commits(monkeypatch):
     out = buf.getvalue()
     assert "MOVED" in out, out
     assert "aaaaaaaaaaaa" in out and "bbbbbbbbbbbb" in out, out
+
+
+# ------------------------------- a guard must fail closed when it cannot see --
+#
+# THE REVIEWER'S REPRODUCTION: "I simulated Git commands returning empty output
+# and the proof printed VERDICT PASS, with a blank HEAD."
+#
+# The git helper took `.stdout.strip()` and threw away the return code, so every
+# caller read the empty string as a fact about the repository - "" meant a clean
+# tree and an unmoved HEAD. A git that could not run at all therefore produced a
+# passing proof, immediately before an irreversible read. In a project that runs
+# six worktrees at once, a held `index.lock` is enough to cause it.
+
+
+class _FakeProc:
+    def __init__(self, code, out="", err=""):
+        self.returncode, self.stdout, self.stderr = code, out, err
+
+
+def test_git_failing_is_not_a_clean_tree(monkeypatch):
+    """UNKNOWN is its own answer, and it is not a pass.
+
+    "clean" and "we could not ask" were the same value - the empty string -
+    until this was fixed.
+    """
+    mod = _module()
+    monkeypatch.setattr(mod.subprocess, "run",
+                        lambda *a, **k: _FakeProc(128, "", "fatal: not a repository"))
+    monkeypatch.setattr(mod, "_run", lambda args, label: (True, "ok"))
+    checks = mod.gather()
+    tree = [c for c in checks if "working tree" in c["check"]]
+    assert tree and tree[0]["ok"] is False, (
+        "an unreadable repository was reported as a clean one")
+    assert tree[0]["result"] == "UNKNOWN"
+
+
+def test_the_proof_refuses_outright_when_git_cannot_run(monkeypatch, capsys):
+    """The reviewer's exact case: every git command fails, and it must NOT pass."""
+    mod = _module()
+    monkeypatch.setattr(mod.subprocess, "run",
+                        lambda *a, **k: _FakeProc(128, "", "fatal: not a repository"))
+    rc = mod.main([])
+    out = capsys.readouterr().out
+    assert rc != 0, "the proof passed with git unavailable"
+    assert "REFUSED" in out
+    assert "VERDICT  PASS" not in out
+
+
+def test_a_blank_head_from_a_successful_git_is_refused(monkeypatch, capsys):
+    """git can exit 0 and name no commit, in an unborn repository.
+
+    The artifact's whole claim is that its own commit has this value as its
+    parent. There is nothing here to be a parent, and a proof that recorded a
+    blank HEAD would be making a claim about a commit that does not exist.
+    """
+    mod = _module()
+    monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: _FakeProc(0, ""))
+    monkeypatch.setattr(mod, "_run", lambda args, label: (True, "ok"))
+    rc = mod.main([])
+    out = capsys.readouterr().out
+    assert rc != 0, "a blank HEAD was accepted"
+    assert "named no commit" in out
+
+
+def test_git_raises_rather_than_returning_a_sentinel(monkeypatch):
+    """Raising is deliberate. A sentinel is something four call sites can forget."""
+    mod = _module()
+    monkeypatch.setattr(mod.subprocess, "run",
+                        lambda *a, **k: _FakeProc(1, "", "boom"))
+    with pytest.raises(mod.GitUnavailable) as caught:
+        mod.git("rev-parse", "HEAD")
+    assert "boom" in str(caught.value)
+
+
+def test_git_succeeding_still_returns_its_output(monkeypatch):
+    """The over-blocking control. A helper that only ever raises is not a helper."""
+    mod = _module()
+    monkeypatch.setattr(mod.subprocess, "run",
+                        lambda *a, **k: _FakeProc(0, "  cafebabe  \n"))
+    assert mod.git("rev-parse", "HEAD") == "cafebabe"

@@ -20,7 +20,7 @@ could.
 WHAT IT REHEARSES, AND WHAT IT DELIBERATELY DOES NOT SIMULATE.
 
 It runs the REAL path: `crucible.transfer.inspect.adjudicate`, the real
-rendering, the real ratified codes read from the signed artifact, a real
+rendering, the real ratified codes read from the ratified artifact, a real
 post-read challenge, the real confirmation step, and the real self-checks that
 run before anything is written. A rehearsal against a mock would teach the mock.
 
@@ -48,8 +48,25 @@ that, and the first is structural rather than procedural:
 
 Belt and braces, and the braces are the ones that hold.
 
+WHY THERE IS A PAUSE DRILL.
+
+`pause` is the control an operator reaches for under exactly the conditions
+that make them least likely to have read about it: tired, halfway through
+twenty-four rulings, on a run that cannot be repeated. It also used to be
+BROKEN - the exception told the operator to "re-enter the review in this same
+process", and until 2026-08-30 nothing in the codebase caught it and re-entered
+anything, which an independent review reproduced through this very script.
+
+So `--pause-drill` types `pause` at the first instance and `resume` at the
+prompt that follows, and hands the keyboard straight back. The operator sees
+the stop-and-resume path once, from the inside, without having to know it
+exists. It answers those two prompts and nothing else - never a reason code,
+never the name, never the confirmation word, because a rehearsal that typed a
+ruling would be teaching the machine's guess.
+
     python scripts/rehearse-adjudication.py                 # the default family
     python scripts/rehearse-adjudication.py --count 3       # a short walk
+    python scripts/rehearse-adjudication.py --pause-drill   # walk stop-and-resume
     python scripts/rehearse-adjudication.py --keep <dir>    # leave the envelope
 """
 
@@ -81,6 +98,44 @@ def _rule(char="="):
     return char * 74
 
 
+class PauseDrill:
+    """Answers exactly two prompts - the first `codes>` and the `resume` that follows.
+
+    IT RECOGNISES THE PROMPTS BY IMPORTING THEM, never by a local copy of the
+    string. `inspect.PROMPT_CODES_SUFFIX` and `inspect.PROMPT_RESUME` have one
+    owner, and a drill matching on its own spelling would go on answering a
+    question the review had stopped asking - which does not look like a broken
+    drill, it looks like an operator who never resumed.
+
+    WHAT IT WILL NOT DO. It never enters a reason code, a name, or the
+    confirmation word. Those belong to the human, and this module's whole
+    position is that a rendered instance with a pre-filled answer is a person
+    ratifying a machine's guess. It also exists only in this file: the real
+    runner has no drill, no injected input and no flag that could reach one.
+    """
+
+    def __init__(self, ask=input, say=print):
+        self._ask = ask
+        self._say = say
+        self.paused = False
+        self.resumed = False
+
+    def __call__(self, prompt=""):
+        text = str(prompt)
+        if not self.paused and text.endswith(insp.PROMPT_CODES_SUFFIX):
+            self.paused = True
+            self._say("")
+            self._say("  [drill] typing `pause` for you, to walk the stop-and-"
+                      "resume path once.")
+            return "pause"
+        if not self.resumed and text == insp.PROMPT_RESUME:
+            self.resumed = True
+            self._say("  [drill] typing `resume` for you. The review is yours "
+                      "from here.")
+            return "resume"
+        return self._ask(prompt)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description=__doc__,
@@ -93,6 +148,11 @@ def main(argv=None):
                     help="rehearse only the first N instances. The real run has "
                          "no such flag - a partial holdout is a different "
                          "experiment - but a rehearsal is allowed to be short.")
+    ap.add_argument("--pause-drill", action="store_true",
+                    help="type `pause` at the first instance and `resume` at "
+                         "the prompt after it, so the stop-and-resume path is "
+                         "walked rather than described. Nothing else is "
+                         "answered for you.")
     ap.add_argument("--keep", metavar="DIR",
                     help="write the envelope and the progress file here instead "
                          "of a temporary directory that is discarded")
@@ -131,7 +191,14 @@ def main(argv=None):
     print("  criterion     : %s" % rt.ADJ_CRITERION)
     print()
     print("  Everything below is the real review loop. Type `?` for the codes,")
-    print("  `show` to see an instance again, and `pause` to stop and resume.")
+    print("  `show` to see an instance again, and `pause` to stop. A pause")
+    print("  waits for you and asks `resume or abandon`; `resume` carries on")
+    print("  from where you were, in this same process. On the day that is the")
+    print("  only place it can happen - the challenge nonce and the instances")
+    print("  live in memory and a second invocation would have to read the")
+    print("  holdout again.")
+    if args.pause_drill:
+        print("  DRILL: `pause` and `resume` will be typed for you, once.")
     print(_rule("-"))
 
     workdir = pathlib.Path(args.keep) if args.keep else None
@@ -141,16 +208,41 @@ def main(argv=None):
         workdir = pathlib.Path(tmp.name)
     workdir.mkdir(parents=True, exist_ok=True)
 
+    read_line = PauseDrill() if args.pause_drill else input
+
     try:
         # THE REAL ENTRY POINT, with the real self-checks. `adjudicate` runs
         # `load_adjudication` and `verify_post_read` against the record it just
         # built, so a rehearsal that would have been refused on the day is
         # refused here instead - which is the entire point of rehearsing.
+        #
+        # THE RESUME LOOP IS INSIDE `adjudicate`, WHICH IS WHY THERE IS NONE
+        # HERE. This script used to catch the pause and print REFUSED, and an
+        # independent review used exactly that to show the documented
+        # stop-and-resume path did not exist. A loop added here would have
+        # fixed the rehearsal and left the real runner broken, and the operator
+        # would have practised a resume the day did not have.
         record, challenge = insp.adjudicate(
             instances,
-            read_line=input,
+            read_line=read_line,
             progress_path=workdir / "rehearsal.progress.json",
             challenge_path=workdir / "rehearsal.challenge.json")
+    except insp.AdjudicationDeclined as exc:
+        # BEFORE the ReviewPaused clause, because it is a subclass of it.
+        print()
+        print("  DECLINED %s" % exc)
+        print("  Declining is TERMINAL and does not reopen the review. That is")
+        print("  the difference between `pause` and refusing to commit: one")
+        print("  waits for you, the other ends the process. Nothing was")
+        print("  written, and on the day the read would still not be respent.")
+        return 1
+    except insp.ReviewPaused as exc:
+        print()
+        print("  ABANDONED %s" % exc)
+        print("  You paused and then chose `abandon`. Typing `resume` there")
+        print("  instead carries on from the instance you stopped at, in this")
+        print("  same process, with every ruling kept.")
+        return 1
     except insp.InspectionError as exc:
         print()
         print("  REFUSED %s" % exc)

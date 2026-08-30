@@ -82,9 +82,41 @@ def _run(args, label):
     return proc.returncode == 0, (lines[-1][:160] if lines else "(no output)")
 
 
+class GitUnavailable(RuntimeError):
+    """git did not answer. The proof cannot conclude anything from that."""
+
+
 def git(*args):
-    return subprocess.run(["git"] + list(args), cwd=str(ROOT),
-                          capture_output=True, text=True).stdout.strip()
+    """One git command, or a refusal. NEVER an empty string on failure.
+
+    THIS FAILED OPEN, AND A REVIEWER SHOWED WHAT THAT MEANT.
+
+    The previous body took `.stdout.strip()` and discarded both the return code
+    and stderr. Every caller then read the empty string as a fact about the
+    repository:
+
+      `git status --porcelain` -> "" -> THE WORKING TREE IS CLEAN
+      `git rev-parse HEAD`     -> "" -> HEAD, and it did not move
+
+    So a git that could not run at all - not installed, not a repository,
+    index.lock held by one of the six parallel worktrees this project runs -
+    produced **VERDICT PASS with a blank HEAD**. The reviewer simulated exactly
+    that and watched it pass. A proof whose checks all pass when the instrument
+    is broken is the purest form of a check that passes while measuring
+    nothing, and this one sits immediately before an irreversible read.
+
+    A GUARD MUST FAIL CLOSED WHEN IT CANNOT SEE. Raising is deliberate rather
+    than returning a sentinel: a sentinel is something a caller can forget to
+    check, and there are four call sites.
+    """
+    proc = subprocess.run(["git"] + list(args), cwd=str(ROOT),
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise GitUnavailable(
+            "git %s exited %d: %s"
+            % (" ".join(args), proc.returncode,
+               (proc.stderr or "").strip()[:200] or "no stderr"))
+    return proc.stdout.strip()
 
 
 def stray_dirty_paths(porcelain, expected):
@@ -141,16 +173,25 @@ def gather():
         "last_line": tail,
     })
 
-    dirty = git("status", "--porcelain")
+    # AND "git could not tell us" IS ITS OWN ANSWER, distinct from "clean".
+    # Those two were the same value - the empty string - until 2026-08-30.
+    try:
+        dirty = git("status", "--porcelain")
+        reachable = True
+    except GitUnavailable as exc:
+        dirty, reachable = str(exc), False
     checks.append({
         "check": "the working tree is clean",
         "how": "git status --porcelain",
-        "result": "CLEAN" if not dirty else "DIRTY",
-        "ok": not dirty,
+        "result": ("CLEAN" if not dirty else "DIRTY") if reachable else "UNKNOWN",
+        "ok": reachable and not dirty,
         # THE PATHS, NOT THE DIFF. A proof artifact carrying a diff of a dirty
         # tree could carry anything that was in it.
-        "last_line": ("clean" if not dirty
-                      else "%d path(s) modified" % len(dirty.splitlines())),
+        "last_line": (("clean" if not dirty
+                       else "%d path(s) modified" % len(dirty.splitlines()))
+                      if reachable else
+                      "git could not be asked, so cleanliness is UNKNOWN and "
+                      "unknown is not a pass: " + dirty[:80]),
     })
 
     return checks
@@ -178,10 +219,32 @@ def main(argv=None):
     # Recording the interval and REFUSING when it moved is the whole fix. The
     # proof cannot hold HEAD still - no command can - so it detects instead,
     # and a detected move is a FAIL rather than a footnote.
-    head_before = git("rev-parse", "HEAD")
-    checks = gather()
-    stamp = _utc()
-    head = git("rev-parse", "HEAD")
+    try:
+        head_before = git("rev-parse", "HEAD")
+        checks = gather()
+        stamp = _utc()
+        head = git("rev-parse", "HEAD")
+    except GitUnavailable as exc:
+        print("=" * 74)
+        print("PRE-READ SEAL PROOF   REFUSED")
+        print("=" * 74)
+        print("  %s" % exc)
+        print("  The proof cannot report on a repository it cannot read, and")
+        print("  an unreadable repository is NOT a clean one. THE SEAL MAY NOT")
+        print("  BE OPENED on a proof that did not run.")
+        return 1
+
+    # A BLANK HEAD IS NOT A HEAD. git can exit 0 and print nothing in an
+    # unborn repository, and the artifact's entire parent-commit claim is
+    # taken over this value.
+    if not head or not head_before:
+        print("=" * 74)
+        print("PRE-READ SEAL PROOF   REFUSED")
+        print("=" * 74)
+        print("  git exited cleanly and named no commit. The artifact's claim")
+        print("  is that its own commit has this one as its parent, and there")
+        print("  is nothing here to be a parent.")
+        return 1
 
     checks.append({
         "check": "HEAD did not move while the checks ran",
@@ -295,7 +358,13 @@ def main(argv=None):
         # clean again - so the dirty-path check below cannot see it. Without
         # this, the artifact's parent-commit claim is checkable by a diligent
         # reader afterwards and by nothing at all before the irreversible read.
-        head_now = git("rev-parse", "HEAD")
+        try:
+            head_now = git("rev-parse", "HEAD")
+        except GitUnavailable as exc:
+            print("REFUSED: git became unreadable while the artifact was being "
+                  "written (%s). Whether HEAD moved cannot be established, and "
+                  "unknown is not unchanged." % exc)
+            return 2
         if head_now != head:
             print("REFUSED: HEAD moved from %s to %s while the proof was being "
                   "written." % (head[:12], head_now[:12]))

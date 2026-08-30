@@ -211,6 +211,134 @@ def test_the_rehearsal_runs_the_real_adjudicate_entry_point():
         "rehearsing something other than the review it stands in for")
 
 
+# ------------------------------------------------- it rehearses PAUSE AND RESUME
+#
+# The rehearsal is the surface an independent review used to reproduce the
+# defect: it caught `ReviewPaused`, printed REFUSED and exited, and the process
+# was gone. A new invocation cannot pick a review back up - it would have to
+# read the holdout again to mint a challenge nonce, and a second sealed read is
+# terminal - so re-entry either happens in that process or it never happens.
+#
+# These drive the SCRIPT through a pipe rather than calling `adjudicate`
+# directly, because "the rehearsal exercises pause and resume" is a claim about
+# the script, and the script is what the operator runs.
+
+
+def test_the_rehearsal_pauses_and_resumes_and_still_produces_a_record(tmp_path):
+    """END TO END THROUGH THE SCRIPT: pause, resume, finish, keep the envelope.
+
+    The operator types `pause` at the only instance, `resume` at the prompt that
+    follows, then rules on it and commits. One process, one challenge, one
+    record - which is the whole thing the runbook promises and the codebase did
+    not do.
+    """
+    from crucible.transfer.adjudication import PASS_CODE
+
+    answers = chr(10).join(
+        ["pause", "resume", PASS_CODE, "A Rehearsing Operator", "ACCEPT", ""])
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--count", "1", "--keep", str(tmp_path)],
+        cwd=str(ROOT), input=answers, capture_output=True, text=True,
+        timeout=300)
+    assert proc.returncode == 0, proc.stdout[-3000:] + proc.stderr[-3000:]
+    assert "PAUSED. 0 of 1" in proc.stdout, proc.stdout[-3000:]
+    assert "resume or abandon" in proc.stdout
+
+    doc = json.loads((tmp_path / "rehearsal-envelope.json").read_text(
+        encoding="utf-8"))
+    assert doc["record"]["decisions"], (
+        "the resumed rehearsal produced a record with no rulings in it")
+
+
+def test_the_pause_drill_walks_the_path_without_being_asked_to(tmp_path):
+    """`--pause-drill` types the two words, and nothing else.
+
+    An operator who never types `pause` never finds out it works, and the day of
+    the read is a bad time to find out it does not. The drill answers the first
+    codes prompt and the resume prompt; the ruling, the name and the
+    confirmation are still the human's, so stdin here supplies exactly those
+    three and no more.
+    """
+    from crucible.transfer.adjudication import PASS_CODE
+
+    answers = chr(10).join([PASS_CODE, "A Rehearsing Operator", "ACCEPT", ""])
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--count", "1", "--pause-drill",
+         "--keep", str(tmp_path)],
+        cwd=str(ROOT), input=answers, capture_output=True, text=True,
+        timeout=300)
+    assert proc.returncode == 0, proc.stdout[-3000:] + proc.stderr[-3000:]
+    assert "[drill] typing `pause`" in proc.stdout
+    assert "[drill] typing `resume`" in proc.stdout
+    assert "PAUSED. 0 of 1" in proc.stdout
+    doc = json.loads((tmp_path / "rehearsal-envelope.json").read_text(
+        encoding="utf-8"))
+    assert doc["record"]["decisions"], (
+        "the drill paused and never came back, so the record is empty")
+
+
+def test_the_drill_recognises_the_prompts_by_importing_them():
+    """Ruling 46 on a prompt string: one owner, read at use.
+
+    A drill matching on its own copy of `"resume or abandon> "` would go on
+    answering a question the review had stopped asking, and the symptom would
+    not look like a broken drill - it would look like an operator who never
+    resumed.
+    """
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "insp.PROMPT_RESUME" in source
+    assert "insp.PROMPT_CODES_SUFFIX" in source
+    assert '"resume or abandon' not in source, (
+        "the rehearsal carries its own copy of a prompt string that "
+        "crucible.transfer.inspect owns")
+
+
+def test_the_rehearsal_has_no_resume_loop_of_its_own():
+    """The loop lives in `adjudicate`, so both callers get it.
+
+    A resume loop added here would have fixed the rehearsal and left the real
+    runner broken - and the operator would then have practised a resume the day
+    did not have, which is worse than practising nothing.
+    """
+    tree = ast.parse(SCRIPT.read_text(encoding="utf-8"))
+    adjudicate_calls = [n for n in ast.walk(tree)
+                        if isinstance(n, ast.Call)
+                        and getattr(n.func, "attr", None) == "adjudicate"]
+    assert len(adjudicate_calls) == 1, (
+        "the rehearsal calls adjudicate %d times. More than once is a retry "
+        "loop, and a retry is a second review rather than a resumed one."
+        % len(adjudicate_calls))
+
+
+def test_declining_and_abandoning_are_reported_as_different_things(tmp_path):
+    """The rehearsal must teach the distinction, not blur it.
+
+    Pausing then abandoning, and refusing to commit, are different events with
+    different consequences: one could have been resumed, the other is terminal
+    by the reviewer's own choice. A rehearsal that printed the same REFUSED for
+    both would teach an operator that stopping and refusing are the same move.
+    """
+    from crucible.transfer.adjudication import PASS_CODE
+
+    abandoned = subprocess.run(
+        [sys.executable, str(SCRIPT), "--count", "1"],
+        cwd=str(ROOT), input=chr(10).join(["pause", "abandon", ""]),
+        capture_output=True, text=True, timeout=300)
+    assert abandoned.returncode == 1, abandoned.stdout[-2000:]
+    assert "ABANDONED" in abandoned.stdout
+    assert "Typing `resume` there" in abandoned.stdout
+
+    declined = subprocess.run(
+        [sys.executable, str(SCRIPT), "--count", "1"],
+        cwd=str(ROOT),
+        input=chr(10).join([PASS_CODE, "A Rehearsing Operator", "no", ""]),
+        capture_output=True, text=True, timeout=300)
+    assert declined.returncode == 1, declined.stdout[-2000:]
+    assert "DECLINED" in declined.stdout
+    assert "TERMINAL" in declined.stdout
+    assert "ABANDONED" not in declined.stdout
+
+
 def test_the_runbook_tells_the_operator_to_rehearse():
     """A rehearsal nobody is told about is a script, not a control.
 

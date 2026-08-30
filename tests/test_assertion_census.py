@@ -14,9 +14,9 @@ identical, and the suite reports both as a green dot.
 
 WHAT THIS FILE DOES, AND WHAT IT DELIBERATELY DOES NOT DO.
 
-It does NOT require every test to assert. Rewriting thirty-five call-only tests
-across files three people are editing, on the day before an unrepeatable run, is
-how a repair becomes an outage.
+It does NOT require every test to assert. Rewriting every call-only test listed
+below, across files three people are editing, on the day before an unrepeatable
+run, is how a repair becomes an outage.
 
 It is a RATCHET. The assertion-free tests that existed when the census was
 written are listed below by name. The census fails if a NEW one appears, and it
@@ -25,9 +25,21 @@ list - a stale exemption is a second source of truth about which tests are debt,
 and a list nobody prunes is a list nobody reads.
 
 An open thread had recorded this debt as "my three tests that assert nothing"
-for two sessions. The census found THIRTY-FIVE. That gap is the argument for
-counting rather than remembering, and it is why the number lives in a scan
-instead of in a note.
+for two sessions. The first run of this census, 2026-08-30, found more than ten
+times that many. That gap is the argument for counting rather than remembering,
+and it is why the size of the debt lives in a scan instead of in a sentence.
+
+NO COUNT OF THE CURRENT LIST IS TYPED ANYWHERE IN THIS FILE, and that is a rule
+rather than an oversight. The figures that remain in this docstring are dated
+readings of a past run, which cannot go stale because they describe something
+that already happened. Three typed counts in this repository have now been
+wrong -
+"eleven" schema-coupled fixtures, "my three tests that assert nothing", and this
+census's own size, which an outside reviewer reproduced as 37 against a prose
+"thirty-six" on 2026-08-30. A count written into a sentence is a copy of the
+list, it drifts the moment the list moves, and it is read as fact long after.
+The one number this module states is computed from `KNOWN_ASSERTION_FREE` at
+import, below the list, so it cannot disagree with it.
 
 WHAT THIS MEASURES, AND THE TWO THINGS IT DOES NOT
 --------------------------------------------------
@@ -45,21 +57,33 @@ written IN IT. That is a lexical property of a single AST, and it is a proxy.
      the census cannot see it and lists it below. Following the call would mean
      resolving names across modules, fixtures and monkeypatching, which is a
      static analyser, not a census.
-  2. FALSE NEGATIVE - THE SKIP, now closed. `skip` and `exit` were in
-     `_RAISERS` until 2026-08-30, so a test whose only "raiser" was an
-     unconditional `pytest.skip()` counted as asserting something. A test that
-     always skips cannot fail; counting it as a check is the exact defect this
-     file exists to count. Both were removed. The delta was ONE entry - the
-     helper-driven test above, whose skip is conditional - so nothing was
-     hiding behind them today, and nothing can hide behind them tomorrow.
+  2. FALSE NEGATIVE - THE RAISER THAT CANNOT FAIL, now closed twice. `skip`,
+     `exit` and `xfail` were all in `_RAISERS`, so a test whose only "raiser"
+     was an unconditional `pytest.skip()` or `pytest.xfail()` counted as
+     asserting something. THE RULE THEY ALL BREAK IS ONE RULE: a call that
+     ends the test without a failing outcome is not an assertion, and counting
+     it as one is the exact defect this file exists to count, committed inside
+     the check that counts it. Learn the rule, not the three verbs - the next
+     pytest verb that terminates a test benignly belongs out of `_RAISERS` too.
+
+     `skip` and `exit` left on 2026-08-30 for a delta of ONE entry, the
+     helper-driven test above, whose skip is conditional. `xfail` left the same
+     day, after an outside reviewer named it, FOR A DELTA OF ZERO: no test in
+     this suite calls `pytest.xfail()` at all, so the scan is byte-identical
+     either way and nothing needed adding to the list. Conditional use is not a
+     counter-argument, which is why removal was unconditional. `pytest.xfail()`
+     raises, but it raises an OUTCOME THAT IS NEVER A FAILURE, in either branch
+     of any `if` that guards it - unlike `pytest.fail()`, which stays.
 
 **THE COUNT IS INTERIM DEBT CONTAINMENT. IT IS NOT EVIDENCE THAT THE LISTED
 TESTS ARE MEANINGFUL.** The exemption list is a mixture of three things - real
 "must not raise" properties, helper-driven false positives, and tests that were
 never finished - and the census cannot tell them apart. EVERY ENTRY ON IT STILL
-NEEDS TRIAGE, one at a time, by reading them. No count is written here on
-purpose: the list is the artifact, a copy of its length is a second source of
-truth about it, and this one moved twice on the day it was written.
+NEEDS TRIAGE, one at a time, by reading them. No count is TYPED here on
+purpose: the list is the artifact, a typed copy of its length is a second source
+of truth about it, and this one moved twice on the day it was written and was
+misquoted once in a handoff. The single figure below this docstring is read from
+the list at import, which is the only form that cannot go stale.
 
 So: this file may be cited as "no NEW test that cannot fail may be added
 quietly". It may not be cited as closing the test-quality debt. Presenting a
@@ -75,11 +99,15 @@ TESTS = pathlib.Path(__file__).resolve().parent
 
 #: Calls and context managers that ARE an assertion about failure.
 #:
-#: `skip` and `exit` were here until 2026-08-30 and are deliberately not. A test
-#: whose only raiser is `pytest.skip()` cannot fail, so counting it as an
-#: assertion is this repository's own defect, committed inside the check that
-#: counts it. Removing them added exactly one entry to the list below.
-_RAISERS = frozenset(("raises", "warns", "fail", "xfail", "deprecated_call"))
+#: `skip`, `exit` and `xfail` were all here on 2026-08-30 and are deliberately
+#: not. A test whose only raiser is `pytest.skip()` or `pytest.xfail()` cannot
+#: fail, so counting it as an assertion is this repository's own defect,
+#: committed inside the check that counts it. THE TEST FOR MEMBERSHIP IS NOT
+#: "does it raise" BUT "can the test FAIL because of it". Removing skip and exit
+#: added one entry to the list below; removing xfail added none.
+#:
+#: `fail` stays: `pytest.fail()` is a failing outcome, which is the whole point.
+_RAISERS = frozenset(("raises", "warns", "fail", "deprecated_call"))
 
 #: The assertion-free tests present when this census was written, 2026-08-30.
 #:
@@ -129,6 +157,16 @@ KNOWN_ASSERTION_FREE = frozenset((
     # case rather than debt: its docstring states the property as "must not
     # raise" and its last line says so again. Listed, not exempted silently.
     ("test_f4_transfer_runner.py", "test_release_is_silent_about_a_path_that_is_already_gone"),
+    # THE RATCHET FIRED FOR REAL, 2026-08-30, on a test a concurrent session
+    # added to that file while this one was editing the census - which is the
+    # first time this check has caught anything it did not already know about.
+    # Sanctioned, not debt, on the same grounds as the entry above it: the
+    # docstring states the property as "must NOT re-run the existence test" and
+    # the last line says `# returns; raises nothing`. Listed rather than
+    # exempted silently, and it stays listed only while that remains true - if
+    # its owner gives it an assertion, the stale-entry test below fails and
+    # this line comes out.
+    ("test_f4_transfer_runner.py", "test_the_recheck_does_not_refuse_a_path_that_now_exists"),
     ("test_governor_abort.py", "test_real_governor_passes"),
     ("test_l3_negative_checks.py", "test_negative_check"),
     ("test_l3_strawmen.py", "test_schema_only_validator_really_cannot_see_a_nested_match_mode"),
@@ -138,6 +176,18 @@ KNOWN_ASSERTION_FREE = frozenset((
     ("test_tripwire_verdicts.py", "test_every_verdict_validates_against_c9"),
     ("test_v22_emptiness_escape.py", "test_a_declared_episode_field_is_accepted"),
 ))
+
+# THE ONLY NUMBER THIS MODULE STATES, and it is read off the list rather than
+# typed beside it. `python -c "import tests.test_assertion_census as c;
+# print(c.__doc__)"` prints the size that is true at that commit. Guarded
+# because `python -OO` strips docstrings and `None += str` is a crash in a test
+# module that has nothing to do with what it measures.
+if __doc__:
+    __doc__ += (
+        "\nSIZE OF THE EXEMPTION LIST, computed at import from the list itself: "
+        "%d entries, every one of them untriaged. A prose count would be a copy "
+        "of the list; this cannot disagree with it.\n"
+        % len(KNOWN_ASSERTION_FREE))
 
 
 def asserts_something(fn):
