@@ -124,12 +124,108 @@ outside `C:\dev` entirely. **Do not use `evidence/`.** It is inside the
 repository and gitignored, and a gitignore entry is the control this project has
 already ruled is not a boundary.
 
+## The ancestry residual is yours, and it is not closed by code
+
+Read this once before you choose the directory, because the guard cannot do
+this part for you and the runbook is the only place that says so.
+
+**The code checks ancestry twice, and neither check is a lock.** Verified
+2026-08-30 against `scripts/record-f4-transfer.py`:
+
+1. `assert_out_path_is_offtree` runs when the path is approved, before the
+   seal is touched. It refuses an existing target, any path with a `.git`
+   ancestor, and any path naming a cloud-sync root.
+2. `assert_directory_still_offtree` runs again immediately before the first
+   content-bearing byte, on the reserved path. It re-runs the two ancestry
+   refusals only - the existence refusal cannot be re-run, because after the
+   reservation the target always exists.
+
+The second check narrows an interval. It does not close it. In the reviewer's
+own words:
+
+The second check narrows the interval in which a repository appearing before
+the first write goes unnoticed. It does not prevent the ancestor from becoming
+a repository or synchronized location **after the header lands, during the
+drive, or while the completed file remains there.** The held file handle
+protects write destination identity. It does not preserve the directory's
+security classification. **This is acceptable only as an explicitly owned
+operational assumption using an isolated directory with no concurrent mutation
+- not as a code-enforced no-exposure guarantee.**
+
+**The held handle protects where the bytes go, not what the directory
+becomes.** `open(..., "x")` creates the file and holds the descriptor across
+the read, the adjudication and the whole drive, so a rename, a symlink swap or
+a junction laid over the name afterwards cannot redirect a single byte: the
+write goes to the inode reserved before the seal was touched. That is the
+entire guarantee. It says nothing about the classification of the directory
+the inode lives in. Run `git init` in a parent after the header lands, drop the
+folder into a sync root while the drive is running, or move the finished log
+into one a week later, and the sealed instructions are in version control or at
+a vendor - and no file descriptor was ever in a position to stop it.
+
+**The exposure window does not close when the process exits.** The drive log
+carries the held-out instructions verbatim and stays sealed material for as
+long as the file exists. The last check the code will ever run on that
+directory happens before the first episode is written. Everything after that
+is you.
+
+### What you are agreeing to own
+
+By choosing the directory you take these four, explicitly:
+
+1. **Isolation.** A directory created for this run and used by nothing else.
+   No editor project root, no scratch folder somebody else writes to, no
+   backup agent walking it.
+2. **Local disk.** Not a network share, not a removable volume, not a folder
+   any sync client watches. Cloud sync uploads the file the moment it lands,
+   and deleting it afterwards does not un-upload it.
+3. **No classification change, during or after.** You do not run `git init`
+   there, you do not open the parent as a repository in an editor that might,
+   and you do not add the folder to a sync root - not during the drive, and not
+   after the run finishes.
+4. **No relocation.** You do not move or copy the directory while the run is
+   in progress. Move the finished record later, deliberately, to somewhere you
+   have applied the same three rules.
+
+### A concrete safe location on this machine
+
+The command block above already builds one:
+
+```powershell
+$Stamp = Get-Date -Format "yyyy-MM-dd-HHmm"
+$Run   = "$env:USERPROFILE\crucible-f4\$Stamp"
+New-Item -ItemType Directory -Force -Path $Run | Out-Null
+```
+
+That resolves to something like `C:\Users\tetzl\crucible-f4\2026-08-30-0142`.
+What makes it safe is four properties, and you should be able to name all four
+before you press enter:
+
+- **It is on the local `C:` volume**, so nothing uploads it and nothing
+  detaches with it.
+- **It is outside `C:\dev`**, so it is outside this repository, outside every
+  worktree of it including `crucible-wt-SEAL`, and outside every other clone on
+  the machine. The ancestry refusal fires on a `.git` in any parent, so this
+  keeps you clear of it by construction rather than by luck.
+- **It is outside both OneDrive roots** - `C:\Users\tetzl\OneDrive` and
+  `C:\Users\tetzl\OneDrive - p2phoamgt.com`. Note the trap the guard catches
+  only by accident of naming: with OneDrive folder redirection switched on,
+  `Documents`, `Desktop` and `Pictures` physically live under the OneDrive
+  root, so `%USERPROFILE%\Documents` is a sync root wearing an innocent name.
+  The guard resolves the real path and refuses it. Do not rely on that - just
+  do not put it there.
+- **It is stamped and fresh per run**, so nothing else has any reason to be in
+  it, which is what makes the isolation assumption in point 1 above credible
+  rather than hopeful.
+
 ## What happens, in order
 
 1. The pre-registered parameters are checked. Cheapest thing that can be wrong.
 2. **The output path is approved and CLAIMED** - created exclusively, and the
    handle is held from here to the end. Nothing that happens to the name
-   afterwards can redirect the write.
+   afterwards can redirect the write. It can still change what the directory
+   holding it counts as - see "The ancestry residual is yours" above, which is
+   the one thing in this run you own rather than the code.
 3. The objective set, the hash locks and the arm policies load. All of these
    read files, all can fail, and none needs the holdout - so all of them happen
    **before** the seal is touched. A failure here costs nothing.
@@ -151,19 +247,57 @@ written to disk.
 - A nonce is minted **after** the read and the record must answer it, so a
   decision file written in advance cannot satisfy the gate.
 - **You may stop partway, and this is now true rather than aspirational.**
-  Type `pause` at any code prompt. The review stops, tells you how many of how
-  many are done, and waits at a `resume or abandon>` prompt - so you can
-  actually step away. `resume` carries on where you were; `abandon` stops for
-  good and the ruling is not recorded.
+  Verified 2026-08-30 against `crucible/transfer/inspect.py`. Type `pause` at
+  any code prompt. The review stops, tells you how many of how many are done,
+  and waits at a `resume or abandon>` prompt - so you can actually step away.
+  `resume` carries on where you were; `abandon` stops for good and nothing is
+  recorded.
+  - **The same word means different things at the two prompts, and this is the
+    one place to be awake.** At a code prompt, `pause` `stop` `quit` `q` `exit`
+    all pause. At the `resume or abandon>` prompt, `stop` `quit` `q` `exit`
+    `abort` `n` `no` all **abandon**, which is terminal. To carry on, type
+    `resume` - or `continue`, `carry on`, `go`, `y`, `yes`. **`r` is not a
+    resume word**; one prompt earlier it means "show me that instance again",
+    and a letter with two meanings is how a resume becomes an abandon.
+  - On resume it prints how many of how many were already ruled on in this
+    read, and **it does not show those instances again**. You pick up at the
+    next unruled one.
   - It resumes **in this process**, on the same nonce minted at the read. That
     is the only way it can work: a new invocation would have to read the
     holdout again and would mint a nonce the earlier progress cannot answer.
     **Do not close the terminal.**
-  - A typo is neither, and is re-asked. An input that answers nothing five
-    times over - a closed stdin, a script - is refused rather than spun on.
+  - A typo is neither `resume` nor `abandon`, and is re-asked - but it counts.
+    Five unrecognised answers in a row end the review with
+    `E_RESUME_UNANSWERED`, because a prompt nobody can answer would otherwise
+    hold an unrepeatable read open forever. A genuinely closed stdin does not
+    wait for five: it ends immediately with `E_REVIEW_INPUT_EXHAUSTED`.
+  - **Declining is not pausing.** If you reach the summary and then refuse at
+    the `Type ACCEPT to commit to this adjudication>` prompt, that is terminal
+    - the review does not re-open, and nothing is written. Pausing is the
+    reversible one.
   - Until 2026-08-30 this claim was false: `pause` raised, nothing caught it,
     and the process exited. A reviewer found it by typing `pause` in the
     rehearsal.
+- **A resumed ruling that disagrees with one already on record.** As of
+  2026-08-30 this is what the code does, and the runbook says so rather than
+  describing an intention. A resumed ruling naming an instance outside the set
+  under review is refused with `E_RESUME_WRONG_SET`. A resumed ruling that
+  names an instance already in the progress file but carries **different**
+  codes is **not** refused - the in-memory value is re-validated and then
+  overwrites the stored one, silently. In an ordinary pause and resume the two
+  agree by construction, because the in-memory rulings are the ones that wrote
+  the progress file, so you will not meet this.
+
+  **A refusal is landing, and on 2026-08-30 it is half-landed.** The tests for
+  it are written in `tests/test_adjudication_inspection.py` and the
+  implementation in `crucible/transfer/inspect.py` has not caught up. When it
+  does, a genuine disagreement stops the review with `E_RESUME_CONFLICT`, which
+  names the instance id and both code sets and never quotes instance content;
+  re-submitting the **same** ruling stays legal, because refusing an operator
+  who agreed with themselves would be a refusal that costs a read and proves
+  nothing. If you see `E_RESUME_CONFLICT`, the two sources disagree about one
+  instance and you decide which is right - the process is asking, not
+  overruling. Check this bullet against the module before the day.
 - The name you give is **attribution, not authentication**. Nothing signs it.
   It is there so the ruling has an owner, and it must not be a component name -
   the runner refuses its own name, which is the point.
@@ -200,29 +334,111 @@ wire, so a record over stand-in ids will not load against them.
 
 ## When something goes wrong
 
-Amendment A3.11 governs, and the boundary is **whether any sealed object was
-read**, not how far the run got:
+Amendment A3.11 governs. Its boundary is the number of sealed CONTENT reads -
+zero is VOID and retryable once, one or more is terminal INVALID with no retry
+at any stage - and **not** how far the run got.
 
-- **Zero sealed reads.** VOID, and **one retry remains**. The reservation from
-  the failed attempt is handed back automatically when it is empty, so the
-  retry is not blocked by it.
-- **One or more sealed reads.** Terminal **INVALID**. No retry, at any stage.
-  **A record is always left, and you keep it.** Two mechanisms cover different
-  halves of the run and a reviewer found the gap between them on 2026-08-30:
+**The record states facts. The pre-registration applies the ruling to them.**
+Nothing the stopping process writes about itself is a verdict, and you should
+not read one out of it.
 
-  - a failure *while driving* writes a `crash` row through the open handle
-    before the exception propagates;
-  - a failure *anywhere between the read and the header* - which is where the
-    adjudication sits, and so where an EOF, a declined signature, a provider
-    validation failure or a model that will not construct all land - writes a
-    `terminal` row naming the stage it reached. That half did not exist until
-    2026-08-30, and worse, the empty file was being DELETED, which erased the
-    attempt and left a path that looked available for a retry.
+### Superseded on 2026-08-30, and left visible
 
-  Either way the record states what happened and does **not** rule on it.
-  Whether the run is VOID or INVALID is the pre-registration applied to the
-  evidence, not a verdict the stopping process writes about itself. The count
-  of completed episodes does not change the ruling.
+The paragraph above used to end: *"Either way the record states what happened
+and does not rule on it."* That was true of the sentence and false of the
+record. The record it described carried a field named `ruling`, whose text
+read *"A3.11: one or more sealed reads makes the attempt terminal INVALID, at
+any stage, with no retry"* - a verdict, in a field introduced by a claim that
+no verdict was being given. A reviewer found the contradiction inside one
+dictionary.
+
+The same record carried a single boolean, `sealed_read_completed: true`. That
+flag is set **before** the download is attempted, deliberately, so it read
+`completed` on an attempt where the first object failed and nothing ever
+arrived - stating the wrong side of the one boundary A3.11 turns on.
+
+Both are replaced, in `scripts/record-f4-transfer.py` as of 2026-08-30. The
+old strings are quoted here rather than deleted, because if you are holding an
+older record you need to know what its words were worth.
+
+### The three facts the record carries
+
+The terminal record distinguishes three things that were one boolean until
+2026-08-30. They are not interchangeable:
+
+| fact | what it attests | what it does NOT attest |
+|---|---|---|
+| **read attempted** | the downloader was about to be called | that any object was fetched |
+| **read returned** | the download call returned and objects are in the process's memory | how many objects, or that the audit log agrees |
+| **run completed** | the footer is durable and the drive returned cleanly | nothing further; this one says what it means |
+
+**A conservative flag set BEFORE the read is not evidence that a read
+occurred.** `read attempted` is set early on purpose: it is the reason a spent
+attempt's reservation is never deleted, and buying that protection means the
+flag is also true in the cases where nothing came back at all. Treat it as
+"deletion is now refused", never as "the holdout was read".
+
+`run completed` exists for a defect found the same day: without it the exit
+hook could not tell a run that stopped from a run that finished, and stamped a
+terminal row onto a clean drive - `header`, `footer`, `terminal`, with the last
+row contradicting the one above it.
+
+### The authoritative instrument is the holdout counter, not the runner's flag
+
+A3.11 turns on sealed CONTENT reads, and those are counted in the Cloud
+Logging data-access record for the sealed bucket - the same counter the run
+itself asserts against, and the pre-registered instrument. Read it:
+
+```powershell
+# $Since is the RFC3339 UTC instant the attempt began - the drive log's
+# header carries it. Angle-bracket placeholders are NOT usable here:
+# PowerShell parses `<` as a redirection operator and the line fails on
+# paste, which is how this block was originally written.
+$Since = "2026-08-31T21:00:00Z"
+python scripts/probe-g7-g8.py --holdout-since $Since
+```
+
+Read the tally it prints, not its exit code. Two cautions, each of which
+changes what the number means:
+
+- **One object read emits more than one granted entry.** A metadata fetch and
+  a media download are both `storage.objects.get`. The count is granted audit
+  entries, not objects. That is sufficient for A3.11, which asks zero or
+  nonzero, and it is wrong for any per-object arithmetic.
+- **The window is yours to set.** Start it at the attempt. The default floor
+  covers everything the audit log can speak to, which includes every earlier
+  read of that bucket.
+
+The probe writes its report under `docs/proof/`, inside this repository. That
+is allowed and deliberate: it carries counts, principals and methods, and no
+instance content.
+
+### Then apply the amendment yourself
+
+- **Zero sealed reads.** VOID, and **one retry remains**. An empty reservation
+  is handed back automatically when the read was never attempted, so the retry
+  is not refused by the guard that protects it.
+- **One or more sealed reads.** Terminal **INVALID**. No retry, at any stage,
+  whether the failure landed in the read, in validation, in the adjudication,
+  in model setup or in scoring. Publish the failure record. **No rate and no
+  transfer conclusion of any kind may be reported from it.**
+
+The count of completed episodes does not move that boundary in either
+direction.
+
+### A record is always left, and you keep it
+
+Two mechanisms cover different halves of the run, and a reviewer found the gap
+between them on 2026-08-30:
+
+- a failure *while driving* writes a `crash` row through the open handle before
+  the exception propagates;
+- a failure *anywhere between the read and the header* - which is where the
+  adjudication sits, and so where an EOF, a declined commitment, a provider
+  validation failure or a model that will not construct all land - writes a
+  `terminal` row naming the stage it reached. That half was added 2026-08-30;
+  before it, the empty file was being DELETED, which erased a spent attempt and
+  left a path that looked available for a retry that is not allowed.
 
 A record with bytes in it is evidence. Nothing in this runbook ever asks you to
 delete one.

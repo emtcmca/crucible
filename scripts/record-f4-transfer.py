@@ -526,7 +526,7 @@ def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None)
     mark_seal_opened()
     seeds, instances, names = load_sealed_instances(
         object_names=object_names, downloader=cal, bucket=bucket)
-    note_stage("sealed read returned; asserting the audit log against it")
+    mark_read_returned()
 
     # 8-10. Settle, then assert the STRUCTURED result: count, distinct reads and
     #       the object set. A count of 24 is satisfied by one object read 24
@@ -587,6 +587,8 @@ def read_drive_file(path):
     episodes = []
     footer = None
     crash = None
+    terminal = None
+    unknown = []
     for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
@@ -600,12 +602,52 @@ def read_drive_file(path):
             footer = rec
         elif kind == "crash":
             crash = rec
+        elif kind == "terminal":
+            # NOT SILENTLY DROPPED. This branch did not exist, so a drive log
+            # carrying a terminal row read back as though it did not - and a
+            # reviewer reproduced exactly that: rows `['header', 'footer',
+            # 'terminal']` with this function reporting `completed = True`. The
+            # one row saying the attempt stopped was the one row nobody saw.
+            terminal = rec
+        else:
+            # AND NEITHER IS ANYTHING ELSE. The old `elif` chain ended without
+            # a fallback, so any record kind added later would be dropped in
+            # silence by a reader whose entire job is to say what happened. A
+            # kind this function does not understand is a reason to refuse, not
+            # to continue with less.
+            unknown.append(kind)
     if header is None:
         raise TransferRunError(
             "E_NO_DRIVE_HEADER",
             "%s carries no header record. The header is written before episode "
             "one and fixes everything decided in advance; a file without it "
             "cannot say what run it describes." % path)
+    if unknown:
+        raise TransferRunError(
+            "E_DRIVE_LOG_UNKNOWN_KIND",
+            "%s carries record kind(s) this reader does not understand: %s. It "
+            "will not report on a file it can only partly read."
+            % (path, ", ".join(sorted(set(str(k) for k in unknown)))))
+
+    # A FOOTER AND A TERMINAL ROW IN ONE FILE IS A CONTRADICTION, AND THIS
+    # REFUSES RATHER THAN PICKING A SIDE.
+    #
+    # The footer says the drive finished; the terminal row says it stopped
+    # before it could. Both were being written on every successful sealed run,
+    # because the exit hook had no way to tell a completed run from an
+    # abandoned one. That is fixed at the writer - see `mark_run_completed` -
+    # and this is the reader half, because a producer bug that reaches the
+    # evidence must not be resolved quietly by whoever reads it next. Choosing
+    # a winner between two statements about whether a one-shot completed is
+    # exactly how the wrong one wins.
+    if footer and terminal:
+        raise TransferRunError(
+            "E_DRIVE_LOG_CONTRADICTS",
+            "%s carries BOTH a footer (the drive completed) and a terminal row "
+            "(the attempt stopped at %r). One of them is wrong and this reader "
+            "will not decide which."
+            % (path, terminal.get("stage")))
+
     out = dict(header)
     # Footer fields are MEASURED, so they win over anything the header guessed.
     if footer:
@@ -615,6 +657,11 @@ def read_drive_file(path):
     out["episodes"] = episodes
     out["completed"] = bool(footer)
     out["crash"] = crash
+    # SURFACED, so a caller can act on it. Absent rather than None when there
+    # is none: the canonical form this project uses admits no null, and "no
+    # terminal row" is the absent key.
+    if terminal is not None:
+        out["terminal"] = terminal
     return out
 
 
@@ -969,18 +1016,73 @@ def assert_proof_binds_this_commit(proof_dir=None, git=None):
             "%s records no head. Its claims cannot be attached to any commit."
             % newest.name)
 
-    # The proof's commit has the proven commit as its PARENT. Accepting HEAD
-    # itself as well would be wrong: that is the state the proof ran BEFORE,
-    # which means the artifact has not been committed yet and the tree it
-    # describes is not the one on disk.
-    if recorded not in parents:
+    # EXACTLY ONE PARENT, AND IT MUST BE THE PROVEN COMMIT.
+    #
+    # `recorded in parents` was the first version and a reviewer took it apart:
+    # it accepts a MERGE, where the proven commit is one parent and the other
+    # imports arbitrary unscanned content. Merges are only the loudest case -
+    # any commit with more than one parent brings in a tree the proof never
+    # looked at, through a side the check does not examine.
+    if len(parents) != 1:
         raise TransferRunError(
             "E_PROOF_NOT_BOUND",
-            "%s proves the tree at %s, and HEAD is %s whose parent(s) are %s. "
-            "The proof does not describe the commit about to be driven. Re-run "
-            "the proof, commit its artifact and nothing else, then re-run this."
-            % (newest.name, recorded[:12], head[:12],
+            "HEAD is %s with %d parents (%s). A merge brings in a tree the "
+            "proof never scanned, through a parent this check does not look "
+            "at. The proof commit must be an ordinary commit on top of the "
+            "proven one."
+            % (head[:12], len(parents),
                ", ".join(x[:12] for x in parents) or "none"))
+
+    # And that single parent has to be the commit the proof was taken over.
+    # Accepting HEAD itself would be wrong too: that is the state the proof ran
+    # BEFORE, which means the artifact has not been committed yet and the tree
+    # it describes is not the one on disk.
+    if recorded != parents[0]:
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "%s proves the tree at %s, and HEAD is %s whose parent is %s. The "
+            "proof does not describe the commit about to be driven. Re-run the "
+            "proof, commit its artifact and nothing else, then re-run this."
+            % (newest.name, recorded[:12], head[:12], parents[0][:12]))
+
+    # AND THE COMMIT MUST CHANGE THAT ARTIFACT AND NOTHING ELSE.
+    #
+    # The second half of the same finding: a single-parent commit can still
+    # carry the proof artifact PLUS code edited after `--write` returned, and
+    # everything below the artifact would then be unscanned while this check
+    # passed. The proof document already claims exactly this property about
+    # itself - `git show --stat` on its commit lists only that file - so this
+    # is that claim verified from the other end instead of trusted.
+    changed = [ln.strip() for ln in
+               git("diff-tree", "--no-commit-id", "--name-only", "-r", head).splitlines()
+               if ln.strip()]
+    try:
+        expected = newest.resolve().relative_to(ROOT.resolve()).as_posix()
+        compared, by_name = changed, ""
+    except ValueError:
+        # An injected proof directory outside the repository. A repo-relative
+        # comparison is not meaningful there, so this falls back to filenames -
+        # a WEAKER check, and the message below says so rather than presenting
+        # the two modes as one. A check that quietly weakens itself is worse
+        # than one that states which mode it is in.
+        expected = newest.name
+        compared = [pathlib.PurePosixPath(c).name for c in changed]
+        by_name = (" (compared by FILENAME ONLY: the proof directory is "
+                   "outside the repository, so this is the weaker of the two "
+                   "comparisons)")
+
+    if compared != [expected]:
+        # THE ORIGINAL PATHS, NOT THE COMPARED ONES. Reporting the basenames
+        # the fallback happened to build would tell an operator that
+        # `reader.py` was in the commit and leave them to guess which one.
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "the commit at %s changes %d path(s) - %s - and the proof's own "
+            "claim is that its commit contains that artifact and nothing else. "
+            "Anything else in it was never scanned by the proof. Commit the "
+            "artifact on its own.%s"
+            % (head[:12], len(changed),
+               ", ".join(sorted(changed)[:6]) or "none", by_name))
 
 
 def assert_directory_still_offtree(target):
@@ -1128,6 +1230,38 @@ def reserve_out_path(out):
 #: the appearance of the opposite outcome.
 _SEAL_OPENED = [False]
 
+#: DID THE READ RETURN, AND DID THE RUN FINISH. Three facts, not one boolean.
+#:
+#: `_SEAL_OPENED` alone was being written into the evidence as
+#: `sealed_read_completed: true`, and a reviewer took that apart on two sides
+#: at once:
+#:
+#:   * it is set BEFORE the download is attempted, deliberately, so it is true
+#:     even when the first object fails and zero bytes ever arrive. Recording
+#:     that as "completed" states the wrong side of A3.11's zero-versus-one
+#:     boundary - the one thing the amendment turns on;
+#:   * it stays true after a SUCCESSFUL run, so the atexit hook stamped a
+#:     terminal record onto a clean drive. The reproduction was
+#:     `['header', 'footer', 'terminal']` with the reader reporting completed.
+#:
+#: The second is the worse of the two: a finished measurement carrying a row
+#: that says the attempt was terminal. It is the same defect this file exists
+#: to catch - a flag that does not prove what it is used for - committed inside
+#: the fix for the previous instance of it.
+#:
+#: So the record now carries what was OBSERVED and never the ruling:
+#:
+#:   read_attempted   the downloader was about to be called. Conservative, set
+#:                    before the attempt, and the reason deletion is refused.
+#:   read_returned    `load_sealed_instances` returned. Objects are in memory.
+#:   run_completed    the footer was written and the drive returned cleanly.
+#:
+#: **How many objects were actually read is the holdout counter's question**,
+#: not this process's. A3.11's boundary is measured there. Nothing here infers
+#: it, and the record says so in place of the verdict it used to assert.
+_READ_RETURNED = [False]
+_RUN_COMPLETED = [False]
+
 #: The last milestone reached, in plain words, for the terminal record below.
 #: Updated at each point where a failure would mean something different to
 #: whoever has to rule on the wreckage.
@@ -1145,9 +1279,46 @@ def seal_was_opened():
 
 
 def mark_seal_opened():
-    """Called the instant `sealed_drive_lifecycle` returns. One-way."""
+    """Called immediately BEFORE the read is attempted. One-way.
+
+    Named for what it guards rather than for what it proves: from here the
+    reservation is never deleted. It does NOT assert that anything was read.
+    """
     _SEAL_OPENED[0] = True
-    note_stage("sealed read completed, before adjudication")
+    note_stage("the sealed read was attempted")
+
+
+def mark_read_returned():
+    """Called when `load_sealed_instances` RETURNS. One-way.
+
+    The distinction from `mark_seal_opened` is the whole of finding 2: attempted
+    and returned are different facts, and only the second means objects are in
+    memory. Neither is the count A3.11 turns on.
+    """
+    _READ_RETURNED[0] = True
+    note_stage("the sealed read returned; asserting the audit log against it")
+
+
+def read_returned():
+    return _READ_RETURNED[0]
+
+
+def mark_run_completed():
+    """Called after the footer is durable and the drive returned cleanly.
+
+    THE MISSING FLAG. Without it `release_reservation` could not tell a run
+    that stopped from a run that finished, so it stamped a terminal record onto
+    every successful drive - `['header', 'footer', 'terminal']`, with the
+    terminal row asserting the attempt was INVALID while the footer said
+    completed. Two rows in one file, contradicting each other, on the only
+    artifact a one-shot measurement produces.
+    """
+    _RUN_COMPLETED[0] = True
+    note_stage("the drive completed and the footer is durable")
+
+
+def run_completed():
+    return _RUN_COMPLETED[0]
 
 
 def release_reservation(path, handle):
@@ -1201,6 +1372,16 @@ def release_reservation(path, handle):
     filesystem complaint, and on an unrepeatable attempt the real cause is the
     only thing worth having.
     """
+    if run_completed():
+        # A FINISHED RUN NEEDS NOTHING FROM THIS HOOK. The footer is durable,
+        # the file is evidence, and appending a terminal row to it would
+        # contradict the footer three lines above it.
+        try:
+            handle.close()
+        except OSError:
+            pass
+        return
+
     if seal_was_opened():
         _write_terminal_record(path, handle)
         return
@@ -1233,15 +1414,27 @@ def _write_terminal_record(path, handle):
     row = {
         "kind": "terminal",
         "at": _utc(),
-        "sealed_read_completed": True,
+        # THREE OBSERVATIONS, AND NOT ONE OF THEM IS THE RULING.
+        #
+        # This was a single `sealed_read_completed: True`, which asserted the
+        # wrong side of A3.11's boundary whenever the download failed before
+        # returning - the flag is set BEFORE the attempt, on purpose.
+        "read_attempted": seal_was_opened(),
+        "read_returned": read_returned(),
+        "run_completed": run_completed(),
         "stage": _SEAL_STAGE[0],
         "episodes_completed_before_stop": _COMPLETED[0],
-        "ruling": (
-            "A3.11: one or more sealed reads makes the attempt terminal "
-            "INVALID, at any stage, with no retry. This record is written "
-            "because the attempt was spent and would otherwise have no account "
-            "of itself. It states what happened; it does not adjudicate the "
-            "outcome."),
+        # NO VERDICT. The old text said the attempt was "terminal INVALID",
+        # which is a ruling, in a field introduced by a sentence claiming the
+        # record does not rule. A reviewer noticed the contradiction inside one
+        # dictionary.
+        "how_to_rule": (
+            "A3.11 turns on the number of sealed CONTENT_READs, which is "
+            "measured by the holdout counter over the run's own audit window "
+            "and NOT by any flag in this file. `read_attempted` is a "
+            "conservative process flag set before the download; it is not "
+            "evidence that an object was fetched. Read the counter, then apply "
+            "the amendment."),
     }
     try:
         if handle is not None and not handle.closed:
@@ -1732,6 +1925,9 @@ def main(argv=None):
                      "model_calls": len(meter),
                      "prompt_tokens": sum(a for a, _b in meter),
                      "candidates_tokens": sum(b for _a, b in meter)})
+        # THE FOOTER IS DURABLE. `_append` fsyncs, so by this line the drive is
+        # on disk and finished, and the exit hook must not add anything to it.
+        mark_run_completed()
 
     # A LIVE RUN THAT MADE NO MODEL CALLS IS A SCRIPTED RUN WEARING A LIVE LABEL.
     # The contract says so on the field itself. This is the check whose absence

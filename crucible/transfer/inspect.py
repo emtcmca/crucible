@@ -926,6 +926,10 @@ def run_review(instances, challenge, *, read_line, write=print, progress=None,
     keyword, and a caller who handed in a code the ledger will later refuse must
     be told now, while the human is still at the keyboard, rather than after
     twenty-four rulings.
+
+    A resumed ruling may ADD a decision or repeat one already recorded in this
+    read. It may not CHANGE one: a disagreement with an existing ruling raises
+    `E_RESUME_CONFLICT` and nothing is overwritten.
     """
     codes = codes or load_ratified_codes()
     ordered = _ordered(instances)
@@ -944,7 +948,53 @@ def run_review(instances, challenge, *, read_line, write=print, progress=None,
                 "a resumed ruling names %r, which is not in the set being "
                 "reviewed. Carrying it over would attribute a ruling to an "
                 "instance nobody looked at" % instance_id)
-        decided[instance_id] = _validate_codes(instance_id, seeded)
+        clean = _validate_codes(instance_id, seeded)
+        recorded = decided.get(instance_id)
+        if recorded is None:
+            # An instance this pass has no ruling for yet. Ordinary addition -
+            # it is how a pass with no progress file carries its rulings back
+            # in, and refusing it would break resume for the configuration the
+            # progress file is optional for.
+            decided[instance_id] = clean
+            continue
+        if set(recorded) != set(clean):
+            # THE HOLE THE POST-READ CHALLENGE CANNOT SEE, closed 2026-08-30
+            # after an independent review reproduced it: a progress decision of
+            # V_SCOREABLE, resumed as V1_ORPHANED_TURN, and the challenge
+            # accepted the replacement. It had to - the challenge digest covers
+            # the decisions it is HANDED, so a ruling swapped before the record
+            # is assembled leaves a record that is internally consistent with
+            # the swap. Nothing downstream can tell that a ruling was made and
+            # then quietly replaced, so the refusal has to happen here.
+            #
+            # The interactive loop cannot perform the substitution today, but
+            # `resume_from` is a public keyword on a reusable function and
+            # `adjudicate` already re-feeds it on every pause. An invariant that
+            # holds only because of the shape of today's single caller is
+            # assumed, not enforced.
+            #
+            # IDS AND CODES, NEVER CONTENT. The operator has to see what
+            # disagreed or the refusal is a dead end on a read that cannot be
+            # repeated; an exception message quoting a sealed instruction would
+            # be the leak relocated to the log.
+            raise InspectionError(
+                "E_RESUME_CONFLICT",
+                "%s was already ruled on as %s in this read and the resumed "
+                "rulings say %s. A decision that was made and then replaced is "
+                "exactly what the post-read challenge cannot detect, because "
+                "the challenge covers whatever decisions it is handed. The "
+                "recorded ruling stands and nothing was overwritten; re-enter "
+                "the review with the rulings actually made, or abandon"
+                % (instance_id, ", ".join(recorded), ", ".join(clean)))
+        # Identical, so this is the ordinary case rather than an exception to
+        # it: `adjudicate` hands `paused.decided` back in, and every one of
+        # those rulings is also in the store. The RECORDED tuple is kept rather
+        # than the re-submitted one, so a re-submission cannot even reorder what
+        # is already on the ledger. Compared as sets because the codes are
+        # unordered criteria - the ledger refuses duplicates and refuses a pass
+        # beside a failure - so `(V1, V2)` and `(V2, V1)` are one ruling typed
+        # two ways, and calling that a conflict would refuse an operator who
+        # agreed with themselves.
     total = len(ordered)
 
     write(render_header(objective_set))
@@ -998,7 +1048,8 @@ def run_review(instances, challenge, *, read_line, write=print, progress=None,
     return {i: decided[i] for i in ids}
 
 
-def _await_resume(paused, *, read_line, write, total, progress_path=None):
+def _await_resume(paused, *, read_line, write, total, progress_path=None,
+                  challenge_path=None, record_path=None):
     """Hold at a pause until the operator says which way this goes.
 
     Returns True to re-enter the review, False to let the caller re-raise.
@@ -1014,21 +1065,50 @@ def _await_resume(paused, *, read_line, write, total, progress_path=None):
     reviewer who stops half way and then decides they cannot finish must be able
     to end the process with a terminal outcome, not be trapped in a loop that
     only exits by finishing the thing they stopped doing.
+
+    WHAT IT SAYS ABOUT THE DISK IS ENUMERATED, NOT SUMMARISED. This banner said
+    "Nothing has been written" until 2026-08-30 and that was false at the
+    moment it was printed: `adjudicate` writes the challenge commitment before
+    the review starts, and the progress store has already flushed every ruling
+    behind the pause. On the runner's path a terminal record is written by an
+    `atexit` handler afterwards as well, so the blanket claim was wrong in both
+    directions at once. The paths are optional, so the message is conditional
+    on what was actually configured rather than asserting either way - a
+    banner that names a file nobody configured is the same defect with the sign
+    flipped.
     """
     done = len(paused.decided or {})
     write("")
     write(_RULE)
-    write("PAUSED. %d of %d instances ruled on. Nothing has been written and no"
+    write("PAUSED. %d of %d instances ruled on. No model has been called, and"
           % (done, total))
-    write("model has been called. The sealed set is still in this process's")
-    write("memory and has NOT been respent.")
+    write("the sealed set is still in this process's memory - it has NOT been")
+    write("respent.")
+    write("")
+    write("  ALREADY ON DISK:")
+    if challenge_path:
+        write("    challenge commitment : %s" % challenge_path)
     if progress_path:
-        write("  rulings so far : %s" % progress_path)
+        write("    rulings so far       : %s" % progress_path)
+    if not challenge_path and not progress_path:
+        write("    nothing. Neither a challenge file nor a progress file was")
+        write("    configured for this run, so the rulings made so far exist")
+        write("    only in this process's memory.")
+    if record_path:
+        write("  NOT written yet: the adjudication record at")
+        write("    %s" % record_path)
+    else:
+        write("  NOT written yet: the adjudication record. No record path was")
+        write("    configured, so committing would return it without writing.")
+    write("  The record is written only after the confirmation prompt, which is")
+    write("  past the end of the review.")
     write("")
     write("  resume   carry on from instance %d" % (done + 1))
-    write("  abandon  stop here for good. Nothing is recorded, and this")
-    write("           process ends - which is the only place the review")
-    write("           could have been picked up again.")
+    write("  abandon  stop here for good. No adjudication record is written and")
+    write("           this process ends - which is the only place the review")
+    write("           could have been picked up again. What is listed above")
+    write("           stays on disk, and a caller that registered a terminal")
+    write("           record writes one as this process exits.")
     write("")
     write("  A NEW INVOCATION CANNOT PICK THIS UP. The challenge nonce was")
     write("  minted after the read and lives only in this process's memory,")
@@ -1150,7 +1230,9 @@ def adjudicate(instances, *, read_line, write=print, adjudicated_by=None,
         except ReviewPaused as paused:
             if not _await_resume(paused, read_line=read_line, write=write,
                                  total=len(ordered),
-                                 progress_path=progress_path):
+                                 progress_path=progress_path,
+                                 challenge_path=challenge_path,
+                                 record_path=record_path):
                 raise
             resume_from = paused.decided
 

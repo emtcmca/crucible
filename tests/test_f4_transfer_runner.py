@@ -84,10 +84,28 @@ def _stub_the_proof_binding(monkeypatch):
 @pytest.fixture(autouse=True)
 def _isolate_seal_state():
     opened = list(rt._SEAL_OPENED)
+    returned = list(rt._READ_RETURNED)
+    finished = list(rt._RUN_COMPLETED)
     stage = list(rt._SEAL_STAGE)
     completed = list(rt._COMPLETED)
+
+    # RESET, NOT ONLY RESTORE. Restoring alone was not enough and the failure
+    # was instructive: a broader-scoped fixture runs a full stand-in drive,
+    # which calls `mark_run_completed()`, and every function-scoped snapshot
+    # taken AFTERWARDS captured `True` as its baseline and dutifully restored
+    # it. Six tests then ran against a process that believed a run had already
+    # finished, and the deletion branch they were written to exercise was
+    # unreachable.
+    #
+    # Each test starts from an unspent, unfinished attempt unless it says
+    # otherwise, which is the only baseline these flags have a meaning against.
+    rt._SEAL_OPENED[:] = [False]
+    rt._READ_RETURNED[:] = [False]
+    rt._RUN_COMPLETED[:] = [False]
     yield
     rt._SEAL_OPENED[:] = opened
+    rt._READ_RETURNED[:] = returned
+    rt._RUN_COMPLETED[:] = finished
     rt._SEAL_STAGE[:] = stage
     rt._COMPLETED[:] = completed
 
@@ -1941,11 +1959,11 @@ def test_a_spent_attempt_that_never_reached_its_header_still_leaves_a_record(tmp
     assert len(rows) == 1, rows
     row = rows[0]
     assert row["kind"] == "terminal"
-    assert row["sealed_read_completed"] is True
+    assert row["read_attempted"] is True
     assert row["stage"] == "waiting for the human adjudication", (
         "the record does not say where the attempt stopped, which is the one "
         "thing whoever rules on it needs")
-    assert "A3.11" in row["ruling"]
+    assert "A3.11" in row["how_to_rule"]
 
 
 def test_the_terminal_record_states_what_happened_and_does_not_rule_on_it(tmp_path):
@@ -1976,21 +1994,124 @@ def test_the_terminal_record_states_what_happened_and_does_not_rule_on_it(tmp_pa
         assert key not in row, (
             "the terminal record carries a %r field. It reports; it does not "
             "decide." % key)
-    assert "does not adjudicate" in row["ruling"]
-    assert row["stage"] and row["sealed_read_completed"] is True
+    assert "holdout counter" in row["how_to_rule"]
+    assert row["stage"] and row["read_attempted"] is True
 
 
 def test_a_record_with_bytes_survives_the_release_after_the_seal_opened(tmp_path):
     """Both conditions, not either. The delete branch is reached only when the
-    holdout was demonstrably never touched AND nothing was written."""
+    holdout was demonstrably never touched AND nothing was written.
+
+    THIS TEST USED TO ASSERT THE BUG. Its last line required a `terminal` row
+    to be appended after a header, which is right for an ABANDONED run and
+    wrong for a finished one - and the release could not tell them apart, so
+    the assertion locked in the behaviour a reviewer later reproduced as
+    `['header', 'footer', 'terminal']` on a clean drive. The run here is
+    deliberately NOT marked complete, which is the case the terminal row is
+    for.
+    """
     target = tmp_path / "drive.jsonl"
     path, fh = rt.reserve_out_path(target)
     rt._append(fh, {"kind": "header"})
     rt.mark_seal_opened()
+    assert not rt.run_completed(), "this test is about a run that did NOT finish"
     rt.release_reservation(path, fh)
     text = path.read_text(encoding="utf-8")
     assert '"header"' in text, "the header was lost"
     assert '"terminal"' in text, "no account of the stop was appended"
+
+
+def test_a_COMPLETED_run_is_never_stamped_terminal(tmp_path):
+    """THE P0, AND IT WAS FOUND IN MY OWN FIX FOR THE PREVIOUS ONE.
+
+    A reviewer reproduced it exactly: a successful sealed drive produced rows
+    `['header', 'footer', 'terminal']`, the terminal row asserting the attempt
+    was invalid, three lines below a footer saying it completed. The exit hook
+    keyed on "was the seal opened", which stays true after a clean run, so it
+    stamped every successful measurement as terminal.
+
+    That is the same defect the flag was introduced to fix - a condition used
+    to prove something it does not prove - committed inside the repair for the
+    earlier instance of it.
+    """
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    rt._append(fh, {"kind": "header"})
+    rt.mark_seal_opened()
+    rt.mark_read_returned()
+    rt._append(fh, {"kind": "footer", "completed": True})
+    rt.mark_run_completed()
+
+    rt.release_reservation(path, fh)
+
+    kinds = [json.loads(ln)["kind"] for ln in
+             path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    assert kinds == ["header", "footer"], (
+        "a completed run was stamped with %r" % kinds)
+
+
+def test_the_reader_refuses_a_log_that_says_both(tmp_path):
+    """And the reader half, because a producer bug must not be resolved quietly.
+
+    `read_drive_file` had no branch for `terminal` at all, so the row was
+    dropped and the file read back as `completed = True` - the one record
+    saying the attempt stopped was the one nobody saw. It is surfaced now, and
+    a file carrying both a footer and a terminal row is refused rather than
+    resolved: choosing a winner between two statements about whether a one-shot
+    finished is how the wrong one wins.
+    """
+    log = tmp_path / "drive.jsonl"
+    log.write_text(chr(10).join([
+        json.dumps({"kind": "header", "run_id": "invented"}),
+        json.dumps({"kind": "footer", "completed": True}),
+        json.dumps({"kind": "terminal", "stage": "invented, for the fixture"}),
+    ]) + chr(10), encoding="utf-8")
+
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(log)
+    assert caught.value.code == "E_DRIVE_LOG_CONTRADICTS"
+
+
+def test_the_reader_surfaces_a_terminal_row_on_its_own(tmp_path):
+    """An abandoned run reads back as abandoned, and the caller can see it."""
+    log = tmp_path / "drive.jsonl"
+    log.write_text(chr(10).join([
+        json.dumps({"kind": "header", "run_id": "invented"}),
+        json.dumps({"kind": "terminal", "stage": "waiting for the adjudication",
+                    "read_attempted": True}),
+    ]) + chr(10), encoding="utf-8")
+
+    out = rt.read_drive_file(log)
+    assert out["completed"] is False
+    assert out["terminal"]["stage"] == "waiting for the adjudication"
+
+
+def test_a_clean_log_carries_no_terminal_key_at_all(tmp_path):
+    """ABSENT, not None. The canonical form this project uses admits no null,
+    and "there was no terminal row" is the absent key."""
+    log = tmp_path / "drive.jsonl"
+    log.write_text(chr(10).join([
+        json.dumps({"kind": "header", "run_id": "invented"}),
+        json.dumps({"kind": "footer", "completed": True}),
+    ]) + chr(10), encoding="utf-8")
+    assert "terminal" not in rt.read_drive_file(log)
+
+
+def test_an_unknown_record_kind_is_refused_rather_than_dropped(tmp_path):
+    """The `elif` chain ended without a fallback.
+
+    Any record kind added later would have been discarded in silence by the
+    function whose entire job is to say what happened. That is how the terminal
+    row went unseen, and the fallback is what stops the next one.
+    """
+    log = tmp_path / "drive.jsonl"
+    log.write_text(chr(10).join([
+        json.dumps({"kind": "header", "run_id": "invented"}),
+        json.dumps({"kind": "something_invented_later"}),
+    ]) + chr(10), encoding="utf-8")
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(log)
+    assert caught.value.code == "E_DRIVE_LOG_UNKNOWN_KIND"
 
 
 def test_the_release_never_truncates_when_it_reopens(tmp_path):
@@ -2258,7 +2379,16 @@ def _proof(tmp_path, head, verdict="PASS", name="pre-read-seal-proof-20260830T00
     return d
 
 
-def _fake_git(head, parents, dirty=""):
+def _fake_git(head, parents, dirty="", changed=None):
+    """A scripted git. `changed` is the commit's changed-path set.
+
+    Defaults to the proof artifact alone, which is the shape the documented
+    procedure produces - so a test that does not care about the path set does
+    not have to state one.
+    """
+    if changed is None:
+        changed = ["proof/pre-read-seal-proof-20260830T000000Z.json"]
+
     def git(*args):
         if args[0] == "status":
             return dirty
@@ -2266,6 +2396,8 @@ def _fake_git(head, parents, dirty=""):
             return head
         if args == ("rev-parse", "HEAD^@"):
             return " ".join(parents)
+        if args[:2] == ("diff-tree", "--no-commit-id"):
+            return chr(10).join(changed)
         raise AssertionError("unexpected git call: %r" % (args,))
     return git
 
@@ -2353,16 +2485,18 @@ def test_the_newest_proof_is_the_one_that_counts(tmp_path):
     """
     d = _proof(tmp_path, "0ld" + "a" * 37,
                name="pre-read-seal-proof-20260101T000000Z.json")
-    _proof(tmp_path, "a" * 40,
-           name="pre-read-seal-proof-20260830T235959Z.json")
-    REAL_PROOF_BINDING(proof_dir=d, git=_fake_git("b" * 40, ["a" * 40]))
+    newest = "pre-read-seal-proof-20260830T235959Z.json"
+    _proof(tmp_path, "a" * 40, name=newest)
+    REAL_PROOF_BINDING(proof_dir=d,
+                       git=_fake_git("b" * 40, ["a" * 40], changed=[newest]))
 
     # Now make the NEWEST one stale as well. If the guard were reading the
     # oldest, or the first that happened to match, this would still pass.
-    _proof(tmp_path, "9one" + "a" * 36,
-           name="pre-read-seal-proof-20260831T000000Z.json")
+    later = "pre-read-seal-proof-20260831T000000Z.json"
+    _proof(tmp_path, "9one" + "a" * 36, name=later)
     with pytest.raises(rt.TransferRunError) as caught:
-        REAL_PROOF_BINDING(proof_dir=d, git=_fake_git("b" * 40, ["a" * 40]))
+        REAL_PROOF_BINDING(proof_dir=d,
+                           git=_fake_git("b" * 40, ["a" * 40], changed=[later]))
     assert caught.value.code == "E_PROOF_NOT_BOUND", (
         "a stale newest proof was accepted, so the guard is not reading the "
         "newest one")
@@ -2434,45 +2568,119 @@ def test_main_checks_the_proof_binding_before_the_read(monkeypatch, tmp_path):
 # forfeiting an allowed retry is visible and a human can rule on it.
 
 
-def test_the_attempt_is_marked_spent_even_when_the_lifecycle_raises_after_the_read(
-        monkeypatch, tmp_path):
-    """THE HOLE, CLOSED. Read the objects, then fail: the record must survive.
+def test_the_real_lifecycle_marks_both_flags_when_a_post_read_assertion_raises(
+        monkeypatch):
+    """THE REAL `sealed_drive_lifecycle`, WITH A REAL POST-READ FAILURE.
 
-    Stubs the READ ITSELF rather than the whole lifecycle, so the real
-    `sealed_drive_lifecycle` runs its own ordering - which is the thing under
-    test. The stub returns instances (the objects are now in memory) and the
-    next real step raises, standing in for `assert_read_exactly` refusing.
+    The test that used to sit here was vacuous and a reviewer said so: it never
+    called `sealed_drive_lifecycle` and never made it raise. It called the
+    marker and release functions by hand and asserted the result of its own
+    stubbing, which proves the helpers work and says nothing at all about the
+    ordering inside the function under test.
+
+    This one drives the real function. Every collaborator it imports is stubbed
+    at its source module, the downloader RETURNS INSTANCES so the read
+    genuinely completes, and then `assert_read_exactly` - a real post-read step,
+    and the one most likely to fail on the day, since it is an assertion about
+    the audit log - raises.
+
+    Two properties, and the second is the one review 8 added:
+
+      * `read_attempted` is true, so the reservation is never deleted;
+      * `read_returned` is ALSO true, because the objects did come back. A
+        record that says only "attempted" on a run where the read completed
+        states the wrong side of A3.11's boundary in the other direction.
     """
-    monkeypatch.undo()          # drop the autouse proof-binding stub
+    from crucible.conductor import real_gate
+    from crucible.transfer import gcs_reader as gr
+    from crucible.transfer import holdout_assert as ha
+    from infra import holdout_touch as ht
 
-    def read(*a, **k):
+    class _Boom(RuntimeError):
+        """Stands in for the audit-log assertion refusing after the read."""
+
+    order = []
+
+    monkeypatch.setattr(real_gate, "gcp_env", lambda root: {"project": "invented"})
+    monkeypatch.setattr(real_gate, "RealGate", lambda **kw: object())
+    monkeypatch.setattr(ht, "open_audit_window", lambda: "t0")
+    monkeypatch.setattr(ht, "make_counter", lambda *a, **k: object())
+    monkeypatch.setattr(gr, "open_calibrated_downloader", lambda *a, **k: object())
+    monkeypatch.setattr(ha, "open_run_window_when_clear", lambda *a, **k: "t1")
+    monkeypatch.setattr(ha, "make_run_counter", lambda *a, **k: object())
+    monkeypatch.setattr(ha, "assert_clean_before_read", lambda *a, **k: None)
+    monkeypatch.setattr(ha, "preflight_no_candidate", lambda *a, **k: [])
+    monkeypatch.setattr(ha, "assert_preflight_clean", lambda *a, **k: None)
+    monkeypatch.setattr(ha, "wait_for_log_settlement", lambda *a, **k: None)
+    monkeypatch.setattr(ha, "expected_content_read_count", lambda *a, **k: 24)
+
+    def _read(*a, **k):
+        order.append("READ")
         assert rt.seal_was_opened(), (
-            "the attempt was not marked spent BEFORE the read was attempted. A "
-            "read that fetches objects and then raises leaves no record.")
+            "the attempt was not marked spent BEFORE the read was attempted")
+        assert not rt.read_returned(), (
+            "the run believed the read had returned before it was called")
         return (object(), _fake_instances(2), ["n"])
 
-    monkeypatch.setattr(rt, "assert_proof_binds_this_commit", lambda *a, **k: None)
-    monkeypatch.setattr(rt, "load_sealed_instances", read)
-    # The step immediately after the read, failing the way it really can.
-    monkeypatch.setattr(rt, "_declared_names", lambda path: ["n"])
+    def _assert_read_exactly(*a, **k):
+        order.append("POST-READ ASSERTION")
+        raise _Boom("the audit log did not agree with the declared read set")
 
-    target = tmp_path / "drive.jsonl"
-    path, fh = rt.reserve_out_path(target)
-    try:
-        # Simulate the lifecycle having got past the read and then raised.
-        rt.mark_seal_opened()
-        rt.note_stage("sealed read returned; asserting the audit log against it")
-        rt.release_reservation(path, fh)
-    finally:
-        if not fh.closed:
-            fh.close()
+    monkeypatch.setattr(rt, "load_sealed_instances", _read)
+    monkeypatch.setattr(ha, "assert_read_exactly", _assert_read_exactly)
 
-    assert path.is_file(), (
-        "a run that read the sealed objects and then failed its audit-log "
-        "assertion had its record deleted")
-    row = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
-    assert row["sealed_read_completed"] is True
-    assert "audit log" in row["stage"]
+    with pytest.raises(_Boom):
+        rt.sealed_drive_lifecycle(["n"], bucket="gs://invented")
+
+    assert order == ["READ", "POST-READ ASSERTION"], order
+    assert rt.seal_was_opened(), (
+        "the real lifecycle read the objects and did not mark the attempt "
+        "spent, so the record of it would be deleted at exit")
+    assert rt.read_returned(), (
+        "the read returned and the run does not know it. A terminal record "
+        "would report only `read_attempted`, which understates what happened "
+        "on the one axis A3.11 turns on.")
+
+
+def test_the_real_lifecycle_leaves_read_returned_FALSE_when_the_read_itself_raises(
+        monkeypatch):
+    """The other side of the boundary, and the reason the two flags are separate.
+
+    A download that fails before returning has attempted the read and not
+    completed it. The old single `sealed_read_completed: True` claimed the
+    opposite, which is the wrong side of A3.11's zero-versus-one question - the
+    one thing the amendment actually turns on.
+    """
+    from crucible.conductor import real_gate
+    from crucible.transfer import gcs_reader as gr
+    from crucible.transfer import holdout_assert as ha
+    from infra import holdout_touch as ht
+
+    monkeypatch.setattr(real_gate, "gcp_env", lambda root: {"project": "invented"})
+    monkeypatch.setattr(real_gate, "RealGate", lambda **kw: object())
+    monkeypatch.setattr(ht, "open_audit_window", lambda: "t0")
+    monkeypatch.setattr(ht, "make_counter", lambda *a, **k: object())
+    monkeypatch.setattr(gr, "open_calibrated_downloader", lambda *a, **k: object())
+    monkeypatch.setattr(ha, "open_run_window_when_clear", lambda *a, **k: "t1")
+    monkeypatch.setattr(ha, "make_run_counter", lambda *a, **k: object())
+    monkeypatch.setattr(ha, "assert_clean_before_read", lambda *a, **k: None)
+    monkeypatch.setattr(ha, "preflight_no_candidate", lambda *a, **k: [])
+    monkeypatch.setattr(ha, "assert_preflight_clean", lambda *a, **k: None)
+
+    def _read(*a, **k):
+        raise RuntimeError("the first object was refused")
+
+    monkeypatch.setattr(rt, "load_sealed_instances", _read)
+
+    with pytest.raises(RuntimeError):
+        rt.sealed_drive_lifecycle(["n"], bucket="gs://invented")
+
+    assert rt.seal_was_opened(), (
+        "deletion must still be refused - how many objects arrived is not "
+        "something this process can know, and the conservative direction is "
+        "to keep the record")
+    assert not rt.read_returned(), (
+        "the read never returned and the run believes it did")
 
 
 def test_the_mark_precedes_the_read_in_the_lifecycles_own_source():
@@ -2504,3 +2712,113 @@ def test_the_mark_precedes_the_read_in_the_lifecycles_own_source():
         "mark_seal_opened() is at line %s and the read is at line %s. Marking "
         "after the read leaves every failure in between unrecorded."
         % (marks, reads))
+
+
+def test_a_real_drive_through_main_marks_the_run_completed(tmp_path):
+    """WIRED IS NOT RUNNING, and a mutation run proved it here.
+
+    Deleting `mark_run_completed()` from `main()` broke NOTHING: the flag's
+    behaviour was fully covered, the release branch that reads it was fully
+    covered, and no test checked that the producer ever set it. That is the
+    third time in two days a lifecycle call has been correct, tested, and
+    unreachable from the function that is supposed to make it.
+
+    So this drives a real stand-in through `main()` - the same six-second
+    offline F7 replay the module fixture uses - and asserts the flag the exit
+    hook depends on is actually true afterwards. Without it, a successful
+    sealed run is stamped terminal at exit and nothing in this suite notices.
+    """
+    out = tmp_path / "f7.jsonl"
+    rt.main(["--phase", "drive", "--family", "F7", "--out", str(out)])
+
+    assert rt.run_completed(), (
+        "main() finished a drive and never marked the run completed. The exit "
+        "hook cannot tell this from an abandoned attempt and will stamp a "
+        "terminal row onto a finished measurement.")
+
+    # AND THE LOG ITSELF IS CLEAN. The flag is the mechanism; this is the
+    # outcome a reviewer actually reproduced - `['header', 'footer',
+    # 'terminal']` on a successful drive.
+    kinds = [json.loads(ln)["kind"] for ln in
+             out.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    assert "terminal" not in kinds, kinds
+    assert kinds[0] == "header" and kinds[-1] == "footer", kinds
+    assert rt.read_drive_file(out)["completed"] is True
+
+
+def test_main_marks_completion_only_after_the_footer_is_durable():
+    """ORDER, from the source, because a mark before the footer proves nothing.
+
+    `mark_run_completed()` called before `_append` would say the run finished
+    while the bytes were still in a buffer, and a crash between the two would
+    leave a file with no footer that the exit hook had already agreed not to
+    annotate. `_append` fsyncs, so after it the footer is durable and the claim
+    is true.
+    """
+    tree = ast.parse(SCRIPT_SOURCE)
+    main = [n for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name == "main"]
+    assert len(main) == 1
+
+    marks = [n.lineno for n in ast.walk(main[0])
+             if isinstance(n, ast.Call)
+             and getattr(n.func, "id", None) == "mark_run_completed"]
+    assert marks, (
+        "main() never marks the run completed, so every successful sealed "
+        "drive is indistinguishable from an abandoned one at exit")
+
+    footers = [n.lineno for n in ast.walk(main[0])
+               if isinstance(n, ast.Call)
+               and getattr(n.func, "id", None) == "_append"]
+    assert footers, "main() appends no records at all"
+    assert min(marks) > min(footers), (
+        "mark_run_completed() at line %d runs before the first _append at "
+        "line %d, so it claims a durability that has not happened yet."
+        % (min(marks), min(footers)))
+
+
+def test_a_merge_commit_is_refused_however_good_its_parents_look(tmp_path):
+    """THE HOLE THE REVIEWER NAMED, AND MERGES ARE ONLY ITS LOUDEST CASE.
+
+    The first version asked whether the proven commit appeared ANYWHERE in
+    HEAD's parents. A merge satisfies that with one parent while the other
+    imports a tree the proof never scanned - and every commit with more than
+    one parent has that shape, merge commit or not.
+    """
+    d = _proof(tmp_path, "a" * 40)
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(
+            proof_dir=d, git=_fake_git("b" * 40, ["a" * 40, "f" * 40]))
+    assert caught.value.code == "E_PROOF_NOT_BOUND"
+    assert "merge" in str(caught.value)
+
+
+def test_a_proof_commit_carrying_anything_else_is_refused(tmp_path):
+    """The second half: one parent, right parent, and unscanned content anyway.
+
+    A single-parent commit can still contain the artifact PLUS code edited
+    after `--write` returned. The proof document claims of itself that
+    `git show --stat` on its commit lists only that file; this verifies the
+    claim from the other end instead of trusting it.
+    """
+    d = _proof(tmp_path, "a" * 40)
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(
+            proof_dir=d,
+            git=_fake_git("b" * 40, ["a" * 40],
+                          changed=["proof/pre-read-seal-proof-20260830T000000Z.json",
+                                   "crucible/transfer/reader.py"]))
+    assert caught.value.code == "E_PROOF_NOT_BOUND"
+    assert "nothing else" in str(caught.value)
+    assert "crucible/transfer/reader.py" in str(caught.value), (
+        "the refusal does not name what else was in the commit, so the "
+        "operator cannot tell what went unscanned")
+
+
+def test_a_commit_that_changes_nothing_is_refused(tmp_path):
+    """An empty commit passes a "not more than one path" test and proves nothing."""
+    d = _proof(tmp_path, "a" * 40)
+    with pytest.raises(rt.TransferRunError) as caught:
+        REAL_PROOF_BINDING(
+            proof_dir=d, git=_fake_git("b" * 40, ["a" * 40], changed=[]))
+    assert caught.value.code == "E_PROOF_NOT_BOUND"

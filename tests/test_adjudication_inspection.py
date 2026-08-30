@@ -861,6 +861,180 @@ def test_a_resumed_ruling_carrying_a_bad_code_is_refused_at_re_entry(
                    resume_from={A: ("NOT_A_RATIFIED_CODE",)})
 
 
+def test_a_resumed_ruling_may_not_replace_one_already_recorded(tmp_path,
+                                                               instances,
+                                                               challenge):
+    """THE REVIEWER'S SUBSTITUTION, WHICH THE POST-READ CHALLENGE DID NOT SEE.
+
+    Reported by an independent adversarial review on 2026-08-30:
+
+        I reproduced a progress decision of `V_SCOREABLE`, resumed it as
+        `V1_ORPHANED_TURN`, and the post-read challenge accepted the
+        replacement.
+
+    Reproduced here exactly, and it passed against the build before the fix:
+    `run_review` merged `resume_from` OVER the loaded progress, so the second
+    ruling silently won and the record that came out was internally consistent
+    - the challenge covers the decisions it is handed, so a ruling swapped
+    BEFORE the record is assembled is a swap the challenge cannot possibly
+    detect.
+
+    WHY IT IS A REAL DEFECT EVEN THOUGH THE INTERACTIVE LOOP CANNOT DO IT.
+    `resume_from` is a public keyword on a reusable function, and the loop in
+    `adjudicate` already re-feeds it on every ordinary pause. A ruling that was
+    made and then quietly replaced is the one thing the post-read challenge
+    exists to make impossible, so the invariant has to be enforced at the API
+    boundary rather than assumed from the shape of today's only caller.
+    """
+    progress = ProgressStore(tmp_path / "progress.json", challenge, instances)
+    progress.put(A, ("V_SCOREABLE",))
+
+    with pytest.raises(InspectionError) as exc:
+        run_review(instances, challenge, read_line=Keyboard(), write=Sink(),
+                   progress=progress,
+                   resume_from={A: ("V1_ORPHANED_TURN",)})
+    assert exc.value.code == "E_RESUME_CONFLICT"
+    # The operator has to be able to see WHAT disagreed, or the refusal is a
+    # dead end on the one run that cannot be repeated. Ids and codes only: this
+    # module's firewall means an exception message quoting a sealed instruction
+    # would be the leak relocated to the log.
+    assert A in str(exc.value)
+    assert "V_SCOREABLE" in str(exc.value)
+    assert "V1_ORPHANED_TURN" in str(exc.value)
+    assert MARK not in str(exc.value), (
+        "the conflict message carried instance content into a traceback")
+    # THE RECORDED RULING STANDS. A refusal that had already overwritten the
+    # store would have destroyed the very thing it refused to replace.
+    assert progress.decisions()[A] == ("V_SCOREABLE",)
+
+
+def test_resubmitting_the_same_ruling_at_resume_is_not_a_conflict(tmp_path,
+                                                                  instances,
+                                                                  challenge):
+    """THE OVER-BLOCKING CONTROL, AND ORDINARY RESUME DEPENDS ON IT.
+
+    `adjudicate` hands `paused.decided` back in as `resume_from`, and those
+    rulings are ALSO in the progress store - every pause re-submits every
+    ruling already made. A conflict check that refused an identical
+    re-submission would refuse every resume that has a progress file, which is
+    the configuration the real run uses.
+
+    Order is compared as a SET, not as a tuple. The codes are unordered
+    criteria - the ledger already refuses duplicates and refuses a pass beside
+    a failure - so `(V1, V2)` and `(V2, V1)` are one ruling typed two ways, and
+    calling that a conflict would fail an operator who agreed with themselves.
+    """
+    progress = ProgressStore(tmp_path / "progress.json", challenge, instances)
+    progress.put(A, ("V_SCOREABLE",))
+    progress.put(B, ("V1_ORPHANED_TURN", "V2_NO_CLAUSE_REACHABLE"))
+
+    decisions = run_review(
+        instances, challenge, read_line=Keyboard("V_SCOREABLE"), write=Sink(),
+        progress=progress,
+        resume_from={A: ("V_SCOREABLE",),
+                     B: ("V2_NO_CLAUSE_REACHABLE", "V1_ORPHANED_TURN")})
+    assert decisions[A] == ("V_SCOREABLE",)
+    # The ruling that was RECORDED is the one that survives, in the order it was
+    # recorded in. An identical re-submission is accepted, never re-written.
+    assert decisions[B] == ("V1_ORPHANED_TURN", "V2_NO_CLAUSE_REACHABLE")
+    # Only C was still open, so only C was presented and only one code consumed.
+    assert decisions[C] == ("V_SCOREABLE",)
+
+
+def test_a_resumed_ruling_for_an_instance_not_yet_decided_is_an_addition(
+        tmp_path, instances, challenge):
+    """The third case, and it must stay ordinary.
+
+    A ruling made in a pass that had no progress file, carried back in on
+    re-entry, names an instance the store has never heard of. That is an
+    addition and not a replacement, and refusing it would break the resume path
+    for exactly the caller the progress file was supposed to be optional for.
+    """
+    progress = ProgressStore(tmp_path / "progress.json", challenge, instances)
+    progress.put(A, ("V_SCOREABLE",))
+
+    decisions = run_review(
+        instances, challenge, read_line=Keyboard("V_SCOREABLE"), write=Sink(),
+        progress=progress,
+        resume_from={B: ("V1_ORPHANED_TURN",)})
+    assert decisions[B] == ("V1_ORPHANED_TURN",)
+    assert decisions[A] == ("V_SCOREABLE",)
+
+
+# ---------------------------------------------------------------------------
+# The pause banner describes the disk truthfully.
+# ---------------------------------------------------------------------------
+
+def test_the_pause_banner_names_the_files_that_already_exist(tmp_path,
+                                                             instances,
+                                                             challenge):
+    """AN OPERATOR MESSAGE THAT CONTRADICTS DURABLE STATE.
+
+    Reported by an independent adversarial review on 2026-08-30: the pause
+    banner said "Nothing has been written". By the time it prints, the
+    challenge commitment has been written and the progress store has flushed
+    every ruling behind the pause, and on the runner's path an `atexit`
+    terminal record is written afterwards as well. The claim was false in both
+    directions at once.
+
+    THE CONTROL IS THE `exists()` PAIR, not the string search. Without it this
+    test passes against a banner that lists two paths nobody ever wrote to -
+    which is the same defect with the sign flipped, and it is the shape this
+    project keeps finding.
+    """
+    sink = Sink()
+    challenge_file = tmp_path / "challenge.json"
+    progress_file = tmp_path / "progress.json"
+    with pytest.raises(ReviewPaused):
+        adjudicate(
+            instances,
+            read_line=Keyboard("V_SCOREABLE", "pause", "abandon"),
+            write=sink,
+            adjudicated_by=HUMAN,
+            adjudicated_on=WHEN,
+            record_path=tmp_path / "adjudication.json",
+            progress_path=progress_file,
+            challenge_path=challenge_file,
+            challenge=challenge,
+        )
+    banner = sink.text.split("PAUSED. 1 of 3", 1)[1]
+    assert "Nothing has been written" not in sink.text
+    assert str(challenge_file) in banner
+    assert str(progress_file) in banner
+    # What it names is on disk, and what it says is not written is not.
+    assert challenge_file.is_file()
+    assert progress_file.is_file()
+    assert not (tmp_path / "adjudication.json").exists()
+    assert "NOT written yet" in banner
+
+
+def test_the_pause_banner_claims_no_file_when_none_was_configured(instances,
+                                                                  challenge,
+                                                                  tmp_path):
+    """The other half of the conditional, and it has to be checked separately.
+
+    `record_path`, `progress_path` and `challenge_path` are all optional. A
+    banner that named them unconditionally would tell an operator with no store
+    that their rulings were kept somewhere they were not - the same defect the
+    decline message was corrected for on 2026-08-30.
+    """
+    sink = Sink()
+    with pytest.raises(ReviewPaused):
+        adjudicate(
+            instances,
+            read_line=Keyboard("V_SCOREABLE", "pause", "abandon"),
+            write=sink,
+            adjudicated_by=HUMAN,
+            adjudicated_on=WHEN,
+            challenge=challenge,
+        )
+    banner = sink.text.split("PAUSED. 1 of 3", 1)[1]
+    assert "only in this process's memory" in banner
+    assert "No record path was" in banner
+    # The control: nothing was configured, so nothing was written.
+    assert _files_under(tmp_path) == []
+
+
 # ---------------------------------------------------------------------------
 # The commitment prompt claims no signature.
 # ---------------------------------------------------------------------------
