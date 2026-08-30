@@ -34,9 +34,29 @@
     "constraint, this record goes stale and the gate goes RED, which is how the",
     "record gets promoted to `evidence` rather than sitting here forever.",
     "",
-    "SEVEN REASONS ACROSS FOUR CONTRACTS ARE RECORDED `unenforced`. That is the",
-    "finding, not a footnote: those fixtures' prose promises a rejection the schema",
-    "does not perform, and a lane reading the fixture would believe it does.",
+    "A GREEN `PROVEN` MEANS EVERY DECLARED PROMISE IS ACCOUNTED FOR. IT DOES NOT MEAN",
+    "EVERY PROMISE IS ENFORCED. An `unenforced` record accounts for a promise by",
+    "writing down that nothing keeps it, and that is a gap on a green run.",
+    "",
+    "REASONS RECORDED `unenforced` ARE THE FINDING, NOT A FOOTNOTE: those fixtures'",
+    "prose promises a rejection the schema does not perform, and a lane reading the",
+    "fixture would believe it does.",
+    "",
+    "HOW MANY THERE ARE IS DELIBERATELY NOT WRITTEN HERE. This paragraph said SEVEN",
+    "while `pass_proven` derived eight, and the same stale SEVEN sat in the gate's own",
+    "commentary, so one number was wrong in two places for as long as nobody recounted.",
+    "A count written beside a list is a second source of truth for the length of that",
+    "list. `pass_proven` derives the figure from the entries below and prints it on",
+    "every run, green or red, which is the only copy that cannot go stale.",
+    "",
+    "The same defect had already produced a wrong PUBLIC number. `demonstrated` was",
+    "incremented once per evidence TRIPLE and then reported as a count of REASONS;",
+    "several reasons here carry more than one triple, so on 2026-08-29 this set's 41",
+    "schema-bound reasons were printed as 45 and a 62-reason total went out in a",
+    "handoff to an outside reviewer. Those figures are a dated record of that day and",
+    "not a description of this file now; the current ones are printed by the gate.",
+    "A reason is a PROMISE. A triple is a PIECE OF EVIDENCE. The gate now prints both,",
+    "labelled, and refuses to total them.",
     "",
     "This file lives under `proof/` rather than beside the fixtures because",
     "`pass_fixtures` globs `contracts/golden/*.json` and treats every file it finds",
@@ -45,9 +65,7 @@
     "Nothing here was read from a sealed object. It names field paths in",
     "hand-authored fixtures and nothing else."
   ],
-
   "fixtures": {
-
     "C1-tool_event.KNOWN_BAD.json": {
       "reasons": [
         {
@@ -56,23 +74,45 @@
           "unenforced": {
             "needs": "a constraint on `args` requiring the seven derived.* keys, or at minimum `minProperties`/`propertyNames` naming them. `properties.args` is `{\"type\": \"object\"}` and the POST-STAMP rule lives entirely in its $comment.",
             "why_now": "The schema owner deliberately left `args` open. Ruling 21 is stated there in prose, so a PRE-STAMP ToolEvent validates cleanly and this fixture's first declared reason never fires.",
-            "would_be": {"path": "/args", "keyword": "required", "detail": "derived."}
+            "would_be": {
+              "path": "/args",
+              "keyword": "required",
+              "detail": "derived."
+            }
           }
         },
         {
           "index": 1,
           "claim": "instead of `result_digest` (a HASH)",
-          "evidence": [{"path": "", "keyword": "additionalProperties", "detail": "result"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "additionalProperties",
+              "detail": "result"
+            }
+          ]
         },
         {
           "index": 2,
           "claim": "`role` is absent",
-          "evidence": [{"path": "", "keyword": "required", "detail": "role"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "required",
+              "detail": "role"
+            }
+          ]
         },
         {
           "index": 3,
           "claim": "`derived_overwrites` is absent",
-          "evidence": [{"path": "", "keyword": "required", "detail": "derived_overwrites"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "required",
+              "detail": "derived_overwrites"
+            }
+          ]
         },
         {
           "index": 4,
@@ -80,29 +120,43 @@
           "unenforced": {
             "needs": "nothing new. This reason and reason 1 are THE SAME FAILURE stated twice: the single `additionalProperties` error naming `result`. Reason 1 already claims it, so binding this one too would let one surviving error stand in for two promised reasons, which is the exact defect this file exists to close.",
             "why_now": "The fixture declares five reasons and can demonstrate four. Either merge 1 and 4 in the generator, or give reason 1 a distinct constraint (making `result_digest` required would do it, and is a schema decision, not a fixture one).",
-            "would_be": {"path": "", "keyword": "required", "detail": "result_digest"}
+            "would_be": {
+              "path": "",
+              "keyword": "required",
+              "detail": "result_digest"
+            }
           }
         }
       ],
       "unexplained_errors": []
     },
-
     "C2-decision.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "ALLOW must name no rule",
-          "evidence": [{"path": "", "keyword": "not", "detail": "ALLOW"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "not",
+              "detail": "ALLOW"
+            }
+          ]
         },
         {
           "index": 1,
           "claim": "not an UPPER_SNAKE enum symbol",
-          "evidence": [{"path": "/reason_code", "keyword": "pattern", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/reason_code",
+              "keyword": "pattern",
+              "detail": ""
+            }
+          ]
         }
       ],
       "unexplained_errors": []
     },
-
     "C3a-capability_manifest.KNOWN_BAD.json": {
       "reasons": [
         {
@@ -111,13 +165,23 @@
           "unenforced": {
             "needs": "nothing new in the schema. THIS FIXTURE'S OWN SECOND DEFECT DISABLES ITS FIRST. `tools.items.allOf[0]` requires `beneficiary_key` on a CAP_MOVES_MONEY tool only when the tool is NOT `fail_closed`, and this tool sets `fail_closed: true` for reason 1. The carve-out is correct and documented; the fixture puts both defects on the same tool, so the conditional never reaches its `then`. The repair is a SECOND tool in the fixture carrying CAP_MOVES_MONEY with no beneficiary_key and no fail_closed.",
             "why_now": "The fixture is generated by `scripts/make-golden.py`, which is owned elsewhere.",
-            "would_be": {"path": "/tools/0", "keyword": "required", "detail": "beneficiary_key"}
+            "would_be": {
+              "path": "/tools/0",
+              "keyword": "required",
+              "detail": "beneficiary_key"
+            }
           }
         },
         {
           "index": 1,
           "claim": "fail_closed:true with fewer than six classes",
-          "evidence": [{"path": "/tools/0/capability_classes", "keyword": "minItems", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/tools/0/capability_classes",
+              "keyword": "minItems",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 2,
@@ -125,26 +189,43 @@
           "unenforced": {
             "needs": "the fixture does not instantiate the defect at all: no tool in it carries `destination_args`. Even if one did, the schema types `destination_args` as an array of arg-path strings and has no declaration of each ARG's own type, so 'this named arg is list-valued at call time' is not expressible in C3a as written.",
             "why_now": "This reason describes a runtime property of the target's arguments, not a shape of the manifest. It belongs in the D3 manifest-completeness check, not in a schema fixture.",
-            "would_be": {"path": "/tools/0/destination_args", "keyword": "type", "detail": ""}
+            "would_be": {
+              "path": "/tools/0/destination_args",
+              "keyword": "type",
+              "detail": ""
+            }
           }
         }
       ],
       "unexplained_errors": []
     },
-
     "C3b-derived_schema.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "derived.memo_contains_pii is a CONTENT CLASSIFIER",
-          "evidence": [{"path": "/derived_fields/0/name", "keyword": "enum", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/derived_fields/0/name",
+              "keyword": "enum",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 1,
           "claim": "both arrays fail minItems",
           "evidence": [
-            {"path": "/episode_fields", "keyword": "minItems", "detail": ""},
-            {"path": "/derived_fields", "keyword": "minItems", "detail": ""}
+            {
+              "path": "/episode_fields",
+              "keyword": "minItems",
+              "detail": ""
+            },
+            {
+              "path": "/derived_fields",
+              "keyword": "minItems",
+              "detail": ""
+            }
           ]
         },
         {
@@ -153,7 +234,11 @@
           "unenforced": {
             "needs": "`blindness_check.result` is `{\"enum\": [\"PASS\", \"FAIL\"]}`, so FAIL is a legal recorded value and a FROZEN derived schema carrying a FAILED blindness check validates. Enforcing the claim means `const: \"PASS\"` on the frozen artifact, or an `if result == FAIL then` clause that makes the document invalid.",
             "why_now": "The enum is arguably right for a pre-freeze document and wrong for a frozen one. That is a C3b design decision and the schema is owned elsewhere.",
-            "would_be": {"path": "/blindness_check/result", "keyword": "const", "detail": ""}
+            "would_be": {
+              "path": "/blindness_check/result",
+              "keyword": "const",
+              "detail": ""
+            }
           }
         },
         {
@@ -162,34 +247,61 @@
           "unenforced": {
             "needs": "`max_predictive_accuracy` is `{\"type\": \"number\"}` with no bound, so 1.0 validates. Ruling 19.3 says a field that perfectly predicts the label is a leak and is REMOVED; enforcing that here means `exclusiveMaximum` on the frozen document.",
             "why_now": "Same as reason 2: it is a C3b design decision. This is the one the fixture's own text calls the leak that 'looks exactly like success', and today the schema cannot see it.",
-            "would_be": {"path": "/blindness_check/max_predictive_accuracy", "keyword": "exclusiveMaximum", "detail": ""}
+            "would_be": {
+              "path": "/blindness_check/max_predictive_accuracy",
+              "keyword": "exclusiveMaximum",
+              "detail": ""
+            }
           }
         }
       ],
       "unexplained_errors": []
     },
-
     "C4-policy_document.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "match_mode is present",
-          "evidence": [{"path": "/hashed_payload/rules/0/match", "keyword": "additionalProperties", "detail": "match_mode"}]
+          "evidence": [
+            {
+              "path": "/hashed_payload/rules/0/match",
+              "keyword": "additionalProperties",
+              "detail": "match_mode"
+            }
+          ]
         },
         {
           "index": 1,
           "claim": "capability_classes is a LIST on a RULE",
-          "evidence": [{"path": "/hashed_payload/rules/0/match", "keyword": "required", "detail": "capability_class"}]
+          "evidence": [
+            {
+              "path": "/hashed_payload/rules/0/match",
+              "keyword": "required",
+              "detail": "capability_class"
+            }
+          ]
         },
         {
           "index": 2,
           "claim": "rule_id r_new1 is a PLACEHOLDER",
-          "evidence": [{"path": "/hashed_payload/rules/0/rule_id", "keyword": "pattern", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/hashed_payload/rules/0/rule_id",
+              "keyword": "pattern",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 3,
           "claim": "promoted_by is crucible-armorer",
-          "evidence": [{"path": "/meta/promoted_by", "keyword": "pattern", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/meta/promoted_by",
+              "keyword": "pattern",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 4,
@@ -197,7 +309,11 @@
           "unenforced": {
             "needs": "THE FIXTURE CONTAINS NO RETRACT. Its single rule is `verb: deny` with `origin: seed`, which is a legal seed rule. Demonstrating the claim needs a rule with `verb: retract` targeting a seed-origin rule, and a schema clause forbidding it.",
             "why_now": "The fixture is generated elsewhere, and the retract-vs-seed rule may be a validator invariant rather than a schema one. Either way this reason is decoration today: a lane repairing every other listed defect would see this fixture pass while believing the retract rule was tested.",
-            "would_be": {"path": "/hashed_payload/rules/0/verb", "keyword": "not", "detail": ""}
+            "would_be": {
+              "path": "/hashed_payload/rules/0/verb",
+              "keyword": "not",
+              "detail": ""
+            }
           }
         },
         {
@@ -206,94 +322,188 @@
           "unenforced": {
             "needs": "THE FIXTURE CONTAINS NO reason_code AT ALL. Nothing in the document carries the field the reason describes.",
             "why_now": "Same as reason 4. The claim is about the DSL's reason_code symbol table; the fixture never instantiates it.",
-            "would_be": {"path": "/hashed_payload/rules/0/reason_code", "keyword": "pattern", "detail": ""}
+            "would_be": {
+              "path": "/hashed_payload/rules/0/reason_code",
+              "keyword": "pattern",
+              "detail": ""
+            }
           }
         }
       ],
       "unexplained_errors": []
     },
-
     "C5-breach_record.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "`generalization_hypothesis` HANDS THE ARMORER THE RULE IN ENGLISH",
-          "evidence": [{"path": "", "keyword": "additionalProperties", "detail": "generalization_hypothesis"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "additionalProperties",
+              "detail": "generalization_hypothesis"
+            }
+          ]
         },
         {
           "index": 1,
           "claim": "`recommended_fix` cannot exist",
-          "evidence": [{"path": "", "keyword": "additionalProperties", "detail": "recommended_fix"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "additionalProperties",
+              "detail": "recommended_fix"
+            }
+          ]
         },
         {
           "index": 2,
           "claim": "derived_schema_hash absent",
-          "evidence": [{"path": "", "keyword": "required", "detail": "derived_schema_hash"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "required",
+              "detail": "derived_schema_hash"
+            }
+          ]
         }
       ],
       "unexplained_errors": []
     },
-
     "C6-evidence_bundle.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "v0_benign_traces has 23 entries, not 26",
-          "evidence": [{"path": "/v0_benign_traces", "keyword": "minItems", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/v0_benign_traces",
+              "keyword": "minItems",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 1,
           "claim": "an episode is missing episode_frozen_context",
-          "evidence": [{"path": "/episodes/0", "keyword": "required", "detail": "episode_frozen_context"}]
+          "evidence": [
+            {
+              "path": "/episodes/0",
+              "keyword": "required",
+              "detail": "episode_frozen_context"
+            }
+          ]
         },
         {
           "index": 2,
           "claim": "an episode is missing derived_schema_hash",
-          "evidence": [{"path": "/episodes/0", "keyword": "required", "detail": "derived_schema_hash"}]
+          "evidence": [
+            {
+              "path": "/episodes/0",
+              "keyword": "required",
+              "detail": "derived_schema_hash"
+            }
+          ]
         },
         {
           "index": 3,
           "claim": "sep_by_split absent",
-          "evidence": [{"path": "", "keyword": "required", "detail": "sep_by_split"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "required",
+              "detail": "sep_by_split"
+            }
+          ]
         },
         {
           "index": 4,
           "claim": "NEITHER attack_id NOR fixture_id",
-          "evidence": [{"path": "/episodes/0", "keyword": "oneOf", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/episodes/0",
+              "keyword": "oneOf",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 5,
           "claim": "missing policy_version, policy_hash and model_provenance",
           "evidence": [
-            {"path": "/episodes/0", "keyword": "required", "detail": "policy_version"},
-            {"path": "/episodes/0", "keyword": "required", "detail": "policy_hash"},
-            {"path": "/episodes/0", "keyword": "required", "detail": "model_provenance"}
+            {
+              "path": "/episodes/0",
+              "keyword": "required",
+              "detail": "policy_version"
+            },
+            {
+              "path": "/episodes/0",
+              "keyword": "required",
+              "detail": "policy_hash"
+            },
+            {
+              "path": "/episodes/0",
+              "keyword": "required",
+              "detail": "model_provenance"
+            }
           ]
         },
         {
           "index": 6,
           "claim": "declares provenance 'generated' and carries NO instruction",
-          "evidence": [{"path": "/attacks/1", "keyword": "required", "detail": "instruction"}]
+          "evidence": [
+            {
+              "path": "/attacks/1",
+              "keyword": "required",
+              "detail": "instruction"
+            }
+          ]
         },
         {
           "index": 7,
           "claim": "policy_chain[0] carries no rules array",
-          "evidence": [{"path": "/policy_chain/0", "keyword": "required", "detail": "rules"}]
+          "evidence": [
+            {
+              "path": "/policy_chain/0",
+              "keyword": "required",
+              "detail": "rules"
+            }
+          ]
         },
         {
           "index": 8,
           "claim": "cost is missing wall_clock_ms and retries",
           "evidence": [
-            {"path": "/cost", "keyword": "required", "detail": "wall_clock_ms"},
-            {"path": "/cost", "keyword": "required", "detail": "retries"}
+            {
+              "path": "/cost",
+              "keyword": "required",
+              "detail": "wall_clock_ms"
+            },
+            {
+              "path": "/cost",
+              "keyword": "required",
+              "detail": "retries"
+            }
           ]
         },
         {
           "index": 9,
           "claim": "clause_coverage is absent entirely",
-          "evidence": [{"path": "", "keyword": "required", "detail": "clause_coverage"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "required",
+              "detail": "clause_coverage"
+            }
+          ]
         },
-        {"index": 10, "claim": "[replay reader, E_LABEL_DISAGREES]", "external": {"code": "E_LABEL_DISAGREES"}},
+        {
+          "index": 10,
+          "claim": "[replay reader, E_LABEL_DISAGREES]",
+          "external": {
+            "code": "E_LABEL_DISAGREES"
+          }
+        },
         {
           "index": 11,
           "claim": "[replay reader, E_COVERAGE_HASH_DISAGREES]",
@@ -303,121 +513,290 @@
             "why": "The reason says so itself: clause_coverage is ABSENT from this fixture, so the coverage hash can never disagree with the manifest. It is exercised by tests/strawman_replay.py::mutate('coverage_hash_disagrees') against the VALID bundle. Recorded rather than silently skipped, and the gate asserts it still does not fire - if it starts firing, this record is stale."
           }
         },
-        {"index": 12, "claim": "[replay reader, E_MODE_DISAGREES_WITH_COMPONENTS]", "external": {"code": "E_MODE_DISAGREES_WITH_COMPONENTS"}},
-        {"index": 13, "claim": "[replay reader, E_LIVE_WITHOUT_MODEL_CALLS]", "external": {"code": "E_LIVE_WITHOUT_MODEL_CALLS"}},
-        {"index": 14, "claim": "[replay reader, E_G7G8_WITH_STANDIN_GATE]", "external": {"code": "E_G7G8_WITH_STANDIN_GATE"}},
-        {"index": 15, "claim": "[replay reader, E_EXCLUSION_CEILING]", "external": {"code": "E_EXCLUSION_CEILING"}},
-        {"index": 16, "claim": "[replay reader, E_EXCLUSION_CEILING_RUN]", "external": {"code": "E_EXCLUSION_CEILING_RUN"}},
-        {"index": 17, "claim": "[replay reader, E_EXCLUSION_LEDGER_SHORT]", "external": {"code": "E_EXCLUSION_LEDGER_SHORT"}},
-        {"index": 18, "claim": "[replay reader, E_DEGENERACY_CENSUS_MISSING]", "external": {"code": "E_DEGENERACY_CENSUS_MISSING"}}
+        {
+          "index": 12,
+          "claim": "[replay reader, E_MODE_DISAGREES_WITH_COMPONENTS]",
+          "external": {
+            "code": "E_MODE_DISAGREES_WITH_COMPONENTS"
+          }
+        },
+        {
+          "index": 13,
+          "claim": "[replay reader, E_LIVE_WITHOUT_MODEL_CALLS]",
+          "external": {
+            "code": "E_LIVE_WITHOUT_MODEL_CALLS"
+          }
+        },
+        {
+          "index": 14,
+          "claim": "[replay reader, E_G7G8_WITH_STANDIN_GATE]",
+          "external": {
+            "code": "E_G7G8_WITH_STANDIN_GATE"
+          }
+        },
+        {
+          "index": 15,
+          "claim": "[replay reader, E_EXCLUSION_CEILING]",
+          "external": {
+            "code": "E_EXCLUSION_CEILING"
+          }
+        },
+        {
+          "index": 16,
+          "claim": "[replay reader, E_EXCLUSION_CEILING_RUN]",
+          "external": {
+            "code": "E_EXCLUSION_CEILING_RUN"
+          }
+        },
+        {
+          "index": 17,
+          "claim": "[replay reader, E_EXCLUSION_LEDGER_SHORT]",
+          "external": {
+            "code": "E_EXCLUSION_LEDGER_SHORT"
+          }
+        },
+        {
+          "index": 18,
+          "claim": "[replay reader, E_DEGENERACY_CENSUS_MISSING]",
+          "external": {
+            "code": "E_DEGENERACY_CENSUS_MISSING"
+          }
+        }
       ],
       "unexplained_errors": []
     },
-
     "C7-run_manifest.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "derived_schema_hash MISSING",
-          "evidence": [{"path": "/hash_locks", "keyword": "required", "detail": "derived_schema_hash"}]
+          "evidence": [
+            {
+              "path": "/hash_locks",
+              "keyword": "required",
+              "detail": "derived_schema_hash"
+            }
+          ]
         },
         {
           "index": 1,
           "claim": "round_cap 4",
-          "evidence": [{"path": "/frozen_parameters/round_cap", "keyword": "const", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/frozen_parameters/round_cap",
+              "keyword": "const",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 2,
           "claim": "sealed_family_min 9",
-          "evidence": [{"path": "/frozen_parameters/sealed_family_min", "keyword": "const", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/frozen_parameters/sealed_family_min",
+              "keyword": "const",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 3,
           "claim": "approval_oracle_default absent",
-          "evidence": [{"path": "/frozen_parameters", "keyword": "required", "detail": "approval_oracle_default"}]
+          "evidence": [
+            {
+              "path": "/frozen_parameters",
+              "keyword": "required",
+              "detail": "approval_oracle_default"
+            }
+          ]
         },
         {
           "index": 4,
           "claim": "modified_by_crucible true",
-          "evidence": [{"path": "/target_ref/modified_by_crucible", "keyword": "const", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/target_ref/modified_by_crucible",
+              "keyword": "const",
+              "detail": ""
+            }
+          ]
         }
       ],
       "unexplained_errors": []
     },
-
     "C9-verdict.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "must carry NO boolean and cite NO invariant",
-          "evidence": [{"path": "", "keyword": "not", "detail": "INVALID"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "not",
+              "detail": "INVALID"
+            }
+          ]
         },
         {
           "index": 1,
           "claim": "objective_set_hash absent",
-          "evidence": [{"path": "", "keyword": "required", "detail": "objective_set_hash"}]
+          "evidence": [
+            {
+              "path": "",
+              "keyword": "required",
+              "detail": "objective_set_hash"
+            }
+          ]
         }
       ],
       "unexplained_errors": [
         {
-          "path": "", "keyword": "required", "detail": "invalid_reason",
+          "path": "",
+          "keyword": "required",
+          "detail": "invalid_reason",
           "why": "THE RULING-43 SHAPE, LIVE. This fixture fails for a THIRD reason its own `_must_fail_because` does not name: an INVALID verdict must carry `invalid_reason`, and this one does not. A lane repairing both listed reasons still sees red with nothing to tell it why. The fixture is generated by `scripts/make-golden.py`, owned elsewhere; the repair is one more line in its `_must_fail_because` list, not a schema change."
         }
       ]
     },
-
     "C10-objective_set.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "The aggregate clause declares window: 'rolling_90_seconds'",
-          "evidence": [{"path": "/clauses/5/window", "keyword": "const", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/clauses/5/window",
+              "keyword": "const",
+              "detail": ""
+            }
+          ]
         }
       ],
       "unexplained_errors": []
     },
-
     "C11-transfer_evidence.KNOWN_BAD.json": {
       "reasons": [
         {
           "index": 0,
           "claim": "bundle_kind is 'evidence_bundle' against the const 'transfer_evidence'",
-          "evidence": [{"path": "/bundle_kind", "keyword": "const", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/bundle_kind",
+              "keyword": "const",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 1,
           "claim": "episodes[0] carries a free-text 'transcript' property",
-          "evidence": [{"path": "/episodes/0", "keyword": "additionalProperties", "detail": "transcript"}]
+          "evidence": [
+            {
+              "path": "/episodes/0",
+              "keyword": "additionalProperties",
+              "detail": "transcript"
+            }
+          ]
         },
         {
           "index": 2,
           "claim": "episodes[1] is missing target_responded",
-          "evidence": [{"path": "/episodes/1", "keyword": "required", "detail": "target_responded"}]
+          "evidence": [
+            {
+              "path": "/episodes/1",
+              "keyword": "required",
+              "detail": "target_responded"
+            }
+          ]
         },
         {
           "index": 3,
           "claim": "episodes[2].tool_calls[0].args.note is a nested object",
-          "evidence": [{"path": "/episodes/2/tool_calls/0/args/note", "keyword": "type", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/episodes/2/tool_calls/0/args/note",
+              "keyword": "type",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 4,
           "claim": "arms has THREE entries against maxItems 2",
-          "evidence": [{"path": "/arms", "keyword": "maxItems", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/arms",
+              "keyword": "maxItems",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 5,
           "claim": "exclusions[0] carries round_index",
-          "evidence": [{"path": "/exclusions/0", "keyword": "additionalProperties", "detail": "round_index"}]
+          "evidence": [
+            {
+              "path": "/exclusions/0",
+              "keyword": "additionalProperties",
+              "detail": "round_index"
+            }
+          ]
         },
         {
           "index": 6,
           "claim": "exclusions[0].reason is the free text 'flaky'",
-          "evidence": [{"path": "/exclusions/0/reason", "keyword": "enum", "detail": ""}]
+          "evidence": [
+            {
+              "path": "/exclusions/0/reason",
+              "keyword": "enum",
+              "detail": ""
+            }
+          ]
         },
         {
           "index": 7,
           "claim": "transfer_arithmetic carries transfer_rate",
-          "evidence": [{"path": "/transfer_arithmetic", "keyword": "additionalProperties", "detail": "transfer_rate"}]
+          "evidence": [
+            {
+              "path": "/transfer_arithmetic",
+              "keyword": "additionalProperties",
+              "detail": "transfer_rate"
+            }
+          ]
+        },
+        {
+          "index": 8,
+          "claim": "adjudication carries a free-text 'notes' property",
+          "evidence": [
+            {
+              "path": "/adjudication",
+              "keyword": "additionalProperties",
+              "detail": "notes"
+            }
+          ]
+        },
+        {
+          "index": 9,
+          "claim": "adjudication.decisions.atk_cccccccccccc.codes[0] is the free text 'looked fine to me'",
+          "evidence": [
+            {
+              "path": "/adjudication/decisions/atk_cccccccccccc/codes/0",
+              "keyword": "enum",
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "index": 10,
+          "claim": "adjudication.decisions.atk_cccccccccccc.codes is neither the pass code alone nor a list of failure codes",
+          "evidence": [
+            {
+              "path": "/adjudication/decisions/atk_cccccccccccc/codes",
+              "keyword": "oneOf",
+              "detail": ""
+            }
+          ]
         }
       ],
       "unexplained_errors": []

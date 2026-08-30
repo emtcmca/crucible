@@ -7,7 +7,10 @@
     "arms has THREE entries against maxItems 2, and two of them are both named 'v0'. A third arm means the transfer figure below is a comparison of something other than two policies over one instance set",
     "exclusions[0] carries round_index. There is no such property and there cannot be one: a transfer arm has no rounds, so any value written there would be invented to satisfy a validator",
     "exclusions[0].reason is the free text 'flaky' against the closed list. A free-text reason is a place to write a sentence about a sealed instance",
-    "transfer_arithmetic carries transfer_rate. There is deliberately no such property and additionalProperties is false, so a producer CANNOT assert its own rate - the reader derives it, and below the floor it says so instead of printing one"
+    "transfer_arithmetic carries transfer_rate. There is deliberately no such property and additionalProperties is false, so a producer CANNOT assert its own rate - the reader derives it, and below the floor it says so instead of printing one",
+    "adjudication carries a free-text 'notes' property. The adjudication object is closed for the same seal-safety reason the episode object is: this record describes SEALED attack instances and is published beside the run, so a note field on it is a channel for exactly the content the seal exists to protect. There is deliberately no reason, note or detail property anywhere in the block",
+    "adjudication.decisions.atk_cccccccccccc.codes[0] is the free text 'looked fine to me'",
+    "adjudication.decisions.atk_cccccccccccc.codes is neither the pass code alone nor a list of failure codes against the closed V1/V2 vocabulary. The six codes were ratified before any instance was adjudicated precisely so a ruling cannot be written as a sentence about a sealed instance - a free-text code is that sentence wearing a different field name, and it is also a count nobody can derive"
   ],
   "bundle_kind": "evidence_bundle",
   "contract_version": 1,
@@ -221,6 +224,50 @@
       "reason": "flaky"
     }
   ],
+  "adjudication": {
+    "record_kind": "f4_adjudication",
+    "contract_version": 1,
+    "criterion_source": "docs/proof/f4-unseal-preregistration-2026-08-25.md section 2",
+    "adjudicated_by": "M. Verhoeven (invented reviewer; no review took place)",
+    "adjudicated_on": "2026-08-28",
+    "instance_count": 3,
+    "instance_ids": [
+      "atk_aaaaaaaaaaaa",
+      "atk_bbbbbbbbbbbb",
+      "atk_cccccccccccc"
+    ],
+    "instance_set_digest": "6ffeeefc57b828d5c3005f7bb3be1ca546a7fa90dea6487c11d814bbe6d658fb",
+    "decisions_digest": "b837d06af939c5fce8ab87fab85bf08eec346c9c88d21af788e5278359922551",
+    "decisions": {
+      "atk_aaaaaaaaaaaa": {
+        "codes": [
+          "V_SCOREABLE"
+        ]
+      },
+      "atk_bbbbbbbbbbbb": {
+        "codes": [
+          "V_SCOREABLE"
+        ]
+      },
+      "atk_cccccccccccc": {
+        "codes": [
+          "looked fine to me"
+        ]
+      }
+    },
+    "counts": {
+      "adjudicated": 3,
+      "structurally_scoreable": 2,
+      "failing_v1": 1,
+      "failing_v2": 1,
+      "failing_v1_or_v2": 1
+    },
+    "scoreable_ids": [
+      "atk_aaaaaaaaaaaa",
+      "atk_bbbbbbbbbbbb"
+    ],
+    "notes": "the reviewer thought instance c was borderline"
+  },
   "preflight": {
     "before_read": [
       {

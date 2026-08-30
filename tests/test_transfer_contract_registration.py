@@ -34,8 +34,11 @@ a file owned elsewhere. That reasoning left a hole. The reviewer reduced
 `transfer_evidence.schema.json` in memory to a single `bundle_kind` const: the
 valid fixture still produced zero errors, the known-bad still produced one, and
 the whole fixture gate stayed green while every other C11 constraint had
-vanished. Eight promised reasons, one demonstrated failure, and any surviving
-failure masking the loss of the others.
+vanished. Every promised reason but one, all resting on a single demonstrated
+failure, with that survivor masking the loss of the rest. The number of promises
+is not written here - it is read off the binding artifact by the tests below,
+because a count beside a list is a second source of truth for the length of the
+list, and this file already had one go stale.
 
 The reason-to-constraint bindings now live in
 `contracts/golden/proof/must-fail-bindings.json` and are enforced by
@@ -51,6 +54,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -352,9 +356,23 @@ def test_the_gate_goes_red_when_the_schema_is_reduced_to_one_constraint(checker)
         "That is the defect, back.")
     lost = [m for m in findings
             if m.startswith("P4_UNDEMONSTRATED") and KNOWN_BAD_NAME in m]
-    assert len(lost) == 7, (
-        "expected the seven constraints the reduction destroys to be named one "
-        "by one; got %d: %s" % (len(lost), lost))
+
+    # DERIVED, NOT TYPED. This assertion read `== 7` until 2026-08-29 and went
+    # red the moment C11 gained a reason - a test failing for growth rather than
+    # for a defect, which is how a real alarm gets edited into silence. The
+    # reduced schema keeps exactly one constraint, so every bound triple EXCEPT
+    # the `bundle_kind` const must be reported lost, and that is computed from
+    # the binding artifact here for the same reason the gate's own summary is
+    # computed rather than written down.
+    survives = ("/bundle_kind", "const", "")
+    expected = [checker._triple(ev) for spec in _c11_binding(checker)["reasons"]
+                for ev in spec.get("evidence", [])
+                if checker._triple(ev) != survives]
+    assert len(lost) == len(expected), (
+        "the reduction destroys %d bound constraints and PROVEN named %d of "
+        "them. Each one must be reported by itself: a single finding standing "
+        "in for several is the masking this pass exists to catch. Got: %s"
+        % (len(expected), len(lost), lost))
 
 
 def test_the_binding_gate_rejects_its_own_strawman_set(checker):
@@ -418,3 +436,303 @@ def test_no_carriage_returns(rel):
     means a CRLF file hashes identically and the defect is invisible exactly
     where it would be most confusing."""
     assert b"\r" not in (REPO / rel).read_bytes()
+
+
+# ------------------------------------------------------ the adjudication block
+#
+# `transfer_evidence.schema.json` gained an optional top-level `adjudication`
+# property and the golden pair did not exercise it. A contract clause no fixture
+# instantiates is a clause nothing can tell a working validator from a broken
+# one about - the same hole the reason bindings above were written to close, one
+# property along.
+
+VALID_NAME = "C11-transfer_evidence.valid.json"
+
+
+def _adjudication():
+    return json.loads(
+        (GOLDEN / VALID_NAME).read_text(encoding="utf-8"))["adjudication"]
+
+
+def test_the_valid_fixture_exercises_the_adjudication_block():
+    """A positive fixture that omits an optional block proves nothing about it.
+
+    Deliberately an assertion about PRESENCE. The contents are checked by
+    re-deriving them below and by the schema; what this catches is the block
+    quietly disappearing from the fixture, which no other test would notice
+    because everything else about the fixture would still validate.
+    """
+    body = json.loads((GOLDEN / VALID_NAME).read_text(encoding="utf-8"))
+    assert "adjudication" in body, (
+        "the valid fixture carries no adjudication block, so every constraint "
+        "in that subschema is unexercised by the golden pair")
+    assert body["adjudication"]["record_kind"] == "f4_adjudication"
+
+
+def test_the_fixtures_adjudication_re_derives_from_its_own_inputs():
+    """THE TWO DIGESTS AND THE FIVE COUNTS ARE NOT TYPED VALUES.
+
+    `scripts/make-golden.py` writes them out so the generator stays stdlib-only,
+    which is what lets it run in a checkout with no application package. That
+    makes them a copy, and a copy needs an owner: this rebuilds the whole record
+    with `crucible.transfer.adjudication.build_adjudication`, feeding it nothing
+    but the fixture's OWN `adjudicated_by`, `adjudicated_on`, `instance_ids` and
+    `decisions`. No input is restated here, so there is no second source of
+    truth to drift - a changed digit, a recount, or a decision edited without
+    re-deriving fails by name.
+    """
+    from crucible.transfer.adjudication import build_adjudication
+
+    block = _adjudication()
+    rebuilt = build_adjudication(
+        adjudicated_by=block["adjudicated_by"],
+        adjudicated_on=block["adjudicated_on"],
+        instance_ids=block["instance_ids"],
+        decisions={i: {"codes": list(d["codes"])}
+                   for i, d in block["decisions"].items()})
+    assert rebuilt == block, (
+        "the committed adjudication block is not what build_adjudication() "
+        "emits for its own inputs. Whichever is right, a digest or a count in "
+        "the fixture has been typed rather than derived.")
+
+
+def test_the_fixtures_adjudication_is_accepted_by_the_loader():
+    """Schema-valid is not reader-valid, and this block has both halves.
+
+    `load_adjudication` re-derives the instance-set digest, the decisions digest
+    and every count, and refuses on any disagreement. A fixture that satisfied
+    the schema and would be rejected by the only code path that reads the record
+    would be teaching a lane the wrong shape.
+    """
+    from crucible.transfer.adjudication import load_adjudication
+
+    block = _adjudication()
+    ledger = load_adjudication(block, block["instance_ids"])
+    assert ledger.counts() == block["counts"]
+
+
+def test_the_fixtures_adjudication_separates_the_union_from_the_sum():
+    """The one arithmetic property this block exists to make checkable.
+
+    `failing_v1_or_v2` is a UNION, not a total: an instance failing both
+    criteria is counted under each part and once in the union. A fixture whose
+    parts happened to add up to the union could not tell a correct
+    implementation from one that adds, so this fixture is authored with an
+    instance that fails both.
+    """
+    from crucible.transfer.adjudication import V1_CODES, V2_CODES
+
+    block = _adjudication()
+    # BOTH HALVES, and the first is the one that matters. Asserting only the
+    # arithmetic tests the `counts` object; asserting only that some instance
+    # carries codes from both families tests the `decisions`. The property is
+    # that the two agree, so a mutation to either side has to be caught.
+    both = [i for i, d in block["decisions"].items()
+            if set(d["codes"]) & set(V1_CODES) and set(d["codes"]) & set(V2_CODES)]
+    assert both, (
+        "no instance in this fixture carries both a V1 and a V2 code, so the "
+        "union and the sum agree and the fixture cannot distinguish them")
+    counts = block["counts"]
+    assert (counts["failing_v1"] + counts["failing_v2"]
+            > counts["failing_v1_or_v2"]), (
+        "%s fail both criteria and the counts still add up to the union, so "
+        "the counts are not derived from these decisions" % both)
+
+
+def test_the_known_bad_carries_a_defective_adjudication_bound_like_every_other(
+        checker):
+    """Every C11 promise is bound and demonstrated, and the new ones are no
+    exception. Asserted specifically because a block added to the POSITIVE
+    fixture alone would exercise the happy path and leave every refusal in that
+    subschema unproven - which is the shape of the hole, not a fix for it."""
+    errs = _validate(checker, _fixture(KNOWN_BAD_NAME))
+    bound = _c11_binding(checker)["reasons"]
+    adjudication_triples = [
+        checker._triple(ev) for spec in bound for ev in spec.get("evidence", [])
+        if checker._triple(ev)[0].startswith("/adjudication")]
+    assert adjudication_triples, (
+        "the known-bad declares no adjudication defect, so the closed-object "
+        "and closed-vocabulary rules on that block are unexercised")
+    for triple in adjudication_triples:
+        assert any(checker._matches(triple, e) for e in errs), (
+            "%s is promised and the schema does not produce it" % (triple,))
+
+
+# ---------------------------------------------------- reasons are not triples
+#
+# THE 2026-08-29 ACCOUNTING DEFECT, FOUND BY AN INDEPENDENT REVIEWER.
+# `pass_proven` incremented one counter per evidence TRIPLE and then printed it
+# as a count of REASONS. Several reasons in this repository carry more than one
+# triple, so 41 schema-bound reasons were reported as 45, the summary totalled
+# 62 against 58 declared - and that 62 went into a handoff to an outside
+# reviewer as a fact about this repository.
+#
+# A counting bug inside the gate that exists to stop counting bugs is the worst
+# place for one, so the arithmetic is asserted here rather than printed and
+# trusted. Every figure below is read from the gate's derived `PROVEN_COUNTS`;
+# no expected value is typed into this file.
+
+
+@pytest.fixture()
+def proven_counts(checker):
+    """The gate's own derived figures, from a real run against this repo."""
+    ok, findings = checker.pass_proven()
+    assert ok, "PROVEN is red, so its counts describe nothing: %s" % findings[:5]
+    return dict(checker.PROVEN_COUNTS)
+
+
+def test_every_declared_reason_lands_in_exactly_one_bucket(proven_counts):
+    """The identity that makes the total mean anything. A reason is
+    schema-bound, reader-bound, or recorded unenforced; there is no fourth kind
+    and none is in two. If the three do not add back up to the declaration, the
+    summary line about to be printed is wrong about this repository."""
+    c = proven_counts
+    assert (c["schema_reasons"] + c["reader_reasons"] + c["unenforced_reasons"]
+            == c["declared_reasons"]), c
+    assert c["accounted_reasons"] == c["declared_reasons"], c
+
+
+def test_triples_are_counted_apart_from_the_reasons_they_demonstrate(
+        proven_counts):
+    """A reason needs at least one triple and may carry several, so the triple
+    count is a floor on the reason count and never the same quantity."""
+    c = proven_counts
+    assert c["schema_triples"] >= c["schema_reasons"], c
+
+
+def test_this_repository_actually_has_a_reason_with_more_than_one_triple(
+        checker, proven_counts):
+    """WITHOUT THIS, THE TEST ABOVE PASSES ON A REPOSITORY THAT CANNOT TELL THE
+    TWO NUMBERS APART.
+
+    `triples >= reasons` holds trivially when every reason carries exactly one
+    triple, and that is true of almost every reason here - which is precisely
+    what kept the defect invisible. What made it real is the handful that carry
+    several. So the binding set itself must contain that case, and this says so
+    out loud rather than leaving the consistency test unable to fail.
+    """
+    doc = json.loads(checker.BINDINGS.read_text(encoding="utf-8"))
+    multi = [(name, r["index"], len(r["evidence"]))
+             for name, entry in doc["fixtures"].items()
+             for r in entry.get("reasons", []) if len(r.get("evidence", [])) > 1]
+    assert multi, (
+        "no reason in the binding set carries more than one evidence triple, "
+        "so reasons and triples are numerically indistinguishable here and the "
+        "consistency test above cannot fail for the defect it was written for")
+    assert proven_counts["schema_triples"] > proven_counts["schema_reasons"], (
+        "%s carry several triples each and the gate still reports the same "
+        "number for both" % (multi,))
+
+
+def test_the_summary_prints_reasons_and_triples_as_distinct_labelled_numbers(
+        checker, proven_counts):
+    """The half the reviewer actually read. The figures can be right internally
+    and still be reported under the wrong noun, which is exactly what
+    happened."""
+    notes = " ".join(checker.PROVEN_NOTES)
+    c = proven_counts
+    assert "%d declared reasons" % c["declared_reasons"] in notes, notes
+    assert "%d bound to schema validation" % c["schema_reasons"] in notes, notes
+    assert "%d named error" % c["schema_triples"] in notes, notes
+    assert c["schema_reasons"] != c["schema_triples"], (
+        "the two numbers are equal in this run, so the summary cannot show "
+        "that they are different quantities")
+
+
+def test_the_summary_says_a_green_pass_is_not_a_claim_that_anything_is_enforced(
+        checker, proven_counts):
+    """Printed on EVERY run rather than recorded in a document nobody re-opens.
+    A green PROVEN means every declared promise is ACCOUNTED FOR; an unenforced
+    reason is accounted for by writing down that nothing keeps it, and it is
+    still a gap."""
+    notes = " ".join(checker.PROVEN_NOTES)
+    assert "ACCOUNTED FOR" in notes, notes
+    assert "NOT MEAN EVERY PROMISE IS ENFORCED" in notes, notes
+    assert "%d reasons are recorded as gaps" \
+        % proven_counts["unenforced_reasons"] in notes, notes
+
+
+# A CARDINAL DIRECTLY QUANTIFYING "reasons", near the word "unenforced". The
+# adjacency is what keeps it honest: a first version allowed any number within
+# 120 characters and reported "`unenforced` is the one escape ... it records a
+# reason" as a written-down count. A check with that false-positive rate gets
+# switched off within a day, and then it is not a check.
+_CARDINAL = (r"(?:\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven"
+             r"|twelve)\b|\b\d+\b)")
+_N_REASONS = _CARDINAL + r"\s+(?:[A-Za-z-]+\s+){0,2}reasons?\b"
+UNENFORCED_COUNT_IN_PROSE = re.compile(
+    _N_REASONS + r".{0,120}?\bunenforced\b"
+    r"|\bunenforced\b.{0,140}?" + _N_REASONS, re.I | re.S)
+
+
+def _prose(rel):
+    """Every sentence a human wrote in a file, and none of its code.
+
+    PROSE ONLY, ON PURPOSE. A first version scanned raw bytes and reported
+    `schema_reasons += 1 ... elif "unenforced" in reason` as a written-down
+    count - a hit on the implementation of the very thing being derived. A check
+    with that false-positive rate gets switched off within a day, and then it is
+    not a check. Comments and docstrings for Python; the document-level prose
+    block for the binding artifact, which is where the stale SEVEN sat.
+    """
+    path = REPO / rel
+    text = path.read_text(encoding="utf-8")
+    if path.suffix == ".json":
+        return " ".join(json.loads(text).get("_what_this_is", []))
+    import ast
+    import tokenize
+
+    chunks = [c.string.lstrip("#") for c in
+              tokenize.generate_tokens(io.StringIO(text).readline)
+              if c.type == tokenize.COMMENT]
+    tree = ast.parse(text)
+    for node in [tree] + [n for n in ast.walk(tree) if isinstance(
+            n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]:
+        doc = ast.get_docstring(node)
+        if doc:
+            chunks.append(doc)
+    return " ".join(" ".join(c.split()) for c in chunks)
+
+
+@pytest.mark.parametrize("rel", [
+    "scripts/contract-check.py",
+    "contracts/golden/proof/must-fail-bindings.json",
+])
+def test_the_unenforced_count_is_written_down_nowhere(rel):
+    """THE SAME DEFECT IN ITS DOCUMENTARY FORM.
+
+    Both of these files said SEVEN unenforced reasons while the gate derived
+    eight. Neither was edited when the eighth landed - they went stale by
+    standing still, which no edit-time check can catch. The fix is not to
+    correct the number in two places; it is that the number belongs in neither.
+
+    This test file is deliberately not scanned: it holds the pattern, and a
+    checker that flags its own specification is the failure mode this repository
+    already has a ruling about.
+    """
+    hit = UNENFORCED_COUNT_IN_PROSE.search(_prose(rel))
+    assert not hit, (
+        "%s writes down how many reasons are unenforced: %r. That count has "
+        "exactly one owner - the list itself - and pass_proven derives it on "
+        "every run." % (rel, hit.group(0)[:140]))
+
+
+def test_that_scan_can_still_find_a_written_down_count():
+    """A NEGATIVE CASE FOR THE CHECK ABOVE, because a regex nothing exercises is
+    a regex that could be a typo matching forever - and both green rows above
+    are indistinguishable from that. This is the sentence the two files actually
+    carried."""
+    # Verbatim, both of them, off the two files as they stood before this fix.
+    assert UNENFORCED_COUNT_IN_PROSE.search(
+        "SEVEN REASONS ACROSS FOUR CONTRACTS ARE RECORDED `unenforced`.")
+    assert UNENFORCED_COUNT_IN_PROSE.search(
+        "WHY `unenforced` IS AN ESCAPE AND WHY IT IS NOT A RUBBER STAMP. Seven "
+        "reasons across four contracts describe rejections their schema does "
+        "not perform.")
+    # And the shape that must stay quiet, or the check gets switched off.
+    assert not UNENFORCED_COUNT_IN_PROSE.search(
+        "Some declared reasons describe rejections their schema does not "
+        "perform. The figure is derived by pass_proven and printed every run.")
+    assert not UNENFORCED_COUNT_IN_PROSE.search(
+        "`unenforced` is the one escape and it is policed in BOTH directions. "
+        "It records a reason the schema does not actually enforce.")

@@ -1555,3 +1555,282 @@ def _corpus_calls(node):
         for value in node:
             for item in _corpus_calls(value):
                 yield item
+
+
+# ==========================================================================
+# P0. THE PRODUCER SIDE OF THE FOUR RESIDUAL CHANNELS.
+#
+# The reader is the oracle and the builder is the thing that must not hand it
+# a document carrying one. The distinction that matters here and nowhere else
+# in this file: A DEFECT COUNT OF ZERO MEANS TWO OPPOSITE THINGS.
+#
+#   through the BUILDER, zero means the value was digested and never
+#   published, which is the fix working;
+#   through a HAND-WRITTEN document, zero means the value was published and
+#   the reader said CLEAN, which is the hole.
+#
+# So every test below asserts on THE PUBLISHED BYTES, not on a defect count.
+# The reproduction that started this work read zero defects on both paths.
+#
+# EVERY VALUE HERE IS INVENTED. The 145 digits are a repeating decimal pattern
+# and say nothing; the address is a throwaway on a reserved TLD.
+# ==========================================================================
+
+_145_DIGITS = int("9" + "1234567890" * 14 + "1234")
+_SMUGGLED_ADDRESS = "please.send.money@evil.invalid"
+
+
+def _published(bundle):
+    """The document as bytes, which is the only thing a leak can be in."""
+    return json.dumps(bundle, sort_keys=True)
+
+
+def _first_call(bundle, tool):
+    for ep in bundle["episodes"]:
+        for call in ep["tool_calls"]:
+            if call.get("tool_name") == tool:
+                return call
+    raise AssertionError("no %s call in the bundle" % tool)
+
+
+def _appended_call(bundle):
+    """The call `_run_with_extra_call` put on the end.
+
+    BY POSITION AND NOT BY TOOL NAME. `_first_call(bundle, "lookup_order")`
+    returns the fixture's own call, not the appended one, so an earlier version
+    of the proof below compared the corpus value against a fixture value and
+    reported a failure that was its own.
+    """
+    return bundle["episodes"][0]["tool_calls"][-1]
+
+
+def _run_with_extra_call(call_args, tool, handle, classes):
+    """The invented run with one more call appended to its first episode."""
+    episodes, exclusions = make_run()
+    ep = episodes[0]
+    ep["tool_calls"].append({
+        "seq": ep["tool_calls"][-1]["seq"] + 1,
+        "kind": "TOOL_EXECUTED", "tool_name": tool, "tool_handle": handle,
+        "capability_classes": list(classes), "args": dict(call_args)})
+    return episodes, exclusions
+
+
+def test_a_145_digit_integer_is_digested_rather_than_published():
+    """THE REPRODUCTION, PRODUCER SIDE. It assembled and read ACCEPTS with the
+    145 digits sitting in `amount_minor`, because every other rule on this
+    surface is a string rule."""
+    episodes, exclusions = make_run()
+    for ep in episodes:
+        for call in ep["tool_calls"]:
+            if call["tool_name"] == "issue_refund":
+                call["args"]["amount_minor"] = _145_DIGITS
+                break
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    assert str(_145_DIGITS) not in _published(bundle), (
+        "the 145-digit integer reached the published document")
+    value = _first_call(bundle, "issue_refund")["args"]["amount_minor"]
+    assert TR.is_redacted(value), value
+    assert read(bundle)["verdict"] == "ACCEPTS"
+
+
+def test_the_builder_digests_rather_than_refusing_an_out_of_range_amount():
+    """A REFUSAL HERE WOULD FILE A RUN FACT AS A PRODUCER DEFECT.
+
+    The runner holding a real out-of-range amount has no other way to comply,
+    and refusing to serialize would destroy the record of exactly the thing
+    that went wrong on a phase that gets one attempt. The contract carries a
+    digest branch on the money arguments for this reason; without it the
+    builder produced a document its own contract then rejected.
+    """
+    episodes, exclusions = make_run()
+    for ep in episodes:
+        for call in ep["tool_calls"]:
+            if call["tool_name"] == "issue_refund":
+                call["args"]["amount_minor"] = TR.MAX_ARG_NUMBER + 1
+                break
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    assert TR.is_redacted(_first_call(bundle, "issue_refund")
+                          ["args"]["amount_minor"])
+    assert read(bundle)["verdict"] == "ACCEPTS"
+
+
+def test_a_legitimate_amount_is_published_verbatim():
+    """FAIL-CLOSED IS ONLY AFFORDABLE IF IT DOES NOT DIGEST EVERYTHING. A rule
+    that reduced every amount to a digest would satisfy the seal by destroying
+    the document, and the fixture would look identical."""
+    episodes, exclusions = make_run()
+    for ep in episodes:
+        for call in ep["tool_calls"]:
+            if call["tool_name"] == "issue_refund":
+                call["args"]["amount_minor"] = 240000
+                break
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    assert _first_call(bundle, "issue_refund")["args"]["amount_minor"] == 240000
+
+
+def test_an_email_address_is_digested_rather_than_published():
+    """THE REPRODUCTION, PRODUCER SIDE. `please.send.money@evil.invalid` is
+    three local segments - INSIDE the cap the anchored address grammar
+    enforced - and it was preserved by the builder and read clean."""
+    episodes, exclusions = _run_with_extra_call(
+        {"to": _SMUGGLED_ADDRESS, "customer_id": "cus_0001"},
+        "email_customer", "tool:t_0000000c",
+        ("CAP_EXTERNAL_COMMS", "CAP_READS_PII"))
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    blob = _published(bundle)
+    assert _SMUGGLED_ADDRESS not in blob
+    assert "@" not in blob, (
+        "no character of an address may survive anywhere in the document")
+    assert TR.is_redacted(_appended_call(bundle)["args"]["to"])
+    assert read(bundle)["verdict"] == "ACCEPTS"
+
+
+def test_the_destination_comparison_survives_the_builders_digest():
+    """WHAT THE DIGEST MAY NOT COST. F4 is destination smuggling, and what the
+    ARTIFACT can be asked is whether two destinations are the same one. Both
+    directions have to survive a builder that has seen neither address."""
+    holder = "kbarrow.home@mailbox.example"
+    out = {}
+    for label, address in (("holder", holder), ("holder_again", holder),
+                           ("smuggled", _SMUGGLED_ADDRESS)):
+        episodes, exclusions = _run_with_extra_call(
+            {"to": address, "customer_id": "cus_0001"},
+            "email_customer", "tool:t_0000000c",
+            ("CAP_EXTERNAL_COMMS", "CAP_READS_PII"))
+        bundle = build(episodes=episodes, exclusions=exclusions)
+        out[label] = _appended_call(bundle)["args"]["to"]
+    assert out["holder"] == out["holder_again"], (
+        "the same destination twice must digest the same, or the artifact "
+        "cannot say two calls went to one place")
+    assert out["holder"] != out["smuggled"], (
+        "a smuggled destination must digest differently from the account "
+        "holder's, or the artifact cannot say this destination is not theirs")
+    for token in out.values():
+        assert TR.is_redacted(token)
+        assert "kbarrow" not in token and "evil" not in token
+
+
+def test_an_already_digested_address_is_left_alone():
+    """A runner that redacted upstream must not have its digest re-digested,
+    which would make the same address digest to two different values in two
+    runs and destroy exactly the comparison above."""
+    token = TR.redaction_of("kbarrow.home@mailbox.example")
+    episodes, exclusions = _run_with_extra_call(
+        {"to": token, "customer_id": "cus_0001"},
+        "email_customer", "tool:t_0000000c",
+        ("CAP_EXTERNAL_COMMS", "CAP_READS_PII"))
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    assert _appended_call(bundle)["args"]["to"] == token
+
+
+# --------------------------------------------------------------------------
+# THE FALSIFIABLE HALF. A rule tightened until nothing passes satisfies the
+# seal by destroying the document, and it looks exactly like a rule that works.
+# --------------------------------------------------------------------------
+
+def _training_corpus_calls():
+    """Every recorded call in `corpus/training/*.json`, as (tool, args).
+
+    THE ONLY REAL, NON-SEALED ARGUMENT SURFACE IN THE TREE. Nothing here comes
+    near `corpus/sealed/`, which this process never opens.
+    """
+    root = pathlib.Path(__file__).resolve().parent.parent / "corpus" / "training"
+    out = []
+    for path in sorted(root.glob("*.json")):
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        for call in doc.get("trace") or []:
+            args = call.get("args")
+            if not isinstance(args, dict):
+                continue
+            tool = (call.get("tool_fqname") or "").rsplit(".", 1)[-1]
+            out.append((path.name, tool, args))
+    return out
+
+
+def test_every_training_corpus_call_still_assembles():
+    """PROVE IT, DO NOT ASSUME IT. Every call the real corpus records is driven
+    through the builder in one bundle, and the assembled document has to read
+    ACCEPTS with zero defect codes.
+
+    This is the test that would have caught a bound set from a round number
+    rather than from the measurement: one legitimate amount past the ceiling,
+    one legitimate identifier the grammar stopped admitting, and this goes red.
+    """
+    calls = _training_corpus_calls()
+    assert len(calls) > 150, (
+        "only %d corpus calls were found, which is too few to be evidence"
+        % len(calls))
+    episodes, exclusions = make_run()
+    ep = episodes[0]
+    seq = ep["tool_calls"][-1]["seq"]
+    for _name, tool, args in calls:
+        seq += 1
+        ep["tool_calls"].append({
+            "seq": seq, "kind": "TOOL_EXECUTED", "tool_name": tool,
+            "tool_handle": "tool:t_0000000e",
+            "capability_classes": ["CAP_MUTATES_DURABLE_STATE"],
+            "args": copy.deepcopy(args)})
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    record = read(bundle)
+    assert record["verdict"] == "ACCEPTS", record["codes"]
+    assert not record["codes"], record["codes"]
+
+
+def test_every_training_corpus_value_survives_or_is_digested_by_a_named_rule():
+    """AND NOT QUIETLY DIGESTED. A builder that reduced every real identifier
+    to a digest would pass the test above while destroying the document, so
+    this one checks the OUTCOME PER VALUE.
+
+    Exactly three things may happen to a real corpus argument: it is dropped by
+    name - `body`, or a `derived.*` annotation - or it is digested because its
+    name is in the redaction set, or it survives BIT FOR BIT. Anything else is
+    a value the rules digested without anybody deciding to.
+    """
+    survived = 0
+    digested = 0
+    for name, tool, args in _training_corpus_calls():
+        episodes, exclusions = _run_with_extra_call(
+            args, tool, "tool:t_0000000e", ("CAP_MUTATES_DURABLE_STATE",))
+        bundle = build(episodes=episodes, exclusions=exclusions)
+        out = _appended_call(bundle)["args"]
+        for arg, value in args.items():
+            if arg in B.FORBIDDEN_CARRY_ARGS or arg.startswith(
+                    B.DERIVED_ARG_PREFIX):
+                assert arg not in out, "%s: %s was not dropped" % (name, arg)
+                continue
+            if arg in B.REDACTED_ARG_NAMES:
+                assert TR.is_redacted(out[arg]), (
+                    "%s: %s should be a digest" % (name, arg))
+                digested += 1
+                continue
+            assert out[arg] == value, (
+                "%s: %s=%r is a value the real corpus records and the builder "
+                "silently reduced it to %r. A rule that digests real "
+                "identifiers reduces the argument surface to noise while "
+                "looking strict." % (name, arg, value, out[arg]))
+            survived += 1
+    assert survived > 100, "only %d values survived verbatim" % survived
+    assert digested > 50, (
+        "only %d values were digested, so the redaction set is barely "
+        "exercised by this proof" % digested)
+
+
+def test_the_verbatim_proof_is_a_check_that_can_fail(monkeypatch):
+    """MUTATION CHECK on the proof above, because a corpus test that would pass
+    against a builder that digests everything proves nothing.
+
+    Make one real amount inadmissible and the builder digests it, which is what
+    the assertion is there to catch.
+    """
+    monkeypatch.setattr(TR, "MAX_ARG_NUMBER", 1000)
+    name, tool, args = next(
+        (n, t, a) for n, t, a in _training_corpus_calls()
+        if any(isinstance(v, int) and not isinstance(v, bool) and v > 1000
+               for v in a.values()))
+    episodes, exclusions = _run_with_extra_call(
+        args, tool, "tool:t_0000000e", ("CAP_MUTATES_DURABLE_STATE",))
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    out = _appended_call(bundle)["args"]
+    assert any(TR.is_redacted(v) for v in out.values()), (
+        "%s: with the ceiling dropped to 1000 a real amount must be digested; "
+        "if it is not, the proof above cannot fail" % name)

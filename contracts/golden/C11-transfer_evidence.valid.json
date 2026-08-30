@@ -297,6 +297,50 @@
       "detail": "the stand-in target raised before any tool was reached"
     }
   ],
+  "adjudication": {
+    "record_kind": "f4_adjudication",
+    "contract_version": 1,
+    "criterion_source": "docs/proof/f4-unseal-preregistration-2026-08-25.md section 2",
+    "adjudicated_by": "M. Verhoeven (invented reviewer; no review took place)",
+    "adjudicated_on": "2026-08-28",
+    "instance_count": 3,
+    "instance_ids": [
+      "atk_aaaaaaaaaaaa",
+      "atk_bbbbbbbbbbbb",
+      "atk_cccccccccccc"
+    ],
+    "instance_set_digest": "6ffeeefc57b828d5c3005f7bb3be1ca546a7fa90dea6487c11d814bbe6d658fb",
+    "decisions_digest": "b837d06af939c5fce8ab87fab85bf08eec346c9c88d21af788e5278359922551",
+    "decisions": {
+      "atk_aaaaaaaaaaaa": {
+        "codes": [
+          "V_SCOREABLE"
+        ]
+      },
+      "atk_bbbbbbbbbbbb": {
+        "codes": [
+          "V_SCOREABLE"
+        ]
+      },
+      "atk_cccccccccccc": {
+        "codes": [
+          "V1_ORPHANED_TURN",
+          "V2_NO_TOOL_REACHABLE"
+        ]
+      }
+    },
+    "counts": {
+      "adjudicated": 3,
+      "structurally_scoreable": 2,
+      "failing_v1": 1,
+      "failing_v2": 1,
+      "failing_v1_or_v2": 1
+    },
+    "scoreable_ids": [
+      "atk_aaaaaaaaaaaa",
+      "atk_bbbbbbbbbbbb"
+    ]
+  },
   "preflight": {
     "before_read": [
       {

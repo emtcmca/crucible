@@ -476,6 +476,58 @@ _T_CLEAN = {"verdict": "CLEAN", "breach": False,
 _T_INVALID = {"verdict": "INVALID", "invalid_reason": "E_TARGET_FAULT",
               "objective_set_hash": _T_OSH, "evidence": []}
 
+# The optional top-level V1/V2 adjudication block, added to the golden pair on
+# 2026-08-29 because the schema gained the property and the fixtures did not
+# exercise it - a contract clause no fixture instantiates is a clause nothing
+# can tell a working validator from a broken one about.
+#
+# THE THREE INSTANCES ARE THE FIXTURE'S OWN INVENTED IDS, and the decisions are
+# chosen so `failing_v1 + failing_v2 != failing_v1_or_v2`: atk_ccc fails BOTH
+# criteria and is counted under each part and once in the union. A fixture whose
+# union happened to equal the sum could not tell the two apart, and the union is
+# the number the pre-registered outcome table asks for.
+#
+# THE TWO DIGESTS AND THE FIVE COUNTS ARE DERIVED, NOT CHOSEN. They are what
+# `crucible.transfer.adjudication.build_adjudication` emits for the inputs
+# below. They are written out here rather than imported so this generator stays
+# stdlib-only - it is what decouples the lanes and it must run in a checkout
+# with no application package - and
+# `tests/test_transfer_contract_registration.py` recomputes the whole block from
+# the fixture's own `adjudicated_by` / `adjudicated_on` / `instance_ids` /
+# `decisions` and asserts it reproduces byte for byte. So the value still has
+# exactly one owner and a typed digit fails a named test rather than sitting
+# there looking like a hash.
+_T_ADJ_IDS = ["atk_" + "a" * 12, "atk_" + "b" * 12, "atk_" + "c" * 12]
+_T_ADJUDICATION = {
+    "record_kind": "f4_adjudication",
+    "contract_version": 1,
+    "criterion_source": "docs/proof/f4-unseal-preregistration-2026-08-25.md section 2",
+    # An invented name, like every other value in this file. It is present
+    # because the schema requires a NAMED HUMAN and refuses a component name;
+    # nobody adjudicated anything to produce this fixture.
+    "adjudicated_by": "M. Verhoeven (invented reviewer; no review took place)",
+    "adjudicated_on": "2026-08-28",
+    "instance_count": 3,
+    "instance_ids": list(_T_ADJ_IDS),
+    "instance_set_digest":
+        "6ffeeefc57b828d5c3005f7bb3be1ca546a7fa90dea6487c11d814bbe6d658fb",
+    "decisions_digest":
+        "b837d06af939c5fce8ab87fab85bf08eec346c9c88d21af788e5278359922551",
+    "decisions": {
+        _T_ADJ_IDS[0]: {"codes": ["V_SCOREABLE"]},
+        _T_ADJ_IDS[1]: {"codes": ["V_SCOREABLE"]},
+        _T_ADJ_IDS[2]: {"codes": ["V1_ORPHANED_TURN", "V2_NO_TOOL_REACHABLE"]},
+    },
+    "counts": {
+        "adjudicated": 3,
+        "structurally_scoreable": 2,
+        "failing_v1": 1,
+        "failing_v2": 1,
+        "failing_v1_or_v2": 1,
+    },
+    "scoreable_ids": [_T_ADJ_IDS[0], _T_ADJ_IDS[1]],
+}
+
 F["C11-transfer_evidence.valid.json"] = {
     "_note": "HAND-AUTHORED, NOT A RUN. Three invented instances driven under two "
              "invented arms. It exercises the schema and nothing else: no sealed "
@@ -537,6 +589,7 @@ F["C11-transfer_evidence.valid.json"] = {
          "episode_id": "ep_c10000000000", "reason": "target_fault",
          "detail": "the stand-in target raised before any tool was reached"},
     ],
+    "adjudication": _T_ADJUDICATION,
     "preflight": {
         "before_read": [
             {"gate": "G7", "assertion": "sealed holdout unread before the drive",
@@ -602,6 +655,9 @@ F["C11-transfer_evidence.KNOWN_BAD.json"] = {
         "exclusions[0] carries round_index. There is no such property and there cannot be one: a transfer arm has no rounds, so any value written there would be invented to satisfy a validator",
         "exclusions[0].reason is the free text 'flaky' against the closed list. A free-text reason is a place to write a sentence about a sealed instance",
         "transfer_arithmetic carries transfer_rate. There is deliberately no such property and additionalProperties is false, so a producer CANNOT assert its own rate - the reader derives it, and below the floor it says so instead of printing one",
+        "adjudication carries a free-text 'notes' property. The adjudication object is closed for the same seal-safety reason the episode object is: this record describes SEALED attack instances and is published beside the run, so a note field on it is a channel for exactly the content the seal exists to protect. There is deliberately no reason, note or detail property anywhere in the block",
+        "adjudication.decisions.atk_cccccccccccc.codes[0] is the free text 'looked fine to me'",
+    "adjudication.decisions.atk_cccccccccccc.codes is neither the pass code alone nor a list of failure codes against the closed V1/V2 vocabulary. The six codes were ratified before any instance was adjudicated precisely so a ruling cannot be written as a sentence about a sealed instance - a free-text code is that sentence wearing a different field name, and it is also a count nobody can derive",
     ],
     "bundle_kind": "evidence_bundle",
     "contract_version": 1,
@@ -628,6 +684,19 @@ F["C11-transfer_evidence.KNOWN_BAD.json"] = {
         {"instance_id": "atk_" + "c" * 12, "arm": "vfinal",
          "episode_id": "ep_c10000000000", "round_index": 1, "reason": "flaky"},
     ],
+    # The valid block with the two defects layered on, so every OTHER clause of
+    # the adjudication schema stays satisfied and the fixture fails for the two
+    # reasons it declares and no others. Both defects are the same shape the
+    # block was written to refuse: a place to write a sentence about a sealed
+    # instance. One is a new property on a closed object, the other is a free
+    # string where the closed code vocabulary goes.
+    "adjudication": dict(
+        _T_ADJUDICATION,
+        notes="the reviewer thought instance c was borderline",
+        decisions=dict(
+            _T_ADJUDICATION["decisions"],
+            **{_T_ADJ_IDS[2]: {"codes": ["looked fine to me"]}}),
+    ),
     "preflight": F["C11-transfer_evidence.valid.json"]["preflight"],
     "policy_binding": F["C11-transfer_evidence.valid.json"]["policy_binding"],
     "transfer_arithmetic": {"breached_at_v0": 2, "breached_at_vfinal": 1,
