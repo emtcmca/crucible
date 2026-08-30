@@ -200,6 +200,21 @@ def main():
     # failure is a real question the pre-registration leaves open, and it is
     # Eric's to rule on - so this defaults to withholding and takes an
     # explicit flag, rather than deciding by omission.
+    #
+    # TWO THINGS THIS IS NOT, BOTH OF WHICH THE PREVIOUS COMMENT CLAIMED OR
+    # IMPLIED, AND A REVIEWER DISPROVED ONE OF THEM BY REPRODUCTION.
+    #
+    #   * It is NOT a guarantee about "sections added later". It rewrites the
+    #     URI shapes the current renderer emits plus bare object names matching
+    #     the sealed family's convention. A future section that prints a name
+    #     in some other shape is not covered, and saying otherwise is the
+    #     widened claim this project keeps catching in itself.
+    #   * It is PSEUDONYMISATION, NOT CONCEALMENT. The digest is unsalted and
+    #     the object-name format is public, so a determined reader can confirm
+    #     a guessed name offline. That is acceptable for a last-line safety
+    #     net and it is NOT a substitute for the disclosure ruling.
+    #
+    # It is defence in depth over one renderer, and the ruling is still owed.
     body = "\n".join(lines) + "\n"
     if not args.reveal_sealed_names:
         body, hidden = _redact_sealed_objects(body, gate.env)
@@ -222,10 +237,25 @@ def main():
 def _redact_sealed_objects(text, env):
     """Replace sealed OBJECT names with stable digests. Returns (text, count).
 
-    Operates on the rendered text rather than on the tally structure on
-    purpose: this is the last point before the bytes are written, so anything
-    that reaches the file goes through it, including sections added later by
-    someone who never read this function.
+    Operates on the rendered text rather than on the tally structure because
+    this is the last point before the bytes are written. That covers every
+    section that reaches the file - but only in the SHAPES listed below.
+
+    WHAT IS COVERED:
+      * `.../buckets/<sealed-bucket>/objects/<name>`
+      * `gs://<sealed-bucket>/<name>`
+      * a bare `<name>` matching the sealed family's object convention
+
+    WHAT IS NOT: a name printed in any other shape. An earlier version of this
+    docstring claimed it protected "sections added later by someone who never
+    read this function". A reviewer reproduced a bare object name surviving
+    with `hidden=0`, which is what prompted the third pattern - and the claim
+    is now scoped rather than repeated, because a bare name was only the
+    instance and the general statement was the defect.
+
+    This is PSEUDONYMISATION. The digest is unsalted and the name format is
+    public, so a guessed name can be confirmed offline. It is a safety net
+    under a disclosure ruling, not the ruling.
     """
     import hashlib
     import re
@@ -246,7 +276,31 @@ def _redact_sealed_objects(text, env):
     pattern = re.compile(
         r"(?P<head>(?:buckets/%s/objects/)|(?:gs://%s/))(?P<obj>[^\s\"']+)"
         % (re.escape(bucket), re.escape(bucket)))
-    return pattern.sub(sub, text), len(seen)
+    text = pattern.sub(sub, text)
+
+    # AND A BARE NAME, which a reviewer reproduced surviving untouched.
+    #
+    # THE PATTERN IS SEALED_IO'S OWN, not one written again here. `_SAFE_NAME`
+    # is the regex that validates every name before it is requested, so it is
+    # the single definition of what a sealed object is called, and importing it
+    # means this cannot drift from the thing it is trying to match.
+    #
+    # A hand-rolled `F4-.*\.json` was tried first and its own control test
+    # caught it redacting `F4-MANIFEST.json` - a PUBLISHED artifact, the one
+    # that carries the `atk_` ids on purpose. Over-redaction is not the safe
+    # direction here: it corrupts the proof file while looking careful.
+    from crucible.transfer.sealed_io import _SAFE_NAME
+
+    def sub_bare(match):
+        obj = match.group(0)
+        if not _SAFE_NAME.match(obj):
+            return obj
+        seen.add(obj)
+        return "sha256-8:" + hashlib.sha256(obj.encode("utf-8")).hexdigest()[:8]
+
+    bare = re.compile(r"\bF4-dest-\d{2}-[a-z0-9-]+\.json\b")
+    text = bare.sub(sub_bare, text)
+    return text, len(seen)
 
 
 def _holdout_section(counter, args):

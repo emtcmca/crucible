@@ -407,20 +407,56 @@ A3.11 turns on sealed CONTENT reads, and those are counted in the Cloud
 Logging data-access record for the sealed bucket - the same counter the run
 itself asserts against, and the pre-registered instrument. Read it:
 
-**$Since is `audit_window.opened_at` from the drive log**, and it is carried
-by BOTH the header and the terminal record, so it survives a failure at any
-stage. Copy it; do not reconstruct it.
+**$Since is the run's audit window, and the drive log carries it on disk.**
+
+**The first record written on a sealed run is a `window` row**, and it is
+written and fsynced BEFORE the read is attempted. That ordering is the point:
+it survives a termination that runs no cleanup at all - `os._exit`, a native
+fault, a reset, a power cut - none of which reach the exit hook that writes the
+terminal record. Whatever else the run managed to produce, if it got as far as
+attempting the read then this row is on disk.
+
+The same coordinates are repeated inside the header and the terminal record,
+nested under `audit_window`. The `window` row is the authority: it was written
+first, before anything sealed moved.
 
 ```powershell
-# Read it out of whichever record the run left behind. Angle-bracket
-# placeholders are NOT usable here: PowerShell parses `<` as a redirection
-# operator and the line fails on paste, which is how this block was
-# originally written.
-$Row    = Get-Content $Out | ForEach-Object { $_ | ConvertFrom-Json } |
-          Where-Object { $_.audit_window } | Select-Object -First 1
-$Since  = $Row.audit_window.opened_at
+# Angle-bracket placeholders are NOT usable here: PowerShell parses `<` as a
+# redirection operator and the line fails on paste, which is how this block
+# was originally written.
+$Rows   = Get-Content $Out | ForEach-Object { $_ | ConvertFrom-Json }
+$W      = $Rows | Where-Object { $_.kind -eq 'window' } | Select-Object -First 1
+if (-not $W) {
+  $W = ($Rows | Where-Object { $_.audit_window } | Select-Object -First 1).audit_window
+}
+$Since  = $W.opened_at
 python scripts/probe-g7-g8.py --holdout-since $Since
 ```
+
+The row also carries what the query needs and what pins it: `project`,
+`bucket`, `repo_commit`, and `gcp_env_digest` - the sha256 of
+`scripts/gcp-env.sh` as it was during the run. **An earlier version recorded
+only the path to that file.** A path is a pointer and a pointer can be
+re-pointed; the digest is what makes "the bucket named in gcp-env.sh" a
+statement about a specific file rather than about whatever is at that path when
+someone finally reads the record.
+
+`calibration_finished_at` is the boundary the exclusion is actually defined
+against - `open_run_window` requires the run window to start strictly after it.
+`calibration_opened_at` is recorded too, but being later than *that* proves
+nothing: the canary is read between the two.
+
+**Do NOT substitute either of the two timestamps that look like it.** Both are
+wrong, in opposite directions, and each breaks A3.11 the other way:
+
+| tempting substitute | what it does |
+|---|---|
+| the time the process started | precedes the calibration canary, so the canary's own read falls inside the window. A clean attempt counts one read and **forfeits the retry** A3.11 permits |
+| the header's `driven_at` | stamped **after** the sealed read and after the adjudication, so the window opens after the thing it measures. A one-or-more attempt reads as zero and **manufactures a retry** that is not allowed. It also does not exist at all if the run stopped before the header |
+
+**This section named `driven_at` as the instant the attempt began until
+2026-08-30.** It is not: the run's audit window opens strictly after the
+calibration and long before the header is written.
 
 **That command writes into `docs/proof/`, which is committed to a PUBLIC
 repository, and sealed object names are redacted out of it by default.** Each
@@ -442,18 +478,7 @@ costs are in `docs/design/DECISION-recovery-disclosure-2026-08-30.md`. The
 default withholds, so that the choice is made deliberately rather than by
 whichever way the script happened to be written.
 
-**Do NOT substitute either of the two timestamps that look like it.** Both are
-wrong, in opposite directions, and each breaks A3.11 the other way:
 
-| tempting substitute | what it does |
-|---|---|
-| the time the process started | precedes the calibration canary, so the canary's own read falls inside the window. A clean attempt counts one read and **forfeits the retry** A3.11 permits |
-| the header's `driven_at` | stamped **after** the sealed read and after the adjudication, so the window opens after the thing it measures. A one-or-more attempt reads as zero and **manufactures a retry** that is not allowed. It also does not exist at all if the run stopped before the header |
-
-**This section named `driven_at` as the instant the attempt began until
-2026-08-30.** It is not: the run's audit window opens strictly after the
-calibration and long before the header is written. The record now carries the
-window itself for exactly this reason.
 
 Read the tally it prints, not its exit code. Two cautions, each of which
 changes what the number means:

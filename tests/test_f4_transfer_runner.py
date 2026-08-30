@@ -211,10 +211,29 @@ def test_a_declared_set_of_the_wrong_size_is_refused_before_the_network():
     assert called == [], "the size check must fire before any request"
 
 
-def test_a_fingerprint_that_does_not_match_the_commitment_halts():
+def _window_on_disk(tmp_path, since="2026-08-31T00:00:02Z"):
+    """Open a real, journalled audit window. Returns the open journal handle.
+
+    The door guard added after review 10 asks whether the boundary is BYTES ON
+    DISK, so this writes them. Setting the flag directly would test the stub
+    rather than the guard, and this suite has already been caught doing exactly
+    that once.
+    """
+    fh = open(tmp_path / "journal.jsonl", "a", encoding="utf-8", newline="")
+    rt.mark_audit_window(since,
+                         calibration_since="2026-08-31T00:00:00Z",
+                         calibration_finished_at="2026-08-31T00:00:01Z",
+                         env={"CRUCIBLE_PROJECT": "invented"},
+                         bucket="gs://invented-sealed",
+                         journal=fh)
+    return fh
+
+
+def test_a_fingerprint_that_does_not_match_the_commitment_halts(tmp_path):
     """THE CENTRAL GUARD. If the bytes on the wire do not hash to the published
     commitment, the set being measured is not the set that was sealed, and every
     number derived from it describes a corpus nobody committed to."""
+    _window_on_disk(tmp_path)
     names = _declared_names()
     payload = {n: b'{"family": "F4", "sealed": true}' for n in names}
     with pytest.raises(rt.TransferRunError) as exc:
@@ -223,10 +242,11 @@ def test_a_fingerprint_that_does_not_match_the_commitment_halts():
     assert exc.value.code == "E_SEAL_FINGERPRINT_MISMATCH"
 
 
-def test_the_read_set_is_decided_before_the_network_not_after():
+def test_the_read_set_is_decided_before_the_network_not_after(tmp_path):
     """The downloader is only ever asked for names the manifest declared. A run
     that read whatever the bucket happened to hold could not assert afterwards
     that it read only what it named."""
+    _window_on_disk(tmp_path)
     asked = []
 
     def download(uri):
@@ -238,9 +258,10 @@ def test_the_read_set_is_decided_before_the_network_not_after():
     assert sorted(asked) == sorted(_declared_names())
 
 
-def test_every_object_is_read_exactly_once():
+def test_every_object_is_read_exactly_once(tmp_path):
     """A second read of one object makes the audit count right for the wrong
     reason, so the reader refuses a duplicate rather than tolerating it."""
+    _window_on_disk(tmp_path)
     seen = []
 
     def download(uri):
@@ -1848,12 +1869,21 @@ def test_the_runbook_does_not_describe_the_pre_fix_resume_behaviour():
 
     These strings are dead. If one comes back, so has the contradiction.
     """
-    # STRUCK SPANS ARE EXEMPT, and that is deliberate rather than a loophole.
-    # This project's rule is that corrections leave the superseded text
-    # visible, so a dead phrase inside `~~ ~~` is the correction working. What
-    # must not survive is the dead phrase in the INSTRUCTIONAL voice, which is
-    # everything outside the strikethrough.
-    text = re.sub(r"~~.+?~~", "", _runbook(), flags=re.S)
+    # STRUCK SPANS ARE EXEMPT, and that is deliberate rather than a loophole:
+    # this project's rule is that corrections leave the superseded text
+    # visible, so a dead phrase inside `~~ ~~` is the correction working.
+    #
+    # BUT THE EXEMPTION WAS FAR WIDER THAN ITS VISUAL CONTRACT. It ran with
+    # `re.S`, so one `~~` and another `~~` three paragraphs later exempted
+    # everything between them - and a reviewer reproduced a live dead phrase
+    # vanishing from this guard by sitting between multiline delimiters. A
+    # strikethrough that renders across a paragraph break is not a
+    # strikethrough anyone reading the document would recognise.
+    #
+    # So the span may not contain a blank line and may not contain another
+    # `~`. That is the shape markdown actually renders, which makes the
+    # exemption match what a reader sees.
+    text = re.sub(r"~~[^~\n]*(?:\n(?!\s*\n)[^~\n]*)*~~", "", _runbook())
     for dead in ("has not caught up",
                  "overwrites the stored one, silently",
                  "is half-landed"):
@@ -1862,6 +1892,39 @@ def test_the_runbook_does_not_describe_the_pre_fix_resume_behaviour():
             "module no longer has" % dead)
     assert "E_RESUME_CONFLICT" in text, (
         "the runbook must still tell the operator what the refusal looks like")
+
+
+def test_the_strike_exemption_cannot_swallow_whole_paragraphs():
+    """REVIEW 10'S REPRODUCTION, run against the exemption itself.
+
+    The guard stripped `~~ ... ~~` with `re.S`, so one delimiter and another
+    three paragraphs later exempted everything between them - and a live dead
+    phrase placed in that gap vanished from the check. A strikethrough that
+    spans a paragraph break is not one any reader would recognise, so the
+    exemption is now shaped like what markdown renders.
+
+    This tests the STRIPPER, not the document, because the document currently
+    happens to be clean and a test that only read it would pass against an
+    exemption that swallowed everything.
+    """
+    import re as _re
+
+    def strip(text):
+        return _re.sub(r"~~[^~\n]*(?:\n(?!\s*\n)[^~\n]*)*~~", "", text)
+
+    # The correction case: struck text on one line is exempt.
+    assert "dead phrase" not in strip("ok ~~dead phrase~~ ok")
+
+    # A struck span may wrap to the next line, because real corrections do.
+    assert "dead phrase" not in strip("ok ~~dead\nphrase~~ ok")
+
+    # THE REPRODUCTION: delimiters separated by a blank line must NOT exempt
+    # the paragraph between them.
+    swallowed = "intro ~~struck\n\nhas not caught up\n\nmore~~ tail"
+    assert "has not caught up" in strip(swallowed), (
+        "the exemption swallowed a live paragraph sitting between two "
+        "delimiters, so any dead phrase can be hidden from the guard by "
+        "putting a tilde pair around it")
 
 
 def test_the_runbook_states_all_three_proof_binding_properties():
@@ -1890,8 +1953,19 @@ def test_the_runbook_sends_the_operator_to_the_recorded_window(monkeypatch):
     opposite directions.
     """
     text = _runbook()
-    assert "audit_window.opened_at" in text, (
+    assert "kind -eq 'window'" in text, (
+        "the recovery command does not read the `window` row. That row is "
+        "written and fsynced before the read, so it is the one record that "
+        "survives a termination running no cleanup - which is the whole "
+        "reason it exists")
+    assert "opened_at" in text, (
         "the recovery section does not name the field carrying the window")
+    assert "gcp_env_digest" in text, (
+        "the operator is not told the record pins the config it used; a bare "
+        "path can be re-pointed")
+    assert "calibration_finished_at" in text, (
+        "the runbook does not name the boundary the canary exclusion is "
+        "actually defined against")
     for warned in ("forfeits the retry", "manufactures a retry"):
         assert warned in text, (
             "the runbook does not warn that %r is the consequence of the "
@@ -2788,7 +2862,12 @@ def _lifecycle_stubs(monkeypatch, cal="2026-08-31T00:00:00Z",
     from crucible.transfer import holdout_assert as ha
     from infra import holdout_touch as ht
 
-    monkeypatch.setattr(real_gate, "gcp_env", lambda root: {"project": "invented"})
+    # THE REAL KEY NAME. `gcp_env` returns `scripts/gcp-env.sh` sourced, so
+    # the project lives under CRUCIBLE_PROJECT. A stub with a friendlier key
+    # would have made the window record's project field read None in
+    # production and pass here.
+    monkeypatch.setattr(real_gate, "gcp_env",
+                        lambda root: {"CRUCIBLE_PROJECT": "invented"})
     monkeypatch.setattr(real_gate, "RealGate", lambda **kw: object())
     monkeypatch.setattr(ht, "open_audit_window", lambda: cal)
     monkeypatch.setattr(ht, "make_counter", lambda *a, **k: object())
@@ -3055,6 +3134,334 @@ def test_a_terminal_only_log_reads_as_not_completed(tmp_path):
     out = rt.read_drive_file(p)
     assert out["completed"] is False
     assert out["terminal"]["stage"] == "adjudication"
+
+
+# ---------------------------- the boundary is BYTES, not a process global ---
+#
+# Review 10 reopened review 9's P0 and was right to. "Durable" had come to mean
+# assigning a dict to a module-level list. That survives an exception, a
+# SystemExit and an ordinary KeyboardInterrupt - all of which run the exit hook
+# - and it does not survive os._exit, a native fault, a reset or a power cut.
+# On those paths the reservation is still zero bytes and the window is gone.
+#
+# The window is now written through the reservation handle with `_append`,
+# which fsyncs, BEFORE the read is attempted. And the sealed door refuses to
+# read at all unless that has happened, which is what turns it from a habit
+# into a property.
+
+
+def test_the_window_is_on_disk_before_the_read_is_attempted(monkeypatch, tmp_path):
+    """THE FINDING. Bytes on disk at the moment the downloader is called.
+
+    Read back off the filesystem from INSIDE the stubbed downloader, with a
+    separate file handle, so nothing about this assertion depends on the
+    writer's buffers or on anything the process still holds in memory. That is
+    the whole distinction the finding turned on.
+    """
+    _lifecycle_stubs(monkeypatch)
+    out = tmp_path / "drive.jsonl"
+    handle = open(out, "x", encoding="utf-8", newline="")
+
+    seen = {}
+
+    def _read(*a, **k):
+        seen["bytes"] = out.read_text(encoding="utf-8")
+        raise RuntimeError("the first object was refused")
+
+    monkeypatch.setattr(rt, "load_sealed_instances", _read)
+
+    with pytest.raises(RuntimeError):
+        rt.sealed_drive_lifecycle(["n"], bucket="gs://invented", journal=handle)
+
+    rows = [json.loads(ln) for ln in seen["bytes"].splitlines() if ln.strip()]
+    assert rows, (
+        "nothing was on disk when the read was attempted. A termination that "
+        "runs no exit hook leaves a zero-byte reservation and no window, and "
+        "the A3.11 ruling is unrecoverable - which is the original P0.")
+    assert rows[0]["kind"] == "window"
+    assert rows[0]["opened_at"] == "2026-08-31T00:00:02Z"
+
+
+def test_main_hands_the_RESERVATION_HANDLE_to_the_lifecycle(monkeypatch, tmp_path):
+    """WIRED IS NOT RUNNING, AND THIS IS THE FOURTH TIME IN THIS FILE.
+
+    A mutation run found it: deleting `journal=reserved_fh` from `main()`'s
+    call to `sealed_drive_lifecycle` broke nothing. The window write was fully
+    covered, the door guard was fully covered, and no test checked that the
+    producer ever handed over the handle.
+
+    It fails closed - the door refuses `E_AUDIT_WINDOW_NOT_DURABLE` rather than
+    reading uncalibrated - so it is not a safety hole. It is worse in a
+    different way: it aborts the one-shot run at the only moment it cannot be
+    retried, for a reason that has nothing to do with the seal.
+
+    And the handle must be the RESERVED one, not any file. The window has to
+    land in the inode reserved before the seal was touched, or it is in a file
+    the ancestry guard never approved.
+    """
+    monkeypatch.undo()          # drop the autouse proof-binding stub
+    monkeypatch.setattr(rt, "assert_proof_binds_this_commit", lambda *a, **k: None)
+
+    got = {}
+
+    def spy(object_names, bucket=None, gate_kwargs=None, journal=None):
+        got["journal"] = journal
+        raise rt.TransferRunError("E_STOP", "far enough")
+
+    monkeypatch.setattr(rt, "sealed_drive_lifecycle", spy)
+
+    out = tmp_path / "drive.jsonl"
+    names = tmp_path / "names.txt"
+    names.write_text(chr(10).join("F4-dest-%02d-invented.json" % n
+                                  for n in range(1, 25)), encoding="utf-8")
+
+    with pytest.raises(rt.TransferRunError):
+        rt.main(_sealed_argv(**{"--live": None, "--object-names": str(names),
+                                "--out": str(out),
+                                "--adjudication": str(tmp_path / "adj.json")}))
+
+    assert got.get("journal") is not None, (
+        "main() called the lifecycle with no journal, so the audit window "
+        "would never reach disk and the sealed door would refuse the run")
+    assert got["journal"].name == str(out), (
+        "the lifecycle was handed some other file. The window has to land in "
+        "the reservation - the inode claimed before the seal was touched - or "
+        "it is in a path the ancestry guard never approved. Got %r"
+        % got["journal"].name)
+
+
+def test_durability_is_claimed_only_AFTER_the_bytes_land(monkeypatch, tmp_path):
+    """ORDER INSIDE `mark_audit_window`, and a mutation run found this too.
+
+    Setting `durable` before `_append` passes every test that reads the file
+    afterwards, because by then the write has happened anyway. It differs in
+    exactly one case, and it is the case that matters: `_append` RAISES. Disk
+    full, a closed handle, a read-only mount. Then the flag says the boundary
+    is recorded, the door lets the read through, and the attempt is spent with
+    nothing on disk to rule on - the original P0, restored by an ordering.
+    """
+    _lifecycle_stubs(monkeypatch)
+
+    def boom(*a, **k):
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(rt, "_append", boom)
+
+    handle = open(tmp_path / "drive.jsonl", "x", encoding="utf-8", newline="")
+    with pytest.raises(OSError):
+        rt.mark_audit_window("2026-08-31T00:00:02Z",
+                             calibration_since="2026-08-31T00:00:00Z",
+                             calibration_finished_at="2026-08-31T00:00:01Z",
+                             env={"CRUCIBLE_PROJECT": "invented"},
+                             bucket="gs://invented", journal=handle)
+
+    assert not rt.audit_window_is_durable(), (
+        "the window claims to be durable after the write that would have made "
+        "it durable raised. The door would now let a sealed read through with "
+        "nothing on disk to rule on.")
+
+    called = []
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.load_sealed_instances(object_names=_declared_names(),
+                                 downloader=lambda uri: called.append(uri))
+    assert caught.value.code == "E_AUDIT_WINDOW_NOT_DURABLE"
+    assert called == []
+
+
+def test_the_sealed_door_refuses_when_the_window_is_only_in_memory(tmp_path):
+    """THE GUARD THAT MAKES IT MANDATORY, and it closes the bypass too.
+
+    A window remembered but never written is exactly the state a hard
+    termination destroys. Refusing here costs nothing: no object has moved.
+    """
+    rt.mark_audit_window("2026-08-31T00:00:02Z",
+                         calibration_since="2026-08-31T00:00:00Z")
+    assert rt.audit_window() is not None
+    assert not rt.audit_window_is_durable()
+
+    called = []
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.load_sealed_instances(object_names=_declared_names(),
+                                 downloader=lambda uri: called.append(uri))
+    assert caught.value.code == "E_AUDIT_WINDOW_NOT_DURABLE"
+    assert called == [], "an object was fetched before the boundary was durable"
+
+
+def test_the_authorized_module_path_cannot_reach_an_uncalibrated_read():
+    """REVIEW 10'S BYPASS, and the answer is a property of the module now.
+
+    `load_instances(sealed=True, opening_the_seal=True)` reaches
+    `load_sealed_instances` directly, skipping the calibration, the window, the
+    milestone marks and the counter assertions. No shipping caller takes that
+    branch - but "no current caller" is a fact about today's call graph, and
+    the seal opens once. The door itself checks.
+    """
+    called = []
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.load_instances("F4", sealed=True, opening_the_seal=True,
+                          object_names=_declared_names())
+    assert caught.value.code == "E_AUDIT_WINDOW_NOT_DURABLE", (
+        "the authorized module path reached a sealed read without a durable "
+        "audit window, so the calibration and the counter assertions were "
+        "skipped and nothing noticed")
+    assert called == []
+
+
+def test_the_window_record_identifies_its_query_target_without_the_repo(
+        monkeypatch, tmp_path):
+    """A RELATIVE POINTER IS NOT AN IDENTIFIER for evidence meant to outlive
+    the checkout.
+
+    The record used to carry only `scripts/gcp-env.sh`, defended as avoiding a
+    second copy of a bucket name. That confused a CONFIGURATION AUTHORITY,
+    which must have one owner, with an EVIDENCE SNAPSHOT of what one run
+    actually used - which is this record's entire job.
+    """
+    _lifecycle_stubs(monkeypatch)
+    out = tmp_path / "drive.jsonl"
+    handle = open(out, "x", encoding="utf-8", newline="")
+    monkeypatch.setattr(rt, "load_sealed_instances",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no")))
+
+    with pytest.raises(RuntimeError):
+        rt.sealed_drive_lifecycle(["n"], bucket="gs://invented-sealed",
+                                  journal=handle)
+
+    row = json.loads(out.read_text(encoding="utf-8").splitlines()[0])
+    assert row["bucket"] == "gs://invented-sealed", (
+        "the record cannot name the bucket its count would be taken over")
+    assert row["project"] == "invented"
+    assert row["repo_commit"] and "unavailable" not in row["repo_commit"], (
+        "the record does not pin the commit that governed the run")
+    assert row["gcp_env_digest"].startswith("sha256:"), (
+        "a path can be re-pointed; the digest is what makes the pointer a "
+        "statement about a specific file")
+
+
+def test_the_record_carries_the_calibration_boundary_that_actually_excludes(
+        monkeypatch, tmp_path):
+    """`finished_at`, NOT `opened_at`.
+
+    The exclusion invariant in `open_run_window` is that the run window starts
+    strictly after the calibration's `finished_at`. The record carried only the
+    instant calibration BEGAN, and its prose claimed that being later than it
+    proved the canary was outside the window. It does not - the canary is read
+    between the two.
+    """
+    from crucible.transfer import holdout_assert as ha
+
+    class _Cal:
+        finished_at = "2026-08-31T00:00:01Z"
+
+    _lifecycle_stubs(monkeypatch)
+    monkeypatch.setattr(ha, "open_run_window_when_clear",
+                        lambda *a, **k: "2026-08-31T00:00:02Z")
+    from crucible.transfer import gcs_reader as gr
+    monkeypatch.setattr(gr, "open_calibrated_downloader", lambda *a, **k: _Cal())
+    monkeypatch.setattr(rt, "load_sealed_instances",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no")))
+
+    out = tmp_path / "drive.jsonl"
+    handle = open(out, "x", encoding="utf-8", newline="")
+    with pytest.raises(RuntimeError):
+        rt.sealed_drive_lifecycle(["n"], bucket="gs://invented", journal=handle)
+
+    row = json.loads(out.read_text(encoding="utf-8").splitlines()[0])
+    assert row["calibration_finished_at"] == "2026-08-31T00:00:01Z", (
+        "the record does not carry the boundary the exclusion is defined "
+        "against, so it cannot show the canary was outside the window")
+
+
+# ------------------------------- more shapes the reader must not resolve ----
+
+
+def test_a_footer_and_a_crash_together_are_refused(tmp_path):
+    """REVIEW 10'S REPRODUCTION. `header -> crash -> footer` read as completed.
+
+    `_assemble()` refuses any crash later, which made this survivable rather
+    than harmless - the reader's own answer was still wrong, and the reader is
+    what the recovery procedure uses.
+    """
+    p = _log(tmp_path, _header(),
+             {"kind": "crash", "error": "invented"},
+             {"kind": "footer", "episodes": 3, "completed": True})
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_CONTRADICTS"
+
+
+def test_records_out_of_order_are_refused(tmp_path):
+    """REVIEW 10'S SECOND REPRODUCTION. `footer -> header -> episode`.
+
+    Every row well formed, the sequence impossible, and it read as completed.
+    """
+    p = _log(tmp_path,
+             {"kind": "footer", "episodes": 1, "completed": True},
+             _header(),
+             {"kind": "episode", "n": 1})
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
+    assert "order this producer cannot emit" in str(caught.value)
+
+
+def test_a_window_then_terminal_artifact_is_READABLE(tmp_path):
+    """THE SHAPE THE MACHINERY EXISTS TO PRODUCE, and it was unreadable.
+
+    A run that stops between the window and the header leaves exactly these
+    rows. `read_drive_file` refused the whole file for having no header - so
+    the one artifact the recovery path is built around was the one artifact the
+    reader could not read. The named control for it wrote a header first, which
+    is not the shape.
+    """
+    p = _log(tmp_path,
+             {"kind": "window", "at": "2026-08-31T00:00:02Z",
+              "opened_at": "2026-08-31T00:00:02Z",
+              "calibration_finished_at": "2026-08-31T00:00:01Z",
+              "project": "invented", "bucket": "gs://invented-sealed",
+              "repo_commit": "a" * 40, "gcp_env_digest": "sha256:" + "b" * 64,
+              "durable": True},
+             {"kind": "terminal", "stage": "the sealed read was attempted",
+              "read_attempted": True, "read_returned": False,
+              "run_completed": False})
+    out = rt.read_drive_file(p)
+    assert out["completed"] is False
+    assert out["terminal"]["read_attempted"] is True
+    assert out["audit_window"]["opened_at"] == "2026-08-31T00:00:02Z", (
+        "the failure artifact does not surface the window, which is the only "
+        "thing in it that makes the A3.11 ruling possible")
+    assert out["audit_window"]["bucket"] == "gs://invented-sealed"
+
+
+def test_two_window_rows_are_refused(tmp_path):
+    p = _log(tmp_path,
+             {"kind": "window", "opened_at": "t1", "durable": True},
+             {"kind": "window", "opened_at": "t2", "durable": True},
+             {"kind": "terminal", "stage": "x"})
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
+
+
+def test_episodes_without_a_header_are_refused(tmp_path):
+    """Relaxing the header rule must not relax it into nothing."""
+    p = _log(tmp_path,
+             {"kind": "window", "opened_at": "t1", "durable": True},
+             {"kind": "episode", "n": 1},
+             {"kind": "terminal", "stage": "x"})
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
+    assert "no header" in str(caught.value)
+
+
+def test_a_completely_empty_log_is_still_refused(tmp_path):
+    """THE CONTROL on the relaxed header rule."""
+    p = tmp_path / "empty.jsonl"
+    p.write_text("", encoding="utf-8")
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_NO_DRIVE_HEADER"
 
 
 def test_the_mark_precedes_the_read_in_the_lifecycles_own_source():

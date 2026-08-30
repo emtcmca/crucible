@@ -81,6 +81,45 @@ def test_a_gs_url_form_is_redacted_too():
     assert hidden == 1
 
 
+def test_a_bare_object_name_in_later_text_is_redacted():
+    """REVIEW 10'S REPRODUCTION. A bare name survived with hidden=0.
+
+    The docstring claimed this function protected "sections added later by
+    someone who never read it". It did not: it rewrote two URI prefixes, and a
+    name printed on its own passed straight through. The claim has been scoped
+    to the shapes actually covered AND a third shape added, because a scoped
+    claim with the same hole is only half the correction.
+    """
+    text = "  the run declared F4-dest-11-invented-slug.json and stopped there"
+    out, hidden = probe._redact_sealed_objects(text, ENV)
+    assert "F4-dest-11-invented-slug.json" not in out, (
+        "a bare sealed object name survived into text bound for a public repo")
+    assert hidden == 1
+
+
+def test_an_ordinary_json_filename_is_left_alone():
+    """THE CONTROL for the bare-name pattern.
+
+    Anchored on the sealed family's convention rather than on `.json`, or the
+    redaction would scribble over every filename in the document and the proof
+    file would stop being readable.
+    """
+    text = ("  contracts/gate_rule.v1.yaml and docs/proof/run-01.c6.json and\n"
+            "  F4-MANIFEST.json are all fine\n")
+    out, hidden = probe._redact_sealed_objects(text, ENV)
+    assert out == text, out
+    assert hidden == 0
+
+
+def test_the_module_says_out_loud_that_this_is_pseudonymisation():
+    """The digest is unsalted and the name format is public, so a guessed name
+    can be confirmed offline. A safety net described as concealment is the
+    widened claim this project keeps catching."""
+    src = (ROOT / "scripts" / "probe-g7-g8.py").read_text(encoding="utf-8")
+    assert "PSEUDONYMISATION" in src.upper()
+    assert "not the ruling" in src or "NOT a substitute" in src
+
+
 def test_nothing_else_is_touched():
     """THE CONTROL. A function that redacted everything would pass the tests
     above and destroy the proof file."""

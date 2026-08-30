@@ -157,6 +157,11 @@ def load_instances(family, sealed, opening_the_seal, object_names=None):
                 "forbidden, so there is no second try. Pass "
                 "--i-am-opening-the-seal only with a human present and the "
                 "read path already calibrated on the canary.")
+        # REACHES THE SEALED READ DIRECTLY, and that is not a door of its own.
+        # `load_sealed_instances` refuses unless the run's audit window is
+        # already on disk, which only `sealed_drive_lifecycle` arranges. So
+        # this branch is authorised but not sufficient: it fails closed with
+        # `E_AUDIT_WINDOW_NOT_DURABLE` rather than reading uncalibrated.
         return load_sealed_instances(object_names=object_names)
 
     if family == SEALED_FAMILY:
@@ -363,6 +368,39 @@ def load_sealed_instances(object_names=None, downloader=None,
             "caught before it becomes an undeclared denominator."
             % (len(names), commitment["instance_count"]))
 
+    # THE BOUNDARY MUST BE ON DISK BEFORE THE FIRST SEALED BYTE MOVES.
+    #
+    # Two findings meet here and one guard closes both.
+    #
+    #   * A3.11 turns on granted CONTENT_READs counted over this run's window.
+    #     If the process dies without running `atexit` - `os._exit`, a native
+    #     fault, a reset, a power cut - anything held only in memory is gone,
+    #     the reservation is still zero bytes, and the zero-versus-one-or-more
+    #     question is unrulable. Refusing here costs nothing: no object has
+    #     been fetched yet.
+    #   * `load_instances(sealed=True, opening_the_seal=True)` reaches this
+    #     function DIRECTLY, without the calibration, the window, the milestone
+    #     marks or the counter assertions. A reviewer found it: the CLI does
+    #     not take that path, so "exactly one sealed door" was a property of
+    #     today's call graph rather than of the module. It is now a property of
+    #     the module, because the door itself checks.
+    #
+    # `sealed_drive_lifecycle` is what makes this true, by opening the window
+    # and journalling it through the reservation handle before it gets here.
+    if not audit_window_is_durable():
+        window = audit_window()
+        raise TransferRunError(
+            "E_AUDIT_WINDOW_NOT_DURABLE",
+            "the sealed read was reached with %s. A3.11 is decided by counting "
+            "granted reads over this run's audit window, and a window that is "
+            "not on disk before the first byte moves cannot be recovered from "
+            "a process that dies without running its exit hook. Sealed reads "
+            "go through `sealed_drive_lifecycle`, which opens the window, "
+            "calibrates on the canary and journals the boundary through the "
+            "reservation handle. Nothing has been read."
+            % ("no audit window at all" if window is None
+               else "an audit window that was never written to disk"))
+
     if downloader is None:
         from crucible.transfer.gcs_reader import make_downloader
         downloader = make_downloader()
@@ -440,7 +478,8 @@ def _exclusions(episodes):
     return out
 
 
-def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None):
+def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None,
+                           journal=None):
     """Calibrate, assert, read, settle, assert again. In that order, once.
 
     WHY THIS IS NOT AT ASSEMBLE TIME, WHICH IS WHERE IT USED TO BE.
@@ -486,10 +525,15 @@ def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None)
     # the run. Whether the sealed drive proceeded depended on coincidentally
     # crossing a wall-clock second between two adjacent calls.
     since = ha.open_run_window_when_clear(cal, announce=print)
-    # DURABLE BEFORE ANYTHING ELSE USES IT. Between here and the read there are
-    # four steps that can raise, and every one of them produces a terminal
-    # record that has to name the window this line just created.
-    mark_audit_window(since, calibration_since=cal_since)
+    # ON DISK BEFORE ANYTHING ELSE USES IT, not merely in a variable. Between
+    # here and the read there are four steps that can raise, and beyond those
+    # there are terminations that run no cleanup at all. `mark_audit_window`
+    # writes through the reservation handle and fsyncs; without a handle it
+    # leaves `durable` false and `load_sealed_instances` refuses.
+    mark_audit_window(since,
+                      calibration_since=cal_since,
+                      calibration_finished_at=getattr(cal, "finished_at", None),
+                      env=env, bucket=bucket, journal=journal)
     counter = ha.make_run_counter(env, since)
     ha.assert_clean_before_read(counter)
 
@@ -600,6 +644,30 @@ def _refuse_duplicate(path, kind, already):
             "between them." % (path, kind))
 
 
+#: The only orders this producer can emit. `window` is written before the read,
+#: `header` before the first episode, and a run ends with EITHER a footer (it
+#: finished), a crash (it died inside `drive`), or a terminal row (it stopped
+#: before the header, or between the read and the header).
+_RECORD_RANK = {"window": 0, "header": 1, "episode": 2,
+                "footer": 3, "crash": 3, "terminal": 3}
+
+
+def _refuse_bad_order(path, order):
+    """Rows must be in an order the producer could have written.
+
+    Raises:
+        TransferRunError: E_DRIVE_LOG_MALFORMED.
+    """
+    ranks = [_RECORD_RANK[k] for k in order if k in _RECORD_RANK]
+    if ranks != sorted(ranks):
+        raise TransferRunError(
+            "E_DRIVE_LOG_MALFORMED",
+            "%s carries its records in an order this producer cannot emit: "
+            "%s. Every row may be well formed and the sequence still be "
+            "impossible, and a file like that is not evidence about a run."
+            % (path, " -> ".join(order)))
+
+
 def read_drive_file(path):
     """The JSONL drive log back as one dict, with its completion state.
 
@@ -613,13 +681,22 @@ def read_drive_file(path):
     footer = None
     crash = None
     terminal = None
+    window = None
     unknown = []
+    order = []
     for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         rec = json.loads(line)
         kind = rec.get("kind")
-        if kind == "header":
+        order.append(kind)
+        if kind == "window":
+            # THE FIRST DURABLE ROW OF A SEALED RUN, written before the read.
+            # It exists so the boundary A3.11 is decided over survives a
+            # termination that runs no exit hook.
+            _refuse_duplicate(path, "window", window)
+            window = rec
+        elif kind == "header":
             _refuse_duplicate(path, "header", header)
             header = rec
         elif kind == "episode":
@@ -645,12 +722,17 @@ def read_drive_file(path):
             # kind this function does not understand is a reason to refuse, not
             # to continue with less.
             unknown.append(kind)
-    if header is None:
+    if header is None and terminal is None and window is None:
         raise TransferRunError(
             "E_NO_DRIVE_HEADER",
             "%s carries no header record. The header is written before episode "
             "one and fixes everything decided in advance; a file without it "
             "cannot say what run it describes." % path)
+    if header is None and episodes:
+        raise TransferRunError(
+            "E_DRIVE_LOG_MALFORMED",
+            "%s carries %d episode(s) and no header, so nothing says what run "
+            "they belong to." % (path, len(episodes)))
     if unknown:
         raise TransferRunError(
             "E_DRIVE_LOG_UNKNOWN_KIND",
@@ -677,7 +759,44 @@ def read_drive_file(path):
             "will not decide which."
             % (path, terminal.get("stage")))
 
-    out = dict(header)
+    # A FOOTER AND A CRASH ROW ARE ALSO MUTUALLY EXCLUSIVE.
+    #
+    # Only footer-plus-terminal was treated as a contradiction, and a reviewer
+    # reproduced `header -> crash -> footer` reading back as a completed drive
+    # that also carried a crash. `_assemble()` refuses any crash later, which
+    # is why it was survivable rather than harmless - the reader's own answer
+    # was still wrong, and the reader is what the recovery procedure uses.
+    if footer and crash:
+        raise TransferRunError(
+            "E_DRIVE_LOG_CONTRADICTS",
+            "%s carries BOTH a footer (the drive completed) and a crash row. "
+            "One of them is wrong and this reader will not decide which."
+            % path)
+
+    # AND THE ROWS MUST BE IN AN ORDER THE PRODUCER COULD HAVE WRITTEN.
+    #
+    # `footer -> header -> episode` was accepted and read as completed. Every
+    # row was individually well formed; the sequence was impossible. A file
+    # whose order its producer cannot have produced is not evidence about a
+    # run, and picking a reading for it is the same mistake as picking between
+    # two terminal rows.
+    _refuse_bad_order(path, order)
+
+    out = dict(header) if header is not None else {
+        # THE PRE-HEADER FAILURE ARTIFACT. A run that stops between the window
+        # and the header leaves exactly these rows, and the reader used to
+        # refuse the whole file for having no header - so the one shape this
+        # machinery exists to produce was the one shape it could not read. The
+        # recovery runbook could parse it by hand, which is not the same thing.
+        "kind": "pre-header failure artifact",
+        "artifact": "transfer drive log, JSONL. NOT a bundle.",
+        "sealed": bool((window or {}).get("bucket")),
+    }
+    if window is not None:
+        # THE WINDOW WINS over anything the header restates: it was written
+        # first, before the read, and the header's copy is a convenience.
+        out["audit_window"] = {k: v for k, v in window.items()
+                               if k not in ("kind", "at")}
     # Footer fields are MEASURED, so they win over anything the header guessed.
     if footer:
         for k in ("model_calls", "prompt_tokens", "candidates_tokens"):
@@ -1326,7 +1445,13 @@ _SEAL_OPENED = [False]
 #:   read_attempted   the downloader was about to be called. Conservative, set
 #:                    before the attempt, and the reason deletion is refused.
 #:   read_returned    `load_sealed_instances` returned. Objects are in memory.
-#:   run_completed    the footer was written and the drive returned cleanly.
+#:   run_completed    the footer is durable. NOT 'the drive returned
+#:                    cleanly' - that wording was wrong and a reviewer
+#:                    said so: the live-zero-calls refusal returns 2
+#:                    AFTER the footer, so a run can be completed as a
+#:                    DRIVE LOG and still be refused as a MEASUREMENT.
+#:                    The two are different questions and this flag
+#:                    answers only the first.
 #:
 #: **How many objects were actually read is the holdout counter's question**,
 #: not this process's. A3.11's boundary is measured there. Nothing here infers
@@ -1377,23 +1502,110 @@ _SEAL_STAGE = ["setup, before the read"]
 _AUDIT_WINDOW = [None]
 
 
-def mark_audit_window(since, calibration_since=None):
-    """Capture the run window the instant it opens. One-way, first write wins.
+def _repo_commit():
+    """HEAD, or a string saying why not. Never raises: this runs before the
+    read, and a git failure is not a reason to refuse an attempt that has cost
+    nothing yet - but it IS a reason to say so in the evidence."""
+    try:
+        out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
+                             capture_output=True, text=True, timeout=15)
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+        return "unavailable: git rev-parse exited %d" % out.returncode
+    except (OSError, subprocess.SubprocessError) as exc:
+        return "unavailable: %s" % exc
 
-    Called from `sealed_drive_lifecycle` immediately after
-    `open_run_window_when_clear` returns and BEFORE anything sealed is touched,
-    so any terminal record written from here on carries its own coordinates.
+
+def _gcp_env_digest():
+    """sha256 of `scripts/gcp-env.sh` AS IT WAS during the run.
+
+    A path is a pointer and a pointer can be re-pointed. The digest is what
+    makes "the project and bucket named in gcp-env.sh" a statement about a
+    specific file rather than about whatever is at that path when someone
+    finally reads the record.
     """
-    if _AUDIT_WINDOW[0] is None:
-        _AUDIT_WINDOW[0] = {
-            "opened_at": since,
-            "calibration_opened_at": calibration_since,
-        }
+    try:
+        import hashlib
+        return "sha256:" + hashlib.sha256(
+            (ROOT / "scripts" / "gcp-env.sh").read_bytes()).hexdigest()
+    except OSError as exc:
+        return "unavailable: %s" % exc
+
+
+def mark_audit_window(since, calibration_since=None,
+                      calibration_finished_at=None, env=None, bucket=None,
+                      journal=None):
+    """Capture the run window AND PUT IT ON DISK. One-way, first write wins.
+
+    "DURABLE" USED TO MEAN AN ASSIGNMENT TO THIS LIST, AND A REVIEWER CALLED
+    THAT WHAT IT WAS. A process-global is not durable. It survives a raised
+    exception, a SystemExit and an ordinary KeyboardInterrupt, because those
+    run the exit hook - and it does not survive `os._exit`, a native
+    interpreter fault, a machine reset or a power cut, none of which run
+    `atexit`. On those paths the reservation stays at zero bytes, the window
+    goes with the process, and the zero-versus-one-or-more question that A3.11
+    turns on is unrulable. That is the ORIGINAL P0, still open, wearing the
+    word "durable" as a costume.
+
+    So the window is written through the reservation's own handle, with
+    `_append`, which fsyncs. After this returns the boundary is bytes on disk,
+    and it got there BEFORE the read was attempted.
+
+    `journal` is the open reservation handle. Without one the window is
+    remembered but not durable, and `load_sealed_instances` refuses to read -
+    which is what makes this mandatory rather than merely recommended.
+
+    WHAT IS RECORDED, AND WHY THE "SECOND SOURCE OF TRUTH" ARGUMENT WAS WRONG.
+    The previous version wrote only a relative path to `scripts/gcp-env.sh` and
+    justified it as avoiding a second copy of a bucket name. The reviewer took
+    that apart twice over: a relative pointer cannot identify a query target
+    for evidence meant to outlive the checkout, and the argument was factually
+    inconsistent anyway - `SEALED_BUCKET` is already a module constant. The
+    distinction that actually matters is between a CONFIGURATION AUTHORITY,
+    which must have one owner, and an EVIDENCE SNAPSHOT of what a specific run
+    actually used, which is the whole job of a record like this. This is the
+    second.
+    """
+    if _AUDIT_WINDOW[0] is not None:
+        return
+
+    env = env or {}
+    block = {
+        "opened_at": since,
+        # THE EXCLUSION BOUNDARY IS `finished_at`, NOT `opened_at`.
+        # `open_run_window_when_clear` requires the run window to start
+        # strictly after the calibration's `finished_at`
+        # (`holdout_assert.open_run_window`). The previous record carried only
+        # the instant calibration BEGAN and its prose claimed that being later
+        # than it proved the canary was excluded. It does not: the canary is
+        # read between the two.
+        "calibration_opened_at": calibration_since,
+        "calibration_finished_at": calibration_finished_at,
+        "project": env.get("CRUCIBLE_PROJECT"),
+        "bucket": bucket,
+        "repo_commit": _repo_commit(),
+        "gcp_env_digest": _gcp_env_digest(),
+        "source_of_project_and_bucket": "scripts/gcp-env.sh",
+        "durable": False,
+    }
+    _AUDIT_WINDOW[0] = block
+
+    if journal is not None:
+        # BYTES, THEN THE FLAG. If `_append` raises, `durable` stays false and
+        # the read is refused - which is the correct direction: an attempt that
+        # cannot record its own boundary must not spend the seal.
+        _append(journal, dict(block, kind="window", at=_utc()))
+        block["durable"] = True
 
 
 def audit_window():
     """The recorded window, or None if the run stopped before it opened."""
     return _AUDIT_WINDOW[0]
+
+
+def audit_window_is_durable():
+    """True only once the window is BYTES ON DISK, not merely remembered."""
+    return bool(_AUDIT_WINDOW[0]) and bool(_AUDIT_WINDOW[0].get("durable"))
 
 
 def _audit_window_for_record():
@@ -1459,7 +1671,12 @@ def read_returned():
 
 
 def mark_run_completed():
-    """Called after the footer is durable and the drive returned cleanly.
+    """Called once the footer is durable. NOT "the drive returned cleanly".
+
+    The distinction is real and a reviewer insisted on it: the
+    live-zero-calls refusal returns 2 AFTER this point, so a drive can
+    be complete as a LOG and refused as a MEASUREMENT. This flag says
+    the log finished. It says nothing about whether the run counts.
 
     THE MISSING FLAG. Without it `release_reservation` could not tell a run
     that stopped from a run that finished, so it stamped a terminal record onto
@@ -1873,7 +2090,7 @@ def main(argv=None):
         note_stage("the sealed read itself")
         (seeds, instances, sealed_names,
          before_read, after_read, expected_reads) = sealed_drive_lifecycle(
-            _declared_names(args.object_names))
+            _declared_names(args.object_names), journal=reserved_fh)
         # ALREADY MARKED, INSIDE `sealed_drive_lifecycle`, BEFORE THE READ.
         #
         # This call is idempotent and deliberately kept. It is NOT a second
