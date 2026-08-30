@@ -159,66 +159,40 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-30 (hand-corrected mid-session; see the note at the end)
-· **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-30 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**THE SEAL CLAIM, SCOPED.** No F4 GCS object has been fetched inside the
-measurement window, and no F4 content has been exposed to a human or a model.
-Local copies ARE opened and processed by programs - hashed by
-`seal-commitment.py`, parsed and mined for signals by `seal-leak-check.py` -
-which is how the seal is proven intact. **The flat sentence "no F4 object has
-been read" is not literally true and was rejected by review 7.** Neither
-surviving claim can be independently ratified without the audit evidence or
-without observing the human process.
+**SUBMISSION CLOSES 2026-08-31 17:00 PT AND EVERYTHING LOCKS THEN** - repo, video
+and linked materials, until winners are announced (~10-08). **THE SEAL IS
+UNOPENED.** Eight adversarial NO-GO verdicts; reviews 6-8 closed, review 9 with
+Codex. Suite exit 0, contract-check eight passes, `origin/main` current. Counts
+are verify-on-use and deliberately not written here.
 
-**SEVEN adversarial NO-GO verdicts.** Reviews 3-6 are closed. Review 7 rejected
-four of review 6's closure claims and raised two new P0s, both in the one-shot
-lifecycle. Counts are verify-on-use and are deliberately not written here - the
-last three typed counts in this repository were all wrong. Run the suite.
-
-Deadline **08-31 17:00 PT**. The 08:00 08-30 abort gate has passed unmet; the
-seal has not opened and the decision to open it is Eric's.
-
-**Ratified before the seal opened:** A3.10 (Outcome B is UNREACHABLE - the
-run-level excluded set is the union of the arms, and ACCEPTS means zero
-defects; the row is superseded, not deleted). A3.11 (zero sealed reads VOID
-with one retry; one or more reads terminal **INVALID**, no retry, any stage -
-deliberately not called VOID because A3.4 defines that word as retryable).
+**The seal claim, scoped:** no F4 GCS object fetched inside the measurement
+window and no F4 content exposed to a human or a model. Local copies ARE opened
+and processed by programs. The flat "no F4 object has been read" is not
+literally true and was rejected on review.
 
 **Open threads**
-- **ERIC OWES:** walk the 24-instance adjudication after the read and before
-  the first model call. `scripts/rehearse-adjudication.py` now lets that be
-  practised against a training family first. And **record the video**, the only
-  Stage One pass/fail item still missing.
-- The live handoff is `docs/handoff/codex-review-8-2026-08-30.md`.
-- The assertion-census exemption list is UNTRIAGED. The ratchet is debt
-  containment and is not closure; its own docstring says so.
-- Eight contract reasons are recorded NOT ENFORCED and remain gaps on a green
-  PROVEN pass.
-- `scripts/hash-contracts.py` writes the manifest on ANY unrecognised argument,
-  `--help` included, so a typo silences the drift gate and looks like success.
+- **ERIC OWES:** record the video - the only mandatory Stage One deliverable that
+  does not exist - and walk the 24-instance adjudication.
+  `scripts/rehearse-adjudication.py --pause-drill` rehearses it safely.
+- **DECIDE the figures.** Four contradictory rates in judge-facing files; the
+  no-rate rule has three scopes, two in conflict.
+  `docs/contest/DECISION-figures-2026-08-30.md`.
+- **DECIDE the hosted URL.** Zero IAM bindings, so no judge can open it; rules
+  require credentials if a private URL is submitted.
+- **NOTHING MAY BE TORN DOWN BEFORE 2026-10-01** - availability runs through the
+  Judging Period, not to the submission deadline.
+- Eight contract reasons recorded NOT ENFORCED on a green PROVEN pass.
 
 **Watch out for**
-- **A CHECK THAT PASSES WHILE MEASURING NOTHING.** The count is kept in
-  `claude-vault`, not here, because it keeps rising. Newest instances: a
-  rendered-output sweep a LINE BREAK walked past, and three lifecycle calls
-  whose implementations were all separately proven while nothing checked that
-  `main()` called them.
-- **VERIFY THAT THE MUTATION LANDED, not just that the test stayed green.** A
-  mutation harness reported SURVIVED twice for edits that never applied.
-  Print the mutated line.
-- **A GUARD MUST FAIL CLOSED WHEN IT CANNOT SEE.** `git()` discarded its return
-  code, so an unreadable repository read as a clean one and the pre-read proof
-  passed with a blank HEAD.
-- **AN INFERENCE IS NOT AN OBSERVATION.** "The file is empty" was read as "the
-  seal was never opened" across a window containing the read AND the whole
-  adjudication.
-- **A guard must probe the DEPENDENCY, not the world.**
-- The canonical form admits **no null**: "not adjudicated" is the ABSENT key.
-
-*Hand-corrected 2026-08-30 outside `/qsave`. Review 7 flagged this block as
-stale operational state - it carried the rejected flat seal sentence, a test
-count, and review-5 work already closed. Leaving a false claim in a committed
-file because a script owns the file is the worse of the two failures. The next
-`/qsave` regenerates it from the digest.*
+- **A NARROW TRUE STATEMENT WIDENED INTO A FALSE ONE.** This session's dominant
+  defect: Gemma "never built", the architecture diagram claiming Stage One unmet
+  nine days after deploy. Write the scope onto every withdrawal.
+- **SUCCESS IS A PATH TOO.** A flag meaning "seal opened" stayed true after a
+  clean run, so finished drives stamped themselves terminal INVALID.
+- **TEST THE WIRING, NOT ONLY THE HELPER.** Three lifecycle calls were correct,
+  tested, and unreachable from `main()`. Only mutation found them.
+- **VERIFY THE MUTATION LANDED**, and that a fixture RESETS rather than only
+  restoring.
 <!-- VAULT:SESSION-STATE end -->
