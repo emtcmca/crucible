@@ -70,10 +70,16 @@ frozen copy.
 - **No percentage, rate, pass rate, transfer figure, or convergence result may
   appear.** None are quotable. There is no number on either plate that is a
   result, and none may be added. Counts of things that exist are fine.
-- **Do not imply the system autonomously invents novel attacks.** Red-team
-  discovery is a design, not a shipped capability. Selection is deterministic
-  from an authored corpus; the model only varies the wording. Both plates
-  already word this carefully.
+- **Red-team attack discovery is a DESIGN, not a shipped capability.** Nothing
+  in the tree originates an attack. Selection is deterministic from an authored
+  corpus and the model only varies the wording, so any phrasing that credits
+  the system with producing attacks of its own is false. Both plates already
+  word this carefully.
+
+  *(The claim gate pattern-matches for the false sentence and cannot tell a
+  prohibition from an assertion, so this rule is stated without spelling the
+  banned phrasing out. That is the right outcome twice over: a handoff that
+  wrote the sentence in full would also be a place someone could copy it from.)*
 - **Three verbs — `deny`, `constrain_arg`, `require_approval`. There is no
   `allow` verb.** This is the load-bearing claim of the whole architecture.
 - Capability class names are exact: `CAP_MOVES_MONEY`, `CAP_EXTERNAL_COMMS`,

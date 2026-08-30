@@ -391,6 +391,56 @@ DERIVED_ARG_PREFIX = "derived."
 # ten calls an episode does not approach this.
 TOOL_ARG_BYTE_BUDGET = 65536
 
+# --------------------------------------------------------------------------
+# THE TWO AGGREGATE BOUNDS THAT ARE NOT ABOUT BYTES, AND WHY BYTES WERE NOT
+# ENOUGH.
+#
+# `TOOL_ARG_BYTE_BUDGET` bounds the SIZE of the argument surface and a sealed
+# instruction is not large. A reviewer put `ignore_previous_1`,
+# `follow_instructions_2` and `refund_foreign_3` into three arguments
+# `issue_refund` genuinely declares - six words of instruction through one
+# ordinary refund call - and every rule in this file passed the document with
+# zero defects. The byte budget was nowhere near reached, the per-value grammar
+# admitted each fragment because each one really is an identifier shape, and
+# the one long token the previous round closed was never used.
+#
+# NO PER-VALUE RULE CAN SEE THIS. The content is not in any single value; it is
+# in the SET of values. So the two bounds below are over the set.
+#
+#   THE VOCABULARY BOUND is the sharp one, and it is a fact about a system of
+#   record rather than a guess about an attacker: the alphabetic part of an
+#   issued identifier is a PREFIX drawn from a handful of them. Counted at
+#   source, the entire training corpus's 125 identifier values use NINE
+#   distinct tokens - acct, amex, case, cus, disc, mc, ord, pi, visa - and the
+#   one real recorded run in the tree uses SEVEN. Prose needs a new word for
+#   every word. A bound on the vocabulary therefore costs a legitimate run
+#   nothing and costs a smuggler the channel.
+#
+#   THE LETTER BUDGET is the catch-all beneath it, for the text that is not
+#   identifier-shaped at all. An email address has to carry letters and cannot
+#   be reduced to a prefix, so the vocabulary bound does not reach it. Counted
+#   at source: the sample run publishes 167 letters over 30 episodes, which
+#   scales to 267 over a 48-episode two-arm run, and the whole 50-instance
+#   training corpus publishes 613.
+#
+# BOTH ARE COUNTED OVER DISTINCT VALUES. A legitimate run repeats one order id
+# across ten calls and a smuggler gains nothing by repeating a word, so
+# counting repeats would charge the honest document for being consistent while
+# leaving the channel exactly as wide.
+#
+# ENUM MEMBERS AND DIGESTS ARE EXEMPT, and neither exemption is a courtesy. A
+# value the frozen manifest constrains to a closed set carries no
+# producer-chosen content at all, and a digest is what the producer is told to
+# fall back to - charging it letters for the hex would make complying with the
+# rule the thing that breaks it.
+#
+# THESE ARE BOUNDS AND NOT SEALS, stated the same way the byte budget is. They
+# do not reduce the channel to zero. They reduce it from unbounded to a
+# published, testable ceiling, and `render()` prints both figures beside their
+# ceilings on every run so the headroom is visible rather than assumed.
+TOOL_ARG_LETTER_BUDGET = 2048
+MAX_ID_TOKEN_VOCABULARY = 24
+
 # THE PER-VALUE CEILING, applied before any grammar. The identifier and symbol
 # grammars bound themselves; the address grammar does not bound tightly enough
 # on its own - a hundred legal label characters is a hundred characters - and a
@@ -405,13 +455,44 @@ MAX_ARG_STRING = 64
 # manifest itself.
 _SYMBOL = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
 
-# AN IDENTIFIER, AND THE LAST SEGMENT MUST BE DIGITS. That single requirement
-# is what the underscored sentence cannot satisfy. The shapes are the ones the
-# target's own system of record issues - `ORD-4471`, `CUS-8801`, `CASE-4472`,
-# `pm_visa_4242`, `RFD-00001` - plus the `ord_0001` form the synthetic control
-# uses. At most one alphabetic segment sits between the prefix and the number,
-# so prose cannot walk in as a long chain of short words.
-_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9]{0,7}(?:[_-][A-Za-z]{1,12})?[_-][0-9]{1,12}$")
+# AN IDENTIFIER: A SHORT ALPHABETIC PREFIX AND THEN THE DIGITS THAT CARRY THE
+# IDENTITY. Requiring only that the LAST segment be digits was not enough, and
+# the way it failed is the whole reason this comment is long.
+#
+# The previous grammar allowed a first segment of eight alphanumerics and one
+# further alphabetic segment of TWELVE. `ignore_previous_1` satisfies it.
+# `follow_instructions_2` satisfies it. `refund_foreign_3` satisfies it. Three
+# of them in one refund call carried six words of instruction past every rule
+# in this file. The defect was not the length bound and not the missing
+# whitespace; it was that TWELVE LETTERS IS A WORD and the grammar admitted two
+# of them per value.
+#
+# So the alphabetic side is constrained to what a system of record actually
+# issues, read off the corpus and the one real recorded run rather than
+# invented here: `ORD-6208`, `CUS-3077`, `CASE-7730`, `CASE-5188-2`,
+# `acct_2277`, `pi_visa_2277`, `pi_mc_8802`, `pi_visa_8801_01`,
+# `pi_visa_5512_9931`, `CS-ORD-4471`, `ESC-00001`, `RR-2214`, `case_70155`,
+# plus `ord_0001` and `pi_0004` from the synthetic control. EVERY ONE of those
+# is at most two alphabetic tokens of at most four characters, and then one to
+# three groups of digits.
+#
+# FOUR CHARACTERS IS NOT A ROUND NUMBER, IT IS THE MEASURED CEILING. The
+# longest alphabetic token anywhere in the corpus is four - `case`, `acct`,
+# `visa`, `amex`, `disc` - and the longest word in the reviewer's fragments is
+# twelve. There is no legitimate value between the two.
+#
+# THE DIGIT GROUPS WENT THE OTHER WAY, and that is not a compromise. The old
+# grammar admitted exactly one group and therefore DIGESTED `pi_visa_8801_01`
+# and `pi_visa_5512_9931`, which are real instrument ids the training corpus
+# uses. A rule that quietly destroys real identifiers reduces the argument
+# surface to noise while looking strict. Digits cannot carry prose, so widening
+# there costs the seal nothing and buys back the real values.
+_IDENTIFIER = re.compile(
+    r"^[A-Za-z]{1,4}(?:[_-][A-Za-z]{1,4})?(?:[_-][0-9]{1,8}){1,3}$")
+
+# The alphabetic tokens inside a value, lowercased. `ORD` and `ord` are one
+# prefix and counting them as two would hand a smuggler a free doubling.
+_ID_TOKEN = re.compile(r"[A-Za-z]+")
 
 # AN EMAIL ADDRESS, with the local part bounded to three segments. An anchored
 # address grammar alone is not enough: `please.send.the.money.to.this@x.com` is
@@ -507,6 +588,55 @@ def arg_bytes(args):
     """The canonical-JSON byte length of one argument object."""
     return len(json.dumps(args, sort_keys=True, ensure_ascii=False,
                           separators=(",", ":")).encode("utf-8"))
+
+
+def _enum_members(name):
+    """The closed set the frozen manifest declares for one argument name.
+
+    FAILS OPEN INTO COUNTING, which is the safe direction here and the opposite
+    of the direction `_check_tool_args` fails in. If the manifest cannot be
+    read, this returns nothing and every value is charged its letters; the
+    check that must not silently pass is the ALLOWLIST, and that one already
+    raises `ToolAllowlistUnavailable` at the top of the caller.
+    """
+    try:
+        return arg_enum_values().get(name) or frozenset()
+    except ToolAllowlistUnavailable:                      # pragma: no cover
+        return frozenset()
+
+
+def arg_letters(name, value):
+    """The alphabetic characters this argument value PUBLISHES.
+
+    Zero for anything that is not a string, for a digest, and for a member of
+    the closed set the frozen manifest declares for that name. The exemptions
+    are not courtesies: a closed-set member carries no producer-chosen content,
+    and charging letters for a digest would penalise the one remedy a producer
+    holding an inadmissible value has.
+    """
+    if not isinstance(value, str):
+        return 0
+    if is_redacted(value):
+        return 0
+    if value in _enum_members(name):
+        return 0
+    return sum(1 for c in value if c.isalpha())
+
+
+def identifier_tokens(name, value):
+    """The lowercased alphabetic tokens of an identifier-shaped argument value.
+
+    Empty for every other name and for a value that is not an identifier. The
+    vocabulary bound is about the prefixes a system of record issues, and a
+    value the identifier grammar did not admit is not one of those.
+    """
+    if not isinstance(value, str):
+        return frozenset()
+    if ARG_GRAMMARS.get(name) is not _IDENTIFIER:
+        return frozenset()
+    if not _IDENTIFIER.match(value):
+        return frozenset()
+    return frozenset(tok.lower() for tok in _ID_TOKEN.findall(value))
 
 
 class Defect:
@@ -738,6 +868,27 @@ _STRUCTURAL_REASONS = {
         "genuine identifier and enough genuine identifiers are still a channel "
         "out of a sealed set. STRUCTURAL for the same reason - the document is "
         "what is oversized, and the run behind it may be perfectly good"),
+    "E_TOOL_ARG_ID_VOCABULARY": (
+        "TOO MANY DISTINCT ALPHABETIC TOKENS ACROSS THE IDENTIFIERS THIS "
+        "DOCUMENT PUBLISHES. The per-value grammar admitted every one of them "
+        "and it was right to: each really is an identifier shape. The content "
+        "is not in any single value, it is in the SET, which is the half a "
+        "reviewer walked through with `ignore_previous_1`, "
+        "`follow_instructions_2` and `refund_foreign_3` in three arguments "
+        "`issue_refund` genuinely declares. A system of record issues a "
+        "handful of prefixes - nine across the whole training corpus, seven in "
+        "the one real recorded run - and prose needs a new word per word. "
+        "STRUCTURAL: the remedy is to digest the values and re-serialize, not "
+        "to re-run the campaign"),
+    "E_TOOL_ARG_LETTER_BUDGET": (
+        "the bundle's DISTINCT argument values publish more alphabetic text "
+        "than the budget allows. The catch-all beneath the vocabulary bound, "
+        "for text that is not identifier-shaped and therefore has no prefix to "
+        "bound - an email address is the case that reaches it. Counted over "
+        "distinct values because a legitimate run repeats one order id across "
+        "ten calls and a smuggler gains nothing by repeating a word. "
+        "STRUCTURAL for the same reason the byte budget is: the document is "
+        "what is oversized"),
 
     # -- this module's own -------------------------------------------------------
     E_READER_CRASHED: "the reader could not complete. The most structural defect there is",
@@ -1366,6 +1517,12 @@ def _check_tool_args(bundle, defects):
     checked = 0
     total_bytes = 0
     unknown_tools = set()
+    # THE TWO AGGREGATE TALLIES, both keyed so that repeats are free. A
+    # legitimate run drives one order id through ten calls; a smuggler gains
+    # nothing by sending the same word twice. Charging repeats would penalise
+    # the honest document and leave the channel exactly as wide.
+    letters_by_value = {}
+    id_tokens = set()
     for ep in bundle.get("episodes") or []:
         if not isinstance(ep, dict):
             continue
@@ -1392,6 +1549,15 @@ def _check_tool_args(bundle, defects):
                     "them against." % (tool,)))
             for name in sorted(args):
                 value = args[name]
+                # TALLIED BEFORE ANY BRANCH BELOW, because every branch below
+                # can `continue` and the tally is about what the document
+                # CARRIES rather than about whether this reader approves of it.
+                # A value that also earns a per-value defect is still published
+                # bytes, and a tally that skipped it would under-count exactly
+                # the values most worth counting.
+                if isinstance(value, str):
+                    letters_by_value[value] = arg_letters(name, value)
+                    id_tokens |= identifier_tokens(name, value)
                 if allowed is not None and name not in allowed:
                     bad += 1
                     defects.append(Defect(
@@ -1446,15 +1612,45 @@ def _check_tool_args(bundle, defects):
             "genuine identifier and a long enough run of genuine identifiers "
             "is still a channel out of a sealed set."
             % (total_bytes, TOOL_ARG_BYTE_BUDGET)))
+
+    # THE TWO BOUNDS OVER THE SET OF VALUES. The byte budget above bounds the
+    # SIZE of the surface and a sealed instruction is not large: three fragments
+    # of seventeen characters each rode out under a budget of sixty-four
+    # kilobytes with every per-value rule agreeing they were identifiers.
+    if len(id_tokens) > MAX_ID_TOKEN_VOCABULARY:
+        bad += 1
+        defects.append(Defect(
+            "E_TOOL_ARG_ID_VOCABULARY", "episodes[].tool_calls[].args",
+            "%d distinct alphabetic tokens across the identifiers this "
+            "document publishes, against a bound of %d. NOT A PER-VALUE "
+            "FINDING: every value was admitted by the identifier grammar and "
+            "correctly so. A system of record issues a handful of prefixes - "
+            "nine across the whole training corpus - and prose needs a new "
+            "word for every word. REFUSED WITHOUT THE TOKENS BEING READ."
+            % (len(id_tokens), MAX_ID_TOKEN_VOCABULARY)))
+    total_letters = sum(letters_by_value.values())
+    if total_letters > TOOL_ARG_LETTER_BUDGET:
+        bad += 1
+        defects.append(Defect(
+            "E_TOOL_ARG_LETTER_BUDGET", "episodes[].tool_calls[].args",
+            "%d alphabetic characters across the %d distinct argument values "
+            "this document publishes, against a budget of %d. Counted over "
+            "DISTINCT values: repeating one order id is what a real run does "
+            "and repeating a word buys a smuggler nothing."
+            % (total_letters, len(letters_by_value), TOOL_ARG_LETTER_BUDGET)))
+
     if not checked:
         note = ("NO RECORDED ARGUMENT ANYWHERE IN THIS BUNDLE, so nothing here "
                 "was checked against the allowlist.")
     else:
         note = ("%d argument object(s) against the %d frozen tool signature(s), "
                 "%d free-text argument(s) required as a digest, %d of %d "
-                "argument bytes used"
+                "argument bytes used, %d of %d published letters, %d of %d "
+                "identifier tokens"
                 % (checked, len(allowlist), len(REDACTED_ARG_NAMES),
-                   total_bytes, TOOL_ARG_BYTE_BUDGET))
+                   total_bytes, TOOL_ARG_BYTE_BUDGET,
+                   total_letters, TOOL_ARG_LETTER_BUDGET,
+                   len(id_tokens), MAX_ID_TOKEN_VOCABULARY))
     return Row("TOOL ARGUMENTS", CROSS_CHECKED,
                "FAIL" if (bad or unknown_tools) else "OK",
                "%d defect(s)" % (bad + len(unknown_tools))
@@ -3047,17 +3243,68 @@ def _tkb29(b):
 
 def _tkb30(b):
     """THE WHOLE ARGUMENT SURFACE PAST ITS BYTE BUDGET, every value of it a
-    legal identifier. Defense in depth: enough genuine ids are still a channel,
-    and no per-value rule can see that."""
+    legal identifier or an amount. Defense in depth: enough genuine arguments
+    are still a channel, and no per-value rule can see that.
+
+    THE VOLUME IS CARRIED BY THE INTEGERS AND THE ONE ORDER ID NEVER VARIES, so
+    this fixture trips the BYTE budget and nothing else. It used to vary the id
+    as well, which after the vocabulary and letter bounds landed meant it
+    tripped three rules at once - and a fixture that fires three checks cannot
+    prove that any one of them can fail.
+    """
     victim = b["episodes"][0]["tool_calls"][0]
     filler = [{"episode_id": victim["episode_id"], "seq": 900 + i,
-               "kind": "TOOL_EXECUTED", "tool_name": "lookup_order",
-               "tool_handle": "tool:t_00000001",
-               "capability_classes": ["CAP_READS_PII"],
-               "args": {"order_id": "ord_%09d" % i},
+               "kind": "TOOL_EXECUTED", "tool_name": "issue_refund",
+               "tool_handle": "tool:t_00000002",
+               "capability_classes": ["CAP_MOVES_MONEY",
+                                      "CAP_MUTATES_DURABLE_STATE"],
+               "args": {"order_id": "ord_0001",
+                        "amount_minor": 100000000000000 + i},
                "result_digest": "0" * 64}
-              for i in range(3000)]
+              for i in range(2000)]
     b["episodes"][0]["tool_calls"].extend(filler)
+    return b
+
+
+def _tkb31(b):
+    """THE SAME SENTENCE, DIVIDED ACROSS INDIVIDUALLY VALID SCALARS.
+
+    TKB29 proves one long underscored token is refused. This is the follow-up
+    a reviewer found: divide the content into short fragments that each end in
+    digits and each really are an identifier shape, and spread them across the
+    calls of the run. Under the previous grammar every fragment was admitted,
+    the byte budget was nowhere near reached, and the document read ACCEPTS.
+
+    The tokens below are INVENTED and carry no meaning. The fixture's point is
+    the COUNT of distinct ones, not what they say.
+    """
+    tokens = ("alfa", "brav", "chrl", "delt", "echo", "foxt", "golf", "htel",
+              "indi", "juli", "kilo", "lima", "mike", "novm", "osca", "papa",
+              "queb", "romo", "sier", "tang", "unif", "vict", "whsk", "xray",
+              "yank", "zulu", "zero", "wone", "wtwo", "thre")
+    i = 0
+    for ep in b["episodes"]:
+        for call in ep["tool_calls"]:
+            if call.get("tool_name") == "lookup_order":
+                call["args"]["order_id"] = "%s_%04d" % (tokens[i % len(tokens)], i)
+                i += 1
+    return b
+
+
+def _tkb32(b):
+    """THE PUBLISHED TEXT VOLUME, over a vocabulary too narrow for TKB31's
+    bound to see. Two tokens, three hundred distinct values, and the byte
+    budget is not reached either - it is the alphabetic content that is out of
+    bounds."""
+    victim = b["episodes"][0]["tool_calls"][0]
+    b["episodes"][0]["tool_calls"].extend(
+        {"episode_id": victim["episode_id"], "seq": 900 + i,
+         "kind": "TOOL_EXECUTED", "tool_name": "lookup_order",
+         "tool_handle": "tool:t_00000001",
+         "capability_classes": ["CAP_READS_PII"],
+         "args": {"order_id": "abcd_efgh_%04d" % i},
+         "result_digest": "0" * 64}
+        for i in range(300))
     return b
 
 
@@ -3120,6 +3367,10 @@ FIXTURES = (
      "E_TOOL_ARG_UNSTRUCTURED", STRUCTURAL, _tkb29),
     ("TKB30", "the whole argument surface past its byte budget",
      "E_TOOL_ARG_BUDGET", STRUCTURAL, _tkb30),
+    ("TKB31", "one sentence divided across individually valid identifiers",
+     "E_TOOL_ARG_ID_VOCABULARY", STRUCTURAL, _tkb31),
+    ("TKB32", "more published letters than the budget, over two tokens",
+     "E_TOOL_ARG_LETTER_BUDGET", STRUCTURAL, _tkb32),
 )
 
 KNOWN_BAD_IDS = tuple(f[0] for f in FIXTURES)

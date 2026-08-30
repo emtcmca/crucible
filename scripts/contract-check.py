@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """contract-check.py - the W0 gate on the contract set.
 
-Seven passes. Every one of them is designed so that IT CAN FAIL, because
+Eight passes. Every one of them is designed so that IT CAN FAIL, because
 CONVENTIONS.md section 8 rule 2 says a check that cannot fail is not measuring
 anything - and this repository has already produced two checks that could not:
 a sweep that reported CLEAN on hard-wrapped prose, and a negative test that
@@ -9,11 +9,23 @@ appended a newline the normalization exists to absorb.
 
   1  HASH      every contract file still hashes to MANIFEST.json
   2  FIXTURES  every golden positive VALIDATES and every known-bad FAILS
-  3  SWEEP     no dead value is ASSERTED anywhere (strike context exempt)
-  4  STATUS    no undated present-tense existence claim   (section 8 rule 12)
-  5  CLAIM     no overclaim SHAPE is asserted anywhere    (section 7)
-  6  TERMS     no contract redefines a bound term         (section 8 rule 11)
-  7  FRESH     README.md's Status anchor is not stale
+  3  PROVEN    every reason a known-bad DECLARES is a failure it DEMONSTRATES
+  4  SWEEP     no dead value is ASSERTED anywhere (strike context exempt)
+  5  STATUS    no undated present-tense existence claim   (section 8 rule 12)
+  6  CLAIM     no overclaim SHAPE is asserted anywhere    (section 7)
+  7  TERMS     no contract redefines a bound term         (section 8 rule 11)
+  8  FRESH     README.md's Status anchor is not stale
+
+FIXTURES and PROVEN are different jobs and both are needed. FIXTURES asks
+whether a known-bad produced ANY error. PROVEN asks whether it produced THE
+errors it promised, one per declared reason. The gap between them was found by
+an independent reviewer on 2026-08-29, and it is this repository's signature
+defect in its fifteenth instance: reduce transfer_evidence.schema.json in
+memory to a single `bundle_kind` const and FIXTURES stays GREEN, because the
+valid fixture still validates and the known-bad still produces one error, while
+essentially every other C11 constraint has silently disappeared. Multiple
+claimed checks represented by one document, where any surviving failure masks
+the loss of the others.
 
 SWEEP and CLAIM are different jobs and both are needed. SWEEP catches a value
 that USED TO BE TRUE - a number that moved. CLAIM catches a sentence that was
@@ -57,6 +69,20 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 CONTRACTS = REPO / "contracts"
 GOLDEN = CONTRACTS / "golden"
 DOCS = REPO / "docs"
+
+# REPO is REBOUND by `_sandbox()`. SOURCE_REPO never is, so anything that has to
+# import the application package (the PROVEN pass reaches the replay reader for
+# C6's reader-side reasons) resolves against the real tree rather than against a
+# temp directory that holds contracts and nothing else.
+SOURCE_REPO = pathlib.Path(__file__).resolve().parent.parent
+
+# The reason-to-failure bindings the PROVEN pass reads. Under `contracts/golden/
+# proof/` rather than beside the fixtures because `pass_fixtures` globs
+# `contracts/golden/*.json` and treats every file it finds as an instance
+# needing a mapped schema. Both golden globs are non-recursive, so a
+# subdirectory is invisible to them.
+PROOF = GOLDEN / "proof"
+BINDINGS = PROOF / "must-fail-bindings.json"
 
 
 def swept_markdown():
@@ -304,6 +330,261 @@ def pass_fixtures():
     missing = [c for c in FIXTURE_SCHEMA if c not in seen_ids]
     for m in missing:
         fails.append("NO GOLDEN FIXTURE for %s (lanes-spec 10 item 2 requires one per contract)" % m)
+    return (not fails), fails
+
+
+# -----------------------------------------------------------------------------
+# Pass 3 - PROVEN. A declared reason must be a demonstrated failure.
+#
+# `_must_fail_because` is prose, and prose cannot be checked. The binding file
+# is the machine-checkable half: per declared reason, the JSON Pointer and the
+# schema keyword that must fire there. Twelve findings, and each one is a way
+# the old check stayed green while measuring less than it claimed:
+#
+#   P0_MALFORMED           a reason declaring no mechanism at all
+#   P1_NO_BINDING          a known-bad on disk with no entry - how the hole reopens
+#   P2_COUNT               fewer bindings than reasons; the remainder is decoration
+#   P3_CLAIM_DRIFT         the reason was rewritten and the binding was not
+#   P4_UNDEMONSTRATED      the promised failure does not happen. THE CENTRAL ONE.
+#   P4_UNENFORCED_STALE    a recorded gap that has quietly closed
+#   P5_DUPLICATE_EVIDENCE  two reasons, one failure. N reasons must be N failures
+#   P6_EXTERNAL_MISSING    a reader-side code that never fires
+#   P6_EXTERNAL_STALE      a not_reachable escape that does fire
+#   P7_UNEXPLAINED         the ruling-43 shape: a failure the list does not name
+#   P7_UNEXPLAINED_STALE   a recorded unexplained error that no longer happens
+#   P8_ORPHAN              a binding for a fixture nobody wrote
+#
+# WHY THE ERROR POOL IS `iter_errors` AND NOT ITS `context` DESCENDANTS. A
+# `oneOf` reports one error at the parent with the branch failures underneath
+# it. C6 reason 4 promises exactly that parent - "the episode names NEITHER
+# attack_id NOR fixture_id" IS the oneOf - and pulling the children into the
+# pool would make them unexplained errors nobody can honestly claim. The pool is
+# the failures a consumer sees, which is what a promise is about.
+#
+# WHY `unenforced` IS AN ESCAPE AND WHY IT IS NOT A RUBBER STAMP. Seven reasons
+# across four contracts describe rejections their schema does not perform. Those
+# fixtures are generated by `scripts/make-golden.py` and validated against
+# schemas owned by other lanes, so the honest record is the gap itself: what the
+# reason claims, what constraint would enforce it, and `would_be` - the evidence
+# triple the reason WOULD produce. The gate asserts that triple does NOT match
+# today. A gap that closes makes its own record stale and turns the gate RED,
+# which is how the record gets promoted rather than living here forever. Same
+# doctrine as `<!-- sweep-ok: why -->` in the SWEEP pass: an explicit, auditable
+# decision that shows up in a diff, never a widened heuristic.
+# -----------------------------------------------------------------------------
+
+PROVEN_NOTES = []
+
+
+def _pointer(path):
+    """RFC 6901 pointer for a jsonschema `absolute_path`. Root is ''."""
+    return "".join("/" + str(part) for part in path)
+
+
+def _triple(spec):
+    return (spec.get("path", ""), spec.get("keyword", ""), spec.get("detail", ""))
+
+
+def _matches(triple, err):
+    path, keyword, detail = triple
+    if _pointer(err.absolute_path) != path or err.validator != keyword:
+        return False
+    return (not detail) or (detail in err.message)
+
+
+def _reader_codes(body):
+    """Defect codes the offline replay reader emits for this instance.
+
+    Imported here rather than at module scope: the gate must run on a checkout
+    with no application package importable, and a missing reader has to be a
+    FINDING rather than a crash or, worse, a silent skip.
+    """
+    if str(SOURCE_REPO) not in sys.path:
+        sys.path.insert(0, str(SOURCE_REPO))
+    from crucible.replay import verify_bundle
+    return {d.code for d in verify_bundle(body).defects}
+
+
+def pass_proven():
+    import jsonschema
+    del PROVEN_NOTES[:]
+    fails = []
+    if not BINDINGS.exists():
+        return False, ["%s does not exist. Without it the fixture pass asks only "
+                       "whether a known-bad produced SOME error, which is the "
+                       "state an independent reviewer broke on 2026-08-29 by "
+                       "reducing a schema to one constraint."
+                       % BINDINGS.name]
+    doc = json.loads(BINDINGS.read_text(encoding="utf-8"))
+    entries = doc.get("fixtures", {})
+    reg = _registry()
+
+    on_disk = sorted(p for p in GOLDEN.glob("*.json") if "KNOWN_BAD" in p.name)
+    for p in on_disk:
+        if p.name not in entries:
+            fails.append("P1_NO_BINDING  %s has no entry in %s. Its declared "
+                         "reasons are unchecked prose." % (p.name, BINDINGS.name))
+    for name in sorted(entries):
+        if not (GOLDEN / name).exists():
+            fails.append("P8_ORPHAN  %s is bound in %s and is not on disk."
+                         % (name, BINDINGS.name))
+
+    demonstrated = unenforced_total = external_total = 0
+
+    for fx in on_disk:
+        entry = entries.get(fx.name)
+        if entry is None:
+            continue
+        cid = fx.name.split("-")[0]
+        schema_file = FIXTURE_SCHEMA.get(cid)
+        if not schema_file:
+            fails.append("P0_MALFORMED  %s: no schema mapped for %s" % (fx.name, cid))
+            continue
+
+        body = json.loads(fx.read_text(encoding="utf-8"))
+        declared = body.pop("_must_fail_because", None)
+        body.pop("_note", None)
+        if isinstance(declared, str):          # C10 states its single reason as prose
+            declared = [declared]
+        if not isinstance(declared, list) or not declared:
+            fails.append("P0_MALFORMED  %s declares no _must_fail_because list"
+                         % fx.name)
+            continue
+
+        schema = json.loads((CONTRACTS / schema_file).read_text(encoding="utf-8"))
+        errs = list(jsonschema.Draft202012Validator(
+            schema, registry=reg).iter_errors(body))
+
+        reasons = entry.get("reasons", [])
+        if len(reasons) != len(declared):
+            fails.append(
+                "P2_COUNT  %s declares %d reasons and %s binds %d. The unbound "
+                "remainder is decoration: nothing asks whether it fires."
+                % (fx.name, len(declared), BINDINGS.name, len(reasons)))
+            continue
+
+        claimed = []        # triples any reason claims, for the coverage half
+        seen = {}           # triple -> first reason index that claimed it
+        for pos, reason in enumerate(reasons):
+            if reason.get("index") != pos:
+                fails.append("P0_MALFORMED  %s reason %d carries index %r; the "
+                             "list is positional" % (fx.name, pos, reason.get("index")))
+                continue
+            text = declared[pos]
+            claim = reason.get("claim", "")
+            if not claim or claim not in text:
+                fails.append(
+                    "P3_CLAIM_DRIFT  %s reason %d: the binding quotes %r, which "
+                    "is not in the reason it is bound to. The reason moved and "
+                    "the binding did not." % (fx.name, pos, claim[:70]))
+                continue
+
+            mechanisms = [k for k in ("evidence", "external", "unenforced")
+                          if k in reason]
+            if len(mechanisms) != 1:
+                fails.append(
+                    "P0_MALFORMED  %s reason %d declares %d mechanisms (%s). "
+                    "Exactly one of evidence / external / unenforced."
+                    % (fx.name, pos, len(mechanisms), ", ".join(mechanisms) or "none"))
+                continue
+
+            if "evidence" in reason:
+                for spec in reason["evidence"]:
+                    triple = _triple(spec)
+                    if triple in seen:
+                        fails.append(
+                            "P5_DUPLICATE_EVIDENCE  %s reasons %d and %d both "
+                            "claim %s. Two reasons, one failure: the surviving "
+                            "error stands in for both, which is the masking this "
+                            "pass exists to catch."
+                            % (fx.name, seen[triple], pos, triple))
+                        continue
+                    seen[triple] = pos
+                    claimed.append(triple)
+                    if not any(_matches(triple, e) for e in errs):
+                        fails.append(
+                            "P4_UNDEMONSTRATED  %s reason %d promises %s and no "
+                            "such error is produced. The fixture claims a "
+                            "rejection the schema does not perform: %s"
+                            % (fx.name, pos, triple, text[:90]))
+                    else:
+                        demonstrated += 1
+
+            elif "unenforced" in reason:
+                gap = reason["unenforced"]
+                if not gap.get("needs") or not gap.get("why_now"):
+                    fails.append("P0_MALFORMED  %s reason %d is recorded "
+                                 "unenforced with no `needs`/`why_now`"
+                                 % (fx.name, pos))
+                    continue
+                would = _triple(gap.get("would_be", {}))
+                if any(_matches(would, e) for e in errs):
+                    fails.append(
+                        "P4_UNENFORCED_STALE  %s reason %d is recorded as not "
+                        "enforced, and %s now fires. The gap closed. Promote the "
+                        "record to `evidence`." % (fx.name, pos, would))
+                else:
+                    unenforced_total += 1
+                    PROVEN_NOTES.append(
+                        "UNENFORCED  %s reason %d: %s  -> needs: %s"
+                        % (fx.name, pos, claim[:56], gap["needs"][:110]))
+
+            else:
+                ext = reason["external"]
+                code = ext.get("code", "")
+                try:
+                    codes = _reader_codes(body)
+                except Exception as exc:                     # noqa: BLE001
+                    fails.append(
+                        "P6_EXTERNAL_MISSING  %s reason %d names reader code %r "
+                        "and the reader could not be run: %s. An unrunnable "
+                        "check is not a passing one."
+                        % (fx.name, pos, code, str(exc)[:80]))
+                    continue
+                if ext.get("not_reachable"):
+                    if code in codes:
+                        fails.append(
+                            "P6_EXTERNAL_STALE  %s reason %d records %s as not "
+                            "reachable in this fixture and it fires. The escape "
+                            "is stale." % (fx.name, pos, code))
+                    else:
+                        external_total += 1
+                elif code not in codes:
+                    fails.append(
+                        "P6_EXTERNAL_MISSING  %s reason %d promises reader code "
+                        "%s and the reader does not emit it for this fixture."
+                        % (fx.name, pos, code))
+                else:
+                    external_total += 1
+
+        # The other direction. A failure the list does not name is the ruling-43
+        # shape: a lane repairing every declared reason still sees red with
+        # nothing to tell it why.
+        recorded = [(_triple(u), u) for u in entry.get("unexplained_errors", [])]
+        for triple, spec in recorded:
+            if not any(_matches(triple, e) for e in errs):
+                fails.append(
+                    "P7_UNEXPLAINED_STALE  %s records %s as an unexplained "
+                    "error and it no longer fires. A record that excuses nothing "
+                    "reads as coverage." % (fx.name, triple))
+            if not spec.get("why"):
+                fails.append("P0_MALFORMED  %s records %s with no `why`"
+                             % (fx.name, triple))
+        for e in errs:
+            if any(_matches(t, e) for t in claimed):
+                continue
+            if any(_matches(t, e) for t, _ in recorded):
+                continue
+            fails.append(
+                "P7_UNEXPLAINED  %s fails at %s on `%s` and its "
+                "_must_fail_because names no such reason: %s"
+                % (fx.name, _pointer(e.absolute_path) or "(root)", e.validator,
+                   e.message.replace("\n", " ")[:90]))
+
+    PROVEN_NOTES.append(
+        "%d reasons demonstrated by a named schema failure, %d by a reader code, "
+        "%d recorded as NOT ENFORCED by the schema."
+        % (demonstrated, external_total, unenforced_total))
     return (not fails), fails
 
 
@@ -612,7 +893,8 @@ def pass_freshness():
     return True, []
 
 
-PASSES = [("HASH", pass_hash), ("FIXTURES", pass_fixtures), ("SWEEP", pass_sweep),
+PASSES = [("HASH", pass_hash), ("FIXTURES", pass_fixtures),
+          ("PROVEN", pass_proven), ("SWEEP", pass_sweep),
           ("STATUS", pass_status), ("CLAIM", pass_claim), ("TERMS", pass_terms),
           ("FRESH", pass_freshness)]
 
@@ -639,7 +921,7 @@ PASSES = [("HASH", pass_hash), ("FIXTURES", pass_fixtures), ("SWEEP", pass_sweep
 # those apart either.
 # -----------------------------------------------------------------------------
 
-_SANDBOX_GLOBALS = ("REPO", "CONTRACTS", "GOLDEN", "DOCS")
+_SANDBOX_GLOBALS = ("REPO", "CONTRACTS", "GOLDEN", "DOCS", "PROOF", "BINDINGS")
 
 
 @contextlib.contextmanager
@@ -671,7 +953,10 @@ def _sandbox():
     shutil.copy2(REPO / "README.md", tmp / "README.md")
     saved = {n: globals()[n] for n in _SANDBOX_GLOBALS}
     globals().update(REPO=tmp, CONTRACTS=tmp / "contracts",
-                     GOLDEN=tmp / "contracts" / "golden", DOCS=tmp / "docs")
+                     GOLDEN=tmp / "contracts" / "golden", DOCS=tmp / "docs",
+                     PROOF=tmp / "contracts" / "golden" / "proof",
+                     BINDINGS=(tmp / "contracts" / "golden" / "proof"
+                               / "must-fail-bindings.json"))
     try:
         yield tmp
     finally:
@@ -691,6 +976,29 @@ def _break_fixtures(tmp):
     """A golden POSITIVE that its own schema rejects."""
     (tmp / "contracts" / "golden" / "C9-selftest-empty.valid.json").write_text(
         "{}\n", encoding="utf-8")
+
+
+def _break_proven(tmp):
+    """THE REVIEWER'S OWN MUTATION, run as the deliberate defect.
+
+    `transfer_evidence.schema.json` is reduced to a single `bundle_kind` const.
+    FIXTURES stays green through this - the valid fixture still validates and
+    the known-bad still produces one error - which is precisely the finding. The
+    C11 known-bad promises eight distinct failures; after the reduction it can
+    demonstrate one, and PROVEN must name the other seven.
+
+    Chosen over an easier defect (deleting a binding, misquoting a claim) on
+    purpose: those would prove the bookkeeping rules fire. This proves the pass
+    detects the thing it was written for, on the exact input that exposed it.
+    """
+    p = tmp / "contracts" / "transfer_evidence.schema.json"
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    p.write_text(json.dumps({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": doc["$id"],
+        "type": "object",
+        "properties": {"bundle_kind": {"const": "transfer_evidence"}},
+    }, indent=2) + "\n", encoding="utf-8")
 
 
 def _break_sweep(tmp):
@@ -749,6 +1057,7 @@ def _break_fresh(tmp):
 BREAKERS = {
     "HASH": (_break_hash, "verdict.schema.json"),
     "FIXTURES": (_break_fixtures, "C9-selftest-empty"),
+    "PROVEN": (_break_proven, "P4_UNDEMONSTRATED"),
     "SWEEP": (_break_sweep, "four-hash-locks"),
     "STATUS": (_break_status, "selftest-status.md"),
     "CLAIM": (_break_claim, "red-authors-attacks"),
@@ -868,6 +1177,49 @@ def selftest():
             "" if good else ("   (fires=%s on the overclaim, quiet=%s on the "
                              "correction note)" % (fires, quiet))))
 
+    # THE SHIPPED STRAWMAN SET. The sandbox breaker above proves PROVEN detects
+    # the reviewer's schema reduction; it exercises ONE of twelve findings. The
+    # other eleven are bookkeeping rules, and a bookkeeping rule that stopped
+    # firing would be invisible - which is how the hole reopens without anyone
+    # deciding to reopen it.
+    #
+    # `contracts/golden/proof/selftest/` holds three known-bad fixtures and a
+    # DELIBERATELY DEFECTIVE binding file, one wrong way per rule. The REAL
+    # `pass_proven()` is pointed at them by rebinding the same globals
+    # `_sandbox()` rebinds, so this drives the shipped code path rather than a
+    # re-implementation of its interesting line - the defect that the whole of
+    # this SELFTEST section replaced.
+    straw_dir = PROOF / "selftest"
+    saved = {n: globals()[n] for n in ("GOLDEN", "BINDINGS")}
+    globals().update(GOLDEN=straw_dir,
+                     BINDINGS=straw_dir / "strawman-bindings.json")
+    try:
+        straw_ok, straw_msgs = pass_proven()
+    finally:
+        globals().update(saved)
+
+    expected_codes = ("P0_MALFORMED", "P1_NO_BINDING", "P2_COUNT",
+                      "P3_CLAIM_DRIFT", "P4_UNDEMONSTRATED",
+                      "P4_UNENFORCED_STALE", "P5_DUPLICATE_EVIDENCE",
+                      "P6_EXTERNAL_MISSING", "P6_EXTERNAL_STALE",
+                      "P7_UNEXPLAINED", "P7_UNEXPLAINED_STALE", "P8_ORPHAN")
+    print()
+    for code in expected_codes:
+        caught = any(m.startswith(code) for m in straw_msgs)
+        ok &= caught
+        print("  %-9s %-24s %s" % ("PROVEN", code, "PASS" if caught else
+                                   "FAIL   (the strawman for it was not named)"))
+    # A checker that flags everything is as useless as one that flags nothing.
+    # C9-strawman reason 0 is bound CORRECTLY and must be quiet.
+    quiet = not any("C9-strawman.KNOWN_BAD.json reason 0" in m for m in straw_msgs)
+    ok &= quiet
+    print("  %-9s %-24s %s" % ("PROVEN", "correct binding is quiet",
+                               "PASS" if quiet else "FAIL"))
+    if straw_ok:
+        print("      THE STRAWMAN BINDING SET WAS ACCEPTED. Every rule in this "
+              "pass is unproven.")
+        ok = False
+
     print("\nSELFTEST %s" % ("PASSED" if ok else "FAILED"))
     return 0 if ok else 1
 
@@ -888,6 +1240,10 @@ def main():
                 print("      ... %d more NOT LISTED (logged, not truncated silently)" % (len(msgs) - 25))
     for cid, why in NO_FIXTURE.items():
         print("\n  NOTE  %s has no golden fixture: %s" % (cid, why))
+    # PRINTED EVERY RUN, GREEN OR RED. A gap that is only visible when the gate
+    # is already failing is a gap nobody reads.
+    for note in PROVEN_NOTES:
+        print("  NOTE  " + note)
     print("\n%s" % ("ALL PASSES OK" if not failed else "%d PASS(ES) FAILED" % failed))
     return 1 if failed else 0
 

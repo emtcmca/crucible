@@ -26,6 +26,22 @@ So `test_the_positive_fixture_validates` is deliberately written to BREAK when
 the schema changes in a way the fixture no longer satisfies. That is the alarm
 working, not a flaky test.
 
+AMENDED 2026-08-29, AFTER AN INDEPENDENT REVIEW
+------------------------------------------------
+The paragraph above was also used to justify NOT mapping a declared reason to a
+specific constraint, on the grounds that such a mapping would pin field names in
+a file owned elsewhere. That reasoning left a hole. The reviewer reduced
+`transfer_evidence.schema.json` in memory to a single `bundle_kind` const: the
+valid fixture still produced zero errors, the known-bad still produced one, and
+the whole fixture gate stayed green while every other C11 constraint had
+vanished. Eight promised reasons, one demonstrated failure, and any surviving
+failure masking the loss of the others.
+
+The reason-to-constraint bindings now live in
+`contracts/golden/proof/must-fail-bindings.json` and are enforced by
+`contract-check.py::pass_proven`. The tests below assert them for C11 and assert
+the reviewer's mutation now turns the gate RED.
+
 No hash value appears in this file (ruling 46: a frozen hash has exactly one
 owner, the artifact). The manifest is checked by re-deriving it, never by
 comparing against a copied digest.
@@ -217,23 +233,162 @@ def test_the_known_bad_names_every_reason_it_fails():
     assert all(isinstance(r, str) and r.strip() for r in reasons)
 
 
-def test_the_known_bad_is_refused_at_least_once_per_declared_reason(checker):
-    """A DECLARED REASON THAT DOES NOT FIRE IS DECORATION.
+KNOWN_BAD_NAME = "C11-transfer_evidence.KNOWN_BAD.json"
 
-    Counted rather than matched one-to-one on purpose: the mapping from a
-    declared reason to a validator error path would pin the schema's current
-    field names, and that file is owned elsewhere and under active edit. The
-    count is the part that stays true - it catches the case where reasons were
-    added to the prose and never to the JSON.
+
+def _c11_binding(checker):
+    doc = json.loads(checker.BINDINGS.read_text(encoding="utf-8"))
+    return doc["fixtures"][KNOWN_BAD_NAME]
+
+
+def test_every_declared_reason_is_bound_to_a_named_constraint(checker):
+    """WHAT THIS REPLACED, AND WHY THE REPLACEMENT IS NOT OPTIONAL.
+
+    The test that stood here counted: N declared reasons had to produce at least
+    N distinct error PATHS. Its docstring argued that matching a reason to a
+    specific constraint "would pin the schema's current field names, and that
+    file is owned elsewhere and under active edit."
+
+    That reasoning is what left the hole. An independent reviewer reduced
+    `transfer_evidence.schema.json` in memory to a single `bundle_kind` const;
+    the valid fixture still produced zero errors, the known-bad still produced
+    one, and `contract-check.py::pass_fixtures` stayed GREEN with essentially
+    every other C11 constraint gone. A count cannot tell eight promises kept
+    from one promise kept eight times.
+
+    The coupling the old docstring feared is real and is now the alarm working,
+    exactly as `test_the_positive_fixture_validates` is already documented to be.
     """
-    reasons = json.loads(
-        (GOLDEN / "C11-transfer_evidence.KNOWN_BAD.json").read_text(
-            encoding="utf-8"))["_must_fail_because"]
-    errs = _validate(checker, _fixture("C11-transfer_evidence.KNOWN_BAD.json"))
-    paths = {tuple(e.absolute_path) for e in errs}
-    assert len(paths) >= len(reasons), (
-        "%d declared reasons but only %d distinct error locations: %s"
-        % (len(reasons), len(paths), sorted(map(str, paths))))
+    reasons = json.loads((GOLDEN / KNOWN_BAD_NAME).read_text(
+        encoding="utf-8"))["_must_fail_because"]
+    bound = _c11_binding(checker)["reasons"]
+    assert len(bound) == len(reasons)
+    for pos, (spec, text) in enumerate(zip(bound, reasons)):
+        assert spec["index"] == pos
+        assert spec["claim"] in text, (
+            "reason %d was rewritten and its binding was not: the binding quotes "
+            "%r, which is no longer in the reason." % (pos, spec["claim"]))
+        assert "evidence" in spec, (
+            "reason %d claims a rejection C11 does not perform. C11 is the one "
+            "contract whose known-bad demonstrates every reason it declares; a "
+            "new `unenforced` record here is a regression, not bookkeeping."
+            % pos)
+
+
+def test_every_bound_reason_is_a_failure_that_actually_happens(checker):
+    """THE ASSERTION THE OLD COUNT COULD NOT MAKE."""
+    errs = _validate(checker, _fixture(KNOWN_BAD_NAME))
+    missing = []
+    for spec in _c11_binding(checker)["reasons"]:
+        for ev in spec["evidence"]:
+            triple = checker._triple(ev)
+            if not any(checker._matches(triple, e) for e in errs):
+                missing.append((spec["index"], triple))
+    assert not missing, (
+        "these reasons promise a failure the schema does not produce: %s" % missing)
+
+
+def test_no_two_reasons_stand_on_the_same_failure(checker):
+    """N reasons must be N failures. Two reasons resting on one error means the
+    surviving error masks the loss of the other constraint, which is the shape
+    of the whole finding."""
+    seen = {}
+    for spec in _c11_binding(checker)["reasons"]:
+        for ev in spec["evidence"]:
+            triple = checker._triple(ev)
+            assert triple not in seen, (
+                "reasons %d and %d both rest on %s"
+                % (seen[triple], spec["index"], triple))
+            seen[triple] = spec["index"]
+
+
+def test_the_known_bad_fails_for_no_reason_it_does_not_declare(checker):
+    """The other direction, and the ruling-43 shape. A fixture that acquires an
+    undeclared failure sends a lane red after it has repaired every listed
+    reason, with nothing to tell it why."""
+    entry = _c11_binding(checker)
+    claimed = [checker._triple(ev) for spec in entry["reasons"]
+               for ev in spec.get("evidence", [])]
+    recorded = [checker._triple(u) for u in entry.get("unexplained_errors", [])]
+    stray = [(checker._pointer(e.absolute_path) or "(root)", e.validator)
+             for e in _validate(checker, _fixture(KNOWN_BAD_NAME))
+             if not any(checker._matches(t, e) for t in claimed + recorded)]
+    assert not stray, (
+        "the fixture fails at %s and its _must_fail_because names no such "
+        "reason." % stray)
+
+
+def test_the_gate_goes_red_when_the_schema_is_reduced_to_one_constraint(checker):
+    """THE REVIEWER'S OWN MUTATION, AS A TEST.
+
+    Reduce `transfer_evidence.schema.json` to nothing but the `bundle_kind`
+    const inside a throwaway copy of the repository, then drive the real
+    `pass_fixtures` and the real `pass_proven` against it.
+
+    `pass_fixtures` must stay GREEN. That is not a defect in this test - it is
+    the finding, stated as an assertion so it cannot quietly stop being true:
+    the fixture pass structurally cannot see this, and anyone who deletes
+    `pass_proven` believing FIXTURES covers it will fail here.
+    """
+    gutted = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {"bundle_kind": {"const": "transfer_evidence"}},
+    }
+    with checker._sandbox() as tmp:
+        path = tmp / "contracts" / SCHEMA_FILE
+        gutted["$id"] = json.loads(path.read_text(encoding="utf-8"))["$id"]
+        path.write_text(json.dumps(gutted, indent=2) + "\n", encoding="utf-8")
+
+        fixtures_ok, _ = checker.pass_fixtures()
+        proven_ok, findings = checker.pass_proven()
+
+    assert fixtures_ok, (
+        "pass_fixtures went red on the reduced schema. If that is now real "
+        "coverage, say so here - but the finding this file documents is that it "
+        "cannot see the reduction at all.")
+    assert not proven_ok, (
+        "THE SCHEMA WAS REDUCED TO ONE CONSTRAINT AND THE GATE STAYED GREEN. "
+        "That is the defect, back.")
+    lost = [m for m in findings
+            if m.startswith("P4_UNDEMONSTRATED") and KNOWN_BAD_NAME in m]
+    assert len(lost) == 7, (
+        "expected the seven constraints the reduction destroys to be named one "
+        "by one; got %d: %s" % (len(lost), lost))
+
+
+def test_the_binding_gate_rejects_its_own_strawman_set(checker):
+    """`contracts/golden/proof/selftest/` ships three known-bad fixtures and a
+    DELIBERATELY DEFECTIVE binding file, one wrong way per rule. Same doctrine as
+    the nine known-bads the tripwire ships and the seven strawmen the boot
+    self-test ships: a check that cannot fail is not measuring anything, and
+    that applies to this check too.
+
+    Driven through the real `pass_proven` by rebinding the same globals
+    `_sandbox()` rebinds, so it exercises the shipped code path rather than a
+    re-implementation of its interesting line.
+    """
+    straw = checker.PROOF / "selftest"
+    saved = {n: getattr(checker, n) for n in ("GOLDEN", "BINDINGS")}
+    checker.GOLDEN = straw
+    checker.BINDINGS = straw / "strawman-bindings.json"
+    try:
+        ok, findings = checker.pass_proven()
+    finally:
+        for name, value in saved.items():
+            setattr(checker, name, value)
+
+    assert not ok, "the deliberately defective binding set was ACCEPTED"
+    expected = ("P0_MALFORMED", "P1_NO_BINDING", "P2_COUNT", "P3_CLAIM_DRIFT",
+                "P4_UNDEMONSTRATED", "P4_UNENFORCED_STALE",
+                "P5_DUPLICATE_EVIDENCE", "P6_EXTERNAL_MISSING",
+                "P6_EXTERNAL_STALE", "P7_UNEXPLAINED", "P7_UNEXPLAINED_STALE",
+                "P8_ORPHAN")
+    missed = [c for c in expected if not any(m.startswith(c) for m in findings)]
+    assert not missed, "these rules did not fire on their own strawman: %s" % missed
+    # A checker that flags everything is as useless as one that flags nothing.
+    assert not any("C9-strawman.KNOWN_BAD.json reason 0" in m for m in findings), (
+        "the one CORRECTLY bound reason in the strawman set was flagged")
 
 
 def test_the_positive_fixture_is_not_a_run():

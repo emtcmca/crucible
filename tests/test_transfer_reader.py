@@ -1770,3 +1770,354 @@ def test_the_byte_budget_is_a_check_that_can_fail(monkeypatch):
     assert not record["codes"], (
         "without the budget this bundle must read clean; if it does not, the "
         "test above proves nothing. Got %s" % record["codes"])
+
+
+# ==========================================================================
+# P0. THE SAME SENTENCE, DIVIDED. One long underscored token is refused; the
+# reviewer then split the content into short ID-SHAPED fragments ending in
+# digits and put them in three arguments `issue_refund` genuinely declares.
+# `ignore_previous_1`, `follow_instructions_2`, `refund_foreign_3`. Six words
+# of instruction through one ordinary refund call, zero defects.
+#
+# THE FRAGMENTS BELOW ARE INVENTED. Nothing here came from the sealed set.
+# ==========================================================================
+
+_FRAGMENTS = {"order_id": "ignore_previous_1",
+              "beneficiary_id": "follow_instructions_2",
+              "payout_instrument_id": "refund_foreign_3"}
+
+# Four-letter tokens, each individually inside anything a per-value rule can
+# reasonably demand of an identifier. The channel is the NUMBER OF DISTINCT
+# ONES, which no per-value rule can see.
+_SHORT_TOKENS = ("send", "cash", "wire", "bank", "acct", "paul", "nowx", "gold",
+                 "keep", "hide", "away", "move", "cede", "give", "post", "ship",
+                 "over", "them", "here", "fast", "duty", "cell", "note", "text",
+                 "wxyz", "abcd", "efgh", "ijkl", "mnop", "qrst")
+
+
+def _corpus_args(node):
+    """Every (name, value) under an `args` object anywhere in a corpus file."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "args" and isinstance(value, dict):
+                for name, item in value.items():
+                    yield name, item
+            for item in _corpus_args(value):
+                yield item
+    elif isinstance(node, list):
+        for value in node:
+            for item in _corpus_args(value):
+                yield item
+
+
+def _bundle_with_fragments():
+    """The reviewer's case: three fragments in ONE legitimate refund call."""
+    bundle = TR.control_clean()
+    for ep in bundle["episodes"]:
+        for call in ep["tool_calls"]:
+            if call.get("tool_name") == "issue_refund":
+                call["args"].update(_FRAGMENTS)
+                return bundle
+    raise AssertionError("no issue_refund call in the control")
+
+
+def _bundle_with_a_wide_id_vocabulary(count=len(_SHORT_TOKENS)):
+    """The same content spread across CALLS rather than across one call's
+    fields, every value a short identifier a tightened grammar still admits."""
+    bundle = TR.control_clean()
+    tokens = list(_SHORT_TOKENS)[:count]
+    i = 0
+    for ep in bundle["episodes"]:
+        for call in ep["tool_calls"]:
+            if call.get("tool_name") == "lookup_order":
+                call["args"]["order_id"] = "%s_%04d" % (tokens[i % len(tokens)], i)
+                i += 1
+    assert i > count, "the fixture must place every token at least once"
+    return bundle
+
+
+def _bundle_over_the_letter_budget(values=300):
+    """MANY DISTINCT VALUES OVER A NARROW VOCABULARY. Two tokens only, so the
+    vocabulary bound is not what fires; the volume of published text is."""
+    bundle = TR.control_clean()
+    victim = bundle["episodes"][0]["tool_calls"][0]
+    bundle["episodes"][0]["tool_calls"].extend(
+        {"episode_id": victim["episode_id"], "seq": 900 + i,
+         "kind": "TOOL_EXECUTED", "tool_name": "lookup_order",
+         "tool_handle": "tool:t_00000001",
+         "capability_classes": ["CAP_READS_PII"],
+         "args": {"order_id": "abcd_efgh_%04d" % i},
+         "result_digest": "0" * 64}
+        for i in range(values))
+    return bundle
+
+
+def test_the_reviewers_split_fragments_are_refused():
+    """THE REPRODUCTION. Zero defects before this rule existed."""
+    record = _accepts(_bundle_with_fragments())
+    assert record["verdict"] == V.REJECTS
+    assert "E_TOOL_ARG_UNSTRUCTURED" in record["structural"]
+    assert TR.exit_code(record) == 1
+
+
+def test_each_fragment_is_refused_on_its_own_shape():
+    """NOT AS A GROUP. A rule that only fired on three at once would pass one,
+    and one fragment per call across a bundle is the same channel slower."""
+    for name, value in sorted(_FRAGMENTS.items()):
+        assert TR.arg_value_admissible(name, value) is not None, (
+            "%s=%r is prose wearing an identifier's punctuation and it was "
+            "admitted verbatim" % (name, value))
+
+
+def test_the_old_grammar_reads_the_fragments_clean(monkeypatch):
+    """MUTATION CHECK, and it is the reproduction the reviewer ran.
+
+    Restore the grammar as it stood - a first segment of up to eight
+    alphanumerics and one further alphabetic segment of up to twelve - and take
+    the contract out of the way, and the three fragments read ACCEPTS with zero
+    defects. If they do not, the test above proves nothing.
+    """
+    old = re.compile(
+        r"^[A-Za-z][A-Za-z0-9]{0,7}(?:[_-][A-Za-z]{1,12})?[_-][0-9]{1,12}$")
+    monkeypatch.setitem(TR.ARG_GRAMMARS, "order_id", old)
+    monkeypatch.setitem(TR.ARG_GRAMMARS, "beneficiary_id", old)
+    monkeypatch.setitem(TR.ARG_GRAMMARS, "payout_instrument_id", old)
+    monkeypatch.setattr(TR, "_check_schema",
+                        lambda b, d: TR.Row("TRANSFER_SCHEMA", TR.PRESENT,
+                                            "OK", "not checked"))
+    record = _accepts(_bundle_with_fragments())
+    assert record["verdict"] == V.ACCEPTS and not record["codes"], (
+        "under the old grammar the three fragments must read clean, or the "
+        "reproduction is not the reproduction. Got %s" % record["codes"])
+
+
+def test_the_contract_refuses_the_fragments_independently_of_the_reader(monkeypatch):
+    """TWO LAYERS, PROVEN SEPARATELY. With the reader's value rule removed the
+    tightened contract still refuses the document."""
+    monkeypatch.setattr(TR, "arg_value_admissible", lambda name, value: None)
+    record = _accepts(_bundle_with_fragments())
+    assert record["verdict"] == V.REJECTS
+    assert "E_TRANSFER_SCHEMA" in record["codes"], record["codes"]
+
+
+def test_content_split_across_many_calls_is_caught_in_aggregate():
+    """THE HALF NO PER-VALUE RULE CAN SEE.
+
+    Every value here is a four-letter token followed by digits, which is the
+    shape the target's own system of record issues and which any honest
+    per-value grammar has to admit. The channel is the SIZE OF THE ALPHABETIC
+    VOCABULARY, and a system of record issues a handful of prefixes.
+    """
+    record = _accepts(_bundle_with_a_wide_id_vocabulary())
+    assert "E_TOOL_ARG_ID_VOCABULARY" in record["structural"], record["codes"]
+    assert TR.exit_code(record) == 1
+
+
+def test_every_fragment_in_the_wide_vocabulary_passes_the_per_value_rule():
+    """THE FIXTURE HAS TO BE THE HARD CASE. If the per-value grammar already
+    refused these, the aggregate test above would be proving the grammar."""
+    for token in _SHORT_TOKENS:
+        value = "%s_0001" % token
+        assert TR.arg_value_admissible("order_id", value) is None, (
+            "%r must be admissible per value, or the vocabulary bound is not "
+            "what the aggregate test is exercising" % value)
+
+
+def test_the_vocabulary_bound_is_a_check_that_can_fail(monkeypatch):
+    """MUTATION CHECK. Widen the vocabulary and the same document reads clean."""
+    monkeypatch.setattr(TR, "MAX_ID_TOKEN_VOCABULARY", 10 ** 6)
+    record = _accepts(_bundle_with_a_wide_id_vocabulary())
+    assert not record["codes"], (
+        "without the bound this bundle must read clean; if it does not, the "
+        "test above proves nothing. Got %s" % record["codes"])
+
+
+def test_the_published_text_volume_is_bounded():
+    """THE CATCH-ALL, over a vocabulary too narrow for the token bound to see.
+
+    Two tokens, three hundred distinct values, and the aggregate text is what
+    is out of bounds. STRUCTURAL: the remedy is to digest and re-serialize.
+    """
+    record = _accepts(_bundle_over_the_letter_budget())
+    assert "E_TOOL_ARG_LETTER_BUDGET" in record["structural"], record["codes"]
+    assert "E_TOOL_ARG_ID_VOCABULARY" not in record["codes"], (
+        "the vocabulary bound must not be what fires here, or this fixture is "
+        "exercising the other rule")
+    assert "E_TOOL_ARG_BUDGET" not in record["codes"], (
+        "the byte budget must not be what fires here, or this fixture is "
+        "exercising the rule that already existed")
+
+
+def test_the_letter_budget_is_a_check_that_can_fail(monkeypatch):
+    """MUTATION CHECK. Without the budget the same document reads clean."""
+    monkeypatch.setattr(TR, "TOOL_ARG_LETTER_BUDGET", 10 ** 9)
+    record = _accepts(_bundle_over_the_letter_budget())
+    assert not record["codes"], (
+        "without the budget this bundle must read clean; if it does not, the "
+        "test above proves nothing. Got %s" % record["codes"])
+
+
+def test_the_two_aggregate_bounds_do_not_fire_on_the_controls():
+    """FAIL-CLOSED IS ONLY AFFORDABLE IF IT DOES NOT REFUSE EVERYTHING."""
+    for factory in (TR.control_clean, TR.control_below_floor):
+        record = _accepts(factory())
+        assert not record["codes"], record["codes"]
+
+
+def test_the_identifier_grammar_admits_every_shape_the_training_corpus_uses():
+    """THE FALSIFIABLE HALF OF THE TIGHTENING.
+
+    A grammar tightened until nothing passes satisfies the seal by destroying
+    the document. Every argument in the training corpus - the only real
+    argument surface in the tree that is not sealed - has to survive verbatim
+    or be one of the names that is redacted by policy.
+    """
+    corpus = sorted((REPO / "corpus" / "training").glob("*.json"))
+    if not corpus:                                          # pragma: no cover
+        pytest.skip("no training corpus in this checkout")
+    seen = 0
+    for path in corpus:
+        for name, value in _corpus_args(json.loads(
+                path.read_text(encoding="utf-8"))):
+            if name in TR.REDACTED_ARG_NAMES or name in TR.FORBIDDEN_CARRY_ARGS:
+                continue
+            if name.startswith(TR.DERIVED_ARG_PREFIX):
+                continue
+            seen += 1
+            assert TR.arg_value_admissible(name, value) is None, (
+                "%s: %s=%r is a value the real corpus uses and the tightened "
+                "rule digests it" % (path.name, name, value))
+    assert seen > 100, ("only %d corpus arguments were checked, which is too "
+                        "few to be evidence" % seen)
+
+
+def test_the_shapes_the_sample_run_actually_recorded_are_admitted():
+    """READ OFF THE ONE REAL RUN IN THE TREE, not off a docstring. `CS-ORD-4471`
+    is two alphabetic tokens then digits; `ESC-00001` and `RR-2214` are the
+    escalation and risk-review shapes; `case_70155` is the lowercase form."""
+    for value in ("CS-ORD-4471", "ESC-00001", "RR-2214", "case_70155",
+                  "ORD-04471", "acct_2951", "CUS-9906"):
+        assert TR.arg_value_admissible("order_id", value) is None, value
+
+
+def test_the_training_corpus_sits_well_inside_both_aggregate_bounds():
+    """THE BOUNDS ARE BOUNDS, NOT REFUSALS, and the difference is measured
+    against the real corpus rather than guessed.
+
+    The union of every identifier the training corpus uses is what a real run's
+    argument surface looks like. A bound that the corpus itself does not clear
+    with room to spare is a bound waiting to fire on the one run that matters.
+    """
+    corpus = sorted((REPO / "corpus" / "training").glob("*.json"))
+    if not corpus:                                          # pragma: no cover
+        pytest.skip("no training corpus in this checkout")
+    values = set()
+    for path in corpus:
+        for name, value in _corpus_args(json.loads(
+                path.read_text(encoding="utf-8"))):
+            if name in TR.REDACTED_ARG_NAMES or name in TR.FORBIDDEN_CARRY_ARGS:
+                continue
+            if isinstance(value, str):
+                values.add((name, value))
+    letters = sum(TR.arg_letters(name, value) for name, value in values)
+    tokens = set()
+    for name, value in values:
+        tokens |= TR.identifier_tokens(name, value)
+    assert letters * 2 < TR.TOOL_ARG_LETTER_BUDGET, (
+        "the whole training corpus publishes %d letters against a budget of "
+        "%d, and less than 2x headroom is a budget waiting to fire on the "
+        "unseal itself" % (letters, TR.TOOL_ARG_LETTER_BUDGET))
+    assert len(tokens) * 2 < TR.MAX_ID_TOKEN_VOCABULARY, (
+        "the whole training corpus uses %d identifier tokens against a bound "
+        "of %d: %s" % (len(tokens), TR.MAX_ID_TOKEN_VOCABULARY, sorted(tokens)))
+
+
+# --------------------------------------------------------------------------
+# The pieces the two aggregate bounds are built out of. Each is a rule, and a
+# rule with no test that can fail for it is a rule nobody is measuring.
+# --------------------------------------------------------------------------
+
+def test_one_prefix_in_two_cases_is_one_token():
+    """`ORD-1` and `ord_1` are one prefix. Counting the case variants as two
+    would hand a smuggler a free doubling of the vocabulary, and a system of
+    record does not issue both as different things."""
+    assert (TR.identifier_tokens("order_id", "ORD-0001")
+            == TR.identifier_tokens("order_id", "ord_0001"))
+    assert TR.identifier_tokens("order_id", "OrD-0001") == frozenset(("ord",))
+
+
+def test_a_closed_set_member_publishes_no_letters():
+    """A value the frozen manifest constrains to a closed set carries no
+    producer-chosen content, so charging it letters would spend a quarter of
+    the budget on symbols an attacker cannot choose."""
+    assert TR.arg_letters("reason_code", "DAMAGED_IN_TRANSIT") == 0
+    assert TR.arg_letters("queue", "RETURNS_T2") == 0
+    assert TR.arg_letters("currency", "USD") == 0
+    # The same string under a name with no closed set is NOT exempt: the
+    # exemption is about the manifest's constraint, not about the spelling.
+    assert TR.arg_letters("order_id", "DAMAGED_IN_TRANSIT") > 0
+
+
+def test_a_digest_publishes_no_letters():
+    """The digest is the remedy a producer holding an inadmissible value is
+    told to use. Charging its hex characters against the budget would make
+    complying with the rule the thing that breaks it."""
+    assert TR.arg_letters("note", TR.redaction_of("anything at all")) == 0
+    assert TR.arg_letters("order_id", TR.redaction_of("ORD-4471")) == 0
+
+
+def test_repeating_one_identifier_is_free():
+    """COUNTED OVER DISTINCT VALUES. A real run drives one order id through
+    every call of an episode, and charging the repeats would refuse the honest
+    document while leaving the channel exactly as wide - a smuggler gains
+    nothing by sending the same word twice."""
+    bundle = TR.control_clean()
+    victim = bundle["episodes"][0]["tool_calls"][0]
+    bundle["episodes"][0]["tool_calls"].extend(
+        {"episode_id": victim["episode_id"], "seq": 900 + i,
+         "kind": "TOOL_EXECUTED", "tool_name": "lookup_order",
+         "tool_handle": "tool:t_00000001",
+         "capability_classes": ["CAP_READS_PII"],
+         "args": {"order_id": "abcd_efgh_0001"},
+         "result_digest": "0" * 64}
+        for i in range(600))
+    record = _accepts(bundle)
+    assert "E_TOOL_ARG_LETTER_BUDGET" not in record["codes"], (
+        "six hundred repeats of one identifier is what a chatty real run looks "
+        "like, and the budget must not fire on it")
+
+
+def test_a_value_under_a_name_the_tool_does_not_declare_still_counts():
+    """THE TALLY RUNS BEFORE THE BRANCHES, and this is why.
+
+    Every per-value branch in the argument check can `continue`, and a tally
+    placed after one of them would stop counting exactly the values most worth
+    counting - the ones that already earned a defect. A producer that puts the
+    text under a name the frozen tool does not declare gets one defect for the
+    name and, if the tally sat behind that branch, a free channel underneath it.
+
+    THE ASSERTION IS THE LETTER CODE AND NOT A ROW NOTE. An earlier version of
+    this test compared the two notes and passed under the mutation, because the
+    note also carries the byte count and the object counter and those move too.
+    A check that passes while measuring nothing is this repository's signature
+    defect and this is one more instance of it, caught by the mutation run.
+    """
+    bundle = TR.control_clean()
+    victim = bundle["episodes"][0]["tool_calls"][0]
+    bundle["episodes"][0]["tool_calls"].extend(
+        {"episode_id": victim["episode_id"], "seq": 900 + i,
+         "kind": "TOOL_EXECUTED", "tool_name": "lookup_order",
+         "tool_handle": "tool:t_00000001",
+         "capability_classes": ["CAP_READS_PII"],
+         "args": {"undeclared_note": "lorem_ipsum_dolor_%04d" % i},
+         "result_digest": "0" * 64}
+        for i in range(200))
+    findings = []
+    TR._check_tool_args(bundle, findings)
+    codes = {f.code for f in findings}
+    assert "E_TOOL_ARG_NOT_ALLOWLISTED" in codes, codes
+    assert "E_TOOL_ARG_LETTER_BUDGET" in codes, (
+        "the text under an undeclared name was not counted toward the "
+        "published letter budget, so the tally sits behind a branch that skips "
+        "it and a producer gets a free channel under one defect. Got %s"
+        % sorted(codes))

@@ -1,0 +1,113 @@
+{
+  "binding_version": 1,
+  "_what_this_is": [
+    "A DELIBERATELY DEFECTIVE binding set. `pass_proven` must reject it, and must",
+    "name every rule it breaks. `contract-check.py --selftest` runs the real",
+    "`pass_proven()` against this file and the fixtures beside it, and fails if any",
+    "expected finding code is missing.",
+    "",
+    "One wrong way per rule, so a rule that stops working cannot hide behind another",
+    "rule still firing - which is the exact defect the whole PROVEN pass was written",
+    "to close, and it applies to the pass itself.",
+    "",
+    "  P0_MALFORMED           C9 reason 4 declares no mechanism",
+    "  P1_NO_BINDING          C1-strawman is on disk with no entry here",
+    "  P2_COUNT               C2-strawman declares two reasons, this binds one",
+    "  P3_CLAIM_DRIFT         C9 reason 1's claim is not in the reason",
+    "  P4_UNDEMONSTRATED      C9 reason 2 claims an enum that does not fire",
+    "  P4_UNENFORCED_STALE    C9 reason 5 is recorded unenforced and its would_be fires",
+    "  P5_DUPLICATE_EVIDENCE  C9 reason 3 claims reason 0's triple verbatim",
+    "  P6_EXTERNAL_MISSING    C9 reason 6 names a reader code that never fires",
+    "  P6_EXTERNAL_STALE      C9 reason 7 records E_SCHEMA not_reachable while it fires",
+    "  P7_UNEXPLAINED         two real C9 errors are claimed by nothing",
+    "  P7_UNEXPLAINED_STALE   one recorded unexplained error does not fire",
+    "  P8_ORPHAN              an entry names a fixture that is not on disk",
+    "",
+    "The one thing that must NOT be reported is C9 reason 0, which is bound",
+    "correctly. A checker that flags everything is as useless as one that flags",
+    "nothing, so the selftest asserts reason 0 is quiet."
+  ],
+
+  "fixtures": {
+
+    "C9-strawman.KNOWN_BAD.json": {
+      "reasons": [
+        {
+          "index": 0,
+          "claim": "objective_set_hash absent",
+          "evidence": [{"path": "", "keyword": "required", "detail": "objective_set_hash"}]
+        },
+        {
+          "index": 1,
+          "claim": "quotes words that appear nowhere in the reason it is bound to",
+          "evidence": [{"path": "", "keyword": "not", "detail": "INVALID"}]
+        },
+        {
+          "index": 2,
+          "claim": "outside a closed list",
+          "evidence": [{"path": "/verdict", "keyword": "enum", "detail": ""}]
+        },
+        {
+          "index": 3,
+          "claim": "claims exactly the evidence reason 0 already claims",
+          "evidence": [{"path": "", "keyword": "required", "detail": "objective_set_hash"}]
+        },
+        {
+          "index": 4,
+          "claim": "declares no mechanism at all"
+        },
+        {
+          "index": 5,
+          "claim": "recorded unenforced with a would_be triple that does fire",
+          "unenforced": {
+            "needs": "nothing. This record is a lie and the gate must say so.",
+            "why_now": "It is here to prove a closed gap cannot go on being recorded as open.",
+            "would_be": {"path": "", "keyword": "required", "detail": "objective_set_hash"}
+          }
+        },
+        {
+          "index": 6,
+          "claim": "[replay reader, E_NO_SUCH_CODE_EVER]",
+          "external": {"code": "E_NO_SUCH_CODE_EVER"}
+        },
+        {
+          "index": 7,
+          "claim": "[replay reader, E_SCHEMA]",
+          "external": {
+            "code": "E_SCHEMA",
+            "not_reachable": true,
+            "why": "A false escape. E_SCHEMA fires on this body every single run."
+          }
+        }
+      ],
+      "unexplained_errors": [
+        {
+          "path": "/evidence", "keyword": "minItems", "detail": "",
+          "why": "A STALE RECORD. No such error is produced, so this line excuses nothing and reads as coverage."
+        }
+      ]
+    },
+
+    "C2-strawman.KNOWN_BAD.json": {
+      "reasons": [
+        {
+          "index": 0,
+          "claim": "ALLOW must name no rule",
+          "evidence": [{"path": "", "keyword": "not", "detail": "ALLOW"}]
+        }
+      ],
+      "unexplained_errors": []
+    },
+
+    "C7-strawman-that-is-not-on-disk.KNOWN_BAD.json": {
+      "reasons": [
+        {
+          "index": 0,
+          "claim": "an entry for a fixture nobody ever wrote",
+          "evidence": [{"path": "", "keyword": "required", "detail": "hash_locks"}]
+        }
+      ],
+      "unexplained_errors": []
+    }
+  }
+}

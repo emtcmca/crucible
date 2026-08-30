@@ -1,0 +1,15 @@
+{
+  "_note": [
+    "STRAWMAN for P2_COUNT. It declares two reasons; strawman-bindings.json binds",
+    "one. A binding set that covers part of a reason list and reports clean is the",
+    "same defect as a reason that never fires: the uncovered reason is decoration",
+    "and nothing says so. Every value here is invented."
+  ],
+  "_must_fail_because": [
+    "R0 ALLOW must name no rule - the default is allow, so there is nothing to cite",
+    "R1 reason_code is free text, not an UPPER_SNAKE enum symbol, and this reason has no binding"
+  ],
+  "outcome": "ALLOW",
+  "rule_id": "r_0a0a0a0a0a0a",
+  "reason_code": "looked fine to me"
+}

@@ -1,0 +1,24 @@
+{
+  "_note": [
+    "STRAWMAN for P1_NO_BINDING. It is a KNOWN_BAD fixture on disk with NO entry in",
+    "strawman-bindings.json at all. That is how the hole reopens without anyone",
+    "deciding to reopen it: a new known-bad lands, the binding file is not touched,",
+    "and the fixture is back to proving only that SOMETHING went wrong. Every value",
+    "here is invented."
+  ],
+  "_must_fail_because": [
+    "R0 carries `result`, a VALUE, where the contract admits only `result_digest`, a HASH"
+  ],
+  "episode_id": "ep_0a0a0a0a0a0a",
+  "invocation_id": "inv-0000",
+  "kind": "TOOL_EXECUTED",
+  "tool_name": "issue_refund",
+  "tool_handle": "tool:t_0a0a0a0a",
+  "capability_classes": ["CAP_MOVES_MONEY"],
+  "args": {"order_id": "ORD-00000"},
+  "result": {"ok": true},
+  "role": "root_agent",
+  "derived_overwrites": [],
+  "seq": 0,
+  "ts_monotonic": 1724512869221000000
+}

@@ -1156,13 +1156,21 @@ def test_the_producers_argument_check_is_a_check_that_can_fail(monkeypatch):
     try:
         bundle = build(episodes=episodes, exclusions=exclusions)
     except B.BundleError as exc:
-        # THE TIGHTENED CONTRACT CAUGHT IT INSTEAD, and that is the result this
-        # branch is here to record rather than to tolerate: the schema clause
-        # and the builder's redaction step are two independent enforcements,
-        # and removing one leaves the other standing. Assert it was the schema
-        # and not something incidental.
-        assert "transfer contract" in str(exc), str(exc)
-        assert "redacted" in str(exc) or "[!-~]" in str(exc), str(exc)
+        # SOMETHING DOWNSTREAM CAUGHT IT INSTEAD, and that is the result this
+        # branch is here to record rather than to tolerate: the redaction step,
+        # the tightened contract and the argument-surface postcondition are
+        # three independent enforcements, and removing one leaves the others
+        # standing. Assert it was one of the two named ones and not something
+        # incidental.
+        #
+        # The postcondition is the one that fires now. It runs before the
+        # validator and files `E_TOOL_ARG_NOT_REDACTED` by name, which is a
+        # better refusal than a schema error: it says which rule the value
+        # broke rather than that some rule did.
+        assert ("transfer contract" in str(exc)
+                or "argument surface is not publishable" in str(exc)), str(exc)
+        assert ("redacted" in str(exc) or "[!-~]" in str(exc)
+                or "E_TOOL_ARG_NOT_REDACTED" in str(exc)), str(exc)
         return
     assert note in json.dumps(bundle), (
         "without the redaction step the instruction must reach the document; "
@@ -1295,3 +1303,255 @@ def test_the_real_runs_argument_surface_fits_the_byte_budget():
         "less than 2x headroom over a real run is a budget waiting to fire on "
         "a slightly chattier target: %d against %d"
         % (scaled, TR.TOOL_ARG_BYTE_BUDGET))
+
+
+# ==========================================================================
+# P0. THE SAME SENTENCE, DIVIDED. TKB29 closed one long underscored token; a
+# reviewer then split the content into short fragments that each end in digits
+# and each really are an identifier shape, and put three of them into three
+# arguments `issue_refund` genuinely declares. The producer wrote all three out
+# verbatim and the reader returned zero defects.
+#
+# EVERY FRAGMENT AND TOKEN BELOW IS INVENTED. None came from the sealed set.
+# ==========================================================================
+
+SPLIT_FRAGMENTS = {"order_id": "ignore_previous_1",
+                   "beneficiary_id": "follow_instructions_2",
+                   "payout_instrument_id": "refund_foreign_3"}
+
+# Four-letter tokens. Each is an admissible identifier prefix on its own; the
+# channel is how MANY distinct ones the document publishes.
+WIDE_TOKENS = ("alfa", "brav", "chrl", "delt", "echo", "foxt", "golf", "htel",
+               "indi", "juli", "kilo", "lima", "mike", "novm", "osca", "papa",
+               "queb", "romo", "sier", "tang", "unif", "vict", "whsk", "xray",
+               "yank", "zulu", "zero", "wone", "wtwo", "thre")
+
+
+def _refund_args(bundle):
+    """Every assembled `issue_refund` argument object, in document order."""
+    return [call["args"] for ep in bundle["episodes"]
+            for call in ep["tool_calls"]
+            if call.get("tool_name") == "issue_refund"]
+
+
+def test_the_reviewers_split_fragments_are_digested_by_the_builder():
+    """THE REPRODUCTION, PRODUCER SIDE.
+
+    Three fragments in one refund call. Each satisfied the old grammar because
+    each ends in digits, so the producer preserved all three verbatim and the
+    reader agreed. None may reach the document now.
+    """
+    episodes, exclusions = make_run()
+    for ep in episodes:
+        for call in ep["tool_calls"]:
+            if call["tool_name"] == "issue_refund":
+                call["args"].update(SPLIT_FRAGMENTS)
+                break
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    blob = json.dumps(bundle)
+    for name, value in sorted(SPLIT_FRAGMENTS.items()):
+        assert value not in blob, (
+            "%s=%r reached the assembled document" % (name, value))
+    carried = _refund_args(bundle)
+    assert carried, "the fixture placed nothing"
+    for name, value in sorted(SPLIT_FRAGMENTS.items()):
+        assert any(args.get(name) == TR.redaction_of(value)
+                   for args in carried), (
+            "%s was neither carried nor digested, which means it was dropped - "
+            "and a producer that drops what it does not recognise makes the "
+            "reader's own check unreachable" % name)
+    assert not read(bundle)["codes"]
+
+
+def test_a_document_over_the_identifier_vocabulary_bound_refuses_assembly():
+    """THE AGGREGATE, PRODUCER SIDE, AND IT IS A REFUSAL RATHER THAN A DIGEST.
+
+    Every value here is admissible per value and the builder therefore writes
+    every one of them out. The finding is a property of the SET, so it can only
+    be seen once the document exists - which is what a postcondition is for.
+    The fix is to digest and re-serialize, which is producer work, so ruling 60
+    files it STRUCTURAL and the producer refuses.
+    """
+    episodes, exclusions = make_run()
+    i = 0
+    for ep in episodes:
+        for call in ep["tool_calls"]:
+            if call["tool_name"] == "lookup_order":
+                call["args"]["order_id"] = "%s_%04d" % (
+                    WIDE_TOKENS[i % len(WIDE_TOKENS)], i)
+                i += 1
+    for token in WIDE_TOKENS:
+        assert TR.arg_value_admissible("order_id", "%s_0001" % token) is None, (
+            "%r has to be admissible per value or this test is exercising the "
+            "grammar rather than the vocabulary bound" % token)
+    with pytest.raises(B.BundleError) as exc:
+        build(episodes=episodes, exclusions=exclusions)
+    assert "E_TOOL_ARG_ID_VOCABULARY" in str(exc.value), str(exc.value)
+
+
+def test_a_document_over_the_letter_budget_refuses_assembly():
+    """THE CATCH-ALL, PRODUCER SIDE. Two tokens, three hundred distinct values:
+    neither the vocabulary bound nor the byte budget is what stops it."""
+    episodes, exclusions = make_run()
+    victim = episodes[0]["tool_calls"][0]
+    episodes[0]["tool_calls"].extend(
+        {"seq": 900 + i, "kind": "TOOL_EXECUTED", "tool_name": "lookup_order",
+         "tool_handle": "tool:t_0000000a",
+         "capability_classes": ["CAP_READS_PII"],
+         "args": {"order_id": "abcd_efgh_%04d" % i}}
+        for i in range(300))
+    assert victim["seq"] < 900
+    with pytest.raises(B.BundleError) as exc:
+        build(episodes=episodes, exclusions=exclusions)
+    assert "E_TOOL_ARG_LETTER_BUDGET" in str(exc.value), str(exc.value)
+
+
+def test_the_producers_aggregate_argument_check_is_a_check_that_can_fail(monkeypatch):
+    """MUTATION CHECK. Remove the postcondition and the same wide-vocabulary
+    document assembles, and the reader is then the only thing standing between
+    it and publication."""
+    monkeypatch.setattr(B, "_assert_arg_surface", lambda bundle: None)
+    episodes, exclusions = make_run()
+    i = 0
+    for ep in episodes:
+        for call in ep["tool_calls"]:
+            if call["tool_name"] == "lookup_order":
+                call["args"]["order_id"] = "%s_%04d" % (
+                    WIDE_TOKENS[i % len(WIDE_TOKENS)], i)
+                i += 1
+    bundle = build(episodes=episodes, exclusions=exclusions)
+    assert "E_TOOL_ARG_ID_VOCABULARY" in read(bundle)["structural"], (
+        "without the producer postcondition the document must assemble and the "
+        "READER must be what refuses it; if neither happens, the test above "
+        "proves nothing")
+
+
+def test_every_argument_the_training_corpus_uses_still_assembles():
+    """THE FALSIFIABLE HALF. A grammar tightened until nothing survives
+    satisfies the seal by destroying the document.
+
+    Every argument object in the training corpus - the only real, unsealed
+    argument surface in the tree - is put through the builder on a real
+    `issue_refund` or `lookup_order` call, and every value the corpus uses that
+    is not a policy-redacted name has to come out the other side VERBATIM.
+    """
+    corpus = sorted((pathlib.Path(__file__).resolve().parent.parent
+                     / "corpus" / "training").glob("*.json"))
+    if not corpus:                                          # pragma: no cover
+        pytest.skip("no training corpus in this checkout")
+    allow = TR.tool_arg_allowlist()
+    cases = []
+    for path in corpus:
+        for tool, args in _corpus_calls(json.loads(
+                path.read_text(encoding="utf-8"))):
+            allowed = allow.get(tool)
+            if allowed is None:
+                continue
+            keep = {name: value for name, value in args.items()
+                    if name in allowed
+                    and name not in TR.REDACTED_ARG_NAMES
+                    and isinstance(value, (str, int, float, bool))}
+            if keep:
+                cases.append((path.name, tool, keep))
+    assert len(cases) > 50, ("only %d corpus calls were exercised, which is "
+                             "too few to be evidence" % len(cases))
+
+    # ONE CALL AT A TIME, on a fresh run each time. Loading the whole corpus
+    # into one bundle would trip the aggregate bounds, which are about a single
+    # run's published surface and not about fifty runs stacked together.
+    for name, tool, keep in cases:
+        episodes, exclusions = make_run()
+        placed = False
+        for ep in episodes:
+            for call in ep["tool_calls"]:
+                # THE CALL IS RE-LABELLED RATHER THAN SEARCHED FOR. The
+                # invented run drives two tools and the corpus drives eight,
+                # and skipping the six it does not carry would silently reduce
+                # this test to the two it does.
+                if call["kind"] == "TOOL_EXECUTED":
+                    call["tool_name"] = tool
+                    call["args"] = dict(keep)
+                    placed = True
+                    break
+            if placed:
+                break
+        assert placed, tool
+        bundle = build(episodes=episodes, exclusions=exclusions)
+        carried = [call["args"] for ep in bundle["episodes"]
+                   for call in ep["tool_calls"]
+                   if call.get("tool_name") == tool]
+        assert keep in carried, (
+            "%s: %s%r was digested by the tightened rule, which would reduce a "
+            "real run's argument surface to noise" % (name, tool, keep))
+        assert not read(bundle)["codes"]
+
+
+def test_the_real_runs_argument_surface_fits_both_aggregate_bounds():
+    """THE BOUNDS ARE BOUNDS, NOT REFUSALS, measured against the one real
+    recorded run in the tree and scaled to a 48-episode two-arm run.
+
+    A bound set by guessing is a bound that fires on the run that matters, and
+    this one runs once.
+    """
+    path = pathlib.Path(__file__).resolve().parent.parent / "docs" / "proof"
+    path = path / "sample-run" / "run-01.c6.json"
+    if not path.exists():                                   # pragma: no cover
+        pytest.skip("no sample run in this checkout")
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    episodes = doc.get("episodes") or []
+    if not episodes:                                        # pragma: no cover
+        pytest.skip("the sample run carries no episodes")
+    allow = TR.tool_arg_allowlist()
+    published = {}
+    tokens = set()
+    for ep in episodes:
+        for call in ep.get("episode_prefix") or []:
+            args = call.get("args")
+            if not isinstance(args, dict):
+                continue
+            allowed = allow.get(call.get("tool_name"))
+            for name, value in args.items():
+                if name.startswith(TR.DERIVED_ARG_PREFIX):
+                    continue
+                if name in TR.FORBIDDEN_CARRY_ARGS:
+                    continue
+                if allowed is not None and name not in allowed:
+                    continue
+                if (name in TR.REDACTED_ARG_NAMES
+                        or TR.arg_value_admissible(name, value) is not None):
+                    continue
+                if isinstance(value, str):
+                    published[value] = TR.arg_letters(name, value)
+                    tokens |= TR.identifier_tokens(name, value)
+    letters = sum(published.values())
+    scaled = letters / len(episodes) * (INSTANCES * 2)
+    assert scaled * 2 < TR.TOOL_ARG_LETTER_BUDGET, (
+        "a real run scales to %d published letters against a budget of %d, and "
+        "less than 2x headroom is a budget waiting to fire on the unseal itself"
+        % (scaled, TR.TOOL_ARG_LETTER_BUDGET))
+    assert len(tokens) * 2 < TR.MAX_ID_TOKEN_VOCABULARY, (
+        "a real run uses %d identifier tokens against a bound of %d: %s. The "
+        "vocabulary does not grow with the episode count - a system of record "
+        "has the prefixes it has - so anything under half is headroom."
+        % (len(tokens), TR.MAX_ID_TOKEN_VOCABULARY, sorted(tokens)))
+
+
+def _corpus_calls(node):
+    """Every (tool_name, args) pair anywhere in a corpus file.
+
+    The corpus records the fully qualified name, and a recorded call carries
+    only the last segment - which is the same key `tool_arg_allowlist` is
+    built on.
+    """
+    if isinstance(node, dict):
+        tool = node.get("tool_name") or node.get("tool_fqname")
+        args = node.get("args")
+        if isinstance(tool, str) and isinstance(args, dict):
+            yield tool.rsplit(".", 1)[-1], args
+        for value in node.values():
+            for item in _corpus_calls(value):
+                yield item
+    elif isinstance(node, list):
+        for value in node:
+            for item in _corpus_calls(value):
+                yield item

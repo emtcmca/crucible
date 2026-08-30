@@ -34,9 +34,12 @@ REAL, and exercised against the real thing:
     including the two that a plausible implementation gets wrong: a
     `granted: true` entry carrying `status.code: 5`, and an `objects.get` whose
     resource is a PREFIX rather than an object.
-  * The names in the filter come from the REAL `scripts/gcp-env.sh` through the
-    REAL `verify_iam.load_env`. `test_the_filter_*` fails red if a bucket name
-    is ever retyped instead of sourced.
+  * The names in the filter come from the REAL `scripts/gcp-env.sh`.
+    `test_the_filter_*` fails red if a bucket name is ever retyped instead of
+    sourced. They are read by `tests/conftest.py:load_gcp_env`, which parses
+    that file in PURE PYTHON rather than by asking bash to source it - see the
+    NO SHELL section at the bottom of this file for why, and for the
+    differential test that holds the two readers in step.
   * `storage_data_read_enabled` is exercised against the REAL live policy shape
     (`LIVE_AUDIT_CONFIGS`, copied from `gcloud projects get-iam-policy`).
 
@@ -56,15 +59,92 @@ STUB-ONLY, and these prove less than they look like they prove:
      project.
 """
 
+import os
 import pathlib
+import shutil
+import subprocess
+import sys
 
 import pytest
 
 from infra import holdout_touch as ht
 from infra import verify_iam
+from tests.conftest import load_gcp_env
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-ENV = verify_iam.load_env(str(REPO))
+
+# NO SHELL AT IMPORT TIME. This line used to be
+# `ENV = verify_iam.load_env(str(REPO))`, which runs `bash -c '. gcp-env.sh
+# && env | grep ...'` during COLLECTION - before a single test runs, in a file
+# where every collaborator is injected and nothing needs a configured machine.
+# On a host with no working Git Bash the file could not even be collected.
+# `load_gcp_env` reads the same one file in pure Python. See the NO SHELL
+# section at the bottom for the reproduction and the differential test.
+ENV = load_gcp_env(str(REPO), require=("CRUCIBLE_PROJECT",
+                                       "CRUCIBLE_SEALED_BUCKET",
+                                       "SA_SEALED_EVAL", "SA_ARMORER"))
+
+# --------------------------------------------------------------------------
+# THE ONE THING IN THIS FILE THAT STILL NEEDS A SHELL, AND IT IS NOT THIS FILE.
+#
+# `crucible.conductor.real_gate.RealGate.__init__` -> `promoter_identity()` ->
+# `gcp_env()` -> `verify_iam.load_env()` -> `bash -c '. gcp-env.sh && env |
+# grep ...'` (`crucible/conductor/real_gate.py:313`). The four tests below that
+# construct a `RealGate` therefore reach bash no matter what this file does; the
+# fix for them is a shell-free reader in `infra/verify_iam.py`, which is not
+# this change's to make.
+#
+# Until then those four SKIP with the reason, rather than erroring with a
+# FileNotFoundError out of `subprocess` that reads like a code defect. The probe
+# is LAZY on purpose: running it at module scope would put the subprocess back
+# into collection, which is the whole defect being removed here.
+# --------------------------------------------------------------------------
+
+BASH = shutil.which("bash") or shutil.which("bash.exe")
+
+_BASH_ENV = {}
+
+
+def bash_env_or_problem():
+    """Run `verify_iam.load_env` once, or say why it cannot run. NEVER raises.
+
+    An environmental failure comes back as a reason string so the caller decides
+    whether it is a skip or a finding. Both shapes are covered: bash absent, and
+    bash present but unable to fork - the second is what an independent reviewer
+    hit on 2026-08-29, a Git Bash signal-pipe failure.
+    """
+    if not _BASH_ENV:
+        if BASH is None:
+            _BASH_ENV.update(env=None, problem="no `bash` on PATH")
+        else:
+            try:
+                _BASH_ENV.update(env=verify_iam.load_env(str(REPO)),
+                                 problem=None)
+            except (OSError, subprocess.SubprocessError) as e:
+                _BASH_ENV.update(
+                    env=None,
+                    problem="`bash` resolved to %s but could not be run to "
+                            "completion (%s: %s)" % (BASH, type(e).__name__, e))
+    return _BASH_ENV["env"], _BASH_ENV["problem"]
+
+
+def skip_without_a_working_bash(unmeasured):
+    """Skip with a reason that names what is missing AND what goes unchecked.
+
+    A bare `pytest.skip()` is a check that passes while measuring nothing, which
+    is this repository's signature defect - fifteen recorded instances. The
+    reason text has to be readable as a gap, not as a pass.
+    """
+    env, problem = bash_env_or_problem()
+    if problem:
+        pytest.skip(
+            "%s, and `infra.verify_iam.load_env` runs `bash -c '. "
+            "scripts/gcp-env.sh && env | grep -E \"^(CRUCIBLE_|SA_|SUFFIX)\"'`. "
+            "UNMEASURED HERE: %s. Install a working Git Bash to run this check. "
+            "The shell-free fix belongs in infra/verify_iam.py."
+            % (problem, unmeasured))
+    return env
+
 
 PROJECT = ENV["CRUCIBLE_PROJECT"]
 SEALED = ENV["CRUCIBLE_SEALED_BUCKET"]
@@ -521,6 +601,9 @@ def test_the_counter_satisfies_the_gate_injection_contract():
 
 
 def test_an_unevaluable_counter_reaches_the_gate_as_UNEVALUABLE():
+    skip_without_a_working_bash(
+        "that an UNEVALUABLE counter surfaces at G7c as UNEVALUABLE rather "
+        "than as a zero. `RealGate.__init__` reads SA_GATE through bash")
     from crucible.conductor import real_gate as rg
     gate = rg.RealGate(ledger=None, run_id="t", blob_writer=None,
                        blob_reader=None, repo_root=REPO, skip_cloud=True,
@@ -533,6 +616,9 @@ def test_an_unevaluable_counter_reaches_the_gate_as_UNEVALUABLE():
 def test_an_intruding_read_reaches_the_gate_as_a_FAIL_that_INVALIDATES():
     """Not UNEVALUABLE. The instrument worked; it caught something. G7c's own
     line: any read from another SA marks the run INVALID."""
+    skip_without_a_working_bash(
+        "that an intruding read surfaces at G7c as a FAIL that invalidates the "
+        "run. `RealGate.__init__` reads SA_GATE through bash")
     from crucible.conductor import real_gate as rg
     rogue = [entry("storage.objects.get", OBJ, ARMORER_SA, granted=True)]
     gate = rg.RealGate(ledger=None, run_id="t", blob_writer=None,
@@ -547,6 +633,9 @@ def test_an_intruding_read_reaches_the_gate_as_a_FAIL_that_INVALIDATES():
 def test_the_gate_still_reports_G7c_absent_when_nothing_is_injected():
     """Unchanged, and it must stay that way: `holdout_touch` has no default so
     that "nothing computed this" cannot be mistaken for "the count was zero"."""
+    skip_without_a_working_bash(
+        "that G7c still reports ABSENT when no counter is injected. "
+        "`RealGate.__init__` reads SA_GATE through bash")
     from crucible.conductor import real_gate as rg
     gate = rg.RealGate(ledger=None, run_id="t", blob_writer=None,
                        blob_reader=None, repo_root=REPO, skip_cloud=True,
@@ -915,6 +1004,9 @@ def test_a_window_strictly_after_the_previous_phase_is_returned():
 
 
 def test_the_factory_returns_the_zero_arg_callable_the_gate_requires():
+    skip_without_a_working_bash(
+        "that `make_counter`'s product satisfies `RealGate(holdout_touch=)` and "
+        "reaches G7c as PASS. `RealGate.__init__` reads SA_GATE through bash")
     from crucible.conductor import real_gate as rg
 
     c = ht.make_counter(ENV, since=AFTER_FLOOR,
@@ -954,3 +1046,208 @@ def test_the_repo_wide_settle_default_exists_and_is_not_zero():
     # Zero settlement makes "I did not wait" and "nothing was read" the same
     # number on the run that cannot be repeated.
     assert ht.DEFAULT_SETTLE_SECONDS > 0
+
+
+# ===========================================================================
+# NO SHELL. Added 2026-08-29, after an independent reviewer could not reproduce
+# the claimed green on a Windows host.
+#
+# Every test above injects its collaborators. Not one needs gcloud, a network,
+# or a configured project. The file still could not be COLLECTED without a
+# working Git Bash, because line 67 read
+#
+#     ENV = verify_iam.load_env(str(REPO))
+#
+# and `infra/verify_iam.py:72` implements that as
+#
+#     bash -c '. <repo>/scripts/gcp-env.sh && env | grep -E "^(CRUCIBLE_|SA_|SUFFIX)"'
+#
+# Reproduced deterministically by removing every PATH directory holding
+# `bash.exe` and running `pytest tests/test_holdout_touch.py --collect-only`:
+# `FileNotFoundError: [WinError 2]` raised from that subprocess call, at import
+# time, so all 69 tests errored as one collection failure. The reviewer's
+# machine reached the same line with bash present but unable to create its
+# signal pipe. Missing bash and broken bash are one dependency failing two ways.
+#
+# The fix is not a skip. The seam was in the wrong place: the names were
+# reachable only through a function that shells out, so `tests/conftest.py`
+# reads `scripts/gcp-env.sh` in pure Python. The names still come from that one
+# file - nothing here retypes `crucible-sealed-x7`, and
+# `test_the_filter_is_built_from_gcp_env_and_not_from_retyped_literals` above
+# still catches it if anything ever does.
+#
+# What a second reader CAN do is disagree with bash about what the file says.
+# That is the one thing this section exists to falsify.
+#
+# `BASH`, `bash_env_or_problem` and `skip_without_a_working_bash` are defined at
+# the top of this file, because the four `RealGate` tests in the middle of it
+# need them: `RealGate.__init__` reaches the same bash call through
+# `crucible/conductor/real_gate.py:313`, which this change does not own.
+# ===========================================================================
+
+
+def test_reading_gcp_env_needs_no_subprocess_at_all():
+    """THE REGRESSION GUARD ON COLLECTION. Not "does it work here" - this box
+    has bash. `subprocess.Popen` is replaced by something that raises, and the
+    pure-Python reader must still return the same names. Restore the
+    `verify_iam.load_env` call at the top of this file and this goes red with
+    the exact error a machine without Git Bash produces."""
+    real_popen = subprocess.Popen
+
+    def no_processes(*a, **k):
+        raise AssertionError(
+            "a test that injects every collaborator it has just spawned a "
+            "process: %r. That is the dependency that made this file "
+            "uncollectable on a host without Git Bash." % (a[0] if a else k))
+
+    subprocess.Popen = no_processes
+    try:
+        env = load_gcp_env(str(REPO), require=("CRUCIBLE_PROJECT",
+                                               "CRUCIBLE_SEALED_BUCKET",
+                                               "SA_SEALED_EVAL", "SA_ARMORER"))
+    finally:
+        subprocess.Popen = real_popen
+    assert env["CRUCIBLE_PROJECT"] == PROJECT
+    assert env["CRUCIBLE_SEALED_BUCKET"] == SEALED
+
+
+def test_the_pure_python_reader_agrees_with_bash_name_for_name():
+    """THE DIFFERENTIAL. Two readers of one file is two chances to be wrong
+    about it, so wherever bash can actually run, both run and the FULL key sets
+    are compared - not a sampled few, which would let a dropped name through.
+
+    SKIPPED, with a reason, only where bash cannot be executed at all. What goes
+    unmeasured then is named in the skip text: the parser still sources every
+    name from `scripts/gcp-env.sh`, so no literal is retyped either way; what is
+    not checked is that its expansion matches bash's."""
+    from_bash = skip_without_a_working_bash(
+        "that the pure-Python reader in tests/conftest.py expands "
+        "scripts/gcp-env.sh the same way bash does. Still true either way: "
+        "every name comes from that one file and none is retyped")
+
+    from_python = load_gcp_env(str(REPO))
+    # `load_env` greps the whole process environment, so a variable already
+    # exported into this shell with one of those prefixes appears in its result
+    # and not in the file's. Compare on the file's keys and report any extra.
+    assert set(from_python) <= set(from_bash), (
+        "the pure-Python reader invented names bash does not produce: %s"
+        % sorted(set(from_python) - set(from_bash)))
+    missed = {k: from_bash[k] for k in set(from_bash) - set(from_python)}
+    assert not missed, (
+        "the pure-Python reader DROPPED names bash produces: %s. A dropped name "
+        "does not fail loudly; it compiles into a filter that matches nothing."
+        % sorted(missed))
+    for k in sorted(from_python):
+        assert from_python[k] == from_bash[k], (
+            "%s: pure-Python read %r, bash read %r"
+            % (k, from_python[k], from_bash[k]))
+
+
+def test_this_file_collects_on_a_machine_without_bash():
+    """THE ACTUAL FINDING, ASSERTED. The test above proves `load_gcp_env` spawns
+    nothing; it says nothing about whether THIS MODULE still reaches the shell at
+    import time, and that is what an independent reviewer could not get past.
+    Restoring `ENV = verify_iam.load_env(str(REPO))` at the top of this file
+    leaves every other test in it green on a host that has Git Bash, so only a
+    collection run with bash genuinely gone can catch it.
+
+    So: a child pytest, `--collect-only`, with every PATH directory holding
+    `bash.exe` or `sh.exe` removed. Exit 0 and no collection error, or red."""
+    stripped = []
+    for d in os.environ.get("PATH", "").split(os.pathsep):
+        try:
+            names = {n.lower() for n in os.listdir(d)}
+        except OSError:
+            stripped.append(d)
+            continue
+        if {"bash.exe", "sh.exe", "bash", "sh"} & names:
+            continue
+        stripped.append(d)
+    child = dict(os.environ)
+    child["PATH"] = os.pathsep.join(stripped)
+    assert shutil.which("bash", path=child["PATH"]) is None, (
+        "could not construct a bash-free PATH, so this control would pass "
+        "without testing anything")
+
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", str(pathlib.Path(__file__).name),
+         "--collect-only", "-q", "-p", "no:cacheprovider"],
+        cwd=str(REPO / "tests"), capture_output=True, text=True, env=child)
+    assert proc.returncode == 0, (
+        "this file cannot be COLLECTED without bash, which is the defect "
+        "reported on 2026-08-29: every test in it is lost as one collection "
+        "error before a single one runs.\n%s\n%s"
+        % (proc.stdout[-3000:], proc.stderr[-1500:]))
+    assert "error" not in proc.stdout.lower(), proc.stdout[-3000:]
+
+
+def test_the_shell_skip_fires_only_when_the_shell_is_actually_broken():
+    """A HELPER THAT ALWAYS SKIPS IS A CHECK THAT PASSES WHILE MEASURING
+    NOTHING - this repository's signature defect, fifteen recorded instances,
+    and adding a skip helper is a fresh way to author the sixteenth. So the
+    predicate is asserted to track the shell's real state rather than being a
+    constant: where bash runs, `bash_env_or_problem` must report NO problem, and
+    the four `RealGate` tests and the differential above therefore really ran."""
+    env, problem = bash_env_or_problem()
+    if BASH is None:
+        pytest.skip(
+            "no `bash` on PATH, so there is no working shell here whose healthy "
+            "state the predicate could be checked against. UNMEASURED HERE: "
+            "that `bash_env_or_problem` returns no problem on a host where bash "
+            "works, and therefore that the five skips above are conditional "
+            "rather than permanent.")
+    assert problem is None, (
+        "bash works here, so the skip predicate must not be reporting a "
+        "problem; every bash-gated test in this file would be skipping while "
+        "looking green. Reported: %s" % problem)
+    assert env and env.get("CRUCIBLE_PROJECT") == PROJECT
+    # AND THE WRAPPER, not only the predicate underneath it. A
+    # `skip_without_a_working_bash` that skipped unconditionally would leave the
+    # four `RealGate` tests and the differential reporting green and empty, and
+    # a skip cannot fail a test by itself - so it is caught here and converted
+    # into a failure.
+    try:
+        got = skip_without_a_working_bash("the self-check on this helper")
+    except pytest.skip.Exception as e:
+        raise AssertionError(
+            "`skip_without_a_working_bash` skipped on a host where bash works, "
+            "so every test that calls it is skipping while the run looks green. "
+            "Reason it gave: %s" % e) from None
+    assert got == env
+
+
+def test_a_name_the_caller_depends_on_going_missing_RAISES(tmp_path):
+    """A partial parse must never return a partial dict. An absent bucket name
+    expands to `resource.labels.bucket_name=""`, which matches nothing, and a
+    filter that matches nothing is this repository's signature defect."""
+    from tests.conftest import GcpEnvError
+    root = tmp_path / "repo"
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts" / "gcp-env.sh").write_text(
+        'export CRUCIBLE_PROJECT="p"\n', encoding="utf-8")
+    with pytest.raises(GcpEnvError) as ei:
+        load_gcp_env(str(root), require=("CRUCIBLE_SEALED_BUCKET",))
+    assert "CRUCIBLE_SEALED_BUCKET" in str(ei.value)
+
+
+def test_an_unexpandable_reference_RAISES_rather_than_expanding_to_nothing(tmp_path):
+    """`gs://crucible-sealed-${SUFFIX}` with SUFFIX unset is
+    `gs://crucible-sealed-`, which is a real-looking bucket name for a bucket
+    that does not exist, and a query against it returns zero."""
+    from tests.conftest import GcpEnvError
+    root = tmp_path / "repo"
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts" / "gcp-env.sh").write_text(
+        'export CRUCIBLE_PROJECT="p"\n'
+        'export CRUCIBLE_SEALED_BUCKET="gs://crucible-sealed-${SUFFIX}"\n',
+        encoding="utf-8")
+    with pytest.raises(GcpEnvError) as ei:
+        load_gcp_env(str(root))
+    assert "$SUFFIX" in str(ei.value)
+
+
+def test_the_reader_expands_the_suffix_rather_than_returning_it_literally():
+    """The one substitution the sealed bucket name actually depends on."""
+    assert ENV["SUFFIX"]
+    assert "${" not in ENV["CRUCIBLE_SEALED_BUCKET"]
+    assert ENV["CRUCIBLE_SEALED_BUCKET"].endswith(ENV["SUFFIX"])

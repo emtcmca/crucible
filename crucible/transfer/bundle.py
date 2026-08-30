@@ -900,6 +900,48 @@ def _assert_seal_safe(bundle):
             % "; ".join(str(f) for f in findings))
 
 
+def _assert_arg_surface(bundle):
+    """THE READER'S OWN ARGUMENT SCAN, RUN OVER THE ASSEMBLED DOCUMENT.
+
+    `_redact_args` is per-value and cannot see an aggregate. It looks at one
+    argument at a time, and both of the seal's remaining holes are properties of
+    the SET: how many distinct alphabetic tokens the identifiers use, and how
+    much text the distinct values publish between them. A reviewer put
+    `ignore_previous_1`, `follow_instructions_2` and `refund_foreign_3` into
+    three arguments `issue_refund` genuinely declares and the producer wrote
+    all three out verbatim, because each one, on its own, really is an
+    identifier.
+
+    REUSED RATHER THAN RETRANSCRIBED, and this is the same call
+    `_assert_seal_safe` makes for the same reason: independence is worth
+    nothing on a seal-safety scan and safety is worth everything. The counters
+    this module transcribes twice are the MEASUREMENT counters - scorable,
+    breach, the pairs - where a producer deriving its numbers from the checker's
+    numbers would make the checker's agreement worthless. A bound on published
+    text is not a measurement of the run.
+
+    STRUCTURAL ONLY. `E_TOOL_NOT_IN_MANIFEST` is filed MEASUREMENT by the
+    reader - the run drove a surface other than the pinned one, and the remedy
+    is a re-run - so refusing to serialize it would destroy the record of
+    exactly the thing that went wrong. Everything else the scan can emit has
+    its fix in this module, and a document carrying one of those is not written.
+    """
+    findings = []
+    _reader._check_tool_args(bundle, findings)
+    fatal = [f for f in findings
+             if _reader.classify(f.code) == _reader.STRUCTURAL]
+    if fatal:
+        # FIVE AND A COUNT. One bad argument shape repeats across every episode
+        # of a 48-drive run, and a refusal that prints forty identical
+        # paragraphs is a refusal nobody reads to the end of.
+        shown = "; ".join(str(f) for f in fatal[:5])
+        if len(fatal) > 5:
+            shown += "; and %d more" % (len(fatal) - 5)
+        raise BundleError(
+            "the assembled bundle's argument surface is not publishable (%d "
+            "finding(s)): %s" % (len(fatal), shown))
+
+
 def _assert_validates(bundle):
     """The assembled document against the FROZEN contract, before it is
     returned. A tool's own success message is not evidence; the postcondition
@@ -993,6 +1035,7 @@ def build_transfer_bundle(*, run_id, spine_version, created_at, hash_locks,
     }
 
     _assert_seal_safe(bundle)
+    _assert_arg_surface(bundle)
     _assert_validates(bundle)
     return bundle
 

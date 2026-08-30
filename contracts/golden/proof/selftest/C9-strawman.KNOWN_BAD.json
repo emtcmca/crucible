@@ -1,0 +1,27 @@
+{
+  "_note": [
+    "STRAWMAN. Not a contract fixture and not swept by pass_fixtures - it lives",
+    "two directories below contracts/golden/ and both golden globs are",
+    "non-recursive. It exists so `pass_proven` can be RUN AGAINST A KNOWN-DEFECTIVE",
+    "BINDING SET and proved to name every defect, in the same spirit as the nine",
+    "known-bads the tripwire ships and the seven strawmen the boot self-test ships.",
+    "",
+    "The body is a C9 verdict because C9 is the smallest instance in the set. Every",
+    "value in it is invented. It is paired with strawman-bindings.json, which binds",
+    "these reasons WRONGLY on purpose, one wrong way per rule."
+  ],
+  "_must_fail_because": [
+    "R0 objective_set_hash absent - bound correctly, and the gate must stay quiet about it",
+    "R1 the binding for this reason quotes words that do not appear anywhere in it",
+    "R2 the verdict value sits outside a closed list the schema does not actually declare",
+    "R3 this reason claims exactly the evidence reason 0 already claims",
+    "R4 this reason declares no mechanism at all - no evidence, no external, no unenforced",
+    "R5 this reason is recorded unenforced with a would_be triple that does fire",
+    "R6 [replay reader, E_NO_SUCH_CODE_EVER] a defect code the reader never emits",
+    "R7 [replay reader, E_SCHEMA] recorded not_reachable while it fires on every run"
+  ],
+  "verdict": "INVALID",
+  "breach": false,
+  "invariant_id": "inv_strawman",
+  "evidence": []
+}
