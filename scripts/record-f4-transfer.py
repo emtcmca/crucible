@@ -778,88 +778,84 @@ def write_adjudication_worksheet(instances, path):
 
 
 def await_adjudication(instances, record_path, worksheet_path,
-                       poll=ADJUDICATION_POLL_SECONDS,
-                       timeout=ADJUDICATION_TIMEOUT_SECONDS,
-                       sleep=None, clock=None, announce=print):
+                       objective_set=None, read_line=None, announce=print,
+                       progress_path=None, challenge_path=None):
     """HALT BETWEEN THE SEALED READ AND THE FIRST MODEL CALL.
 
-    THIS GATE DID NOT EXIST AND THAT WAS THE DEFECT. `adjudication.py` was
-    built, ratified, and covered by seventy-seven tests, and the runner never
-    imported it. An independent review called it exactly right: a thoroughly
-    tested gate that cannot fail the production run, because the run never
-    calls it. A gate nothing calls is the signature defect of this project in
-    its purest form - a check that passes while measuring nothing, where the
-    measuring is not even attempted.
+    THIS GATE DID NOT EXIST AND THAT WAS THE FIRST DEFECT. `adjudication.py`
+    was built, ratified, and covered by seventy-seven tests, and the runner
+    never imported it. An independent review called it exactly right: a
+    thoroughly tested gate that cannot fail the production run, because the run
+    never calls it.
 
-    WHY THE PAUSE IS IN-PROCESS AND NOT A SECOND INVOCATION. The obvious shape
-    is to stop after the read and let the operator re-run with the decisions.
-    That shape is unavailable: the sealed objects have already been read, the
-    audit count has already moved, and a second invocation would read them
-    again. A3.9 permits one retry for a TRANSPORT failure, not for a workflow
-    convenience, and spending it here would leave nothing for the case it was
-    written for. So the process holds the read in memory and waits.
+    THE SECOND DEFECT WAS SUBTLER AND WORSE. The gate was wired, and then it
+    handed the adjudicator a list of opaque `atk_` ids and waited. V1 and V2
+    are SEMANTIC criteria - they ask whether an instance's instruction is
+    orphaned from its conversation and whether it can be ruled against the
+    frozen objective set - and neither is decidable from an identifier. The
+    same review: "The gate is now invoked, but a human cannot form grounded
+    decisions through its interface." A halt that collects rulings nobody could
+    have grounded is worse than no halt, because it produces a signed record.
 
-    WHY IT TIMES OUT INTO A REFUSAL RATHER THAN A PROCEED. An unattended run
-    that waited forever would eventually be killed by something with no opinion
-    about measurement validity, and one that proceeded on timeout would be
-    scoring a sealed set on the runner's own authority - which is the whole
-    thing the adjudication exists to prevent. Timing out is a bad outcome. It
-    is a much better one than either alternative.
+    So the review itself now happens IN PROCESS, over the instances still in
+    memory, through `crucible.transfer.inspect`. That module renders each
+    instance's frozen context and every turn in order, accepts only the
+    ratified closed codes, and writes nothing but ids and codes to disk.
 
-    `sleep` and `clock` are injectable so the wait is testable without one.
+    WHY THE PAUSE IS IN-PROCESS AND NOT A SECOND INVOCATION. The sealed objects
+    have been read and the audit count has moved; a second invocation would
+    read them again, and A3.11 makes that terminal. The process holds the read
+    in memory and the human works against it there.
+
+    WHY A CHALLENGE. A decision file can be written before a read as easily as
+    after one, and nothing in a file's contents says which. A nonce minted at
+    the moment the read returns, committed to inside the record, cannot have
+    been answered by a file that already existed.
     """
-    import time
+    from crucible.transfer import inspect as insp
 
-    from crucible.transfer.adjudication import (AdjudicationError,
-                                                load_adjudication)
+    # MINTED HERE, at the moment the read returned, and not inside the review.
+    # The challenge is what makes the record's timing checkable, so it has to
+    # come from the same instant the instances did.
+    ids = insp.instance_ids_of(instances)
+    challenge = insp.mint_challenge(ids)
 
-    sleep = sleep or time.sleep
-    clock = clock or time.monotonic
-
-    ids = write_adjudication_worksheet(instances, worksheet_path)
+    # The worksheet stays, and it is complementary rather than redundant: it is
+    # the durable statement of WHICH ids this read returned, readable after the
+    # process is gone, while the review itself is the only place the content is
+    # ever visible.
+    write_adjudication_worksheet(instances, worksheet_path)
 
     announce("=" * 78)
     announce("HALTED. The sealed set has been read and NO MODEL HAS BEEN CALLED.")
-    announce("  instances read   : %d" % len(ids))
-    announce("  worksheet        : %s" % worksheet_path)
-    announce("  waiting for      : %s" % record_path)
+    announce("  instances read : %d" % len(ids))
+    announce("  worksheet      : %s" % worksheet_path)
+    announce("  record         : %s" % record_path)
     announce("")
-    announce("  Adjudicate all %d instances against %s," % (len(ids), ADJ_CRITERION))
-    announce("  write the decision record to the path above, and this run")
-    announce("  continues on its own. It will NOT proceed without one.")
+    announce("  Every instance is about to be shown here, in this process, with")
+    announce("  its frozen context and all of its turns. Rule each one against")
+    announce("  %s." % ADJ_CRITERION)
     announce("=" * 78)
 
-    record_path = pathlib.Path(record_path)
-    started = clock()
-    last_error = None
-    while True:
-        if record_path.is_file():
-            try:
-                text = record_path.read_text(encoding="utf-8")
-                ledger = load_adjudication(json.loads(text), ids)
-            except (AdjudicationError, ValueError) as exc:
-                # A malformed or non-binding record is NOT a reason to give up.
-                # The adjudicator is standing here and can fix it; refusing
-                # outright would spend the read over a typo.
-                message = str(exc)
-                if message != last_error:
-                    announce("  still waiting: %s" % message)
-                    last_error = message
-            else:
-                announce("  adjudication accepted, signed by %s on %s"
-                         % (ledger.adjudicated_by, ledger.adjudicated_on))
-                return ledger
-        if clock() - started > timeout:
-            raise TransferRunError(
-                "E_ADJUDICATION_TIMEOUT",
-                "no binding adjudication record appeared at %s within %d "
-                "seconds. The sealed set was read and is NOT being scored on "
-                "the runner's own authority. Nothing was driven and no model "
-                "was called; classify this attempt under the pre-registration's "
-                "crash rule. Last error: %s"
-                % (record_path, timeout, last_error or "the file never appeared"))
-        sleep(poll)
+    record, _challenge = insp.adjudicate(
+        instances,
+        read_line=read_line or input,
+        write=announce,
+        record_path=record_path,
+        progress_path=progress_path,
+        challenge_path=challenge_path,
+        objective_set=objective_set,
+        challenge=challenge)
 
+    # THE LEDGER, derived against the instances rather than against the record's
+    # own id list. A record is only usable here if it binds to the set that came
+    # off the wire, and deriving the pair from the instances is what makes a
+    # valid-looking record over some other twenty-four unusable rather than
+    # merely detectable.
+    ledger = insp.ledger_for(record, instances)
+    announce("  adjudication accepted, signed by %s on %s"
+             % (ledger.adjudicated_by, ledger.adjudicated_on))
+    return ledger
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
@@ -933,9 +929,17 @@ def main(argv=None):
         # statement after this block constructs the model, and the one after
         # that calls it - so this is the last moment at which the sealed set
         # can be adjudicated without the decisions having seen any result.
+        out_base = pathlib.Path(args.out)
         adjudication = await_adjudication(
             instances, args.adjudication,
-            pathlib.Path(args.out).with_suffix(".worksheet.json"))
+            out_base.with_suffix(".worksheet.json"),
+            objective_set=objective_set,
+            # PROGRESS AND CHALLENGE SIT BESIDE THE OUTPUT, not in the repo.
+            # Both carry ids and codes only, and the read is unrepeatable, so
+            # a reviewer who stops halfway must be able to resume without
+            # re-reading anything.
+            progress_path=out_base.with_suffix(".adjudication-progress.json"),
+            challenge_path=out_base.with_suffix(".challenge.json"))
     else:
         seeds, instances, sealed_names = load_instances(
             args.family, args.sealed, args.i_am_opening_the_seal)

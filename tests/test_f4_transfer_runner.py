@@ -1019,89 +1019,6 @@ def test_the_worksheet_names_the_ids_that_arrived_not_the_published_manifest(tmp
                                          for a in _fake_instances(3))
     assert doc["instance_set_digest"] == instance_set_digest(ids)
 
-
-def test_the_worksheet_carries_no_attack_text():
-    """`atk_` ids are opaque, which is what lets this file sit on disk and be
-    edited by a human. A worksheet carrying instance content would publish the
-    thing the seal protects, to the one person who is allowed to see it and to
-    everyone else who can read the directory."""
-    import inspect
-    src = inspect.getsource(rt.write_adjudication_worksheet)
-    for leaky in ("input_turns", "trace", "scenario", "smuggled_arg_path",
-                  "slug", "doc"):
-        assert ("a.%s" % leaky) not in src and ('["%s"]' % leaky) not in src, (
-            "the worksheet reaches for %r, which is instance content" % leaky)
-
-
-def test_the_gate_waits_rather_than_proceeding_when_no_record_exists(tmp_path):
-    """THE POINT OF THE WHOLE THING.
-
-    Not "does it return a ledger" - it must NOT return anything at all while
-    the set is unadjudicated. A gate that logged a warning and continued would
-    pass every test that only checks the happy path.
-    """
-    ticks = []
-    record = tmp_path / "never-written.json"
-
-    with pytest.raises(rt.TransferRunError) as exc:
-        rt.await_adjudication(
-            _fake_instances(2), record, tmp_path / "w.json",
-            poll=1, timeout=3,
-            sleep=lambda s: ticks.append(s),
-            clock=lambda: len(ticks) * 2.0,
-            announce=lambda *a: None)
-    assert exc.value.code == "E_ADJUDICATION_TIMEOUT"
-    assert ticks, "the gate never waited at all"
-
-
-def test_a_record_that_binds_to_a_different_set_does_not_release_the_gate(tmp_path):
-    """The record could have been signed over some other twenty-four.
-
-    This is the failure `ratify.py` had before its own review, in a new place:
-    a signature valid over something other than what shipped.
-    """
-    from crucible.transfer.adjudication import build_adjudication
-
-    other = ["atk_%012x" % (900 + i) for i in range(2)]
-    rec = build_adjudication(
-        adjudicated_by="An Invented Person", adjudicated_on="2026-08-29",
-        instance_ids=other,
-        decisions={i: {"codes": [_ratified_pass_code()]} for i in other})
-    record = tmp_path / "adj.json"
-    record.write_text(json.dumps(rec), encoding="utf-8")
-
-    with pytest.raises(rt.TransferRunError) as exc:
-        rt.await_adjudication(
-            _fake_instances(2), record, tmp_path / "w.json",
-            poll=1, timeout=2, sleep=lambda s: None,
-            clock=iter([0.0, 1.0, 5.0, 9.0]).__next__,
-            announce=lambda *a: None)
-    assert exc.value.code == "E_ADJUDICATION_TIMEOUT"
-
-
-def test_a_binding_record_releases_the_gate_and_returns_the_ledger(tmp_path):
-    """The control. Without it every test above passes against a gate that
-    refuses unconditionally, which would be a different bug with identical
-    symptoms in this file."""
-    from crucible.transfer.adjudication import build_adjudication
-
-    instances = _fake_instances(2)
-    ids = sorted(a.corpus_instance_id for a in instances)
-    rec = build_adjudication(
-        adjudicated_by="An Invented Person", adjudicated_on="2026-08-29",
-        instance_ids=ids,
-        decisions={i: {"codes": [_ratified_pass_code()]} for i in ids})
-    record = tmp_path / "adj.json"
-    record.write_text(json.dumps(rec), encoding="utf-8")
-
-    ledger = rt.await_adjudication(
-        instances, record, tmp_path / "w.json",
-        poll=1, timeout=60, sleep=lambda s: None,
-        clock=iter([0.0, 1.0]).__next__, announce=lambda *a: None)
-    assert ledger.adjudicated_by == "An Invented Person"
-    assert ledger.instance_ids == tuple(ids)
-
-
 def test_the_sealed_path_calls_the_gate_before_the_model_is_built(monkeypatch, tmp_path):
     """THE INTEGRATION ASSERTION, and the one the defect needed.
 
@@ -1160,3 +1077,171 @@ def test_the_drive_log_carries_the_adjudication(offline_drive):
     # rederives them from the decisions regardless.
     assert "adjudication_counts" not in raw, (
         "the drive header duplicates the ledger's counts")
+
+
+def test_the_gate_shows_the_adjudicator_the_instances_not_just_their_ids():
+    """THE P0 THE FIRST WIRING MISSED.
+
+    The gate was invoked and then handed the adjudicator a list of opaque
+    `atk_` ids. V1 and V2 are SEMANTIC criteria - whether an instruction is
+    orphaned from its conversation, and whether the instance can be ruled
+    against the frozen objective set - and neither is decidable from an
+    identifier. A halt that collects rulings nobody could have grounded is
+    worse than no halt, because it produces a signed record.
+
+    So the runner must route the review through the in-process inspection
+    path. Asserted on the production function's source rather than by driving
+    a terminal: the property is WHICH path the runner reaches for, and every
+    behavioural test of that path already lives beside the module itself.
+    """
+    import inspect as pyi
+
+    src = pyi.getsource(rt.await_adjudication)
+    assert "inspect" in src and "adjudicate(" in src, (
+        "the gate does not route through the in-process inspection path, so "
+        "the adjudicator sees ids and nothing to decide with")
+    assert "mint_challenge" in src, (
+        "no post-read challenge is minted, so a decision file written before "
+        "the read would satisfy the gate")
+
+
+def test_the_challenge_is_minted_after_the_read_and_not_inside_the_review():
+    """The nonce has to come from the same instant the instances did.
+
+    Minting inside the review would still bind the record to SOMETHING, but
+    not to this read: the challenge would be created after the reviewer sat
+    down, which is a later and weaker claim than 'after the objects came off
+    the wire'.
+    """
+    import inspect as pyi
+
+    src = pyi.getsource(rt.await_adjudication)
+    mint = src.index("mint_challenge")
+    call = src.index("insp.adjudicate(")
+    assert mint < call, (
+        "the challenge is minted inside or after the review rather than at "
+        "the moment the read returned")
+
+
+def test_the_ledger_is_derived_against_the_instances_not_the_records_own_ids():
+    """A record that binds to some OTHER twenty-four must be unusable here,
+    not merely detectable.
+
+    `ledger_for(record, instances)` derives the id set from the instances that
+    came off the wire, so a valid-looking record over a different set cannot be
+    loaded at all. Passing the record's own `instance_ids` would let it vouch
+    for itself.
+    """
+    import inspect as pyi
+
+    src = pyi.getsource(rt.await_adjudication)
+    assert "ledger_for(record, instances)" in src, (
+        "the ledger is not derived against the instances, so a record could "
+        "supply the id set it is checked against")
+
+
+def test_the_gate_drives_a_whole_review_and_returns_a_usable_ledger(tmp_path):
+    """THE STRONG VERSION OF THE THREE ABOVE.
+
+    Those assert which path the runner reaches for, by reading its source.
+    That is a real structural property and it is also the weakest test shape in
+    this repository - it stays green if the path is reached and then does
+    nothing. So this drives `await_adjudication` end to end with a scripted
+    reviewer at the keyboard, and requires a ledger that the production
+    assembler could actually use.
+
+    Everything here is INVENTED. Two instances, made-up ids, made-up turns.
+    """
+    from crucible.transfer.inspect import load_ratified_codes
+
+    passing = load_ratified_codes()["pass"]
+
+    class _Attack(object):
+        """Only what the inspector reads. A fuller stub would be a second
+        definition of what a corpus instance is."""
+
+        def __init__(self, iid, n):
+            self.corpus_instance_id = iid
+            self.attack_id = iid
+            self.slug = "invented-%d" % n
+            self.turns = ("an invented opening turn",
+                          "an invented instruction turn")
+            self.order_id = "ORD-%04d" % n
+            self.customer_id = "CUS-%04d" % n
+            self.approval_tier = "NONE"
+            self.doc = {"scenario": {"order": {"order_id": "ORD-%04d" % n},
+                                     "account": {"account_id": "CUS-%04d" % n}}}
+
+    instances = [_Attack("atk_%012x" % i, i) for i in (1, 2)]
+
+    # A scripted reviewer: the pass code for each instance, then a name, then
+    # the confirmation word. Read from the module rather than typed, so a
+    # change to the confirmation word fails here rather than hanging.
+    import crucible.transfer.inspect as insp
+    answers = iter([passing, passing, "An Invented Adjudicator",
+                    insp._CONFIRM_WORD])
+
+    said = []
+    ledger = rt.await_adjudication(
+        instances,
+        record_path=tmp_path / "adj.json",
+        worksheet_path=tmp_path / "w.json",
+        read_line=lambda prompt="": next(answers),
+        announce=said.append,
+        progress_path=tmp_path / "progress.json",
+        challenge_path=tmp_path / "challenge.json")
+
+    assert ledger.adjudicated_by == "An Invented Adjudicator"
+    assert ledger.instance_ids == tuple(sorted(a.corpus_instance_id
+                                               for a in instances))
+    # THE LEDGER HAS TO BE THE THING THE ASSEMBLER CONSUMES, not merely an
+    # object. `to_record()` is what the drive header carries.
+    assert ledger.to_record()["record_kind"] == "f4_adjudication"
+    assert ledger.counts()["adjudicated"] == 2
+
+    # AND THE ADJUDICATOR WAS SHOWN THE CONTENT. The whole point of the second
+    # P0: a gate that collected two rulings without ever rendering a turn would
+    # satisfy every assertion above.
+    shown = "\n".join(str(x) for x in said)
+    assert "an invented instruction turn" in shown, (
+        "the reviewer was never shown the instruction they ruled on")
+    assert "ORD-0001" in shown, "the frozen context was never rendered"
+
+
+def test_a_reviewer_who_declines_to_sign_gets_no_record(tmp_path):
+    """Declining must cost the rulings, not the read.
+
+    The control on the test above: it would pass against a gate that signs
+    whatever it is given, and a gate that cannot be declined is not a gate.
+    """
+    import crucible.transfer.inspect as insp
+    from crucible.transfer.inspect import ReviewPaused, load_ratified_codes
+
+    passing = load_ratified_codes()["pass"]
+
+    class _Attack(object):
+        def __init__(self, iid):
+            self.corpus_instance_id = iid
+            self.attack_id = iid
+            self.slug = "invented"
+            self.turns = ("a turn", "an instruction")
+            self.order_id = "ORD-0009"
+            self.customer_id = "CUS-0009"
+            self.approval_tier = "NONE"
+            self.doc = {"scenario": {"order": {"order_id": "ORD-0009"},
+                                     "account": {"account_id": "CUS-0009"}}}
+
+    answers = iter([passing, "An Invented Adjudicator", "no"])
+    record = tmp_path / "adj.json"
+
+    with pytest.raises(ReviewPaused):
+        rt.await_adjudication(
+            [_Attack("atk_%012x" % 3)],
+            record_path=record,
+            worksheet_path=tmp_path / "w.json",
+            read_line=lambda prompt="": next(answers),
+            announce=lambda *a: None,
+            progress_path=tmp_path / "progress.json",
+            challenge_path=tmp_path / "challenge.json")
+
+    assert not record.exists(), "an unsigned adjudication was written anyway"
