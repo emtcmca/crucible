@@ -1154,4 +1154,9 @@ def test_the_drive_log_carries_the_adjudication(offline_drive):
     raw = rt.read_drive_file(offline_drive)
     assert "adjudication" in raw, "the drive log has nowhere to put the ledger"
     assert raw["adjudication"] is None, "a stand-in is not adjudicated"
-    assert raw["adjudication_counts"] is None
+    # AND NO SIBLING COUNTS KEY. The record carries its own `counts`, all five
+    # derived from `decisions`; a duplicate beside it in the same header is a
+    # second representation that can drift from the first, and the reader
+    # rederives them from the decisions regardless.
+    assert "adjudication_counts" not in raw, (
+        "the drive header duplicates the ledger's counts")

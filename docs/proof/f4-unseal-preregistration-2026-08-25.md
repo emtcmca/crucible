@@ -641,3 +641,91 @@ was amended rather than deleted.
 
 **This amendment is written while the seal is intact and no F4 object has been
 read. It may not be edited after the unseal.**
+
+
+---
+
+## A3.11 SUPERSEDES A3.9. A partial sealed read is not retryable once anything has been read.
+
+**RATIFIED by Eric Tetzlaff, 2026-08-29. IN FORCE.**
+Written while the seal is intact and no F4 object has been read.
+
+### Why A3.9 is being withdrawn two days after it was written
+
+A3.9 granted one retry on a partial sealed read, under four conditions. An
+independent adversarial review found that **the runner cannot produce the
+evidence those conditions require, and the accounting cannot accept the retry
+they permit**:
+
+- the durable header is written AFTER `sealed_drive_lifecycle` returns, so it
+  does not exist during the read it is supposed to bracket;
+- the crash handler wraps `drive()`, not the sealed read;
+- the counter and downloader assertions cover ONE read window and cannot
+  combine an interrupted window with a retry window;
+- duplicate client reads are categorically rejected, which is exactly what a
+  retry produces;
+- "a halt during the sealed read" is broader than a transport interruption and
+  does not separate a fingerprint failure from a parse failure from a schema
+  failure from an adjudication failure.
+
+So A3.9 describes evidence the code cannot emit and permits a retry the code
+would refuse. **An amendment that promises a recovery we cannot perform is
+worse than no amendment**, because it is discovered at the only moment it
+matters, by someone with a spent read and a document telling them they have a
+second chance.
+
+**This is the honest correction and it costs us something real.** The run loses
+its only recovery from a network hiccup. That is a genuine loss and it is
+smaller than the alternative, which is inventing recovery rules after observing
+the sealed set.
+
+### The ruling
+
+**Zero sealed-content reads.** VOID, as A3.4 defines it. **One retry remains
+permissible.** Nothing has been observed, nothing has been spent, and the
+attempt is recoverable in the ordinary sense.
+
+**One or more sealed-content reads.** Terminal **INVALID**. **No retry, ever** -
+regardless of whether the failure occurred during the read, during validation,
+during adjudication, during model setup, or during scoring. Once any sealed
+object has been read, the single attempt the pre-registration allows has been
+spent, and every later failure is a failure of a run that already happened.
+
+**Publish the failure record.** It must be audit-recoverable: what was read,
+when, by which identity, how far the run got, and where it stopped. **No rate
+and no transfer conclusion of any kind may be reported from it.**
+
+### The word matters and is chosen deliberately
+
+**The terminal case is NOT called VOID.** A3.4 already defines VOID as the
+retryable classification, and reusing that word for the non-retryable case
+would put two meanings on the one term a reader consults under pressure, at the
+moment they most need it to mean one thing. The terminal case is **INVALID**,
+which A3.4 already uses for exactly this: an attempt that happened and cannot
+be reported from.
+
+### What this changes and what it does not
+
+**A3.9 is superseded, not deleted.** This document is append-only. A3.9 stays
+where it is, in force until this amendment is signed, and a reader can see both
+what was pre-registered and what an outside review found wrong with it.
+
+**No threshold, floor, ceiling, or outcome moves.** The outcome table is
+untouched. This governs one branch: what happens when the run stops before it
+finishes.
+
+**It is narrower than A3.9 in every direction**, which is the point. A rule the
+code can honour is worth more than a permission it cannot.
+
+### Ratification
+
+An unratified amendment is a draft, and a draft is not a pre-registration.
+This one was signed by a named human before the seal opened.
+
+- Proposed: 2026-08-29, after adversarial review 4.
+- Scope recommended by that review; the words are ours.
+- **Ratified by: Eric Tetzlaff, 2026-08-29.** Signed before the seal was
+  opened and before any F4 object was read.
+
+**This amendment is written while the seal is intact and no F4 object has been
+read. It may not be edited after the unseal.**

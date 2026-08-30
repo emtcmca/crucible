@@ -139,3 +139,66 @@ def test_the_preregistration_records_b_as_unreachable_before_the_unseal():
     assert "| **B. Valid but partial**" in text, (
         "Outcome B's original row was deleted rather than amended. The "
         "pre-registration is append-only.")
+
+
+# ============================================================================
+# A3.11: THE CRASH RULE THE CODE CAN ACTUALLY HONOUR
+#
+# A3.9 granted one retry on a partial sealed read. An adversarial review found
+# the runner cannot produce the evidence its four conditions require and the
+# accounting cannot accept the retry it permits: the durable header is written
+# after the read returns, the crash handler wraps drive() rather than the read,
+# the counter covers one window and not an interrupted-plus-retry pair, and
+# duplicate client reads are categorically refused - which is what a retry is.
+#
+# An amendment promising a recovery the code cannot perform is worse than no
+# amendment. It is discovered at the only moment it matters, by someone holding
+# a spent read and a document telling them they have a second chance.
+# ============================================================================
+
+def test_a311_is_ratified_by_a_named_human_before_the_unseal():
+    """A draft is not a pre-registration.
+
+    The signature is the whole difference between a rule fixed in advance and
+    a rule written down in advance, and only one of those is worth anything
+    once the answer is known.
+    """
+    text = PREREG.read_text(encoding="utf-8")
+    assert "A3.11" in text, "the crash rule the code can honour is not recorded"
+    assert "RATIFIED by Eric Tetzlaff" in text, "A3.11 carries no signature"
+    assert "IN FORCE" in text
+
+
+def test_a39_is_superseded_and_not_deleted():
+    """Append-only, and section 4 forbids rewriting.
+
+    A reader has to be able to see BOTH what was pre-registered and what an
+    outside review found wrong with it. Deleting A3.9 would leave a document
+    that looks like it got this right the first time.
+    """
+    text = PREREG.read_text(encoding="utf-8")
+    assert "## A3.9" in text, (
+        "A3.9 was deleted rather than superseded. The pre-registration is "
+        "append-only and the superseded rule is part of the record.")
+    assert "SUPERSEDES A3.9" in text
+
+
+def test_the_terminal_case_is_not_called_void():
+    """THE WORD, and it was chosen deliberately.
+
+    A3.4 already defines VOID as the RETRYABLE classification. Reusing it for
+    the non-retryable case would put two meanings on the one term a reader
+    consults under pressure, at the moment they most need it to mean one thing.
+
+    Asserted rather than trusted to review: this is a vocabulary decision, and
+    vocabulary decisions are exactly what drift back when someone later edits
+    for brevity.
+    """
+    text = PREREG.read_text(encoding="utf-8")
+    start = text.index("## A3.11")
+    body = text[start:]
+    assert "Terminal **INVALID**" in body, (
+        "A3.11 does not name the terminal classification INVALID")
+    assert "The terminal case is NOT called VOID" in body, (
+        "the reason the word was chosen is no longer stated, so the next "
+        "editor has nothing to tell them not to simplify it back")

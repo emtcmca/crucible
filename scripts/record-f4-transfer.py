@@ -1024,10 +1024,16 @@ def main(argv=None):
         # `to_record()` rather than a hand-built dict: the ledger owns its own
         # serialization, and a second copy of that shape here would be a second
         # source of truth for what an adjudication record IS.
+        #
+        # AND THE COUNTS ARE NOT DUPLICATED BESIDE IT. A sibling
+        # `adjudication_counts` key was written here and removed on review: the
+        # record already carries `counts`, every one of them derived from
+        # `decisions`, and a second copy in the same header is a second
+        # representation that can drift from the first. The reader rederives
+        # them from the decisions regardless, so the duplicate could only ever
+        # have been the wrong one.
         "adjudication": (None if adjudication is None
                          else adjudication.to_record()),
-        "adjudication_counts": (None if adjudication is None
-                                else dict(adjudication.counts())),
         "declared_object_names": sealed_names,
         "preflight_before_read": before_read,
         "preflight_after_read": after_read,
