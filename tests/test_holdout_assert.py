@@ -680,3 +680,179 @@ def test_the_canary_uri_points_at_the_RELOCATED_object_and_not_under_families():
     `families/` would be counted by the gate's own positive control."""
     assert gr.canary_uri(BUCKET) == "gs://crucible-sealed-x7/_probe/canary.txt"
     assert "families/" not in gr.CANARY_OBJECT
+
+
+# ============================================================================
+# THE CALIBRATION / RUN-WINDOW RACE
+#
+# `calibrate_on_canary` stamps `finished_at` truncated to a whole second, and
+# the runner calls `open_run_window(cal)` on the very next line. The guard
+# demands the run window open STRICTLY after that instant, so whenever both
+# calls land in the same second - which is the normal case, they are adjacent
+# statements - the run raises HoldoutTouchUnevaluable and stops.
+#
+# Whether the sealed run proceeds therefore depends on coincidentally crossing
+# a wall-clock second between two adjacent function calls. That is a coin flip
+# on a run that happens once.
+#
+# THE GUARD IS RIGHT AND STAYS. Equality means the two windows share a whole
+# second and an event inside it belongs to both, so the calibration's canary
+# read could be counted as a holdout touch. The defect is that nobody wrote the
+# wait the guard's own error message prescribes: "Wait for the clock to pass
+# %s and open again."
+#
+# This aborts BEFORE any sealed object is read, so it is safe rather than
+# corrupting. It is still a P1: it can stop the scheduled run for a reason that
+# has nothing to do with the seal, at the one moment there is no second try.
+# ============================================================================
+
+def _cal(finished_at):
+    """A REAL completed calibration, stamped at a chosen instant.
+
+    Deliberately the module's own `calibrated()` helper rather than a stub with
+    a `finished_at` attribute: `require_calibrated` refuses anything that is not
+    a genuine `CalibratedDownloader`, and a test that fed it a fake would be
+    exercising a path the production run cannot take.
+    """
+    return calibrated(finished_at=finished_at)
+
+
+def test_the_race_is_real_the_strict_guard_refuses_the_same_second():
+    """Reproduce the defect before asserting the repair.
+
+    Not a hypothetical: `now_utc` truncates to whole seconds and the two calls
+    are adjacent statements in `sealed_drive_lifecycle`.
+    """
+    same = "2026-08-29T12:00:00Z"
+    with pytest.raises(Exception) as exc:
+        ha.open_run_window(_cal(same), clock=lambda: _at(same))
+    assert "strictly after" in str(exc.value)
+
+
+def test_the_runner_waits_for_the_next_second_instead_of_dying():
+    """THE REPAIR. Wait, then open - which is what the guard's own error text
+    prescribes and what nothing in the production path did."""
+    ticks = []
+    times = ["2026-08-29T12:00:00Z", "2026-08-29T12:00:00Z",
+             "2026-08-29T12:00:01Z"]
+    it = iter(times)
+
+    since = ha.open_run_window_when_clear(
+        _cal("2026-08-29T12:00:00Z"),
+        clock=lambda: _at(next(it)),
+        sleep=ticks.append)
+
+    assert since == "2026-08-29T12:00:01Z"
+    assert ticks, "it opened a window without ever waiting"
+
+
+def test_waiting_is_bounded_and_the_bound_refuses_rather_than_proceeds():
+    """A clock that never advances must not hang a supervised one-shot forever.
+
+    Proceeding on timeout would be worse: it would mean opening a window that
+    overlaps the calibration, which is the exact attribution failure the strict
+    guard exists to prevent. So the bound refuses.
+    """
+    frozen = "2026-08-29T12:00:00Z"
+    with pytest.raises(Exception) as exc:
+        ha.open_run_window_when_clear(
+            _cal(frozen), clock=lambda: _at(frozen), sleep=lambda s: None,
+            max_wait_seconds=3)
+    # THE SPECIFIC BOUND, not just "something raised". Asserting only that an
+    # exception escaped let a mutation deleting this bound stay green, because
+    # a second guard beside it produced a different exception with the same
+    # shape. That second guard turned out to be unreachable and was removed;
+    # this assertion is what would have said so.
+    assert "waited" in str(exc.value) and "3.0s" in str(exc.value), (
+        "the elapsed-time bound is not what refused: %s" % exc.value)
+
+
+# KNOWN WEAKNESS, RECORDED RATHER THAN PAPERED OVER. Deleting the elapsed-time
+# bound does not make this test FAIL - it makes it HANG, because that bound is
+# the loop's only exit and the suite then runs until something kills it. The
+# mutation is still killed, but as a timeout rather than as a named failure,
+# and a timeout is a worse signal: CI reports the wrong thing and a reader has
+# to guess.
+#
+# The obvious repair - a second, independent bound - was tried and reverted.
+# `waited` advances arithmetically with no reference to any clock, so the
+# elapsed check always fires first and an iteration cap beside it can never be
+# reached. An unreachable guard is a check that cannot fail, which would have
+# been this repository's signature defect committed inside the fix for it.
+#
+# The real repair is a per-test timeout (pytest-timeout), which is a dependency
+# decision and not one to take the night before an unrepeatable run.
+
+
+def test_a_window_already_clear_does_not_wait_at_all():
+    """The control. Every test above passes against an implementation that
+    always sleeps, which would add a needless delay to every run and, worse,
+    would hide a guard that had stopped refusing anything."""
+    ticks = []
+    since = ha.open_run_window_when_clear(
+        _cal("2026-08-29T12:00:00Z"),
+        clock=lambda: _at("2026-08-29T12:00:05Z"),
+        sleep=ticks.append)
+    assert since == "2026-08-29T12:00:05Z"
+    assert ticks == [], "it waited when the window was already clear"
+
+
+def test_the_sealed_lifecycle_uses_the_waiting_form(monkeypatch):
+    """THE INTEGRATION ASSERTION.
+
+    Every test above passes with `open_run_window_when_clear` written and never
+    called - which is precisely the state the adjudication gate was found in
+    hours earlier. So this reads the production path and requires the waiting
+    form to be the one it reaches for.
+    """
+    import importlib.util
+    import inspect
+    import pathlib as _pl
+
+    root = _pl.Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "record_f4_transfer_race", root / "scripts" / "record-f4-transfer.py")
+    rt = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rt)
+
+    src = inspect.getsource(rt.sealed_drive_lifecycle)
+    assert "open_run_window_when_clear" in src, (
+        "the lifecycle still calls the non-waiting form, so a calibration and "
+        "a run window landing in the same second aborts the run")
+    assert "ha.open_run_window(" not in src, (
+        "both forms are reachable from the lifecycle; the strict one will win "
+        "on whichever line runs first")
+
+
+def test_a_window_below_the_attestation_floor_raises_instead_of_being_waited_out():
+    """THE BRANCH THAT CAUGHT NOTHING ON ITS FIRST MUTATION PASS.
+
+    The wait exists for ONE refusal: a run window that is not strictly after
+    the calibration. Every other `HoldoutTouchUnevaluable` has to propagate
+    immediately.
+
+    The one that matters is the attestation floor. Data Access logging is not
+    retroactive, so a window opening before the floor covers time the audit log
+    cannot speak to - and no amount of waiting fixes it, because waiting moves
+    the window LATER and the problem is that the CLOCK is earlier than the
+    floor. Retrying it would spin for the full two minutes and then report a
+    problem that was decidable on the first call.
+
+    Written after `if "strictly after" not in str(exc): raise` was mutated to
+    `if False: raise` and no test noticed. That branch is the difference
+    between a bounded wait and a wait that swallows every diagnosis the window
+    opener can produce.
+    """
+    ticks = []
+    before_floor = "2020-01-01T00:00:00Z"
+    with pytest.raises(Exception) as exc:
+        ha.open_run_window_when_clear(
+            calibrated(finished_at="2019-12-31T00:00:00Z"),
+            clock=lambda: _at(before_floor),
+            sleep=ticks.append)
+    assert "attestation floor" in str(exc.value), (
+        "the floor violation was not reported as one: %s" % exc.value)
+    assert ticks == [], (
+        "it WAITED on a floor violation. Waiting moves the window later and "
+        "the complaint is that the clock is earlier than the floor, so this "
+        "spins for the full bound and then reports what was knowable at once.")

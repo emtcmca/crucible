@@ -478,7 +478,12 @@ def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None)
     # 3-5. A FRESH window for the run, strictly after the calibration's, then
     #      the assertion that it starts clean. A window that overlapped the
     #      calibration would count the canary read as a holdout touch.
-    since = ha.open_run_window(cal)
+    # WAITS FOR THE BOUNDARY RATHER THAN DYING ON IT. `finished_at` is
+    # truncated to a whole second and this is the next statement, so the
+    # ordinary case landed inside the same second and the strict guard stopped
+    # the run. Whether the sealed drive proceeded depended on coincidentally
+    # crossing a wall-clock second between two adjacent calls.
+    since = ha.open_run_window_when_clear(cal, announce=print)
     counter = ha.make_run_counter(env, since)
     ha.assert_clean_before_read(counter)
 

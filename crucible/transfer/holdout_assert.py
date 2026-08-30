@@ -93,7 +93,8 @@ from __future__ import annotations
 import time
 
 from infra.holdout_touch import (DEFAULT_SETTLE_SECONDS, HoldoutTouchInvalid,
-                                 make_counter, now_utc, open_audit_window)
+                                 HoldoutTouchUnevaluable, make_counter,
+                                 now_utc, open_audit_window)
 
 
 class HoldoutAssertionError(RuntimeError):
@@ -349,6 +350,78 @@ def open_run_window(calibration=None, clock=None):
     if calibration is not None:
         after = require_calibrated(calibration).finished_at
     return open_audit_window(clock=clock, after=after)
+
+
+def open_run_window_when_clear(calibration=None, clock=None, sleep=None,
+                               max_wait_seconds=120, poll_seconds=0.25,
+                               announce=None):
+    """`open_run_window`, but wait for the boundary instead of dying on it.
+
+    THE DEFECT THIS FIXES. `calibrate_on_canary` stamps `finished_at` truncated
+    to a whole second, and `sealed_drive_lifecycle` opened the run window on the
+    next line. `open_audit_window` demands STRICTLY after, so the normal case -
+    two adjacent statements inside one second - raised
+    `HoldoutTouchUnevaluable` and stopped the run. Whether the sealed drive
+    proceeded depended on coincidentally crossing a wall-clock second between
+    two adjacent calls. That is a coin flip on a run that happens once.
+
+    THE STRICT GUARD IS CORRECT AND IS NOT RELAXED. Equality means the two
+    windows share a whole second, and an event inside that second belongs to
+    both - so the calibration's own canary read could be counted as a holdout
+    touch, and the run's expected count would be short by exactly that. What
+    was missing is the wait that the guard's own error text prescribes: "Wait
+    for the clock to pass %s and open again."
+
+    WHY IT REFUSES ON TIMEOUT RATHER THAN OPENING ANYWAY. Proceeding would mean
+    opening a window that overlaps the calibration, which is the attribution
+    failure the guard exists to prevent. A clock that will not advance is a
+    broken instrument, and a broken instrument is a reason to stop rather than
+    a reason to guess. This costs nothing at the moment it fires: no sealed
+    object has been read yet.
+
+    `clock` and `sleep` are injected so the whole wait runs offline in tests.
+    """
+    sleep = sleep or time.sleep
+    waited = 0.0
+    last = None
+    # ONE BOUND, and there was briefly a second one that had to come back out.
+    #
+    # `waited` advances by `poll_seconds` on every pass, arithmetically, with
+    # no reference to any clock. So the elapsed check below ALWAYS fires after
+    # exactly `max_wait_seconds / poll_seconds` passes, and a belt-and-braces
+    # iteration cap beside it could never be reached. An unreachable guard is
+    # a check that cannot fail, which is the defect this repository exists to
+    # catch, and shipping one inside the wait would have been that defect in
+    # the file written to fix another one.
+    #
+    # It was added because a mutation run hung instead of going red. That hang
+    # was real and had a different cause: an EARLIER mutation had been left in
+    # the file by a run that timed out, so the elapsed check was already
+    # disabled when the second mutation removed its replacement. The lesson is
+    # about verifying a revert, not about needing two bounds.
+    while True:
+        try:
+            return open_run_window(calibration, clock=clock)
+        except HoldoutTouchUnevaluable as exc:
+            # ONLY THE BOUNDARY CASE IS WAITED OUT. A window below the
+            # attestation floor is not something the clock will fix by
+            # advancing a second, and retrying it would spin for two minutes
+            # before reporting a problem that was decidable immediately.
+            if "strictly after" not in str(exc):
+                raise
+            last = exc
+            if waited >= max_wait_seconds:
+                raise HoldoutTouchUnevaluable(
+                    "waited %.1fs for the audit-log clock to pass the "
+                    "calibration boundary and it never did. The last refusal "
+                    "was: %s. A clock that does not advance is a broken "
+                    "instrument, and no sealed object has been read yet."
+                    % (waited, last))
+            if announce and waited == 0.0:
+                announce("  waiting for the run window to clear the "
+                         "calibration boundary")
+            sleep(poll_seconds)
+            waited += poll_seconds
 
 
 def make_run_counter(env, since, **kwargs):
