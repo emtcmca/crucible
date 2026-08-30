@@ -1354,6 +1354,13 @@ def _assemble(args):
             arms=arms,
             episodes=episodes,
             exclusions=_exclusions(raw["episodes"]),
+            # CARRIED FROM THE DRIVE, NEVER RE-DERIVED. The ledger was signed
+            # by a named human at the one moment it could be - after the read
+            # and before the first model call - and assembly happens later, on
+            # a machine that may have nothing to sign with. Passed as None when
+            # the drive had none, which the builder turns into an ABSENT key
+            # rather than a null: the canonical form admits no null at all.
+            adjudication=raw.get("adjudication"),
             # THE PREFLIGHT IS READ FROM THE DRIVE, NOT COMPUTED HERE. It was
             # measured around the sealed read, at the only moment the question
             # "did the count move by exactly what was declared" can be asked.

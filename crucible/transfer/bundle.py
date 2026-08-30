@@ -975,7 +975,8 @@ def build_transfer_bundle(*, run_id, spine_version, created_at, hash_locks,
                           target_ref, arms, episodes, exclusions, preflight,
                           policy_binding, floor, labels, execution_provenance,
                           censuses=None, transfer_arithmetic=None,
-                          replay_counterfactual_blocked=None):
+                          replay_counterfactual_blocked=None,
+                          adjudication=None):
     """Assemble one `transfer_evidence` bundle.
 
     Keyword-only throughout: this many same-typed arguments in a row is how a
@@ -1036,6 +1037,14 @@ def build_transfer_bundle(*, run_id, spine_version, created_at, hash_locks,
 
     _assert_seal_safe(bundle)
     _assert_arg_surface(bundle)
+    # ABSENT, NOT NULL, AND THE CANONICAL FORM IS WHY. `canonicalize` refuses
+    # a null outright - it is one of the four ways a payload can be un-hashable
+    # while looking like good JSON - so "not adjudicated" has to be the absence
+    # of the key. Set here rather than in the literal above so the two states
+    # are a presence question and never a value question.
+    if adjudication is not None:
+        bundle["adjudication"] = adjudication
+
     _assert_validates(bundle)
     return bundle
 

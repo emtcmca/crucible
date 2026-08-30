@@ -192,3 +192,100 @@ One SVG at `docs/diagrams/directions/`, named for the direction you took.
 Report which candidate you started from, what you changed and why, your
 smallest effective type size at 900px, and anything in the locked list you
 believe is wrong.
+
+---
+
+# AMENDMENT, 2026-08-29 — the second pass came back worse, and it was my brief
+
+Eric's verdict on the revision: **"too cramped, too hard to follow."** He is
+right, and the cause is upstream of any design decision.
+
+## The measurement
+
+| plate | text nodes | words | type sizes |
+|---|---|---|---|
+| `A-cast.svg` | 95 | **476** | 3 |
+| `A-cast-blind-by-design.svg` | 97 | **476** | 4 |
+| `B-journey.svg` | 94 | **420** | 4 |
+
+A 1920x1080 plate that a judge reads in three seconds carries **80 to 150
+words**. These carry three to five times that. **The second pass kept every one
+of the 476 words and added visual weight to them**, which is the only thing that
+could have made it worse rather than better.
+
+**This is not a design failure. It is a brief failure, and it is mine.** I
+handed over a wall of locked facts and asked for beauty on top of it. Design
+cannot cut content it has been told is frozen, so it did the only thing left and
+made the container heavier.
+
+## The new hard budget. These are limits, not targets.
+
+- **160 words maximum on the plate.** Count them. If you are at 200, you are not
+  close.
+- **40 text nodes maximum.**
+- **At least five distinct type sizes.** Three sizes over 95 nodes is why
+  nothing has hierarchy: everything is either "big" or "small" and the reader
+  has no path.
+- **At least 35% of the plate is empty.** Whitespace is the deliverable here,
+  not a leftover.
+
+## What the plate MUST carry. Nothing else is required.
+
+1. **The target agent**, and that it holds real permissions - it moves money in
+   a real ledger.
+2. **The loop, in order**: an attacker, the target, the tripwire, the coroner,
+   the armorer, the gate. Six things.
+3. **Which of those contain a model and which are pure code.** This is the
+   single most important distinction on the plate and it should be readable
+   from across a room.
+4. **Two blindness facts, not nine.** Pick the two that are enforced in Cloud
+   IAM, because those are the ones a judge can verify and the ones that are not
+   a promise: the Coroner cannot write to the policy bucket, and the Armorer
+   cannot read the sealed corpus.
+5. **The sealed held-out family.** Unchanged from the original brief - Eric's
+   hard requirement and the most distinctive claim here.
+
+That is roughly six nodes, one band, and a legend. At fifteen words each it
+lands near 110 and leaves room to breathe.
+
+## What to CUT. All of it. This is the list, and it is permission, not a hint.
+
+- **The eight tool names.** "It can move money and send email" is the point; the
+  function names are not.
+- **The six `CAP_*` class names.** They were locked because they must be exact
+  IF PRESENT. They do not have to be present.
+- **The model version pins.** A judge does not check `gemini-3.7-flash` off a
+  diagram.
+- **Seven of the nine blindness rows**, and the enforcement-class legend that
+  goes with them once only IAM-enforced ones remain.
+- **The fixture counts** (26 benign, 14 near-miss, 9 known-bad).
+- **The leak footnote.** This is NOT being hidden: it lives in `README.md`
+  under *"what is not defensible today"*, which is where a reader looking for
+  the accuracy boundary goes. A diagram is not the accuracy boundary and never
+  was; putting it there cost the plate a line and bought nothing.
+- **Every second sentence in every card.** If a card has two lines, one of them
+  is doing the other's job.
+
+**Everything cut here stays true and stays published elsewhere.** The locked
+list in the original brief governs what may be SAID, not what must be SHOWN. A
+fact that is not on the plate is not a fact that has been retracted.
+
+## The test to run before you hand it back
+
+1. Print it, or view it at 900px wide.
+2. Look for three seconds. Can you say what kind of system this is?
+3. Look for fifteen. Can you name the loop's order and say which parts are
+   models?
+4. Count the words. Over 160 and it goes back regardless of how it looks.
+
+If you cannot do 2 and 3, the answer is to cut more, not to restyle. Every
+previous pass has answered a legibility problem with more design, and that is
+the move that produced a worse plate from a better-looking one.
+
+## Which to start from
+
+**`B-journey.svg`**, and cut it to five beats instead of nine. It has the
+strongest reason to exist - a reader follows a story without a glossary - and
+beats are easier to delete than a topology is to thin. `A-cast` has to keep
+every component to remain a cast, which is exactly the constraint that
+overloaded it.

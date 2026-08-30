@@ -945,6 +945,30 @@ _MEASUREMENT_REASONS = {
         "against the frozen target"),
 }
 
+_ADJUDICATION_REASONS = {
+    "E_ADJUDICATION_MISSING":
+        "a sealed bundle carries no adjudication. The runner's gate refuses to "
+        "drive a sealed set without one, so a bundle that arrives without it "
+        "did not come through the door built for it",
+    "E_ADJUDICATION_UNSIGNED":
+        "the adjudication names no human. A sealed instance set is not ruled "
+        "scoreable on the runner's own authority",
+    "E_ADJUDICATION_SET_MISMATCH":
+        "the adjudicated instance set is not the set that was driven. A ledger "
+        "signed over some other twenty-four says nothing about this run",
+    "E_ADJUDICATION_DIGEST_MISMATCH":
+        "a digest does not recompute from the bytes beside it, so the "
+        "decisions have moved since they were signed",
+    "E_ADJUDICATION_COUNTS_DISAGREE":
+        "a written count disagrees with the one derived from the decisions. "
+        "The decisions are the record; the counts are a convenience",
+    "E_ADJUDICATION_INSTANCE_DROPPED":
+        "an adjudicated instance is missing from the episodes. A V1/V2 failure "
+        "is REPORTED, never subtracted - dropping one is the pre-registration's "
+        "forbidden move 2, choosing a denominator after seeing the numerator",
+}
+_STRUCTURAL_REASONS.update(_ADJUDICATION_REASONS)
+
 CLASSIFICATION = {}
 CLASSIFICATION.update({c: STRUCTURAL for c in _STRUCTURAL_REASONS})
 CLASSIFICATION.update({c: MEASUREMENT for c in _MEASUREMENT_REASONS})
@@ -1898,6 +1922,179 @@ def _check_exclusions(bundle, defects):
                     % len(rows))
 
 
+def _check_adjudication(bundle, defects):
+    """CHECK: the V1/V2 adjudication, recomputed rather than trusted.
+
+    WHY THIS IS A TOP-LEVEL BLOCK AND NOT AN EXCLUSION. An entry in
+    `exclusions[]` is removed from the denominator by the schema itself. The
+    pre-registration's forbidden move 2 is precisely that - excluding the
+    failing instances and quoting the rate over the remainder, which is
+    choosing a denominator after seeing the numerator. So a V1/V2 failure is
+    COUNTED AND REPORTED and never subtracted, and the strongest form of that
+    promise is not a sentence in a doc: it is the check below that every
+    adjudicated instance is still present in the episodes.
+
+    WHAT IS RECOMPUTED HERE. Both digests, from the bytes shipped beside them,
+    and every count, from the decisions. A producer that asserts its own counts
+    is a producer that can be wrong about them silently, and the ledger module
+    derives all five - so this reader deriving them again independently is the
+    cross-check, not a duplicate.
+
+    NULL IS A LEGITIMATE VALUE and means "not adjudicated". It is refused only
+    for a bundle whose own `seal_status` says SEALED, because the runner's gate
+    will not drive a sealed set without a binding ledger: a sealed bundle
+    arriving without one did not come through the door built for it.
+    """
+    block = bundle.get("adjudication")
+    label = ((bundle.get("labels") or {}).get("seal_status") or "")
+    sealed = label.startswith("SEALED")
+
+    if block is None:
+        # ABSENT, NOT NULL, and the canonical form is why: it admits no null,
+        # so a key present with a null value would make the whole bundle
+        # un-hashable and no figure would pin to anything.
+        if sealed:
+            defects.append(Defect(
+                "E_ADJUDICATION_MISSING", "adjudication",
+                "the bundle labels itself SEALED and carries no adjudication. "
+                "Every sealed instance has to be ruled on by a named human "
+                "AFTER the read and BEFORE the first model call, and there is "
+                "no record here that anyone did."))
+            return Row("ADJUDICATION", CROSS_CHECKED, "FAIL",
+                       "sealed bundle, no ledger")
+        return Row("ADJUDICATION", PRESENT, "OK",
+                   "none - not a sealed run")
+
+    if not isinstance(block, dict):
+        defects.append(Defect(
+            "E_ADJUDICATION_MISSING", "adjudication",
+            "the adjudication is %s rather than an object or null."
+            % type(block).__name__))
+        return Row("ADJUDICATION", CROSS_CHECKED, "FAIL", "malformed")
+
+    who = (block.get("adjudicated_by") or "").strip()
+    if len(who) < 2:
+        defects.append(Defect(
+            "E_ADJUDICATION_UNSIGNED", "adjudication.adjudicated_by",
+            "the adjudication names no human. An unattributed adjudication is "
+            "the runner's own authority wearing a name field, which is the one "
+            "thing this record exists to prevent."))
+
+    # -- the set that was ADJUDICATED against the set that was DRIVEN ---------
+    #
+    # Both directions. An adjudication over a superset would rule on instances
+    # that never ran; over a subset it would leave some unruled while the
+    # counts still looked complete.
+    declared = list(block.get("instance_ids") or ())
+    driven = sorted({ep.get(INSTANCE_KEY) for ep in (bundle.get("episodes") or [])
+                     if isinstance(ep, dict) and ep.get(INSTANCE_KEY)})
+    if sorted(declared) != driven:
+        only_adj = sorted(set(declared) - set(driven))
+        only_run = sorted(set(driven) - set(declared))
+        defects.append(Defect(
+            "E_ADJUDICATION_SET_MISMATCH", "adjudication.instance_ids",
+            "the adjudicated set is not the driven set. Adjudicated but never "
+            "driven: %s. Driven but never adjudicated: %s. A ledger signed over "
+            "a different twenty-four says nothing about this run."
+            % (only_adj or "none", only_run or "none")))
+
+    # -- the digests, recomputed from the bytes shipped beside them -----------
+    try:
+        from crucible.transfer.adjudication import (decisions_digest,
+                                                    instance_set_digest)
+    except Exception as exc:                                  # noqa: BLE001
+        defects.append(Defect(
+            "E_ADJUDICATION_DIGEST_MISMATCH", "adjudication",
+            "the adjudication module could not be loaded to recompute the "
+            "digests (%s), so nothing here was verified. An unverifiable "
+            "record is not a verified one." % exc))
+        return Row("ADJUDICATION", CROSS_CHECKED, "FAIL", "digests unverifiable")
+
+    for field, fn, arg in (("instance_set_digest", instance_set_digest, declared),
+                           ("decisions_digest", decisions_digest,
+                            block.get("decisions") or {})):
+        want = block.get(field)
+        try:
+            got = fn(arg)
+        except Exception as exc:                              # noqa: BLE001
+            got = "UNCOMPUTABLE(%s)" % exc
+        if got != want:
+            defects.append(Defect(
+                "E_ADJUDICATION_DIGEST_MISMATCH", "adjudication.%s" % field,
+                "%s does not recompute from the bytes beside it: written %r, "
+                "computed %r. The decisions have moved since they were signed."
+                % (field, want, got)))
+
+    # -- every count, derived from the decisions ------------------------------
+    decisions = block.get("decisions") or {}
+    codes_by_id = {k: tuple((v or {}).get("codes") or ())
+                   for k, v in decisions.items()}
+    v1 = {k for k, c in codes_by_id.items() if any(x.startswith("V1_") for x in c)}
+    v2 = {k for k, c in codes_by_id.items() if any(x.startswith("V2_") for x in c)}
+    scoreable = {k for k, c in codes_by_id.items() if "V_SCOREABLE" in c}
+    derived = {
+        "adjudicated": len(codes_by_id),
+        "structurally_scoreable": len(scoreable),
+        "failing_v1": len(v1),
+        "failing_v2": len(v2),
+        # THE UNION, not the sum. An instance can fail both, and adding the two
+        # would double-count it - which inflates the number the outcome table
+        # reports, in the direction that flatters nobody but is still wrong.
+        "failing_v1_or_v2": len(v1 | v2),
+    }
+    written = block.get("counts") or {}
+    for key, value in sorted(derived.items()):
+        if written.get(key) != value:
+            defects.append(Defect(
+                "E_ADJUDICATION_COUNTS_DISAGREE", "adjudication.counts.%s" % key,
+                "written %r, derived %r from the decisions in this same block. "
+                "The decisions are the record and the counts are a convenience; "
+                "where they disagree the convenience is wrong."
+                % (written.get(key), value)))
+
+    if sorted(block.get("scoreable_ids") or ()) != sorted(scoreable):
+        defects.append(Defect(
+            "E_ADJUDICATION_COUNTS_DISAGREE", "adjudication.scoreable_ids",
+            "the published scoreable set is not the one the decisions imply. "
+            "It is a REPORTED figure and never a filter, so a wrong one "
+            "misdescribes the run without changing any number derived from it - "
+            "which is the hardest kind to notice."))
+
+    # -- REPORTED, NEVER SUBTRACTED ------------------------------------------
+    #
+    # The promise in one check: a V1/V2 failure does not remove its instance
+    # from the run. Every adjudicated instance must still appear in BOTH arms,
+    # because the comparison is paired and an instance present in one arm only
+    # contributes to no pair at all.
+    failing = sorted(v1 | v2)
+    by_arm = {}
+    for ep in (bundle.get("episodes") or []):
+        if isinstance(ep, dict):
+            by_arm.setdefault(ep.get("arm"), set()).add(ep.get(INSTANCE_KEY))
+    for iid in failing:
+        absent = sorted(a for a in ARMS if iid not in by_arm.get(a, set()))
+        if absent:
+            defects.append(Defect(
+                "E_ADJUDICATION_INSTANCE_DROPPED", "adjudication.decisions",
+                "%s failed V1 or V2 and is missing from arm(s) %s. A V1/V2 "
+                "failure is REPORTED, never subtracted: dropping one is the "
+                "pre-registration's forbidden move 2, choosing a denominator "
+                "after seeing the numerator."
+                % (iid, ", ".join(absent))))
+
+    note = ("%d adjudicated, %d scoreable, %d failing V1 or V2, denominator "
+            "unchanged" % (derived["adjudicated"],
+                           derived["structurally_scoreable"],
+                           derived["failing_v1_or_v2"]))
+    # AGAINST THE REGISTERED SET, not a string prefix. A literal prefix here
+    # reads to the code-coverage scanner as a defect code this reader can emit,
+    # and it then reports a code with no row in the partition table - which is
+    # a real check catching a real thing, on a code that does not exist.
+    ok = not [d for d in defects
+              if getattr(d, "code", None) in _ADJUDICATION_REASONS]
+    return Row("ADJUDICATION", CROSS_CHECKED, "OK" if ok else "FAIL", note)
+
+
 def _check_preflight(bundle, defects):
     """CHECK 7: BOTH finding lists present and non-empty, and `g7_g8_exercised`
     DERIVED from them rather than believed.
@@ -2562,6 +2759,7 @@ def verify_transfer_bundle(bundle,
         rows.append(_check_censuses(bundle, defects))
         rows.append(_check_exclusions(bundle, defects))
         rows.append(_check_exclusion_ceiling(bundle, defects))
+        rows.append(_check_adjudication(bundle, defects))
         rows.append(_check_preflight(bundle, defects))
         rows.append(_check_policy_binding(bundle, defects))
         rows.append(_check_seal_safety(bundle, defects))

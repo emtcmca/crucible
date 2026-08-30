@@ -434,6 +434,142 @@
         }
       }
     },
+    "adjudication": {
+      "$comment": "THE V1/V2 ADJUDICATION, AND IT IS A TOP-LEVEL BLOCK ON PURPOSE. It is NOT in exclusions[]: an entry there is removed from the denominator by the schema itself, and the pre-registration's forbidden move 2 is exactly that - excluding the failing instances and quoting the rate over the remainder, which is choosing a denominator after seeing the numerator. A V1/V2 failure is COUNTED AND REPORTED, never subtracted. It is not in the arm censuses either, which describe what each arm did rather than what a human ruled, and not in labels[], which is free text a reader cannot recompute. ABSENT on a stand-in, not null. The canonical form this bundle is hashed through admits no null at all - that is one of the four ways a payload can be un-hashable while looking like good JSON - so 'not adjudicated' has to be the absence of the key. Absence is not ambiguous here: a bundle whose own seal_status says SEALED and carries no adjudication is refused by name, so the two readings are separated by the label rather than by a sentinel. Every count here is DERIVED from `decisions` by the reader and compared with the value written; a producer that asserts its own counts is a producer that can be wrong about them silently.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_kind",
+        "contract_version",
+        "criterion_source",
+        "adjudicated_by",
+        "adjudicated_on",
+        "instance_count",
+        "instance_ids",
+        "instance_set_digest",
+        "decisions_digest",
+        "decisions",
+        "counts",
+        "scoreable_ids"
+      ],
+      "properties": {
+        "record_kind": {
+          "const": "f4_adjudication"
+        },
+        "contract_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "criterion_source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "$comment": "The document the codes were ratified against, by path. Ruling 46: the criterion has one owner and this is a pointer to it, not a copy of it."
+        },
+        "adjudicated_by": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "$comment": "A NAMED HUMAN. A sealed instance set is not ruled scoreable on the runner's own authority, and an unattributed adjudication is the runner's authority wearing a name field."
+        },
+        "adjudicated_on": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "instance_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "instance_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^atk_[0-9a-f]{12}$"
+          },
+          "$comment": "OPAQUE IDS ONLY. `atk_` ids carry no attack text, which is what lets this block be published beside a sealed run."
+        },
+        "instance_set_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "decisions_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "decisions": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^atk_[0-9a-f]{12}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "codes"
+            ],
+            "properties": {
+              "codes": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(V_SCOREABLE|V1_[A-Z_]{2,40}|V2_[A-Z_]{2,40})$"
+                }
+              }
+            }
+          },
+          "$comment": "A CLOSED VOCABULARY AND NO FREE TEXT. There is no `reason`, `note` or `detail` property, and the absence is the point: this record describes SEALED ATTACK INSTANCES, and a free-text field on it is a publication channel for the content the seal exists to protect."
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "adjudicated",
+            "structurally_scoreable",
+            "failing_v1",
+            "failing_v2",
+            "failing_v1_or_v2"
+          ],
+          "properties": {
+            "adjudicated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "structurally_scoreable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failing_v1": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failing_v2": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failing_v1_or_v2": {
+              "type": "integer",
+              "minimum": 0,
+              "$comment": "THE UNION, and it is the number the outcome table asks for. Reported as a union rather than as a sum because an instance can fail both, and adding the two arms of that would double-count it."
+            }
+          }
+        },
+        "scoreable_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^atk_[0-9a-f]{12}$"
+          },
+          "$comment": "PUBLISHED BESIDE THE COUNTS, NOT USED AS A FILTER. Every sealed instance is still driven and still counts toward the denominator; this set exists so a reader can see WHICH ones a human ruled structurally scoreable, not so anything can select on it."
+        }
+      }
+    },
     "preflight": {
       "type": "object",
       "additionalProperties": false,
