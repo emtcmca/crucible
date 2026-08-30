@@ -3,9 +3,13 @@
 **Date:** 2026-08-30 · **Branch:** `main` · **Role:** READ-ONLY.
 
 You are the Coroner. You write the autopsy; you do not propose or apply the fix.
-**The seal is intact and no F4 object has been read** - and finding 8 of your
-review 5 made me define what that sentence means, so see §6 before you take it
-at face value.
+
+**The seal claim, scoped.** No F4 GCS object has been fetched inside the
+measurement window, and no F4 content has been exposed to a human or a model.
+Local copies are opened for automated fingerprinting, which is how the seal is
+proven intact. The unqualified sentence this line used to carry - *"no F4
+object has been read"* - is not literally true, because local F4 files have
+been opened repeatedly, and your review 6 was right to reject it. See §6.
 
 ## Review 5, actioned
 
@@ -160,9 +164,11 @@ the suite is the version of this that costs least.**
 
 `test_the_script_runs_end_to_end_and_returns_a_real_exit_code` ran the real
 proof, which shells to `seal-commitment.py` and `seal-leak-check.py`, both of
-which open and parse every sealed JSON. On this machine `corpus/sealed/` does
-not exist, so resolution fell through to the SEAL worktree - so an ordinary
-`pytest` run opened the holdout. `"Nothing here reads the sealed corpus."` was
+which open and parse every sealed JSON. `seal-commitment.py` resolves the
+sealed directory from `CRUCIBLE_SEALED_DIR`, then an in-repo `corpus/sealed`,
+then the build-machine default - and **as observed on this machine on
+2026-08-30 the in-repo directory was absent**, so resolution fell through to
+the SEAL worktree and an ordinary `pytest` run opened the holdout. `"Nothing here reads the sealed corpus."` was
 literally false.
 
 **Your demand that the methodology separate the two is met, and I did it by
@@ -215,9 +221,13 @@ row for an instance the bundle still scored; it now rules the instance the
 golden already excludes. One key, one code.
 
 `run_suite()` rows carry `isolated` / `extra_codes` / `schema_coupled`, and
-`isolation_census()` prints for all 45 fixtures: **22 isolated**. Pre-existing
-non-isolated fixtures were **not** changed and are **not** asserted on - they
-are reported, which is the point. TKB36-41, 44, 45 are all isolated.
+`isolation_census()` reports every fixture. **This paragraph described a
+two-way split and was superseded on 2026-08-30 by your review 6, which ruled
+that reader-isolated-but-schema-coupled is a third category and must not be
+counted as exactly isolated. It is now three. Read the census output, not this
+sentence - it prints the counts and this file would only go stale again.**
+Pre-existing non-isolated fixtures were **not** changed and are **not**
+asserted on - they are reported, which is the point. TKB36-41, 44, 45 are all isolated.
 `SCHEMA_COUPLED_FIXTURES` records TKB42/43: deleting a contract-required field
 is necessarily visible to both instruments.
 

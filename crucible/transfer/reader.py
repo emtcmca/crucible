@@ -1253,17 +1253,24 @@ _ADJUDICATION_REASONS = {
         "the runner's own authority. The field is named attribution and never "
         "authenticated identity, so this is the only question these bytes can "
         "answer about it",
+    # NO SIGNATURE VOCABULARY IN ANY OF THE THREE BELOW. Nothing in this
+    # bundle is signed: `adjudicated_by` is a typed name and the digests are
+    # commitments computed over bytes, with no key anywhere. "Signed over" told
+    # a reader the record had been authenticated, which it never was, and an
+    # independent reviewer flagged it on 2026-08-30. A digest is described as a
+    # COMMITMENT, and the accurate sentence about a stale one is that the
+    # decisions moved and the commitment to them did not.
     "E_ADJUDICATION_CHALLENGE_MISMATCH":
-        "the post-read challenge does not cover the instance set this record "
-        "was signed over, so the challenge came from some other read. The "
-        "response digest is NOT checkable here - it commits to a nonce the "
-        "bundle deliberately never publishes",
+        "the instance-set digest recorded in the post-read challenge is not "
+        "the digest of the set this record commits to, so the block came from "
+        "some other read. The response digest is NOT evaluable here - it "
+        "commits to a nonce the bundle deliberately never publishes",
     "E_ADJUDICATION_SET_MISMATCH":
         "the adjudicated instance set is not the set that was driven. A ledger "
-        "signed over some other twenty-four says nothing about this run",
+        "committing to some other twenty-four says nothing about this run",
     "E_ADJUDICATION_DIGEST_MISMATCH":
         "a digest does not recompute from the bytes beside it, so the "
-        "decisions have moved since they were signed",
+        "decisions have moved and the commitment to them did not",
     "E_ADJUDICATION_COUNTS_DISAGREE":
         "a written count disagrees with the one derived from the decisions. "
         "The decisions are the record; the counts are a convenience",
@@ -2362,19 +2369,29 @@ def _check_adjudication(bundle, defects):
     claiming exactly that, which is the worse half of the pair: the published
     reader is the one a third party runs.
 
-    THE POST-READ CHALLENGE, AND WHAT IT DOES AND DOES NOT SHOW. Two things in
-    `post_read_challenge` are checkable by a reader holding only the bundle: the
-    challenge's `instance_set_digest`, which recomputes from `instance_ids` and
-    must equal the value the record itself was signed over, and the constant
-    `binding` text, which names the construction. `response_digest`,
-    `nonce_digest` and `minted_at` are RECORDED AND NOT VERIFIED, and this
-    function does not pretend otherwise - the response commits to a RAW NONCE
-    this bundle deliberately never publishes, so only the process holding that
-    nonce can recompute it, and that process is the in-process gate rather than
-    a third party. NO offline reader can establish WHEN it was minted either.
-    What the block records is that a challenge was minted and answered inside
-    the run; an offline reader can confirm it covers THIS instance set and
-    nothing further. Operationally closed, evidentially open, and
+    THE POST-READ CHALLENGE, AND WHAT IT DOES AND DOES NOT SHOW. Exactly two
+    things in `post_read_challenge` are checkable by a reader holding only the
+    bundle, and both are narrower than the block looks:
+
+      1. The `instance_set_digest` the challenge RECORDS is compared against
+         one recomputed from `instance_ids`, and against the record's own copy
+         of that digest. All three agreeing says the block sits beside the
+         instance set it names.
+      2. The `binding` field carries the same constant sentence
+         `attach_challenge` writes into every record it produces. That shows
+         the block came through that function. It shows NOTHING about the
+         digests sitting beside it - the sentence is a fixed string and would
+         read identically next to fabricated ones.
+
+    `response_digest`, `nonce_digest` and `minted_at` are RECORDED AND NOT
+    VERIFIED, and this function does not pretend otherwise. The response is a
+    commitment this reader CANNOT EVALUATE: it is taken over a RAW NONCE that
+    is never serialized into the bundle, so no third party can recompute it and
+    only the process that held the nonce ever verified it. NO offline reader
+    can establish WHEN it was minted either. Nothing here establishes that the
+    response digest commits to the instance set or to the decisions - that
+    construction is named by the binding sentence and is not checked by anyone
+    reading these bytes. Operationally closed, evidentially open, and
     `adjudication_guarantee()` prints that under every report rather than
     leaving it in this comment where only the people editing the file would
     read it.
@@ -2557,8 +2574,8 @@ def _check_adjudication(bundle, defects):
         defects.append(Defect(
             "E_ADJUDICATION_SET_MISMATCH", "adjudication.instance_ids",
             "the adjudicated set is not the driven set. Adjudicated but never "
-            "driven: %s. Driven but never adjudicated: %s. A ledger signed over "
-            "a different twenty-four says nothing about this run."
+            "driven: %s. Driven but never adjudicated: %s. A ledger committing "
+            "to a different twenty-four says nothing about this run."
             % (only_adj or "none", only_run or "none")))
 
     # -- the digests, recomputed from the bytes shipped beside them -----------
@@ -2574,8 +2591,8 @@ def _check_adjudication(bundle, defects):
             defects.append(Defect(
                 "E_ADJUDICATION_DIGEST_MISMATCH", "adjudication.%s" % field,
                 "%s does not recompute from the bytes beside it: written %r, "
-                "computed %r. The decisions have moved since they were signed."
-                % (field, want, got)))
+                "computed %r. The decisions have moved and the commitment to "
+                "them did not." % (field, want, got)))
 
     # -- the post-read challenge, verified as far as a bundle-only reader can -
     #
@@ -2585,25 +2602,25 @@ def _check_adjudication(bundle, defects):
     # exist when it was written.
     #
     # WHAT IS CHECKED HERE, AND IT IS NARROWER THAN THE BLOCK LOOKS. The
-    # `instance_set_digest` is RECOMPUTED from `instance_ids`, and it is locked
-    # against the record's own copy of that digest - `inspect.attach_challenge`
-    # refuses to bind a challenge minted over a different set, and this is that
-    # refusal arriving at the read path. Together they refuse a challenge
-    # lifted off some other read and pasted onto this ruling.
+    # `instance_set_digest` the challenge RECORDS is compared against one
+    # recomputed from `instance_ids`, and against the record's own copy of that
+    # digest - `inspect.attach_challenge` refuses to bind a challenge minted
+    # over a different set, and this is that refusal arriving at the read path.
+    # Together they refuse a block lifted off some other read and pasted onto
+    # this ruling. They do not establish that anything was computed OVER that
+    # set; they establish that the digest recorded here is that set's digest.
     #
     # WHAT IS DELIBERATELY NOT CHECKED, AND WHY SAYING SO IS THE POINT.
     # `response_digest`, `nonce_digest` and `minted_at` are RECORDED AND NOT
-    # VERIFIED. The response covers the RAW NONCE, and the nonce is never
-    # published - publishing it would let anyone holding the bundle answer the
-    # same challenge. So no reader holding only these bytes can recompute it,
-    # and this function does not pretend to. A comparison written here could
-    # only ever compare something to itself, which is a check that measures
-    # nothing - the defect this repository has recorded seventeen times. The
-    # residual is printed under every report by `adjudication_guarantee()`
-    # instead, in the words an independent reviewer settled on: what the block
-    # records is that a challenge was minted and answered inside the run, and
-    # an offline reader can confirm it covers THIS instance set and nothing
-    # further.
+    # VERIFIED. The response is a commitment taken over the RAW NONCE, and the
+    # nonce is never serialized into the bundle - publishing it would let
+    # anyone holding these bytes answer the same challenge. So no reader
+    # holding only the bundle can recompute it, this function does not pretend
+    # to, and only the process that held the nonce ever verified it. A
+    # comparison written here could only ever compare something to itself,
+    # which is a check that measures nothing - the defect this repository has
+    # recorded seventeen times. The residual is printed under every report by
+    # `adjudication_guarantee()` instead.
     challenge = block.get(RECORD_CHALLENGE_KEY)
     if not isinstance(challenge, dict):
         if sealed:
@@ -2624,15 +2641,15 @@ def _check_adjudication(bundle, defects):
             defects.append(Defect(
                 "E_ADJUDICATION_CHALLENGE_MISMATCH",
                 "adjudication.%s.instance_set_digest" % RECORD_CHALLENGE_KEY,
-                "the challenge was answered over instance set %r and the "
-                "instance_ids in this record digest to %r. A challenge over "
-                "some other set is a challenge from some other read."
+                "the challenge records instance set %r and the instance_ids in "
+                "this record digest to %r. A block naming some other set is a "
+                "block from some other read."
                 % (want_set, got_set)))
         if want_set != block.get("instance_set_digest"):
             defects.append(Defect(
                 "E_ADJUDICATION_CHALLENGE_MISMATCH",
                 "adjudication.%s.instance_set_digest" % RECORD_CHALLENGE_KEY,
-                "the challenge covers %r and the record was signed over %r. "
+                "the challenge records %r and the record commits to %r. "
                 "The binding step refuses this at write time; a published "
                 "bundle carrying it did not come from that step."
                 % (want_set, block.get("instance_set_digest"))))
@@ -3579,13 +3596,25 @@ def adjudication_guarantee():
     accurately, and a residual that lives in a source comment is read only by
     the people editing the source.
 
-    Two things are commonly over-read off this block, and an independent
-    reviewer named both on 2026-08-30. `adjudicated_by` gets read as a
+    Three things are commonly over-read off this block, and an independent
+    reviewer named all three across 2026-08-30. `adjudicated_by` gets read as a
     signature; it is a typed name. The post-read challenge gets read as proof
-    that the ruling came after the read; what it records is that a challenge was
-    minted and answered inside the run, and all an offline reader can confirm is
-    that it covers THIS instance set. The ordering rests on the live gate rather
-    than on the artifact. Operationally closed, evidentially open.
+    that the ruling came after the read; the ordering rests on the live gate
+    rather than on the artifact.
+
+    AND THE THIRD, CAUGHT TWICE IN THIS BLOCK AND NOT TO BE REINTRODUCED IN ANY
+    FORM. The rendered text used to credit this reader with having verified the
+    challenge's CONSTRUCTION - that the response digest "covers" the instance
+    set, and that the binding names a construction "this reader verified". It
+    does not and it cannot. Two things are checked and both are narrow: the
+    record's own `instance_set_digest` was recomputed from `instance_ids` and
+    agreed, with the challenge block's copy agreeing too; and the `binding`
+    field carries the fixed sentence `attach_challenge` emits, which shows the
+    block came through that function and shows nothing about the digests beside
+    it. `response_digest` is a commitment this reader CANNOT EVALUATE, because
+    the nonce it is taken over is never serialized. The same overclaim reached
+    a schema `$comment` claiming the response digest recomputes offline and was
+    corrected there too. Operationally closed, evidentially open.
     """
     return "\n".join((
         "  WHAT THE ADJUDICATION BLOCK GUARANTEES",
@@ -3596,9 +3625,16 @@ def adjudication_guarantee():
         "    * every published count, derived again from the decisions",
         "    * no adjudicated instance is missing from either arm, and none is",
         "      also removed by an exclusion row",
-        "    * the post-read challenge covers the instance set this record was",
-        "      signed over, and its binding names the construction this reader",
-        "      verified",
+        "    * this record's own `instance_set_digest` was recomputed from its",
+        "      `instance_ids` and agreed, and the copy of that digest inside",
+        "      the post-read challenge agreed with it. That places the",
+        "      challenge block beside the instance set it names. It says",
+        "      nothing about what any other digest was taken over",
+        "    * the challenge's `binding` field carries the fixed sentence the",
+        "      binding step writes into every record. That shows the block",
+        "      came through that step - and nothing about the digests sitting",
+        "      beside it, because the sentence is a constant and would read",
+        "      identically next to fabricated ones",
         "",
         "  NOT AUTHENTICATED - a name, not a signature:",
         "    * `adjudicated_by` is NAMED ATTRIBUTION. Nothing in this bundle",
@@ -3609,16 +3645,21 @@ def adjudication_guarantee():
         "",
         "  OPEN - stated, not closed, and not narrowed:",
         "    * `response_digest`, `nonce_digest` and `minted_at` are",
-        "      RECORDED AND NOT VERIFIED HERE. The response commits to a raw",
-        "      nonce this bundle deliberately never publishes - publishing it",
+        "      RECORDED AND NOT VERIFIED HERE. The response is a commitment",
+        "      THIS READER CANNOT EVALUATE: it is taken over a raw nonce this",
+        "      bundle deliberately never serializes - publishing the nonce",
         "      would let anyone holding these bytes answer the same challenge -",
-        "      so only the process holding that nonce can recompute it, and",
-        "      that process is the in-process gate rather than a third party.",
-        "    * WHEN THE NONCE WAS MINTED. What this block records is that a",
-        "      post-read challenge was minted and answered inside the run; an",
-        "      offline reader can confirm it covers THIS instance set and",
-        "      nothing further. The ordering is enforced by the live gate and",
-        "      is not shown by the artifact.",
+        "      so no third party can recompute it, and the only process that",
+        "      ever verified it is the in-process gate that held the nonce.",
+        "    * WHAT THE RESPONSE DIGEST WAS TAKEN OVER. The binding sentence",
+        "      NAMES a construction over the nonce and the two digests. This",
+        "      reader did not check that construction and cannot: without the",
+        "      nonce there is nothing to recompute. Nothing here establishes",
+        "      that the response commits to this instance set or to these",
+        "      decisions.",
+        "    * WHEN THE NONCE WAS MINTED. No offline reader can establish it.",
+        "      The ordering is enforced by the live gate and is not shown by",
+        "      the artifact.",
         "      Operationally closed, evidentially open.",
     ))
 
@@ -4512,8 +4553,11 @@ def _tkb38(b):
 def _tkb39(b):
     """A DIGEST THAT NO LONGER RECOMPUTES.
 
-    One ruling edited after signing. The decisions moved; the commitment to
-    them did not.
+    One ruling edited after the commitment to it was computed. The decisions
+    moved; the commitment to them did not. NOTHING IS SIGNED ANYWHERE IN THIS
+    BUNDLE - `decisions_digest` is a digest over bytes with no key behind it,
+    and calling it a signature was the overclaim an independent reviewer
+    flagged on 2026-08-30.
     """
     b = _adjudicated(b)
     adj = b["adjudication"]
@@ -4607,8 +4651,8 @@ def _tkb44(b):
     """A CHALLENGE ANSWERED OVER SOME OTHER INSTANCE SET.
 
     The digest is bent by one character, which is enough that it is neither the
-    value `instance_ids` recomputes to nor the value the record itself was
-    signed over. `inspect.attach_challenge` refuses this at write time; this is
+    value `instance_ids` recomputes to nor the value the record itself commits
+    to. `inspect.attach_challenge` refuses this at write time; this is
     that refusal arriving at the read path, which is where a third party runs.
 
     Schema-clean on purpose - it is still sixty-four lowercase hex characters -
@@ -4717,7 +4761,7 @@ FIXTURES = (
      "E_ADJUDICATION_UNATTRIBUTED", STRUCTURAL, _tkb37),
     ("TKB38", "decisions over a smaller set, digests and counts recomputed to match",
      "E_ADJUDICATION_SET_MISMATCH", STRUCTURAL, _tkb38),
-    ("TKB39", "a ruling edited after the decisions were signed",
+    ("TKB39", "a ruling edited after its commitment was computed",
      "E_ADJUDICATION_DIGEST_MISMATCH", STRUCTURAL, _tkb39),
     ("TKB40", "a count that disagrees with the decisions beside it",
      "E_ADJUDICATION_COUNTS_DISAGREE", STRUCTURAL, _tkb40),
@@ -4741,12 +4785,19 @@ KNOWN_BAD_IDS = tuple(f[0] for f in FIXTURES)
 #: Fixtures whose single mutation REMOVES A FIELD THE CONTRACT REQUIRES, so the
 #: schema necessarily reports it as well as the reader.
 #:
-#: THIS IS A RECORD, NOT AN EXEMPTION. The isolation census below still requires
-#: each of these to fire exactly ONE reader code; what it tolerates for these and
-#: only these is `E_TRANSFER_SCHEMA` beside it, because there is no way to delete
-#: a required field without the contract noticing - and the reader's own check
-#: exists precisely for the bundle that reached the reader WITHOUT validating.
-#: Each entry carries the reason it cannot be schema-clean.
+#: THIS IS A RECORD, NOT AN EXEMPTION, AND IT DOES NOT DECIDE THE CENSUS.
+#: `isolation_census` files a fixture as schema-coupled from THE CODES IT
+#: ACTUALLY EMITTED, never from membership here - a census that read this dict
+#: would report what the file claims instead of what the reader did. Fixtures
+#: older than this record are schema-coupled too and carry no entry; they are
+#: counted from the scan and printed with "no recorded reason".
+#:
+#: What each entry buys is the stated reason a fixture written after 2026-08-30
+#: cannot be schema-clean: there is no way to delete a required field without
+#: the contract noticing, and the reader's own check exists precisely for the
+#: bundle that reached the reader WITHOUT validating. The adjudication-fixture
+#: test tolerates `E_TRANSFER_SCHEMA` for these and only these, which is what
+#: keeps a NEW fixture from quietly acquiring a second code.
 SCHEMA_COUPLED_FIXTURES = {
     "TKB42": "execution_provenance.sealed_run is required by the contract",
     "TKB43": "adjudication.post_read_challenge is required by the contract",
@@ -4831,44 +4882,151 @@ def run_suite():
     return results
 
 
+#: The one extra code that means A SECOND INSTRUMENT SAW THE SAME DAMAGE rather
+#: than a second behaviour. It is the contract validator's code, not a reader
+#: check, so a fixture emitting it beside the reader code it names has still
+#: isolated that reader check - the schema simply also noticed the field the
+#: mutation removed or malformed. Written as a literal because it is the
+#: validator's own published code and this file already spells it that way at
+#: the site that raises it; a second name for it would be a second thing to
+#: keep in step.
+_SCHEMA_CODE = "E_TRANSFER_SCHEMA"
+
+
+class IsolationCensus:
+    """One run of the known-bad suite, split by WHAT ELSE fired beside the code
+    each fixture names.
+
+    THE SPLIT IS THE POINT AND IT WAS RULED ON. Collapsing these into
+    isolated/not-isolated hid a real difference: a fixture emitting one named
+    reader code plus an independent schema failure is meaningfully different
+    from one emitting five reader failures. An independent reviewer measured
+    the populations directly on 2026-08-30 and ruled that they be reported
+    separately, with schema coupling factored out rather than folded in.
+
+    SCHEMA-COUPLED IS NOT A SYNONYM FOR EXACTLY ISOLATED, and nothing here may
+    relabel it as one. The fixture published more than one code; what the
+    category records is WHY that is not evidence of a second reader behaviour.
+    A reader of this census has to be able to see both facts.
+    """
+
+    __slots__ = ("exact", "schema_coupled", "not_isolated")
+
+    def __init__(self, exact, schema_coupled, not_isolated):
+        self.exact = exact
+        self.schema_coupled = schema_coupled
+        self.not_isolated = not_isolated
+
+    def __iter__(self):
+        return iter((self.exact, self.schema_coupled, self.not_isolated))
+
+    @property
+    def total(self):
+        return len(self.exact) + len(self.schema_coupled) + len(self.not_isolated)
+
+
 def isolation_census(results=None):
-    """PER FIXTURE: is the emitted code set exactly the one code it names?
+    """PER FIXTURE: what fired beside the one code the fixture names?
 
     WHY THIS IS A SEPARATE READING OF THE SAME RUN. `run_suite` asks whether
     the named code is AMONG the codes that fired. An independent reviewer
-    measured the adjudication six on 2026-08-30 and found two of them firing
-    two and four codes respectively; both passed. A fixture that trips four
-    codes is evidence about none of them, because nothing in the run says which
-    one the damage caused.
+    measured the adjudication fixtures on 2026-08-30 and found two of them
+    firing two and four codes respectively; both passed. A fixture that trips
+    four codes is evidence about none of them, because nothing in the run says
+    which one the damage caused.
 
-    NON-ISOLATED FIXTURES OUTSIDE THE ADJUDICATION SET ARE REPORTED AND NOT
-    REPAIRED, and that is deliberate. Several of them are non-isolated for the
-    same legitimate reason TKB21 and TKB28 change more than one key: the damage
-    IS an interaction. Rewriting them to satisfy a census written afterwards
-    would be changing the evidence to fit the instrument. They are named here
-    every run instead, so the fact is visible rather than asserted away.
+    EACH FIXTURE LANDS IN EXACTLY ONE BUCKET, decided by the codes it actually
+    emitted on this run and by nothing written down anywhere:
 
-    Returns `(isolated, non_isolated)`, each a list of result rows.
+      `exact`          - the named code and nothing else.
+      `schema_coupled` - the named code plus the contract validator's code and
+                         nothing else. The mutation deletes or malforms a
+                         field the contract requires, so both instruments
+                         necessarily see the one piece of damage. The READER
+                         check is isolated; the fixture is not schema-clean.
+      `not_isolated`   - additional BEHAVIOURAL reader codes fired, so the run
+                         does not say which of them the damage caused.
+
+    MEMBERSHIP IS MEASURED, NOT DECLARED. `SCHEMA_COUPLED_FIXTURES` records a
+    stated reason for the two fixtures written knowing they could not be
+    schema-clean; it does NOT decide this split. Deciding it from that dict
+    would make the census report what the file claims instead of what the
+    reader did, which is the failure this whole file exists to make loud, and
+    the pre-existing schema-coupled fixtures - which carry no recorded reason -
+    would have been silently misfiled as exactly isolated.
+
+    NON-ISOLATED FIXTURES ARE REPORTED AND NOT REPAIRED, and that is
+    deliberate. Several are non-isolated for the same legitimate reason TKB21
+    and TKB28 change more than one key: the damage IS an interaction. Rewriting
+    them to satisfy a census written afterwards would be changing the evidence
+    to fit the instrument. They are named every run instead, so the fact is
+    visible rather than asserted away.
+
+    Returns an `IsolationCensus`, which also unpacks as
+    `(exact, schema_coupled, not_isolated)`.
     """
     results = run_suite() if results is None else results
     rows = [r for r in results if r["id"] in KNOWN_BAD_IDS]
-    return ([r for r in rows if r["isolated"]],
-            [r for r in rows if not r["isolated"]])
+    exact, schema_coupled, not_isolated = [], [], []
+    for r in rows:
+        extra = set(r["extra_codes"])
+        if not extra:
+            exact.append(r)
+        elif extra == {_SCHEMA_CODE}:
+            schema_coupled.append(r)
+        else:
+            not_isolated.append(r)
+    return IsolationCensus(exact, schema_coupled, not_isolated)
 
 
 def render_isolation_census(results=None):
+    """The census as printed under every suite run.
+
+    EVERY NUMBER BELOW IS INTERPOLATED FROM THE SCAN. A count typed into this
+    prose was wrong the day it was typed - the population of pre-existing
+    schema-coupled fixtures was reported as one fewer than it is, by hand, and
+    an independent reviewer counted the real one. So no figure here is a
+    literal, including the ones that look stable.
+    """
     results = run_suite() if results is None else results
-    isolated, other = isolation_census(results)
-    out = ["ISOLATION CENSUS - %d of %d fixture(s) emit exactly the code they "
-           "name" % (len(isolated), len(isolated) + len(other)), ""]
-    for r in other:
-        reason = r["schema_coupled"]
-        out.append("  %-6s NOT ISOLATED  also fired: %s"
+    census = isolation_census(results)
+    recorded = [r for r in census.schema_coupled if r["schema_coupled"]]
+    predating = [r for r in census.schema_coupled if not r["schema_coupled"]]
+
+    out = ["ISOLATION CENSUS - %d damaged fixture(s), by what else fired beside "
+           "the code each one names" % census.total, ""]
+
+    out.append("  EXACTLY ISOLATED - the named code and nothing else: %d of %d"
+               % (len(census.exact), census.total))
+    out.append("")
+
+    out.append("  READER-ISOLATED, SCHEMA-COUPLED - the named code plus")
+    out.append("  %s and nothing else: %d of %d"
+               % (_SCHEMA_CODE, len(census.schema_coupled), census.total))
+    out.append("      The mutation removes or malforms a field the contract")
+    out.append("      requires, so ONE piece of damage is seen by two")
+    out.append("      instruments. The reader check is isolated AND the fixture")
+    out.append("      is not schema-clean. Both are true, and neither is a")
+    out.append("      licence to count these as exactly isolated.")
+    out.append("      %d carry a recorded reason; %d predate that record. The"
+               % (len(recorded), len(predating)))
+    out.append("      split below is measured from the codes that fired, never")
+    out.append("      read off the record.")
+    for r in census.schema_coupled:
+        out.append("    %-6s %s" % (r["id"], r["schema_coupled"]
+                                    or "no recorded reason - predates the record"))
+    if not census.schema_coupled:
+        out.append("    none")
+    out.append("")
+
+    out.append("  NOT ISOLATED - additional behavioural reader codes, so the")
+    out.append("  run does not say which of them the damage caused: %d of %d"
+               % (len(census.not_isolated), census.total))
+    for r in census.not_isolated:
+        out.append("    %-6s also fired: %s"
                    % (r["id"], ", ".join(r["extra_codes"]) or "nothing"))
-        if reason:
-            out.append("           schema-coupled by construction: %s" % reason)
-    if not other:
-        out.append("  every fixture emits exactly one code")
+    if not census.not_isolated:
+        out.append("    none")
     return "\n".join(out)
 
 

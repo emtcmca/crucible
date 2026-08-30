@@ -14,6 +14,8 @@ identity. That gap is named rather than papered over.
 Every fixture below is INVENTED. No sealed instance content appears in this file.
 """
 
+import ast
+import itertools
 import json
 import pathlib
 import sys
@@ -31,6 +33,9 @@ _spec = importlib.util.spec_from_file_location(
     "record_f4_transfer", ROOT / "scripts" / "record-f4-transfer.py")
 rt = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(rt)
+
+SCRIPT_SOURCE = (ROOT / "scripts" / "record-f4-transfer.py").read_text(
+    encoding="utf-8")
 
 
 # --------------------------------------------------------------- the arms --
@@ -658,8 +663,24 @@ def no_seal(monkeypatch):
     return _boom
 
 
+#: One reservation per call, and never a shared name.
+#:
+#: `--out` used to be the constant `_SCRATCH / "unused.json"` for every test in
+#: this file, which was harmless while the runner merely CHECKED the path. It
+#: stopped being harmless when the runner started RESERVING it: the first
+#: sealed test creates the file exclusively, and every test after it is refused
+#: with E_SEALED_OUT_PATH before reaching the guard it was written to exercise.
+#:
+#: Three tests failed that way and every one of them failed by reporting
+#: E_SEALED_OUT_PATH in place of the code under test - which is the honest
+#: shape of the bug, and the reason this counter exists rather than a
+#: `unlink(missing_ok=True)` that would quietly hide a real double-reservation.
+_ARGV_SERIAL = itertools.count()
+
+
 def _sealed_argv(phase="drive", **over):
-    argv = {"--phase": phase, "--out": str(_SCRATCH / "unused.json"),
+    argv = {"--phase": phase,
+            "--out": str(_SCRATCH / ("unused-%d.json" % next(_ARGV_SERIAL))),
             "--object-names": "unused.txt",
             # A path, not a file. The gate needs one before the read so the
             # halt has somewhere to wait; whether anything is there yet is a
@@ -1058,6 +1079,113 @@ def test_the_sealed_path_calls_the_gate_before_the_model_is_built(monkeypatch, t
     assert "MODEL" not in order, "a model was built before the set was adjudicated"
 
 
+def test_a_setup_failure_after_the_reservation_registers_its_release(
+        monkeypatch, tmp_path, no_seal):
+    """WIRED IS NOT THE SAME AS RUNNING, and this repository has the scars.
+
+    `release_reservation` is correct and separately proven. That says nothing
+    about whether the runner ever arranges to CALL it - and a cleanup hook
+    nobody has watched being registered is the seventeen-instance defect with a
+    different shape: the reservation would survive a failed setup, and the one
+    retry amendment A3.11 allows would be refused by the guard protecting it.
+
+    The registration is asserted rather than the deletion because `atexit` runs
+    at interpreter shutdown, which does not happen inside a test. What is
+    checkable here is that the runner asked for it, with the right function and
+    the right path.
+    """
+    registered = []
+    monkeypatch.setattr(rt.atexit, "register",
+                        lambda fn, *a: registered.append((fn, a)))
+
+    def broken(*a, **k):
+        raise rt.TransferRunError("E_NO_FINAL_POLICY", "invented, for the test")
+    monkeypatch.setattr(rt, "build_arm_policies", broken)
+
+    target = tmp_path / "drive.jsonl"
+    with pytest.raises(rt.TransferRunError) as exc:
+        rt.main(_sealed_argv(**{"--live": None, "--out": str(target)}))
+    # The failure under test is the POLICY one - the reservation must not have
+    # changed which error the operator sees.
+    assert exc.value.code == "E_NO_FINAL_POLICY"
+
+    hooks = [(fn, args) for fn, args in registered
+             if fn is rt.release_reservation]
+    assert hooks, (
+        "the runner reserved the output path and registered nothing to hand it "
+        "back. A setup failure would leave a zero-byte file that refuses the "
+        "one retry A3.11 allows.")
+    _, args = hooks[0]
+    assert args[0] == target.resolve(), (
+        "the release was registered for %s, not the reserved path %s"
+        % (args[0], target.resolve()))
+
+
+def test_the_worksheet_is_derived_from_the_RESOLVED_path(monkeypatch, tmp_path):
+    """The three sibling files must land where the guard actually looked.
+
+    THEY CARRY OPAQUE IDS, NOT INSTRUCTIONS, and this docstring said the
+    opposite until it was checked against `write_adjudication_worksheet`. The
+    worksheet holds `atk_` ids, a set digest and reviewer instructions; the
+    rendering of the instances happens to the TERMINAL. So the property here is
+    not a leak control - it is that a file the operator will go looking for
+    lands in the directory the guard approved rather than in an unresolved
+    spelling of it.
+
+    That base was `pathlib.Path(args.out)`: the RAW ARGUMENT. The guard
+    resolves `..` and follows symlinks before approving, so an approved
+    `/safe/../repo/x.jsonl` put the drive log in the reserved inode and the
+    worksheet under the unresolved name - one directory the guard never
+    inspected. Nothing failed loudly; the worksheet simply appeared somewhere
+    else.
+
+    A mutation run found this uncovered: reverting the base to `args.out` broke
+    no test. A fix nothing measures is a fix nobody can keep.
+    """
+    captured = {}
+
+    def read(*a, **k):
+        return (object(), _fake_instances(2), ["n"], [], [], 2)
+
+    def gate(*a, **k):
+        # The worksheet arrives POSITIONALLY (instances, record, worksheet) and
+        # the other two by keyword. Taken from whichever it actually is, so
+        # this test measures the path and not the calling convention.
+        captured["worksheet"] = k.get("worksheet_path", a[2] if len(a) > 2 else None)
+        captured["progress"] = k["progress_path"]
+        captured["challenge"] = k["challenge_path"]
+        raise rt.TransferRunError("E_STOP", "far enough")
+
+    monkeypatch.setattr(rt, "sealed_drive_lifecycle", read)
+    monkeypatch.setattr(rt, "await_adjudication", gate)
+
+    names = tmp_path / "names.txt"
+    names.write_text(chr(10).join("F4-dest-%02d-invented.json" % n
+                                  for n in range(1, 25)), encoding="utf-8")
+
+    # A path that RESOLVES somewhere else. `runs/../elsewhere/drive.jsonl` is
+    # approved as `<tmp>/elsewhere/drive.jsonl`, and the two spellings are
+    # different directories to anything that does not resolve.
+    (tmp_path / "runs").mkdir()
+    (tmp_path / "elsewhere").mkdir()
+    crooked = tmp_path / "runs" / ".." / "elsewhere" / "drive.jsonl"
+
+    with pytest.raises(rt.TransferRunError) as exc:
+        rt.main(_sealed_argv(**{"--live": None, "--object-names": str(names),
+                                "--out": str(crooked),
+                                "--adjudication": str(tmp_path / "adj.json")}))
+    assert exc.value.code == "E_STOP"
+
+    straight = (tmp_path / "elsewhere").resolve()
+    for name in ("worksheet", "progress", "challenge"):
+        got = pathlib.Path(captured[name])
+        assert ".." not in got.parts, (
+            "%s path still carries an unresolved segment: %s" % (name, got))
+        assert got.parent == straight, (
+            "%s landed in %s, not in the directory the guard approved (%s)"
+            % (name, got.parent, straight))
+
+
 def test_the_drive_log_carries_the_adjudication(offline_drive):
     """The evidence has to survive the one-shot.
 
@@ -1416,3 +1544,296 @@ def test_the_boolean_and_the_prose_cannot_disagree(
         assert flag == label_says_sealed, (
             "sealed_run=%r beside a label that reads %r"
             % (flag, b["labels"]["seal_status"][:60]))
+
+
+# --------------------------- the reservation, and the race it was written for --
+#
+# THE GUARD RAN AT PREFLIGHT AND THE FILE WAS OPENED HOURS LATER.
+#
+# An adversarial review reproduced it: `assert_out_path_is_offtree` accepted an
+# absent path, the path was created during the interval, and the runner's
+# eventual `open(..., "w")` truncated it. Between the two sit the sealed read
+# and a human ruling on twenty-four instances - a coffee break at the very
+# best. Every refusal the guard made was true at preflight and none of them was
+# true when bytes were written.
+#
+# A check and a use separated by an hour is not a control. The path is now
+# TAKEN at preflight with `open(..., "x")` - one syscall for the existence test
+# and the creation, so nothing fits between them - and the header is written
+# through the handle that call returned.
+
+
+def test_a_reservation_cannot_be_taken_twice(tmp_path):
+    """The race, closed at the only place it can be closed.
+
+    This is the reviewer's reproduction turned around. Previously the second
+    arrival won, because the runner opened `"w"` and truncated whatever the
+    first had put there. Now the first arrival HOLDS the path and the second is
+    refused, which is the correct direction: on a one-shot, losing the record
+    is the worst outcome available and being told no is the cheapest.
+    """
+    target = tmp_path / "runs" / "drive.jsonl"
+    first_path, first_fh = rt.reserve_out_path(target)
+    try:
+        assert first_path.is_file(), "reserving did not create the file"
+        with pytest.raises(rt.TransferRunError) as caught:
+            rt.reserve_out_path(target)
+        assert caught.value.code == "E_SEALED_OUT_PATH"
+        # Refused by the GUARD's existence test, which runs first and gives the
+        # better message. The exclusive-create branch underneath it is the one
+        # that closes the actual race, and it is proven separately below -
+        # because a branch no test has entered is a branch nobody has seen work.
+        assert "already exists" in str(caught.value)
+    finally:
+        first_fh.close()
+
+
+def test_a_file_appearing_INSIDE_the_race_window_is_refused_not_truncated(
+        tmp_path, monkeypatch):
+    """THE REVIEWER'S REPRODUCTION, EXACTLY, AND IT NOW FAILS SAFE.
+
+    The finding was that the guard accepted an absent path, something created
+    that path afterwards, and the runner's eventual open truncated it. The
+    guard's own existence test cannot catch this: by definition the file did
+    not exist when the guard looked.
+
+    So the guard is stubbed to approve a path that is already there, which is
+    what the guard would have done had it looked one moment earlier. That drops
+    execution into the `open(..., "x")` branch - the only thing standing
+    between the arriving file and destruction - and it must refuse.
+
+    WITHOUT THE `"x"`, THIS TEST WOULD FIND AN EMPTY FILE AND PASS NOTHING. The
+    content assertion is the real one: the bytes that were there are still
+    there.
+    """
+    target = tmp_path / "drive.jsonl"
+    target.write_text("a record that arrived during the read", encoding="utf-8")
+
+    # The guard as it would have behaved a moment before the file appeared:
+    # approved, and returning the resolved path.
+    monkeypatch.setattr(rt, "assert_out_path_is_offtree",
+                        lambda out: pathlib.Path(out).resolve())
+
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.reserve_out_path(target)
+    assert caught.value.code == "E_SEALED_OUT_PATH"
+    assert "between the check and the claim" in str(caught.value)
+    assert target.read_text(encoding="utf-8") == (
+        "a record that arrived during the read"), "the file was truncated"
+
+
+def test_the_reserved_handle_writes_and_nothing_truncates_it(tmp_path):
+    """Bytes written through the reservation survive.
+
+    The failure being excluded is the one that costs everything: the header and
+    the episodes land, and something else has meanwhile replaced the file. The
+    handle was created before the seal was touched and is written through
+    directly, so the content goes into an inode this process already owns.
+    """
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    with fh:
+        fh.write('{"kind": "header"}\n')
+    assert path.read_text(encoding="utf-8") == '{"kind": "header"}\n'
+
+
+def test_the_reservation_refuses_a_path_the_guard_refuses(tmp_path):
+    """Reserving does not route around the guard - it runs it first.
+
+    Written because "reserve" is the kind of name that invites a second code
+    path, and a reservation that skipped the .git walk would be a regression
+    wearing the fix's name.
+    """
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.reserve_out_path(repo / "drive.jsonl")
+    assert caught.value.code == "E_SEALED_OUT_PATH"
+    assert "git work tree" in str(caught.value)
+    assert not (repo / "drive.jsonl").exists(), (
+        "a refused reservation left a file behind")
+
+
+def test_an_empty_reservation_is_handed_back(tmp_path):
+    """A failed setup must not refuse the retry the pre-registration allows.
+
+    A3.11: a run that read ZERO sealed objects is VOID and retryable once. The
+    reservation is taken BEFORE the read, so a setup failure between the two
+    would otherwise leave a zero-byte file that the guard - correctly - refuses
+    to overwrite. Closing one hole by opening another is exactly how this
+    project reached seventeen recorded instances of a check that measures
+    nothing.
+    """
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    rt.release_reservation(path, fh)
+    assert not path.exists(), "an empty reservation was not handed back"
+    # AND THE RETRY WORKS. Asserting the file is gone is not the property; the
+    # property is that the next attempt can proceed.
+    again_path, again_fh = rt.reserve_out_path(target)
+    again_fh.close()
+    assert again_path.is_file()
+
+
+def test_a_reservation_WITH_BYTES_IN_IT_IS_NEVER_REMOVED(tmp_path):
+    """The zero-byte test is the entire safety argument for the release.
+
+    A file with anything in it means the header was written, which means the
+    read had already happened, which under A3.11 makes the run terminally
+    INVALID - and the record is then the only account of a measurement that
+    cannot be repeated. Deleting it would destroy the evidence of the failure
+    while tidying up after it.
+    """
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    fh.write('{"kind": "header"}\n')
+    fh.flush()
+    rt.release_reservation(path, fh)
+    assert path.is_file(), "a record with bytes in it was deleted"
+    assert path.read_text(encoding="utf-8") == '{"kind": "header"}\n'
+
+
+def test_release_is_silent_about_a_path_that_is_already_gone(tmp_path):
+    """Cleanup on an error path must not replace the real cause.
+
+    `release_reservation` runs while an exception is propagating. Raising a
+    filesystem complaint from it would bury the guard failure, the read
+    failure, or the KeyboardInterrupt that actually stopped the run - and on an
+    unrepeatable attempt the real cause is the only thing worth having.
+    """
+    target = tmp_path / "drive.jsonl"
+    path, fh = rt.reserve_out_path(target)
+    fh.close()
+    path.unlink()
+    rt.release_reservation(path, fh)      # returns; raises nothing
+
+
+def test_the_sealed_drive_never_opens_its_output_in_truncating_mode():
+    """READ FROM THE SOURCE, because the defect is a future edit.
+
+    No offline test can observe an `open(..., "w")` that nobody has written
+    yet, and the reviewer's finding was precisely that a reserved path can be
+    re-opened by name later. So this walks the AST for every `open()` call in
+    the module and requires that the only truncating one is the stand-in
+    branch, which is repeatable and carries no sealed material.
+    """
+    tree = ast.parse(SCRIPT_SOURCE)
+    truncating = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if (getattr(node.func, "id", None) or getattr(node.func, "attr", None)) != "open":
+            continue
+        mode = node.args[1] if len(node.args) > 1 else None
+        for kw in node.keywords:
+            if kw.arg == "mode":
+                mode = kw.value
+        if isinstance(mode, ast.Constant) and "w" in str(mode.value):
+            truncating.append(node.lineno)
+    assert len(truncating) <= 1, (
+        "%d truncating open() calls at lines %s. A sealed drive writes through "
+        "the handle reserved before the read; re-opening the path by name "
+        "reintroduces the window the reservation exists to close."
+        % (len(truncating), truncating))
+
+
+# ------------------------------------ the runbook may not drift from the CLI --
+#
+# `docs/F4-DRIVE-RUNBOOK.md` is the operator's only written account of the
+# single command this project exists to run once. It was written the day before
+# that run, and every document in this repository that restated a fact instead
+# of deriving one has eventually disagreed with the thing it restated.
+#
+# So the runbook's flags are checked against the PARSER rather than proofread.
+
+
+def _runbook():
+    return (ROOT / "docs" / "F4-DRIVE-RUNBOOK.md").read_text(encoding="utf-8")
+
+
+def _parser_options():
+    """Every long option the runner actually accepts, from the parser itself."""
+    import argparse
+    import contextlib
+    import io
+
+    holder = {}
+    real = argparse.ArgumentParser.parse_args
+
+    def capture(self, args=None, namespace=None):
+        holder["parser"] = self
+        raise SystemExit(0)
+
+    argparse.ArgumentParser.parse_args = capture
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            with pytest.raises(SystemExit):
+                rt.main([])
+    finally:
+        argparse.ArgumentParser.parse_args = real
+
+    names = set()
+    for action in holder["parser"]._actions:
+        names.update(o for o in action.option_strings if o.startswith("--"))
+    return names
+
+
+def test_every_flag_the_runbook_names_exists_in_the_parser():
+    """A runbook naming a flag the tool rejects is worse than no runbook.
+
+    At 1am on an unrepeatable run, an operator who types what the document says
+    and gets `unrecognized arguments` has to decide, right then, whether the
+    document or the tool is wrong. That is not a decision anyone should be
+    making at that moment.
+    """
+    import re
+
+    accepted = _parser_options()
+    # ONLY THE BLOCKS THAT INVOKE THIS RUNNER.
+    #
+    # The first version scanned the whole document and failed on `--write` and
+    # `--format`, which belong to `pre-read-seal-proof.py` and to a `git log`
+    # the operator is told to run. Both were correct in the runbook; the check
+    # was wrong, and a check that fires on correct behaviour gets switched off.
+    blocks = [b for b in re.findall(r"```(.*?)```", _runbook(), re.S)
+              if "record-f4-transfer.py" in b]
+    assert blocks, "the runbook no longer shows the drive command at all"
+    named = set(re.findall(r"(--[a-z][a-z0-9-]+)", chr(10).join(blocks)))
+    unknown = sorted(named - accepted)
+    assert not unknown, (
+        "the runbook names %d option(s) the parser does not accept: %s"
+        % (len(unknown), ", ".join(unknown)))
+    # THE CENSUS, not just the predicate. A regex that matched nothing would
+    # make this pass over an empty set, which is the defect this file counts.
+    assert len(named) >= 5, (
+        "only %d options were found in the runbook (%s). The extraction is "
+        "broken, and a check over an empty set proves nothing."
+        % (len(named), sorted(named)))
+
+
+def test_the_runbook_does_not_send_the_operator_into_the_repository():
+    """The one instruction that would be actively harmful.
+
+    `evidence/` is inside the work tree and gitignored, and this project has
+    already ruled that a gitignore entry is not a boundary. The guard would
+    refuse it - correctly - but only after the operator had typed it, and the
+    runbook exists so that never happens.
+    """
+    text = _runbook()
+    assert "Do not use `evidence/`" in text, (
+        "the runbook no longer warns against the one path an operator is most "
+        "likely to reach for")
+
+
+def test_the_runbook_states_the_retry_rule_by_sealed_reads_not_by_episodes():
+    """A3.11 superseded A3.4's scored-episode boundary and prose lags rulings.
+
+    Five separate comments in this repository still stated the old boundary a
+    day after the amendment was ratified. A runbook that told the operator to
+    count completed episodes would have them applying a superseded rule to the
+    one event it governs.
+    """
+    text = _runbook()
+    assert "A3.11" in text
+    assert "Zero sealed reads" in text and "one retry remains" in text
+    assert "Terminal **INVALID**" in text

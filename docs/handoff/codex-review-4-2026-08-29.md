@@ -3,7 +3,11 @@
 **Date:** 2026-08-29 late · **Branch:** `main` · **Role:** READ-ONLY.
 
 You are the Coroner. You write the autopsy; you do not propose or apply the fix.
-Everything below happened with the seal shut. **No F4 object has been read.**
+Everything below happened with the seal shut. **As of 2026-08-30: no F4 GCS object
+has been fetched inside the measurement window and no F4 content has reached a human
+or a model.** Local copies are opened only to be hashed. *(Wording corrected
+2026-08-30 from "No F4 object has been read", which is false about local reads —
+`AUDIT.md` item 11.)*
 
 ## Your third verdict is fully actioned
 

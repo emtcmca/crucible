@@ -40,6 +40,7 @@ history recall. Opening it spends the single attempt.
 """
 
 import argparse
+import atexit
 import datetime
 import functools
 import hashlib
@@ -727,15 +728,28 @@ def assert_out_path_is_offtree(out):
 
     THE DRIVE LOG IS SEALED MATERIAL AND --out TOOK ANY PATH AT ALL.
 
-    Every episode this phase writes carries the sealed instruction verbatim,
-    and three sibling files derived from the same base are worse: the
-    adjudication WORKSHEET renders every turn of all twenty-four instances so a
-    human can read them, and the progress and challenge files sit beside it.
-    The comment at that call site says they sit "beside the output, not in the
-    repo" - which was a statement about where the operator was expected to
-    point --out, not about anything that would stop them pointing it somewhere
-    else. One mistyped path put the whole holdout inside a public repository,
-    and a public commit is served by SHA forever.
+    Every episode this phase writes carries the sealed instruction VERBATIM -
+    `drive()` puts `rec.turns[-1]` into each attack it dispatches, and each
+    episode is appended to this file. That single fact is the whole
+    justification for this guard. One mistyped path put the holdout inside a
+    public repository, and a public commit is served by SHA forever.
+
+    THE THREE SIBLING FILES ARE NOT THE HAZARD, AND AN EARLIER VERSION OF THIS
+    DOCSTRING SAID THEY WERE. It claimed the adjudication worksheet "renders
+    every turn of all twenty-four instances so a human can read them." That is
+    FALSE and it was written without reading `write_adjudication_worksheet`,
+    forty lines below: the worksheet carries opaque `atk_` ids, a set digest
+    and instructions for the reviewer, and nothing else. The RENDERING happens
+    to the terminal inside `crucible.transfer.inspect`, which is the whole
+    reason that module exists. The progress and challenge files likewise carry
+    ids and codes only, and `write_json_guarded` runs a content firewall over
+    every byte before it opens a file.
+
+    So the siblings are derived from the resolved path for consistency and
+    because a firewall is a control rather than a guarantee - not because they
+    carry instructions. **The drive log alone earns this guard**, and stating
+    the case larger than it is would be the same defect this project keeps
+    catching pointed at its own justification.
 
     The tests passed an external temporary directory. That was CONVENTION, and
     convention is not a control - the same distinction this project makes about
@@ -762,8 +776,16 @@ def assert_out_path_is_offtree(out):
     will not look, and "the harness moved it" is not a thing anybody wants to
     discover while reconstructing where the measurement went.
 
+    IT RETURNS THE RESOLVED PATH, and every caller must USE that return value
+    rather than the string it passed in. A guard that resolves a path, approves
+    what it resolved, and then lets the caller open the original string has
+    checked one thing and used another.
+
     Raises:
         TransferRunError: E_SEALED_OUT_PATH, naming which refusal fired.
+
+    Returns:
+        pathlib.Path: the resolved, approved path.
     """
     target = pathlib.Path(out).expanduser()
     # strict=False: the file does not exist yet and neither may its parent.
@@ -799,6 +821,116 @@ def assert_out_path_is_offtree(out):
             "%s is under a cloud-sync root (%s). Sealed material written there "
             "is uploaded to a third party as soon as it lands, and deleting it "
             "afterwards does not un-upload it." % (target, ", ".join(hit)))
+
+    return target
+
+
+def reserve_out_path(out):
+    """Approve the path AND TAKE IT, atomically. Returns (path, open handle).
+
+    THE GUARD ABOVE RAN AT PREFLIGHT AND THE FILE WAS OPENED HOURS LATER.
+
+    An adversarial review reproduced the gap and it is the real one: between
+    `assert_out_path_is_offtree` and the `open()` that writes the header sit
+    the sealed read and a human adjudication of twenty-four instances. That is
+    a coffee break at best. In that window the absent target can be created by
+    something else, a parent symlink can be repointed, and a directory can
+    become a git worktree or a sync root. The runner then opened the ORIGINAL
+    STRING in `"w"` mode, which truncates. The reviewer demonstrated exactly
+    that: guard accepts an absent path, path is created afterwards, open
+    destroys it.
+
+    Every refusal above was true at preflight and none of them was true at the
+    moment bytes were written. **A check and a use separated by an hour is not
+    a control, it is a hope with a timestamp.**
+
+    THIS CLOSES IT FOR THE DRIVE LOG, WHICH IS THE FILE THAT CARRIES THE SEALED
+    INSTRUCTIONS. The three siblings are still written by PATH, later - and
+    they carry opaque ids only, behind a content firewall, so the residual
+    there is a file of ids landing in an unexpected directory rather than a
+    leak. Said plainly rather than closed, because describing a narrowed
+    channel as sealed is the failure this repository documents at length.
+
+    SO THE PATH IS NOT CHECKED AND LATER OPENED. IT IS TAKEN NOW AND HELD.
+
+    `open(..., "x")` is create-exclusive: the existence test and the creation
+    are one syscall, so nothing can slip between them, and it fails if anything
+    is already there. The handle stays open across the read and the
+    adjudication and the header is written THROUGH IT. After this returns, the
+    bytes are going into the inode this function created, whatever happens to
+    the name afterwards - a rename, a symlink swap, a directory that becomes a
+    repository. None of those can redirect a write to an already-open file
+    descriptor.
+
+    What this deliberately does NOT solve: if the directory becomes a git
+    worktree during the run, the log lands inside a repository anyway. No
+    file-descriptor trick prevents that, because it is a human action taken
+    later against a file that already exists. The guard refuses what it can see
+    at reservation time; the operator owns the hour after it.
+
+    Args:
+        out: the caller's `--out`, unresolved.
+
+    Returns:
+        (pathlib.Path, io.TextIOWrapper): the resolved path and an open,
+        exclusively-created handle positioned at byte zero.
+
+    Raises:
+        TransferRunError: E_SEALED_OUT_PATH.
+    """
+    target = assert_out_path_is_offtree(out)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise TransferRunError(
+            "E_SEALED_OUT_PATH",
+            "cannot create the directory for %s: %s" % (target, exc))
+    try:
+        # "x", not "w". The whole point.
+        handle = open(target, "x", encoding="utf-8", newline="")
+    except FileExistsError:
+        raise TransferRunError(
+            "E_SEALED_OUT_PATH",
+            "%s came into existence between the check and the claim. That is "
+            "the race this reservation exists to close, and it closed it - "
+            "nothing was truncated. Choose a path that does not exist." % target)
+    except OSError as exc:
+        raise TransferRunError(
+            "E_SEALED_OUT_PATH", "cannot create %s: %s" % (target, exc))
+    return target, handle
+
+
+def release_reservation(path, handle):
+    """Give an EMPTY reservation back. Never removes a file with bytes in it.
+
+    A RESERVATION THAT OUTLIVES A FAILED SETUP WOULD REFUSE THE ONE RETRY THE
+    PRE-REGISTRATION ALLOWS.
+
+    `reserve_out_path` claims the path before the seal is touched, which is the
+    only ordering that closes the race. But amendment A3.11 says a run that
+    read ZERO sealed objects is VOID **and retryable once** - and the retry
+    would arrive to find the previous attempt's zero-byte file sitting there
+    and be refused by the very guard that protects it. Closing one hole by
+    opening another is how this repository got to seventeen instances of a
+    check that measures nothing.
+
+    THE ZERO-BYTE TEST IS THE WHOLE SAFETY ARGUMENT. A file with anything in it
+    is evidence: it means the header was written, which means the read had
+    already happened, which under A3.11 means the run is terminally INVALID and
+    the record must be kept. So this removes only a file it can prove is empty,
+    and a failure to remove is swallowed rather than raised - it is cleanup on
+    an error path, and an exception here would replace the real cause with a
+    filesystem complaint.
+    """
+    try:
+        handle.close()
+    except OSError:
+        pass
+    try:
+        if path.is_file() and path.stat().st_size == 0:
+            path.unlink()
+    except OSError:
+        pass
 
 
 def assert_sealed_policy_pin(policies):
@@ -946,7 +1078,12 @@ def await_adjudication(instances, record_path, worksheet_path,
     # valid-looking record over some other twenty-four unusable rather than
     # merely detectable.
     ledger = insp.ledger_for(record, instances)
-    announce("  adjudication accepted, signed by %s on %s"
+    # ATTRIBUTED TO, NOT SIGNED BY. `adjudicated_by` is a name somebody typed;
+    # nothing signs it and nothing authenticates it. The reader now says so in
+    # every string it emits, and this line said the opposite in the one place
+    # the operator actually reads at the moment of the ruling.
+    announce("  adjudication accepted, attributed to %s on %s (a typed name, "
+             "not an authenticated identity)"
              % (ledger.adjudicated_by, ledger.adjudicated_on))
     return ledger
 
@@ -981,19 +1118,37 @@ def main(argv=None):
                          "halts after the read and waits for it.")
     args = ap.parse_args(argv)
 
+    # BOUND BEFORE THE BRANCH THAT MIGHT SET THEM. A stand-in drive never
+    # reserves, and reading these below on that path would be a NameError
+    # rather than the "no reservation was made" they are meant to say.
+    reserved_path, reserved_fh = None, None
+
     # THE PRE-REGISTERED NUMBERS FIRST, IN EITHER PHASE. They cost nothing to
     # check and they are the cheapest thing that can be wrong.
     if args.sealed:
         assert_sealed_parameters(args)
         if args.phase == "drive":
-            # AND WHERE THE OUTPUT MAY LAND, BEFORE ANYTHING OPENS A FILE.
+            # AND WHERE THE OUTPUT MAY LAND - APPROVED AND CLAIMED IN ONE STEP.
             #
-            # Drive only. The drive log and the three files derived from its
-            # base - worksheet, progress, challenge - carry the sealed
-            # instructions; the assemble phase writes the BUNDLE, which is the
-            # artifact this project exists to publish and which therefore has
-            # to be allowed to live in the repository.
-            assert_out_path_is_offtree(args.out)
+            # Drive only. The DRIVE LOG carries the sealed instructions
+            # verbatim; the three files derived from its base - worksheet,
+            # progress, challenge - carry opaque ids and codes. The assemble
+            # phase writes the BUNDLE, which is the artifact this project
+            # exists to publish and which therefore has to be allowed to live
+            # in the repository.
+            #
+            # `reserve_out_path` returns an OPEN HANDLE and it is held from here
+            # through the sealed read and the human adjudication to the header
+            # write. It is not re-opened, and `args.out` is not looked at again.
+            reserved_path, reserved_fh = reserve_out_path(args.out)
+            # AND HANDED BACK IF WE NEVER REACH THE HEADER. Registered rather
+            # than wrapped in a `try` around two hundred lines: the cleanup has
+            # to survive an exception, a SystemExit from a guard, and a
+            # KeyboardInterrupt during the human adjudication, and re-indenting
+            # the whole of setup to catch all three is a worse change on the
+            # day before a one-shot. It is unregistered the moment the header
+            # lands, after which the file has bytes and is evidence.
+            atexit.register(release_reservation, reserved_path, reserved_fh)
 
     if args.phase == "assemble":
         return _assemble(args)
@@ -1031,7 +1186,13 @@ def main(argv=None):
         # statement after this block constructs the model, and the one after
         # that calls it - so this is the last moment at which the sealed set
         # can be adjudicated without the decisions having seen any result.
-        out_base = pathlib.Path(args.out)
+        # THE RESOLVED PATH, NOT THE ARGUMENT. `reserve_out_path` normalised
+        # `..` and followed the symlinks that existed when it approved the
+        # path; deriving these from the raw string would put them in a
+        # directory the guard never inspected. They hold ids rather than
+        # instructions, so this is tidiness with a safety margin rather than
+        # the leak control - which is the reservation above.
+        out_base = reserved_path
         adjudication = await_adjudication(
             instances, args.adjudication,
             out_base.with_suffix(".worksheet.json"),
@@ -1146,12 +1307,32 @@ def main(argv=None):
         "expected_content_reads": expected_reads,
     }
 
-    p = pathlib.Path(args.out)
-    p.parent.mkdir(parents=True, exist_ok=True)
+    # THE HANDLE RESERVED AT PREFLIGHT, or a fresh one for a stand-in.
+    #
+    # A sealed drive never re-opens by name here. `reserved_fh` was created
+    # exclusively before the seal was touched and has been held ever since, so
+    # the header goes into an inode this process owns and nothing that happened
+    # to the NAME during the read or the adjudication can redirect it.
+    #
+    # A stand-in keeps the old behaviour on purpose: it is repeatable, it
+    # carries no sealed material, and refusing to overwrite yesterday's tuning
+    # log would be a guard firing on correct behaviour.
+    if reserved_fh is not None:
+        p, opened = reserved_path, reserved_fh
+        # THE RESERVATION IS ABOUT TO BECOME EVIDENCE. From the next statement
+        # on, the file has a header in it and release_reservation would decline
+        # to remove it anyway - but leaving the hook registered would mean an
+        # interpreter shutdown running a close() over an already-closed handle
+        # and re-stat-ing a path for no reason. Say what we mean instead.
+        atexit.unregister(release_reservation)
+    else:
+        p = pathlib.Path(args.out)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        opened = open(p, "w", encoding="utf-8", newline="")
     # THE HEADER IS DURABLE BEFORE EPISODE ONE. Everything decided in advance -
     # the arms, the locks, the declared read set, the pre-read preflight - is on
     # disk before anything can fail, so a crash record has something to attach to.
-    with open(p, "w", encoding="utf-8", newline="") as fh:
+    with opened as fh:
         _append(fh, header)
         try:
             episodes = drive(seeds, instances, policies, manifests, model,
@@ -1182,7 +1363,7 @@ def main(argv=None):
                          "stage": "drive"})
             print()
             print("  CRASH after %d episode(s). Record written to %s"
-                  % (_COMPLETED[0], args.out))
+                  % (_COMPLETED[0], p))
             raise
         # THE MEASURED CALL COUNT GOES IN THE FOOTER, not the header: the meter
         # fills during the drive, and a count written before the drive would be
@@ -1206,8 +1387,8 @@ def main(argv=None):
 
     print()
     print("  episodes recorded: %d" % len(episodes))
-    print("  written          : %s" % args.out)
-    print("  NEXT             : --phase assemble --from %s" % args.out)
+    print("  written          : %s" % p)
+    print("  NEXT             : --phase assemble --from %s" % p)
     return 0
 
 

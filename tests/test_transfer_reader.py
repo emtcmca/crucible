@@ -2735,9 +2735,11 @@ def test_a_challenge_minted_over_another_set_is_caught_from_the_bundle_alone():
     assert "E_ADJUDICATION_CHALLENGE_MISMATCH" in _accepts(bundle)["codes"]
 
 
-def test_the_challenge_is_locked_to_the_set_the_record_was_signed_over():
+def test_the_challenge_is_locked_to_the_set_the_record_commits_to():
     """`inspect.attach_challenge` refuses to bind a challenge minted over a
-    different set. This is that refusal arriving at the read path."""
+    different set. This is that refusal arriving at the read path. NOT "signed
+    over" - the record carries a digest and no key, so the accurate verb is
+    that it COMMITS to the set."""
     from crucible.transfer import inspect as TI
 
     bundle = _sealed_bundle()
@@ -2803,8 +2805,8 @@ def test_the_reader_does_not_claim_the_artifact_proves_the_ordering():
     text = TR.render(TR.verify_transfer_bundle(_sealed_bundle()))
     for required in ("RECORDED AND NOT VERIFIED HERE",
                      "WHEN THE NONCE WAS MINTED",
-                     "never publishes",
-                     "covers THIS instance set and",
+                     "THIS READER CANNOT EVALUATE",
+                     "never serializes",
                      "Operationally closed, evidentially open"):
         assert required in text, (
             "the rendered report does not state %r, and a residual that lives "
@@ -2812,16 +2814,112 @@ def test_the_reader_does_not_claim_the_artifact_proves_the_ordering():
             "source" % required)
 
 
-def test_the_reader_makes_no_after_the_read_claim_in_its_output():
-    """The prose sweep, asserted rather than remembered. No rendered defect or
-    published reason may say the ARTIFACT shows the ruling followed the read."""
-    bundle = _sealed_bundle(with_adjudication=False)
-    bundle.pop("adjudication", None)
-    text = (TR.render(TR.verify_transfer_bundle(bundle))
-            + TR.adjudication_guarantee()
-            + "\n".join(TR.REASONS.values()))
-    assert "AFTER the read" not in text
-    assert "after the sealed read" not in text
+def test_the_guarantee_states_the_two_things_the_reader_actually_did():
+    """THE POSITIVE HALF OF THE OVERCLAIM FIX. The banned-vocabulary sweep
+    below can be satisfied by saying nothing at all, and a guarantee that
+    describes no check is as useless as one that describes an imaginary one.
+    These are the two things the reader really performs on the challenge."""
+    text = TR.adjudication_guarantee()
+    for required in ("recomputed from its", "`instance_ids` and agreed",
+                     "the copy of that digest inside",
+                     "carries the fixed sentence the",
+                     "and nothing about the digests sitting"):
+        assert required in text, (
+            "the guarantee no longer states %r, so a reader cannot tell what "
+            "was actually checked" % required)
+
+
+#: Vocabulary that credits this reader with work it did not do, each with the
+#: claim it smuggles in. SWEPT OVER RENDERED OUTPUT AND NEVER OVER THE SOURCE:
+#: a source grep would fire on the correction notes that exist to keep these
+#: phrases dead, and the thing that reaches a third party is the report.
+#:
+#: The construction claim has now been caught TWICE in the adjudication block -
+#: once in a schema `$comment` asserting the response digest recomputes
+#: offline, once in the rendered guarantee - which is why it is enforced here
+#: rather than remembered.
+_OVERCLAIMING_VOCABULARY = {
+    "AFTER the read":
+        "says the ARTIFACT shows the ruling followed the read. It does not; "
+        "the live gate enforces that ordering",
+    "after the sealed read":
+        "the same claim in lower case",
+    "signed over":
+        "nothing in this bundle is signed. `adjudicated_by` is a typed name "
+        "and the digests are commitments over bytes with no key behind them",
+    "were signed":
+        "same, in the past tense the digest-mismatch prose used to use",
+    "after signing":
+        "same, on the fixture describing an edited ruling",
+    "this reader verified":
+        "attached to the challenge CONSTRUCTION, which this reader cannot "
+        "verify without the nonce",
+    "covers the instance set":
+        "claims the response digest cryptographically covers the set. The "
+        "reader compared a recorded digest to a recomputed one and nothing "
+        "more",
+    "covers THIS instance set":
+        "the same claim, and it survived one round of corrections",
+    "challenge covers":
+        "the same claim in the defect text",
+}
+
+
+def _overclaims(text):
+    """Every banned phrase present in `text`, with the reason it is banned.
+
+    A NAMED HELPER SO THE SWEEP ITSELF CAN BE FED A KNOWN-BAD. A sweep that
+    only ever runs against real output has never been observed to fire, and a
+    check nobody has watched fail is this repository's signature defect.
+
+    WHITESPACE IS COLLAPSED FIRST, AND THAT IS NOT COSMETIC. Every string in
+    the guarantee is a hand-wrapped line in a `"\\n".join(...)`, so the phrase
+    that was actually shipped read "...construction this reader" / "verified"
+    across two of them. The first version of this sweep was run against the
+    real overclaim and caught three phrases while walking straight past
+    "this reader verified", because a newline sat in the middle of it. A sweep
+    that a line break defeats is a sweep that passes while measuring nothing.
+    """
+    flat = " ".join(text.split())
+    return {phrase: why for phrase, why in _OVERCLAIMING_VOCABULARY.items()
+            if phrase in flat}
+
+
+def test_the_overclaim_sweep_fires_on_a_known_bad_string():
+    """THE KNOWN-BAD FOR THE SWEEP. Every banned phrase must be detected in a
+    string that contains it, so a typo in the table cannot leave a phrase
+    silently unenforced."""
+    for phrase in _OVERCLAIMING_VOCABULARY:
+        planted = "  * the post-read challenge %s, verified here" % phrase
+        assert phrase in _overclaims(planted), phrase
+        # THE SAME PHRASE, LINE-WRAPPED THE WAY THE GUARANTEE WRAPS. This is
+        # the form the real overclaim shipped in and the form the first sweep
+        # missed, so it is asserted rather than trusted to the join above.
+        wrapped = phrase.replace(" ", "\n      ", 1)
+        assert phrase in _overclaims(wrapped), (phrase, wrapped)
+    assert not _overclaims("the reader recomputed a digest and compared it")
+
+
+def test_no_rendered_string_credits_the_reader_with_work_it_did_not_do():
+    """THE SWEEP, OVER EVERYTHING THAT REACHES A THIRD PARTY: both printed
+    guarantees, every published reason, and the defect text of every damaged
+    fixture in the known-bad suite. A phrase banned in the guarantee and left
+    alive in a defect message is still shipped prose."""
+    surfaces = [TR.adjudication_guarantee(), TR.argument_surface_guarantee(),
+                "\n".join(TR.REASONS.values())]
+    clean = _sealed_bundle()
+    surfaces.append(TR.render(TR.verify_transfer_bundle(clean)))
+    missing = _sealed_bundle(with_adjudication=False)
+    missing.pop("adjudication", None)
+    surfaces.append(TR.render(TR.verify_transfer_bundle(missing)))
+    for fid in TR.KNOWN_BAD_IDS:
+        surfaces.append(TR.render(TR.verify_transfer_bundle(TR.build(fid))))
+    surfaces.append(TR.render_suite())
+
+    hits = _overclaims("\n".join(surfaces))
+    assert not hits, "\n".join(
+        "rendered output says %r, which %s" % (p, why)
+        for p, why in sorted(hits.items()))
 
 
 # -- F7: isolation, measured rather than assumed -----------------------------
@@ -2864,20 +2962,94 @@ def test_the_isolation_census_reports_the_fixtures_that_are_not_isolated():
     than one key: the damage IS an interaction. They are printed every run so
     the fact is visible rather than asserted away."""
     results = TR.run_suite()
-    isolated, other = TR.isolation_census(results)
-    assert isolated, "no fixture isolates at all, which is not credible"
+    exact, coupled, other = TR.isolation_census(results)
+    assert exact, "no fixture isolates at all, which is not credible"
     text = TR.render_isolation_census(results)
-    for row in other:
+    for row in other + coupled:
         assert row["id"] in text, row["id"]
         assert row["extra_codes"], (
-            "%s is filed non-isolated with no extra codes" % row["id"])
+            "%s is filed outside the exactly-isolated set with no extra codes"
+            % row["id"])
+
+
+def test_the_three_categories_partition_the_fixture_set():
+    """NO FIXTURE IN TWO BUCKETS AND NONE MISSING. A split whose parts overlap
+    lets one fixture be counted as both isolated and coupled, and a split that
+    drops rows shrinks the denominator every published figure sits on - which
+    is the same defect as choosing a denominator after seeing the numerator."""
+    census = TR.isolation_census(TR.run_suite())
+    exact = {r["id"] for r in census.exact}
+    coupled = {r["id"] for r in census.schema_coupled}
+    other = {r["id"] for r in census.not_isolated}
+
+    assert not exact & coupled
+    assert not exact & other
+    assert not coupled & other
+    assert exact | coupled | other == set(TR.KNOWN_BAD_IDS), (
+        "the census does not account for every known-bad fixture; missing %s"
+        % sorted(set(TR.KNOWN_BAD_IDS) - (exact | coupled | other)))
+    assert (len(census.exact) + len(census.schema_coupled)
+            + len(census.not_isolated)) == census.total == len(TR.KNOWN_BAD_IDS)
+
+
+def test_a_schema_coupled_fixture_is_never_filed_as_exactly_isolated(monkeypatch):
+    """THE RULING THIS SPLIT EXISTS FOR, ASSERTED RATHER THAN INTENDED. Take a
+    fixture that is exactly isolated today, break a contract-required field as
+    well, and it must move into the schema-coupled bucket and NOT stay in the
+    exact one. A split that relabelled it exactly isolated would be reporting
+    a fixture as clean while it published two codes."""
+    def _also_breaks_the_contract(bundle):
+        bundle = TR._tkb44(bundle)
+        # A REQUIRED FIELD REMOVED THAT NO READER CHECK LOOKS AT. The reader's
+        # own challenge check still fires and the contract validator fires
+        # beside it, and nothing else does - which is exactly the shape the
+        # schema-coupled category describes. `sealed_run` would NOT do: the
+        # reader has its own check on that field, so removing it adds a
+        # behavioural code and the fixture belongs in `not_isolated`.
+        bundle["adjudication"].pop("criterion_source", None)
+        return bundle
+
+    patched = tuple((fid, damage, code, cls,
+                     _also_breaks_the_contract if fid == "TKB44" else fn)
+                    for fid, damage, code, cls, fn in TR.FIXTURES)
+    monkeypatch.setattr(TR, "FIXTURES", patched)
+    census = TR.isolation_census()
+    assert "TKB44" in {r["id"] for r in census.schema_coupled}, (
+        "a fixture emitting the contract code beside its own was not filed as "
+        "schema-coupled")
+    assert "TKB44" not in {r["id"] for r in census.exact}, (
+        "a schema-coupled fixture was relabelled exactly isolated, which is "
+        "the relabelling this split was ruled in to prevent")
+
+
+def test_the_pre_existing_schema_coupled_fixtures_are_counted_from_the_scan():
+    """THE COUNT THAT WAS TYPED AND WRONG. The population of schema-coupled
+    fixtures carrying no recorded reason was reported by hand as one fewer than
+    it is. Nothing in the rendered census may be a literal: this asserts the
+    printed figures are the measured ones, so a hand-typed number cannot agree
+    with the output by accident."""
+    results = TR.run_suite()
+    census = TR.isolation_census(results)
+    text = TR.render_isolation_census(results)
+
+    recorded = [r for r in census.schema_coupled if r["schema_coupled"]]
+    predating = [r for r in census.schema_coupled if not r["schema_coupled"]]
+    assert predating, (
+        "no schema-coupled fixture predates SCHEMA_COUPLED_FIXTURES, so the "
+        "record and the measurement can no longer disagree and this test has "
+        "stopped measuring anything - delete it or re-point it")
+    assert "%d carry a recorded reason; %d predate" % (
+        len(recorded), len(predating)) in text
+    assert "%d of %d" % (len(census.exact), census.total) in text
+    assert "%d of %d" % (len(census.schema_coupled), census.total) in text
+    assert "%d of %d" % (len(census.not_isolated), census.total) in text
 
 
 def test_the_isolation_census_is_a_check_that_can_fail(monkeypatch):
     """MUTATION CHECK ON THE CENSUS ITSELF. Damage a fixture so it trips a
-    second code and the census must move it out of the isolated set. A census
-    that reported everything isolated whatever happened would be the exact
-    defect it was written to catch."""
+    second BEHAVIOURAL code and the census must move it out of the exact set. A
+    census that reported everything isolated whatever happened would be the
+    exact defect it was written to catch."""
     def _also_breaks_the_census(bundle):
         bundle = TR._tkb44(bundle)
         # A SECOND, UNRELATED DEFECT. The count no longer agrees with the
@@ -2890,11 +3062,12 @@ def test_the_isolation_census_is_a_check_that_can_fail(monkeypatch):
                      _also_breaks_the_census if fid == "TKB44" else fn)
                     for fid, damage, code, cls, fn in TR.FIXTURES)
     monkeypatch.setattr(TR, "FIXTURES", patched)
-    isolated, other = TR.isolation_census()
-    assert "TKB44" in {r["id"] for r in other}, (
+    census = TR.isolation_census()
+    assert "TKB44" in {r["id"] for r in census.not_isolated}, (
         "the census reported a fixture as isolated while it was firing two "
         "codes, so it is measuring nothing")
-    assert "TKB44" not in {r["id"] for r in isolated}
+    assert "TKB44" not in {r["id"] for r in census.exact}
+    assert "TKB44" not in {r["id"] for r in census.schema_coupled}
 
 
 def test_the_new_code_is_classified_and_carries_a_reason():

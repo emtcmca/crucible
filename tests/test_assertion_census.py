@@ -28,6 +28,44 @@ An open thread had recorded this debt as "my three tests that assert nothing"
 for two sessions. The census found THIRTY-FIVE. That gap is the argument for
 counting rather than remembering, and it is why the number lives in a scan
 instead of in a note.
+
+WHAT THIS MEASURES, AND THE TWO THINGS IT DOES NOT
+--------------------------------------------------
+Reproduced by an outside reviewer, 2026-08-30, and stated here because a census
+whose limits are known only to its author is a number waiting to be misquoted.
+
+**IT MEASURES LOCAL SYNTAX, NOT WHETHER A TEST CAN FAIL.** The scan walks one
+function body and looks for `assert`, `raise`, or a `pytest.raises`-family call
+written IN IT. That is a lexical property of a single AST, and it is a proxy.
+
+  1. FALSE POSITIVE - THE HELPER. A test that delegates its assertion to a
+     helper is reported as assertion-free, because the helper's body is a
+     different AST. `test_a_symlink_out_of_a_temp_directory_into_a_repo_is_
+     still_refused` calls `_refusal(...)`, which raises on the wrong outcome;
+     the census cannot see it and lists it below. Following the call would mean
+     resolving names across modules, fixtures and monkeypatching, which is a
+     static analyser, not a census.
+  2. FALSE NEGATIVE - THE SKIP, now closed. `skip` and `exit` were in
+     `_RAISERS` until 2026-08-30, so a test whose only "raiser" was an
+     unconditional `pytest.skip()` counted as asserting something. A test that
+     always skips cannot fail; counting it as a check is the exact defect this
+     file exists to count. Both were removed. The delta was ONE entry - the
+     helper-driven test above, whose skip is conditional - so nothing was
+     hiding behind them today, and nothing can hide behind them tomorrow.
+
+**THE COUNT IS INTERIM DEBT CONTAINMENT. IT IS NOT EVIDENCE THAT THE LISTED
+TESTS ARE MEANINGFUL.** The exemption list is a mixture of three things - real
+"must not raise" properties, helper-driven false positives, and tests that were
+never finished - and the census cannot tell them apart. EVERY ENTRY ON IT STILL
+NEEDS TRIAGE, one at a time, by reading them. No count is written here on
+purpose: the list is the artifact, a copy of its length is a second source of
+truth about it, and this one moved twice on the day it was written.
+
+So: this file may be cited as "no NEW test that cannot fail may be added
+quietly". It may not be cited as closing the test-quality debt. Presenting a
+ratchet count as closure is the avoidance the reviewer named when he accepted
+the ratchet: it becomes avoidance if the list is never triaged, or if its size
+is offered as evidence that the tests on it are sound.
 """
 
 import ast
@@ -36,17 +74,22 @@ import pathlib
 TESTS = pathlib.Path(__file__).resolve().parent
 
 #: Calls and context managers that ARE an assertion about failure.
-_RAISERS = frozenset(("raises", "warns", "fail", "xfail", "skip", "exit",
-                      "deprecated_call"))
+#:
+#: `skip` and `exit` were here until 2026-08-30 and are deliberately not. A test
+#: whose only raiser is `pytest.skip()` cannot fail, so counting it as an
+#: assertion is this repository's own defect, committed inside the check that
+#: counts it. Removing them added exactly one entry to the list below.
+_RAISERS = frozenset(("raises", "warns", "fail", "xfail", "deprecated_call"))
 
 #: The assertion-free tests present when this census was written, 2026-08-30.
 #:
 #: NOT AN APPROVAL. Several are legitimate - a bare `validate(doc)` that must
 #: not raise is a real property, and `test_an_ordinary_off_tree_path_is_allowed`
 #: exists precisely because a guard that cannot pass is as broken as one that
-#: cannot fail. The rest are unfinished. This list does not distinguish them,
-#: because distinguishing them requires reading all thirty-five and that is the
-#: work this ratchet exists to make visible rather than to pretend it did.
+#: cannot fail. Some are helper-driven false positives. The rest are unfinished.
+#: This list does not distinguish them, because distinguishing them requires
+#: reading every one of them - and that is the work this ratchet exists to make
+#: visible rather than to pretend it did. UNTRIAGED as of 2026-08-30.
 #:
 #: TO REMOVE ONE: give the test a real assertion, then delete its line here.
 #: Both, in the same change. The census fails either way round.
@@ -78,6 +121,14 @@ KNOWN_ASSERTION_FREE = frozenset((
     ("test_dsl_validator.py", "test_V7_control_a_shorter_overlap_is_not_a_violation"),
     ("test_f4_transfer_runner.py", "test_the_invented_sealed_fixture_is_actually_valid"),
     ("test_f4_transfer_runner.py", "test_an_ordinary_off_tree_path_is_allowed"),
+    # THE HELPER-DRIVEN FALSE POSITIVE, named in the docstring above. It calls
+    # `_refusal(...)`, which raises when the guard does not refuse. Added
+    # 2026-08-30 when `skip` left `_RAISERS`; it is the whole delta.
+    ("test_f4_transfer_runner.py", "test_a_symlink_out_of_a_temp_directory_into_a_repo_is_still_refused"),
+    # Arrived 2026-08-30 from a concurrent session, and it is the sanctioned
+    # case rather than debt: its docstring states the property as "must not
+    # raise" and its last line says so again. Listed, not exempted silently.
+    ("test_f4_transfer_runner.py", "test_release_is_silent_about_a_path_that_is_already_gone"),
     ("test_governor_abort.py", "test_real_governor_passes"),
     ("test_l3_negative_checks.py", "test_negative_check"),
     ("test_l3_strawmen.py", "test_schema_only_validator_really_cannot_see_a_nested_match_mode"),

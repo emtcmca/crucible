@@ -27,25 +27,44 @@ opened the holdout.
 Three different things were being called "a read" and only one of them is the
 one that costs anything:
 
-  BUCKET DATA ACCESS  a granted `storage.objects.get` naming a real object in
+  CONTENT_READ        a granted `storage.objects.get` naming a real object in
                       gs://crucible-sealed-x7, inside the run's own window.
-                      THIS IS THE ONLY UNIT THE PRE-REGISTRATION DEFINES, at
-                      A3.1 and A3.2 of
-                      docs/proof/f4-unseal-preregistration-2026-08-25.md, and
-                      it is what marks a run INVALID. Not restated here; that
-                      document owns it.
-  LOCAL FINGERPRINTING  a process opens the files, hashes the bytes, and
+                      DEFINED BY A3.2 OF
+                      docs/proof/f4-unseal-preregistration-2026-08-25.md, which
+                      owns the term and the unit. Cited, never restated. It is
+                      what marks a run INVALID.
+  LOCAL FINGERPRINT ACCESS
+                      a process opens the local files, hashes the bytes, and
                       surfaces nothing. This is how the seal is PROVEN intact.
                       It is not a violation, and forbidding it would forbid the
                       proof.
-  A CONTENT READ      sealed text reaching a human's eyes or a model's context.
-                      This is what the single attempt is spent on, and what the
-                      adjudication gate exists to sequence.
+  HUMAN-OR-MODEL EXPOSURE
+                      sealed text reaching a person's eyes or a model's
+                      context. This is what the single attempt is spent on, and
+                      what the adjudication gate exists to sequence.
 
-The claim "no F4 object has been read" is the first of those and it survives
-untouched. But a test module asserting the second had never happened, while
-performing it on every CI run, is the same defect as a check that passes while
-measuring nothing - it just points outward instead of inward.
+THE MIDDLE AND LAST NAMES WERE CHOSEN ON THE SECOND ATTEMPT, and the first
+attempt is worth recording because it is the same defect one level up. This
+block originally called the third category "A CONTENT READ" - a term A3.2 had
+already defined, for the first category, as a bucket fetch. Two distinct events
+under one name, in a document written to separate them. The reviewer caught it
+in the next pass: *"the three-way distinction is useful, but this naming is not
+the right cut."* A vocabulary that collides with the ratified one is worse than
+no vocabulary, because the ratified document is the one everything else cites.
+
+THE CLAIM ITSELF WAS ALSO WRONG AS WRITTEN, and it has been narrowed. This
+module used to say the sentence "no F4 object has been read" survived
+untouched. It does not - local F4 files have been opened repeatedly, by the
+commitment tool and the leak scanner, which is exactly what the finding was
+about. What is defensible is the scoped pair:
+
+  * no F4 GCS object has been fetched inside the measurement window;
+  * no F4 content has been exposed to a human or a model.
+
+Both rest on attestation. An outside reviewer cannot independently ratify
+either one without the audit evidence or without observing the human process,
+and that limit is part of the claim rather than a footnote to it. AUDIT.md
+carries it for the repository; this note carries it for this module.
 
 SO THE END-TO-END TEST NOW POINTS AT AN INVENTED FIXTURE DIRECTORY via
 `CRUCIBLE_SEALED_DIR`, and a test below asserts it cannot do otherwise. The
@@ -341,3 +360,81 @@ def test_a_quoted_path_with_a_space_is_unquoted():
     mod = _module()
     expected = "docs/proof/a file.json"
     assert mod.stray_dirty_paths('?? "docs/proof/a file.json"', expected) == []
+
+
+# --------------------- the proof must describe ONE commit, not two of them --
+#
+# The proof used to run its checks and then read HEAD. An adversarial review
+# named the consequence: a parallel commit landing after the leak scan and
+# before HEAD is recorded leaves the worktree CLEAN, so the artifact names a
+# commit whose contents were never scanned and `git status` cannot see it.
+#
+# Six worktrees have been live in this project at once. That is not a
+# theoretical race here.
+#
+# No command can hold HEAD still, so the proof detects instead: it reads HEAD
+# before the first check and again after the last, and a move is a FAIL.
+
+
+def _pinned(mod, monkeypatch, heads):
+    """Run `main` with the subprocess checks stubbed and HEAD scripted.
+
+    `heads` is consumed one value per `rev-parse`, so a test says the sequence
+    it wants rather than reaching into the module's control flow.
+    """
+    seq = iter(heads)
+    monkeypatch.setattr(mod, "_run", lambda args, label: (True, "ok"))
+    monkeypatch.setattr(
+        mod, "git",
+        lambda *a: ("" if a[0] == "status" else next(seq)))
+    return mod.main([])
+
+
+def test_a_commit_landing_while_the_checks_run_fails_the_proof(monkeypatch):
+    """The race, detected. The tree is clean at both ends and it still fails.
+
+    This is the case no dirty-path check can reach: nothing is modified, the
+    scan simply happened against a different commit than the one recorded.
+    """
+    mod = _module()
+    rc = _pinned(mod, monkeypatch, ["aaaaaaaaaaaa1111", "bbbbbbbbbbbb2222"])
+    assert rc != 0, "the proof passed while HEAD moved underneath it"
+
+
+def test_a_settled_tree_still_passes(monkeypatch):
+    """The control, and it is not optional.
+
+    Without it the test above passes against a proof that fails
+    unconditionally, which is a different bug with identical symptoms.
+    """
+    mod = _module()
+    rc = _pinned(mod, monkeypatch, ["aaaaaaaaaaaa1111", "aaaaaaaaaaaa1111"])
+    assert rc == 0
+
+
+def test_the_moved_head_check_says_which_two_commits(monkeypatch):
+    """A refusal that names neither commit sends the operator to guess.
+
+    At 1am, on a run that cannot be repeated, "something moved" is not a
+    finding. The row has to carry the commit that was scanned and the commit
+    that was recorded.
+    """
+    mod = _module()
+    seq = iter(["aaaaaaaaaaaa1111", "bbbbbbbbbbbb2222"])
+    monkeypatch.setattr(mod, "_run", lambda args, label: (True, "ok"))
+    monkeypatch.setattr(mod, "git",
+                        lambda *a: ("" if a[0] == "status" else next(seq)))
+    mod.main([])
+    # Re-run gather-free: the row is built in main, so assert on its text via a
+    # second pass that captures what was printed.
+    import io
+    import contextlib
+    seq2 = iter(["aaaaaaaaaaaa1111", "bbbbbbbbbbbb2222"])
+    monkeypatch.setattr(mod, "git",
+                        lambda *a: ("" if a[0] == "status" else next(seq2)))
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        mod.main([])
+    out = buf.getvalue()
+    assert "MOVED" in out, out
+    assert "aaaaaaaaaaaa" in out and "bbbbbbbbbbbb" in out, out

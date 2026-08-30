@@ -207,7 +207,42 @@ and the resulting number would describe the agent's brevity as much as its behav
 trade is stated rather than taken quietly: **the bundle is publishable because the claim is
 small, not because the channel is closed.**
 
-**11. Work is open and it is written down.** `docs/contest/BUILD-LIST.md` Tier 4 lists the
+**11. "No F4 object has been read" is three different claims, and only two of them are
+true.** *(Added 2026-08-30, after an outside reviewer declined to let the unqualified
+sentence stand.)*
+
+That sentence had been the standing shorthand in the handoffs. It does not survive as a
+literal statement, because **local copies of the F4 instances have been opened repeatedly** —
+by the fingerprint recompute, by the leak checker, and by the pre-read proof that runs both.
+Three distinct events were being carried under one word:
+
+| | |
+|---|---|
+| `CONTENT_READ` | Defined by **A3.2** of [`docs/proof/f4-unseal-preregistration-2026-08-25.md`](docs/proof/f4-unseal-preregistration-2026-08-25.md). That document owns the definition and it is not restated here. It is the unit the holdout counter measures and the one that marks a run INVALID. |
+| **LOCAL FINGERPRINT ACCESS** | A local file opened, hashed, and never surfaced. This is how the seal is PROVEN intact; forbidding it would forbid the proof. |
+| **HUMAN-OR-MODEL EXPOSURE** | Sealed text reaching a person's eyes or a model's context. This is what the single attempt is spent on, and what the adjudication gate exists to sequence. |
+
+**What may be said:** no F4 GCS object has been fetched inside the measurement window, and no
+F4 content has been exposed to a human or a model. Local copies are opened for automated
+fingerprinting. **What may not be said** is the unqualified form, which reads as a claim
+about all three and is false about the third.
+
+**And the reviewer cannot ratify the first two, which is part of the claim rather than a
+footnote to it.** His words, 2026-08-30: *"I cannot independently ratify the first two
+without the audit evidence or observing the human process."* The bucket-fetch statement rests
+on Cloud Audit Logs that are not in this repository, and the no-exposure statement rests on
+what one person did at a keyboard with nobody watching. Both are **attested, not
+demonstrated** — the same standing as item 7, and for the same reason.
+
+One consequence landed in the suite the same day. `tests/test_seal_leak_check_refuses.py`
+had been searching for the local held-out set and, where it found one, running the real
+scanner against it with no override — so on the build machine an ordinary `pytest` performed
+LOCAL FINGERPRINT ACCESS on every held-out instance. That is category two and not a
+violation, but it is why the reviewer twice declined to run the suite at all, and a claim a
+reviewer cannot verify without breaking his own rule is worth less than one he can. Both that
+module and `tests/test_pre_read_seal_proof.py` now run against invented fixtures.
+
+**12. Work is open and it is written down.** `docs/contest/BUILD-LIST.md` Tier 4 lists the
 threads that block scored work — ~~the D5 corpus freeze that must land before the first patch
 is written~~ *(CORRECTED 2026-08-26: D5 was frozen, superseded three times, and re-frozen on
 2026-08-25 after the F5-05 repair — `docs/proof/d5-corpus-freeze.json` and the superseded
@@ -218,7 +253,7 @@ rule that fails validator V4, a parked corpus branch that breaks two frozen coun
 benign fixtures authored after the reviewer's pass — so *"the ordinary benign set was
 reviewed"* is not true of the set as it stands.
 
-**12. Not reviewed, endorsed, or responded to by Google in any way.** Not production-ready.
+**13. Not reviewed, endorsed, or responded to by Google in any way.** Not production-ready.
 Not enterprise-grade. Eleven days, one person, one target agent. There are no users, no
 downloads, and no adoption of any kind.
 

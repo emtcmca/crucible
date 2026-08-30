@@ -115,6 +115,14 @@ you.** This is the section a judge should read before any number:
   and was **deliberately not replaced**. If that instance's result is ever
   singled out, the leak is stated in the same breath.
   [`AUDIT.md`](AUDIT.md) item 8.
+- **The seal claim is narrower than the shorthand, and half of it is attested
+  rather than demonstrated.** As of 2026-08-30, no F4 GCS object has been
+  fetched inside the measurement window and no F4 content has been exposed to a
+  human or a model. Local copies **are** opened, repeatedly, for automated
+  fingerprinting — that is how the seal is proven intact, and it is why the flat
+  form *"no F4 object has been read"* is not written here. An outside reviewer
+  cannot ratify either narrow claim without the Cloud Audit Logs or without
+  observing the human process. [`AUDIT.md`](AUDIT.md) item 11.
 
 **4. The four labels that travel with every figure this project will ever
 publish**, pre-registered before any figure existed, so none of them can be

@@ -7,8 +7,13 @@ That seam is deliberate and it is not a capacity decision — a reviewer with a 
 grades its own work on the next pass, in a submission whose headline claim is that
 an agent is structurally barred from approving its own output.
 
-**The seal is intact. No F4 object has been read.** Everything below happened with
-the holdout shut.
+**As of 2026-08-30: no F4 GCS object has been fetched inside the measurement window,
+and no F4 content has been exposed to a human or a model.** Local copies are opened
+for automated fingerprinting, which is how the seal is proven intact. Everything
+below happened with the holdout shut.
+
+*(This line read "The seal is intact. No F4 object has been read." until 2026-08-30.
+The unqualified form is false about local reads — `AUDIT.md` item 11.)*
 
 ## State
 

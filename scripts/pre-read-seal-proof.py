@@ -163,9 +163,37 @@ def main(argv=None):
                     help="emit the dated artifact under docs/proof/")
     args = ap.parse_args(argv)
 
+    # HEAD FIRST, CHECKS SECOND, HEAD AGAIN - AND THE TWO MUST MATCH.
+    #
+    # The proof read HEAD *after* running its checks, which meant the commit it
+    # named was not necessarily the commit it had scanned. An adversarial
+    # review put the sequence precisely: a parallel commit can land after the
+    # leak scan, before HEAD is recorded, and leave the worktree clean - so the
+    # artifact names a commit whose contents were never scanned, and nothing in
+    # `git status` can see it, because nothing is dirty.
+    #
+    # Six worktrees have been live in this project at once. This is not a
+    # theoretical race here; it is Tuesday.
+    #
+    # Recording the interval and REFUSING when it moved is the whole fix. The
+    # proof cannot hold HEAD still - no command can - so it detects instead,
+    # and a detected move is a FAIL rather than a footnote.
+    head_before = git("rev-parse", "HEAD")
     checks = gather()
     stamp = _utc()
     head = git("rev-parse", "HEAD")
+
+    checks.append({
+        "check": "HEAD did not move while the checks ran",
+        "how": "git rev-parse HEAD before the first check and again after the "
+               "last one; the two must be the same commit",
+        "result": "UNCHANGED" if head == head_before else "MOVED",
+        "ok": head == head_before,
+        "last_line": ("at %s throughout" % head_before[:12] if head == head_before
+                      else "scanned %s, recorded %s - the artifact would name a "
+                           "commit it never looked at"
+                           % (head_before[:12], head[:12])),
+    })
 
     doc = {
         "artifact": "PRE-READ SEAL PROOF. Generated, not written.",
@@ -262,6 +290,20 @@ def main(argv=None):
         # landing - and the commit that carries this proof would then also
         # carry that, which is exactly the ambiguity the proof exists to
         # remove.
+        # AND IT MUST STILL BE THE SAME COMMIT. A parallel commit landing
+        # AFTER `head` was recorded is invisible to `git status` - the tree is
+        # clean again - so the dirty-path check below cannot see it. Without
+        # this, the artifact's parent-commit claim is checkable by a diligent
+        # reader afterwards and by nothing at all before the irreversible read.
+        head_now = git("rev-parse", "HEAD")
+        if head_now != head:
+            print("REFUSED: HEAD moved from %s to %s while the proof was being "
+                  "written." % (head[:12], head_now[:12]))
+            print("  This artifact names %s as the commit its checks ran "
+                  "against, and its own commit would no longer have that as a "
+                  "parent. Delete it and re-run on a settled tree." % head[:12])
+            return 2
+
         expect = out.relative_to(ROOT).as_posix()
         stray = stray_dirty_paths(git("status", "--porcelain"), expect)
         if stray:
