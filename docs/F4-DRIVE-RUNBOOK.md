@@ -116,8 +116,28 @@ written to disk.
   It is there so the ruling has an owner, and it must not be a component name -
   the runner refuses its own name, which is the point.
 
-**Nobody has walked this path end to end.** Read `crucible/transfer/inspect.py`
-before the day, not during it.
+### Rehearse it first. Not on the day.
+
+```
+python scripts/rehearse-adjudication.py --count 3
+```
+
+This walks the REAL review loop - the same `inspect.adjudicate`, the same
+rendering, the same ratified codes, the same post-read challenge and the same
+self-checks - against a **training** family. It reads no sealed object and
+spends no attempt, and it cannot be pointed at the holdout: `--family F4` is
+refused by the runner's own loader, and this script declares no `--sealed` flag
+to begin with.
+
+Do a full pass at least once before the day. Reading `inspect.py` is not the
+same as having done the thing, and the failure this prevents is meeting the
+loop for the first time with the holdout already in memory and the attempt
+already spent.
+
+It keeps nothing unless you pass `--keep <dir>`, and what that writes is an
+envelope rather than a record. A rehearsal ruling cannot satisfy the real gate
+in any case: the gate derives its id set from the instances that came off the
+wire, so a record over stand-in ids will not load against them.
 
 ## When something goes wrong
 
