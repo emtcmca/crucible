@@ -1,0 +1,64 @@
+<!doctype html><html><head><meta charset='utf-8'><title>N4</title><style>
+@page { size: letter; margin: 0.6in 0.7in; }
+* { box-sizing: border-box; }
+body { font-family: Georgia, 'Times New Roman', serif; color: #000;
+       background: #fff; margin: 0; }
+.seg { page-break-after: always; }
+.seg:last-child { page-break-after: auto; }
+.slate { border: 3px solid #000; padding: 10px 14px; margin-bottom: 16px; }
+.slate .id { font-family: Arial, Helvetica, sans-serif; font-size: 34pt;
+             font-weight: bold; letter-spacing: 1px; line-height: 1.1; }
+.slate .say-this { font-family: Arial, Helvetica, sans-serif; font-size: 13pt;
+                   margin-top: 4px; }
+.meta { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt;
+        border-bottom: 1.5px solid #000; padding-bottom: 8px; margin-bottom: 18px; }
+.meta b { font-weight: bold; }
+.direction { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt;
+             background: #eee; border-left: 4px solid #888; padding: 8px 10px;
+             margin-bottom: 18px; }
+.direction .lbl { font-weight: bold; text-transform: uppercase;
+                  letter-spacing: 1px; font-size: 9pt; display: block;
+                  margin-bottom: 3px; }
+.direction code { font-family: 'Courier New', monospace; font-size: 10pt; }
+p.say { font-size: 20pt; line-height: 1.55; margin: 0 0 18pt 0;
+        max-width: 34em; }
+p.beat { font-family: Arial, Helvetica, sans-serif; font-size: 12pt;
+         font-style: italic; color: #444; margin: 0 0 18pt 0; }
+/* NOT position:fixed. A fixed footer paints OVER the last paragraph on any
+   page that fills, and the first render of N4 lost its closing lines behind
+   this element while reporting success. It is a normal trailing block now, so
+   long segments simply flow onto a second page. */
+.foot { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #555;
+        border-top: 1px solid #bbb; padding-top: 4px; margin-top: 22pt; }
+p.say { orphans: 3; widows: 3; }
+.cover h1 { font-family: Arial, Helvetica, sans-serif; font-size: 26pt; margin: 0 0 4px 0; }
+.cover h2 { font-family: Arial, Helvetica, sans-serif; font-size: 12pt;
+            font-weight: normal; color: #444; margin: 0 0 22px 0; }
+.cover ol { font-size: 13.5pt; line-height: 1.7; padding-left: 22px; }
+.cover .warn { border: 2px solid #000; padding: 10px 14px; margin: 18px 0;
+               font-family: Arial, Helvetica, sans-serif; font-size: 12pt; }
+table.toc { border-collapse: collapse; width: 100%; margin-top: 14px;
+            font-family: Arial, Helvetica, sans-serif; font-size: 11pt; }
+table.toc th, table.toc td { border-bottom: 1px solid #ccc; padding: 5px 6px;
+                             text-align: left; }
+</style></head><body><div class="seg">
+<div class="slate">
+<div class="id">N4 &nbsp;of &nbsp;5</div>
+<div class="say-this">Before you read: say &ldquo;N4, take one&rdquo; out loud, then wait two seconds.</div>
+</div>
+<div class="meta">
+<b>0:50–1:35 · architecture · diagram on screen throughout</b> &nbsp;&bull;&nbsp; 261 words &nbsp;&bull;&nbsp; about <b>1:44</b> at 150 wpm
+ &nbsp;&bull;&nbsp; script says 0:50 to 1:35
+</div>
+<p class="say">A red team model writes six attacks a round against the target.</p>
+<p class="say">The attack corpus was authored, then sealed and committed before the first patch existed. That commitment is public and timestamped, and the identity that writes patches cannot read the sealed set.</p>
+<p class="say">The tripwire is pure code. No model. It rules from the actual tool call trace, not from anything the agent said, against eleven clauses.</p>
+<p class="say">The coroner writes the autopsy and structurally cannot propose a fix. There is no fix field in its schema, its findings sit in a subtree the armorer's input adapter cannot address, and its service account has no write access to the policy bucket. That's an IAM policy, not a prompt instruction.</p>
+<p class="say">The armorer gets structured fields only, and patches in three verbs. Deny. Constrain argument. Require approval. There is no allow verb, so no sequence of patches can widen what the agent is permitted to do. The predicates reference trace facts and never match strings. That constraint is the whole design.</p>
+<p class="say">The compiled policy runs as a plugin callback, before the agent's own callbacks, and a non-None return skips execution. So the policy cannot be argued with by the agent it governs.</p>
+<p class="say">Then the regression warden, also pure code. Twenty six benign fixtures, fourteen of them near misses, and the patch has to leave all twenty six passing.</p>
+<p class="say">The gate promotes only if attack success falls AND benign is exactly one hundred percent.</p>
+<p class="say">Above this line is model generated and untrusted. Below it is deterministic code.</p>
+<p class="say">No model ever decides whether a breach happened.</p>
+<div class="foot">N4 &nbsp;|&nbsp; generated from docs/design/narration-LOCKED-2026-08-27.md &nbsp;|&nbsp; page 4 of 5</div>
+</div></body></html>

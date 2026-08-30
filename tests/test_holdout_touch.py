@@ -106,25 +106,35 @@ _BASH_ENV = {}
 
 
 def bash_env_or_problem():
-    """Run `verify_iam.load_env` once, or say why it cannot run. NEVER raises.
+    """Run `verify_iam.load_env` once, or say why it cannot. NEVER raises.
 
-    An environmental failure comes back as a reason string so the caller decides
-    whether it is a skip or a finding. Both shapes are covered: bash absent, and
-    bash present but unable to fork - the second is what an independent reviewer
-    hit on 2026-08-29, a Git Bash signal-pipe failure.
+    THE PROBE ASKS THE FUNCTION, NOT THE MACHINE, and that distinction is the
+    whole point of this rewrite. It used to ask `shutil.which("bash")` and skip
+    when bash was absent. That was a correct proxy for exactly one day: on
+    2026-08-29 `load_env` stopped shelling out, and the proxy kept skipping five
+    tests on a premise that had been repaired hours earlier - which is this
+    repository's signature defect wearing the costume of the fix for it.
+
+    A guard on a dependency has to be a guard on the DEPENDENCY, re-evaluated,
+    not a guard on the world at the moment somebody wrote it down.
     """
     if not _BASH_ENV:
-        if BASH is None:
-            _BASH_ENV.update(env=None, problem="no `bash` on PATH")
-        else:
-            try:
-                _BASH_ENV.update(env=verify_iam.load_env(str(REPO)),
-                                 problem=None)
-            except (OSError, subprocess.SubprocessError) as e:
-                _BASH_ENV.update(
-                    env=None,
-                    problem="`bash` resolved to %s but could not be run to "
-                            "completion (%s: %s)" % (BASH, type(e).__name__, e))
+        try:
+            _BASH_ENV.update(env=verify_iam.load_env(str(REPO)), problem=None)
+        except (OSError, subprocess.SubprocessError) as e:
+            _BASH_ENV.update(
+                env=None,
+                problem="`infra.verify_iam.load_env` could not read "
+                        "scripts/gcp-env.sh (%s: %s)" % (type(e).__name__, e))
+        except Exception as e:                       # noqa: BLE001
+            # A parse failure is NOT an environment problem and must not be
+            # skipped past. It is reported as the problem it is, so a broken
+            # reader cannot hide behind a skip that reads like a missing tool.
+            _BASH_ENV.update(
+                env=None,
+                problem="`infra.verify_iam.load_env` FAILED TO PARSE "
+                        "scripts/gcp-env.sh (%s: %s). This is a broken reader, "
+                        "not a missing dependency." % (type(e).__name__, e))
     return _BASH_ENV["env"], _BASH_ENV["problem"]
 
 
@@ -132,16 +142,20 @@ def skip_without_a_working_bash(unmeasured):
     """Skip with a reason that names what is missing AND what goes unchecked.
 
     A bare `pytest.skip()` is a check that passes while measuring nothing, which
-    is this repository's signature defect - fifteen recorded instances. The
-    reason text has to be readable as a gap, not as a pass.
+    is this repository's signature defect. The reason text has to be readable as
+    a gap, not as a pass.
+
+    Since `load_env` became shell-free this should never fire. It is kept rather
+    than deleted because the thing it guards - that these tests need the real
+    names - is still true, and a guard that has stopped firing is cheaper to
+    keep than to re-derive the day something reintroduces the dependency.
     """
     env, problem = bash_env_or_problem()
     if problem:
         pytest.skip(
-            "%s, and `infra.verify_iam.load_env` runs `bash -c '. "
-            "scripts/gcp-env.sh && env | grep -E \"^(CRUCIBLE_|SA_|SUFFIX)\"'`. "
-            "UNMEASURED HERE: %s. Install a working Git Bash to run this check. "
-            "The shell-free fix belongs in infra/verify_iam.py."
+            "%s. UNMEASURED HERE: %s. `load_env` is pure Python as of "
+            "2026-08-29, so reaching this skip means the reader itself is "
+            "broken rather than a shell being absent - fix the reader."
             % (problem, unmeasured))
     return env
 
@@ -1189,17 +1203,15 @@ def test_the_shell_skip_fires_only_when_the_shell_is_actually_broken():
     constant: where bash runs, `bash_env_or_problem` must report NO problem, and
     the four `RealGate` tests and the differential above therefore really ran."""
     env, problem = bash_env_or_problem()
-    if BASH is None:
-        pytest.skip(
-            "no `bash` on PATH, so there is no working shell here whose healthy "
-            "state the predicate could be checked against. UNMEASURED HERE: "
-            "that `bash_env_or_problem` returns no problem on a host where bash "
-            "works, and therefore that the five skips above are conditional "
-            "rather than permanent.")
+    # NOT GATED ON BASH ANY MORE, and that is the point of the rewrite above.
+    # The predicate now probes `load_env` rather than the machine, so it must
+    # report no problem on EVERY host, shell or no shell. Skipping this control
+    # where bash is absent would have left the helper unchecked on exactly the
+    # hosts where it used to misfire.
     assert problem is None, (
-        "bash works here, so the skip predicate must not be reporting a "
-        "problem; every bash-gated test in this file would be skipping while "
-        "looking green. Reported: %s" % problem)
+        "the skip predicate is reporting a problem on a host where `load_env` "
+        "is pure Python and cannot need a shell. Every test that calls it "
+        "would be skipping while the run looks green. Reported: %s" % problem)
     assert env and env.get("CRUCIBLE_PROJECT") == PROJECT
     # AND THE WRAPPER, not only the predicate underneath it. A
     # `skip_without_a_working_bash` that skipped unconditionally would leave the

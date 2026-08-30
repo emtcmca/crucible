@@ -68,17 +68,23 @@ MUTATING_STORAGE_ROLES = {
 
 
 def load_env(repo_root):
-    """Read scripts/gcp-env.sh by asking bash, so there is exactly one source."""
-    out = subprocess.run(
-        ["bash", "-c", '. "%s/scripts/gcp-env.sh" && env | grep -E '
-                       '"^(CRUCIBLE_|SA_|SUFFIX)"' % repo_root],
-        capture_output=True, text=True, check=True).stdout
-    env = {}
-    for line in out.splitlines():
-        if "=" in line:
-            k, v = line.split("=", 1)
-            env[k] = v
-    return env
+    """Read scripts/gcp-env.sh, so there is exactly one source. NO SUBPROCESS.
+
+    THIS USED TO ASK BASH, and the reasoning it gave for that was "so there is
+    exactly one parser of it as well as one copy of it". One copy of the FILE is
+    the property worth having and it is untouched. One parser cost the whole
+    suite its collectability on any host without a working Git Bash, and cost
+    `RealGate` - which reaches this function through `gcp_env` - the ability to
+    be CONSTRUCTED there at all. That is production, not test scaffolding: G7
+    and G8 could not run on a reviewer's machine.
+
+    The name and signature are unchanged on purpose, so every existing caller is
+    repaired without being edited. `infra/gcp_env.py` carries the reader and the
+    argument for it; a differential test compares it against bash wherever bash
+    can run.
+    """
+    from infra.gcp_env import load_gcp_env
+    return load_gcp_env(root=repo_root)
 
 
 def _gcloud_exe():
