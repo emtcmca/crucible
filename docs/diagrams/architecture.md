@@ -7,15 +7,35 @@ Where something is specified but not running, it is drawn dashed and labelled **
 than left off, because a diagram that quietly promotes an intention to a component is the same
 defect this project exists to catch.
 
-**Named here and not yet running, as of 2026-08-21:**
+## RE-VERIFIED 2026-08-30. FOUR ROWS BELOW WERE STALE AND ONE OF THEM TOLD A JUDGE WE HAD FAILED
+
+**The table and the divergence list below were true on 2026-08-21 and four of
+their statements are not true now.** They are corrected in place, struck rather
+than deleted, on the same reasoning item 6 of the divergence list already gives:
+the sequence is the useful record, not the tidy end state.
+
+**Why this mattered more than an ordinary stale document.** This file is a
+**mandatory submission deliverable** and it is named by Stage Two's
+Documentation sub-criterion. Item 3 of the divergence list said, in the public
+repository, that *"this is a mandatory submission requirement and it is not
+met"* — nine days after the service was deployed and while it was serving. A
+judge reading it would have found the repository asserting its own Stage One
+failure. Nobody was told, because `CONTEST.md` §2 recorded this deliverable as
+DONE and nothing re-read the artifact.
+
+**That is this project's own recurring shape**, pointed at itself: a status
+recorded once and then trusted, and a narrow true statement left standing after
+it stopped being true.
+
+**Named here and not yet running, as of 2026-08-21 — SEE THE CORRECTIONS:**
 
 | Thing | State (verified 2026-08-21 against the live project and the tree) |
 |---|---|
-| Cloud Run services | **Zero deployed.** `gcloud run services list` returns nothing. Every component runs locally today. There is no Dockerfile and no deploy script in the repo. |
-| BigQuery datasets `crucible_telemetry`, `crucible_sealed` | **Not created.** `gcloud alpha bq datasets list` returns 0 items. No BigQuery client code exists. |
+| Cloud Run services | ~~**Zero deployed.** `gcloud run services list` returns nothing. Every component runs locally today.~~ **CORRECTED 2026-08-30. One service is deployed and serving:** `gcloud run services list` returns `crucible` at `https://crucible-vgp5owkxyq-uc.a.run.app`, revision `crucible-00004-gfk`, 100% of traffic, running as `crucible-target@`. Deployed 2026-08-21 (`docs/proof/cloud-run-deploy-2026-08-21.txt`). **The Dockerfile half of the old sentence is still true and is kept:** there is no Dockerfile and no deploy script in the repo, because `adk deploy cloud_run` builds the image from the source package — see `deploy/RUNBOOK.md:206`. Ten of the eleven specified services remain undeployed. |
+| BigQuery datasets `crucible_telemetry`, `crucible_sealed` | **Still not created**, re-checked 2026-08-30. ~~No BigQuery client code exists.~~ **Narrowed rather than corrected:** BigQuery appears in seven places in the tree and none of them uses it — they are IAM **role-name strings inside a negative assertion**, gate G7(b) checking that the Armorer holds no project-level `storage|bigquery` role (`crucible/conductor/real_gate.py:429`, `infra/verify_iam.py:229,248,435,437,556`, `infra/holdout_touch.py:173`). No client, no dataset, no query. The old sentence was true in substance and a reader with `grep` would have concluded it was false. |
 | Firestore as the run store | Database `(default)` exists in the project; **no code in this repo reads or writes it.** The run ledger is local SQLite — `crucible/ledger/store.py`. |
-| `CAPABILITY_CARTOGRAPHER` | **Not built.** No module under `crucible/` matches it. Capability mapping today is the deterministic path in `target/refund_agent/capabilities.py` plus a human-ratified manifest. |
-| Demo UI (`crucible-ui`) | **Not built as of 2026-08-21.** The service account exists and holds read-only roles; there is no frontend in the repo. |
+| `CAPABILITY_CARTOGRAPHER` | ~~**Not built.** No module under `crucible/` matches it.~~ **CORRECTED 2026-08-30. It is built and it has run live.** `crucible/cartographer/` holds `gemma.py`, `vertex.py`, `prepass.py`, `ratify.py`, `run.py` and `extract.py`; the model is pinned at `vertex.py:94` as `google/gemma-4-26b-a4b-it-maas` and reached over Vertex MaaS. Live artifacts: `docs/proof/vertex-gemma-maas-probe-2026-08-22.txt`, `cartographer-live-run-2026-08-22.json`, `-2026-08-23.json`, `cartographer-stability-2026-08-24.json`, and a ratification record `cartographer-adk-ratification-record-2026-08-28.json`. The deterministic path in `target/refund_agent/capabilities.py` and the ratified manifest are still there — the Cartographer works on the residue those leave, which is what `gemma-scope.md` §6 describes. **This row cost a scored bonus point:** `CONTEST.md` §5 recorded the additional-Google-model bonus as unclaimable on the strength of the same wrong belief. |
+| Demo UI (`crucible-ui`) | **Still not built as a separate service**, re-checked 2026-08-30 — the `crucible-ui` service account exists, holds read-only roles, and fronts nothing. ~~there is no frontend in the repo~~ **Corrected:** the deployed `crucible` service was built with `--with_ui` (`deploy/RUNBOOK.md:210`), so ADK's own developer UI is served by it. That is a framework-provided surface rather than a frontend in this repository, and the distinction is worth keeping: nothing in `crucible/` renders it. |
 | The four remaining hash-locks | **As of 2026-08-21**, only the sealed-family commitment is published. D2, D3 and D5 have not been executed. See diagram 4. |
 
 **Nothing has been measured.** No loop has been run end to end and no attack has been scored, so
@@ -426,13 +446,24 @@ Recorded here rather than silently reconciled, per the repo's precedence rule.
 2. **`infra/bind-iam.sh` ends by telling you to run `bash infra/verify-iam.sh`.** That file does
    not exist. The verifier is `infra/verify_iam.py`. `infra/deny-armorer.sh`, referenced in the
    same block, does not exist either — the IAM Deny layer of `data-spec.md` §4.3 is unbuilt.
-3. **`data-spec.md` §4.4 puts all eleven components on Cloud Run.** Zero Cloud Run services are
+3. **`data-spec.md` §4.4 puts all eleven components on Cloud Run.** ~~Zero Cloud Run services are
    deployed and the repo contains no Dockerfile or deploy script. This is a mandatory submission
-   requirement (`docs/contest/CONTEST.md` §2, deliverable 7) and it is not met.
+   requirement (`docs/contest/CONTEST.md` §2, deliverable 7) and it is not met.~~
+   **CORRECTED 2026-08-30, and this was the worst sentence in the file.** One service has been
+   deployed and serving since 2026-08-21; the requirement is met, and this line told a judge
+   reading the public repository that it was not. **The divergence that remains is real and
+   narrower:** one of the eleven specified components is on Cloud Run, not all eleven. The
+   Dockerfile clause stands — `adk deploy cloud_run` builds the image from source, so the absence
+   of a Dockerfile is a fact about the deployment method rather than evidence of no deployment,
+   which is how the two got welded into one wrong sentence.
 4. **`data-spec.md` names Firestore as the run store.** No Firestore client code exists.
    `crucible/ledger/store.py` is SQLite and says so, and names the divergence itself.
-5. **`architecture-spec.md` §1.1 specifies `CAPABILITY_CARTOGRAPHER` on Gemma.** No such module
-   exists in `crucible/`.
+5. ~~**`architecture-spec.md` §1.1 specifies `CAPABILITY_CARTOGRAPHER` on Gemma.** No such module
+   exists in `crucible/`.~~ **CLOSED — it was built on 2026-08-22 and the spec clause is now
+   true.** `crucible/cartographer/`, Gemma pinned at `vertex.py:94`, live runs and a ratification
+   record under `docs/proof/`. Left visible rather than deleted for the reason item 6 gives about
+   itself: a document asserting an absence, the absence being filled, and nobody re-reading the
+   document is the sequence worth keeping.
 6. ~~**`measurement-spec.md:989` cites a unit test that does not exist**~~ — **CLOSED the same
    day.** The gap was real: a cited check that does not exist reads as coverage. It was written
    as `tests/test_tripwire_cannot_see_labels.py` (commit `c675e29`) rather than struck from the
