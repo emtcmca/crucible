@@ -37,8 +37,20 @@ python scripts/pre-read-seal-proof.py --write
 `--write` refuses if anything other than the artifact it just wrote is dirty,
 and if HEAD moved while it was writing.
 
-**Commit that file, and only that file.** Its commit then has the recorded
-`head` as its parent, and that parent relationship is the whole of its claim.
+**Commit that file, and only that file.** The drive checks THREE properties,
+not one, and the instruction above satisfies all three at once:
+
+| the drive requires | why |
+|---|---|
+| HEAD has **exactly one parent** | any second parent imports a tree the proof never scanned, through a side the check does not examine. Merges are the loudest case, not the whole of it |
+| that parent **is** the proven commit | equality, not membership |
+| the commit changes **that artifact and nothing else** | a single-parent commit can still carry the proof PLUS code edited after `--write` returned, and everything under it would be unscanned |
+
+The third is the proof document's own claim about itself - `git show --stat` on
+its commit lists only that file - verified from the other end instead of
+trusted. **This section used to call the parent relationship "the whole of its
+claim", which was true when it was written and became false when the other two
+landed.**
 
 **This is not a convention any more - the drive enforces it.** Before the read,
 `record-f4-transfer.py` refuses with `E_PROOF_NOT_BOUND` unless the newest
@@ -278,26 +290,32 @@ written to disk.
   - Until 2026-08-30 this claim was false: `pause` raised, nothing caught it,
     and the process exited. A reviewer found it by typing `pause` in the
     rehearsal.
-- **A resumed ruling that disagrees with one already on record.** As of
-  2026-08-30 this is what the code does, and the runbook says so rather than
-  describing an intention. A resumed ruling naming an instance outside the set
-  under review is refused with `E_RESUME_WRONG_SET`. A resumed ruling that
-  names an instance already in the progress file but carries **different**
-  codes is **not** refused - the in-memory value is re-validated and then
-  overwrites the stored one, silently. In an ordinary pause and resume the two
-  agree by construction, because the in-memory rulings are the ones that wrote
-  the progress file, so you will not meet this.
+- **A resumed ruling that disagrees with one already on record is REFUSED.**
+  Landed 2026-08-30 in `crucible/transfer/inspect.py`; this bullet describes
+  what the module does, not what it is going to do.
 
-  **A refusal is landing, and on 2026-08-30 it is half-landed.** The tests for
-  it are written in `tests/test_adjudication_inspection.py` and the
-  implementation in `crucible/transfer/inspect.py` has not caught up. When it
-  does, a genuine disagreement stops the review with `E_RESUME_CONFLICT`, which
-  names the instance id and both code sets and never quotes instance content;
-  re-submitting the **same** ruling stays legal, because refusing an operator
-  who agreed with themselves would be a refusal that costs a read and proves
-  nothing. If you see `E_RESUME_CONFLICT`, the two sources disagree about one
-  instance and you decide which is right - the process is asking, not
-  overruling. Check this bullet against the module before the day.
+  - A resumed ruling naming an instance outside the set under review is
+    refused with `E_RESUME_WRONG_SET`.
+  - A resumed ruling naming an instance already on record, carrying
+    **different** codes, stops the review with `E_RESUME_CONFLICT`. It names
+    the instance id and both code sets and never quotes instance content. The
+    two sources disagree about one instance and you decide which is right -
+    the process is asking, not overruling.
+  - Re-submitting the **same** ruling is legal and keeps the RECORDED tuple.
+    Codes are compared as **sets**, so agreeing with yourself in a different
+    order is still agreeing. This matters more than it looks: every ordinary
+    pause re-submits every ruling already made, because `adjudicate` hands
+    `paused.decided` straight back as `resume_from`. An order-sensitive
+    comparison would have refused an operator who agreed with themselves, at
+    the cost of a read.
+
+  **This bullet said the opposite until 2026-08-30.** Superseded text, struck
+  rather than deleted: ~~the in-memory value is re-validated and then
+  overwrites the stored one, silently~~ / ~~the implementation has not caught
+  up~~. It had. For a one-shot procedure a stale warning is not a
+  documentation defect, it is an operational one: it teaches the operator to
+  expect a silent overwrite and to distrust a refusal that is working
+  correctly.
 - The name you give is **attribution, not authentication**. Nothing signs it.
   It is there so the ruling has an owner, and it must not be a component name -
   the runner refuses its own name, which is the point.
@@ -389,14 +407,53 @@ A3.11 turns on sealed CONTENT reads, and those are counted in the Cloud
 Logging data-access record for the sealed bucket - the same counter the run
 itself asserts against, and the pre-registered instrument. Read it:
 
+**$Since is `audit_window.opened_at` from the drive log**, and it is carried
+by BOTH the header and the terminal record, so it survives a failure at any
+stage. Copy it; do not reconstruct it.
+
 ```powershell
-# $Since is the RFC3339 UTC instant the attempt began - the drive log's
-# header carries it. Angle-bracket placeholders are NOT usable here:
-# PowerShell parses `<` as a redirection operator and the line fails on
-# paste, which is how this block was originally written.
-$Since = "2026-08-31T21:00:00Z"
+# Read it out of whichever record the run left behind. Angle-bracket
+# placeholders are NOT usable here: PowerShell parses `<` as a redirection
+# operator and the line fails on paste, which is how this block was
+# originally written.
+$Row    = Get-Content $Out | ForEach-Object { $_ | ConvertFrom-Json } |
+          Where-Object { $_.audit_window } | Select-Object -First 1
+$Since  = $Row.audit_window.opened_at
 python scripts/probe-g7-g8.py --holdout-since $Since
 ```
+
+**That command writes into `docs/proof/`, which is committed to a PUBLIC
+repository, and sealed object names are redacted out of it by default.** Each
+name becomes a stable `sha256-8:` digest, so the record still says how many
+distinct objects were touched and an auditor holding the bucket can match every
+line to an object - it just does not print the slug, which is what describes
+the attack.
+
+**This is a live disclosure question and it is not settled.** The
+pre-registration requires the failure record to be audit-recoverable - *"what
+was read, when, by which identity, how far the run got, and where it
+stopped"* - and the runner refuses to publish the sealed object names on the
+grounds that they describe each attack's pattern. Those two are in tension the
+moment a terminal failure has to be published.
+
+`--reveal-sealed-names` writes them verbatim. **Do not pass it without a
+recorded ruling.** The question, the two defensible readings, and what each
+costs are in `docs/design/DECISION-recovery-disclosure-2026-08-30.md`. The
+default withholds, so that the choice is made deliberately rather than by
+whichever way the script happened to be written.
+
+**Do NOT substitute either of the two timestamps that look like it.** Both are
+wrong, in opposite directions, and each breaks A3.11 the other way:
+
+| tempting substitute | what it does |
+|---|---|
+| the time the process started | precedes the calibration canary, so the canary's own read falls inside the window. A clean attempt counts one read and **forfeits the retry** A3.11 permits |
+| the header's `driven_at` | stamped **after** the sealed read and after the adjudication, so the window opens after the thing it measures. A one-or-more attempt reads as zero and **manufactures a retry** that is not allowed. It also does not exist at all if the run stopped before the header |
+
+**This section named `driven_at` as the instant the attempt began until
+2026-08-30.** It is not: the run's audit window opens strictly after the
+calibration and long before the header is written. The record now carries the
+window itself for exactly this reason.
 
 Read the tally it prints, not its exit code. Two cautions, each of which
 changes what the number means:

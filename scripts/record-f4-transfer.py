@@ -486,6 +486,10 @@ def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None)
     # the run. Whether the sealed drive proceeded depended on coincidentally
     # crossing a wall-clock second between two adjacent calls.
     since = ha.open_run_window_when_clear(cal, announce=print)
+    # DURABLE BEFORE ANYTHING ELSE USES IT. Between here and the read there are
+    # four steps that can raise, and every one of them produces a terminal
+    # record that has to name the window this line just created.
+    mark_audit_window(since, calibration_since=cal_since)
     counter = ha.make_run_counter(env, since)
     ha.assert_clean_before_read(counter)
 
@@ -575,6 +579,27 @@ def _append(fh, obj):
     os.fsync(fh.fileno())
 
 
+def _refuse_duplicate(path, kind, already):
+    """A second header, footer, crash or terminal row is malformed evidence.
+
+    The reader kept the LAST one it saw, silently. Two terminal rows resolved
+    to the second; a second header would have replaced the run's identity
+    halfway down its own log. Neither is normal producer output, and that is
+    the point - an evidence reader meeting a file its producer cannot have
+    written should say so rather than pick the row it happened to read last.
+
+    Raises:
+        TransferRunError: E_DRIVE_LOG_MALFORMED.
+    """
+    if already is not None:
+        raise TransferRunError(
+            "E_DRIVE_LOG_MALFORMED",
+            "%s carries more than one %r record. Exactly one is written per "
+            "drive, so a second one means this file was not produced by a "
+            "single run of this script - and this reader will not choose "
+            "between them." % (path, kind))
+
+
 def read_drive_file(path):
     """The JSONL drive log back as one dict, with its completion state.
 
@@ -595,14 +620,18 @@ def read_drive_file(path):
         rec = json.loads(line)
         kind = rec.get("kind")
         if kind == "header":
+            _refuse_duplicate(path, "header", header)
             header = rec
         elif kind == "episode":
             episodes.append(rec)
         elif kind == "footer":
+            _refuse_duplicate(path, "footer", footer)
             footer = rec
         elif kind == "crash":
+            _refuse_duplicate(path, "crash", crash)
             crash = rec
         elif kind == "terminal":
+            _refuse_duplicate(path, "terminal", terminal)
             # NOT SILENTLY DROPPED. This branch did not exist, so a drive log
             # carrying a terminal row read back as though it did not - and a
             # reviewer reproduced exactly that: rows `['header', 'footer',
@@ -655,7 +684,29 @@ def read_drive_file(path):
             if k in footer:
                 out[k] = footer[k]
     out["episodes"] = episodes
-    out["completed"] = bool(footer)
+    # COMPLETION IS READ OFF THE FOOTER, NOT INFERRED FROM ITS PRESENCE.
+    #
+    # `bool(footer)` made the field decorative: the producer writes
+    # `completed: True`, and a footer carrying `completed: false` - or carrying
+    # no such key at all - still read back as a completed drive. A reviewer
+    # reproduced it. The reader was answering from the envelope while ignoring
+    # the letter, which is the same shape as every other finding in this file:
+    # a check whose result does not depend on the thing it claims to check.
+    if footer is not None:
+        if "completed" not in footer:
+            raise TransferRunError(
+                "E_DRIVE_LOG_MALFORMED",
+                "%s carries a footer with no `completed` field. The footer is "
+                "the record that says the drive finished, and a footer that "
+                "does not say so is not evidence that it did." % path)
+        if footer["completed"] is not True:
+            raise TransferRunError(
+                "E_DRIVE_LOG_MALFORMED",
+                "%s carries a footer with `completed: %r`. This producer "
+                "writes a footer ONLY on completion, so a footer saying "
+                "otherwise did not come from a run this reader can describe."
+                % (path, footer["completed"]))
+    out["completed"] = footer is not None
     out["crash"] = crash
     # SURFACED, so a caller can act on it. Absent rather than None when there
     # is none: the canonical form this project uses admits no null, and "no
@@ -926,7 +977,7 @@ def _git_or_refuse(*args):
     return proc.stdout.strip()
 
 
-def assert_proof_binds_this_commit(proof_dir=None, git=None):
+def assert_proof_binds_this_commit(proof_dir=None, git=None, root=None):
     """The pre-read proof must describe THE TREE ABOUT TO BE DRIVEN.
 
     THE GAP A REVIEWER NAMED, IN HIS WORDS: *"A separate end-to-end gap remains
@@ -968,15 +1019,32 @@ def assert_proof_binds_this_commit(proof_dir=None, git=None):
     this one reads - a specific parent commit, a clean tree, a matching
     artifact - cannot be staged in an ordinary unit test any other way.
 
+    `root` IS THE THIRD INJECTION COORDINATE AND IT EXISTS BECAUSE OF A REAL
+    DEFECT. This function used to fall back to comparing BASENAMES when the
+    proof directory sat outside the repository, on the reasoning that only a
+    test would ever be in that position. A reviewer reproduced the consequence:
+    the guard accepted `elsewhere/pre-read-seal-proof-*.json` when the expected
+    artifact lived in another directory. Worse, every proof-binding test in the
+    suite put its fixture under `tmp_path` - so all of them ran the weak mode,
+    and NONE of them demonstrated the path-exact invariant the guard's own
+    docstring claims. The test evidence did not establish the property.
+
+    The fallback is gone. Injecting `root` alongside `proof_dir` lets a test
+    stage a real repo-relative layout, so the tests now exercise the SAME
+    comparison production runs. A proof outside the root is refused outright.
+
     Args:
         proof_dir: where the artifacts live. Defaults to `docs/proof/`.
         git: a callable taking git arguments and returning stdout, raising
             `TransferRunError` on failure. Defaults to `_git_or_refuse`.
+        root: the repository root the proof path is made relative to. Defaults
+            to the real `ROOT`.
 
     Raises:
         TransferRunError: E_PROOF_NOT_BOUND.
     """
-    proof_dir = pathlib.Path(proof_dir) if proof_dir else (ROOT / "docs" / "proof")
+    root = pathlib.Path(root) if root else ROOT
+    proof_dir = pathlib.Path(proof_dir) if proof_dir else (root / "docs" / "proof")
     git = git or _git_or_refuse
     proofs = sorted(proof_dir.glob(PROOF_GLOB))
     if not proofs:
@@ -1056,33 +1124,37 @@ def assert_proof_binds_this_commit(proof_dir=None, git=None):
     changed = [ln.strip() for ln in
                git("diff-tree", "--no-commit-id", "--name-only", "-r", head).splitlines()
                if ln.strip()]
+    # NO FALLBACK. THE COMPARISON IS REPO-RELATIVE OR IT DOES NOT HAPPEN.
+    #
+    # There used to be a basename fallback here for a proof directory outside
+    # the repository. It was reproduced accepting a proof from the wrong
+    # directory, and it had a second and worse effect: every test in the suite
+    # staged its fixture outside the root, so the weak mode was the only mode
+    # ever exercised and the strong one had no evidence behind it at all.
+    #
+    # A proof-binding check must not buy convenience by weakening the invariant
+    # it exists to assert. Tests inject `root` and stage a real layout instead.
     try:
-        expected = newest.resolve().relative_to(ROOT.resolve()).as_posix()
-        compared, by_name = changed, ""
+        expected = newest.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
-        # An injected proof directory outside the repository. A repo-relative
-        # comparison is not meaningful there, so this falls back to filenames -
-        # a WEAKER check, and the message below says so rather than presenting
-        # the two modes as one. A check that quietly weakens itself is worse
-        # than one that states which mode it is in.
-        expected = newest.name
-        compared = [pathlib.PurePosixPath(c).name for c in changed]
-        by_name = (" (compared by FILENAME ONLY: the proof directory is "
-                   "outside the repository, so this is the weaker of the two "
-                   "comparisons)")
+        raise TransferRunError(
+            "E_PROOF_NOT_BOUND",
+            "%s resolves outside the repository root %s, so the commit's "
+            "changed-path set cannot be compared against it. This check "
+            "compares repository-relative paths or it does not run - it will "
+            "NOT fall back to matching filenames, because a proof from the "
+            "wrong directory with the right name would pass that."
+            % (newest, root))
 
-    if compared != [expected]:
-        # THE ORIGINAL PATHS, NOT THE COMPARED ONES. Reporting the basenames
-        # the fallback happened to build would tell an operator that
-        # `reader.py` was in the commit and leave them to guess which one.
+    if changed != [expected]:
         raise TransferRunError(
             "E_PROOF_NOT_BOUND",
             "the commit at %s changes %d path(s) - %s - and the proof's own "
-            "claim is that its commit contains that artifact and nothing else. "
-            "Anything else in it was never scanned by the proof. Commit the "
-            "artifact on its own.%s"
+            "claim is that its commit contains %s and nothing else. Anything "
+            "else in it was never scanned by the proof. Commit the artifact "
+            "on its own."
             % (head[:12], len(changed),
-               ", ".join(sorted(changed)[:6]) or "none", by_name))
+               ", ".join(sorted(changed)[:6]) or "none", expected))
 
 
 def assert_directory_still_offtree(target):
@@ -1268,6 +1340,89 @@ _RUN_COMPLETED = [False]
 _SEAL_STAGE = ["setup, before the read"]
 
 
+#: THE RUN'S OWN AUDIT WINDOW, RECORDED THE INSTANT IT EXISTS.
+#:
+#: A3.11 turns on the number of granted sealed CONTENT_READs, and that number
+#: is only defined RELATIVE TO A WINDOW. The runner has always opened the right
+#: window - strictly after the calibration canary, asserted clean before the
+#: read - and then kept it in a local variable that died with the frame.
+#:
+#: A reviewer took that apart: the terminal record told an auditor to "query
+#: the counter over the run's own audit window" and did not carry the window.
+#: Every substitute available afterwards is wrong in a KNOWN direction, and
+#: both directions are fatal:
+#:
+#:   process start   is BEFORE the calibration, so the canary's own read falls
+#:                   inside it. A clean attempt then counts one read, the
+#:                   retry A3.11 permits is forfeited, and the run is ruled
+#:                   terminal INVALID on the instrument's own warm-up.
+#:   `driven_at`     is stamped AFTER the sealed read and after the human
+#:                   adjudication, so the window opens after the thing it is
+#:                   meant to measure. A one-or-more attempt reads as zero and
+#:                   manufactures a retry the amendment does not allow.
+#:                   It also does not exist at all on a read-path failure.
+#:
+#: So the boundary is captured here, one-way, at the only moment it is known to
+#: be right - and a failure at any later point carries it into the evidence.
+#: This is the difference between a record that names the instrument and a
+#: record that can actually be QUERIED, which is what the pre-registration's
+#: "audit-recoverable" requirement asks for.
+#:
+#: WHAT IS RECORDED AND WHAT IS DELIBERATELY NOT. The two instants are
+#: run-specific and exist nowhere else once this process exits, so they are
+#: written down. The project and bucket are NOT copied in: they live in
+#: `scripts/gcp-env.sh`, which is this repo's single source for them, and a
+#: second copy of a bucket name is a second source of truth. Record what cannot
+#: be re-derived; cite what can.
+_AUDIT_WINDOW = [None]
+
+
+def mark_audit_window(since, calibration_since=None):
+    """Capture the run window the instant it opens. One-way, first write wins.
+
+    Called from `sealed_drive_lifecycle` immediately after
+    `open_run_window_when_clear` returns and BEFORE anything sealed is touched,
+    so any terminal record written from here on carries its own coordinates.
+    """
+    if _AUDIT_WINDOW[0] is None:
+        _AUDIT_WINDOW[0] = {
+            "opened_at": since,
+            "calibration_opened_at": calibration_since,
+        }
+
+
+def audit_window():
+    """The recorded window, or None if the run stopped before it opened."""
+    return _AUDIT_WINDOW[0]
+
+
+def _audit_window_for_record():
+    """The `audit_window` block for the header and the terminal record.
+
+    NEVER OMITS THE KEY. A missing field reads as "the author forgot"; an
+    explicit null with a reason reads as evidence. And the second branch is a
+    contradiction worth shouting about rather than hiding: the window opens
+    before `mark_seal_opened`, so a spent attempt with no window means the two
+    were reordered and the record cannot be ruled on as written.
+    """
+    window = _AUDIT_WINDOW[0]
+    if window is not None:
+        out = dict(window)
+        out["source_of_project_and_bucket"] = "scripts/gcp-env.sh"
+        return out
+    return {
+        "opened_at": None,
+        "calibration_opened_at": None,
+        "source_of_project_and_bucket": "scripts/gcp-env.sh",
+        "why_absent": (
+            "the run stopped before its audit window opened. If "
+            "`read_attempted` is true this is a CONTRADICTION - the window is "
+            "opened before the seal is marked spent - and the ordering in "
+            "`sealed_drive_lifecycle` has been changed since this record's "
+            "format was written. Do not rule from this file alone."),
+    }
+
+
 def note_stage(text):
     """Record where we got to. Cheap, and the only account a crash may leave."""
     _SEAL_STAGE[0] = text
@@ -1424,17 +1579,31 @@ def _write_terminal_record(path, handle):
         "run_completed": run_completed(),
         "stage": _SEAL_STAGE[0],
         "episodes_completed_before_stop": _COMPLETED[0],
+        # THE COORDINATES, NOT JUST THE INSTRUMENT'S NAME. `how_to_rule` below
+        # says to query the counter over this run's window; without the window
+        # that sentence names an instrument nobody can point at the right
+        # interval. Both substitutes an auditor would reach for afterwards are
+        # wrong in a known and fatal direction - see `_AUDIT_WINDOW`.
+        "audit_window": _audit_window_for_record(),
         # NO VERDICT. The old text said the attempt was "terminal INVALID",
         # which is a ruling, in a field introduced by a sentence claiming the
         # record does not rule. A reviewer noticed the contradiction inside one
         # dictionary.
         "how_to_rule": (
-            "A3.11 turns on the number of sealed CONTENT_READs, which is "
-            "measured by the holdout counter over the run's own audit window "
-            "and NOT by any flag in this file. `read_attempted` is a "
+            "A3.11 turns on the number of GRANTED sealed CONTENT_READs, which "
+            "is measured by the holdout counter over this run's own audit "
+            "window and NOT by any flag in this file. `read_attempted` is a "
             "conservative process flag set before the download; it is not "
-            "evidence that an object was fetched. Read the counter, then apply "
-            "the amendment."),
+            "evidence that an object was fetched. Query the counter with "
+            "`since` = `audit_window.opened_at` above, against the project and "
+            "sealed bucket named in `scripts/gcp-env.sh`; that window opens "
+            "STRICTLY AFTER `audit_window.calibration_opened_at`, so the "
+            "calibration canary is outside it by construction. Do NOT "
+            "substitute this process's start time (it precedes the "
+            "calibration, and would count the canary) or the header's "
+            "`driven_at` (it is stamped after the sealed read, and does not "
+            "exist at all if the run stopped before the header). Read the "
+            "counter over that window, then apply the amendment."),
     }
     try:
         if handle is not None and not handle.closed:
@@ -1795,6 +1964,10 @@ def main(argv=None):
         "family": args.family,
         "sealed": bool(args.sealed),
         "driven_at": _utc(),
+        # NOT A SUBSTITUTE FOR THE WINDOW, AND BOTH ARE HERE SO THAT IS VISIBLE.
+        # `driven_at` is stamped here, after the sealed read and after the human
+        # adjudication. The window opened long before it.
+        "audit_window": _audit_window_for_record(),
         "model_id": model_id,
         "live": bool(args.live),
         "partial": bool(args.limit),

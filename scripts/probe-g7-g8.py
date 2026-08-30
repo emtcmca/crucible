@@ -95,6 +95,12 @@ def main():
                     help="seconds to wait for Cloud Logging ingestion before "
                          "counting. 0 disables it and will UNDERCOUNT reads "
                          "made by this same probe run.")
+    ap.add_argument("--reveal-sealed-names", action="store_true",
+                    help="write sealed OBJECT NAMES into the proof file "
+                         "verbatim. Off by default: this script writes into "
+                         "docs/proof/, which is TRACKED and PUBLIC, and the "
+                         "sealed object names describe each attack's pattern. "
+                         "Use only under an explicit disclosure ruling.")
     args = ap.parse_args()
 
     day = datetime.date.today().isoformat()
@@ -172,12 +178,75 @@ def main():
         "    whole point of re-asserting every run is that a grant made later",
         "    is invisible to a check that ran earlier.",
     ]
-    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # REDACTED AT THE BOUNDARY WHERE THE BYTES BECOME PUBLIC.
+    #
+    # `render_tally` prints each matched entry's full resource name, and that
+    # is right for an operator staring at a terminal. This script then writes
+    # the same text into `docs/proof/`, which is TRACKED IN A PUBLIC REPO -
+    # and sixty lines away in `record-f4-transfer.py` the runner refuses to
+    # publish those same names, because the commitment's `_withheld` says they
+    # describe each attack's pattern.
+    #
+    # Two incompatible disclosure claims, one leak path. It has not fired: the
+    # committed proof files carry no sealed object names, because no sealed
+    # read has happened yet. It would fire on the FIRST recovery run after a
+    # terminal failure, which is the one moment nobody will be reviewing a
+    # proof file's contents.
+    #
+    # The redaction is per-object and STABLE, so the audit record still says
+    # how many distinct objects were touched and lets an auditor with bucket
+    # access match each line to an object. What it does not do is print the
+    # slug. Whether the full names should be published after a terminal
+    # failure is a real question the pre-registration leaves open, and it is
+    # Eric's to rule on - so this defaults to withholding and takes an
+    # explicit flag, rather than deciding by omission.
+    body = "\n".join(lines) + "\n"
+    if not args.reveal_sealed_names:
+        body, hidden = _redact_sealed_objects(body, gate.env)
+        if hidden:
+            body += (
+                "\nSEALED OBJECT NAMES REDACTED: %d distinct object(s), shown "
+                "as sha256-8 digests above.\nThe digests are stable, so an "
+                "auditor holding the bucket can match every line to an "
+                "object.\nRe-run with --reveal-sealed-names ONLY under an "
+                "explicit disclosure ruling: this file is committed to a "
+                "public repository.\n" % hidden)
+    out_path.write_text(body, encoding="utf-8")
 
     # Postcondition, not the exit code: the file on disk is the artifact.
     print(out_path.read_text(encoding="utf-8"))
     print("wrote %s (%d bytes)" % (out_path, out_path.stat().st_size))
     return 1 if bad else 0
+
+
+def _redact_sealed_objects(text, env):
+    """Replace sealed OBJECT names with stable digests. Returns (text, count).
+
+    Operates on the rendered text rather than on the tally structure on
+    purpose: this is the last point before the bytes are written, so anything
+    that reaches the file goes through it, including sections added later by
+    someone who never read this function.
+    """
+    import hashlib
+    import re
+
+    bucket = (env.get("CRUCIBLE_SEALED_BUCKET") or "").replace("gs://", "")
+    if not bucket:
+        return text, 0
+
+    seen = set()
+
+    def sub(match):
+        obj = match.group("obj")
+        seen.add(obj)
+        digest = hashlib.sha256(obj.encode("utf-8")).hexdigest()[:8]
+        return match.group("head") + "sha256-8:" + digest
+
+    # `.../buckets/<bucket>/objects/<name>` and `gs://<bucket>/<name>`.
+    pattern = re.compile(
+        r"(?P<head>(?:buckets/%s/objects/)|(?:gs://%s/))(?P<obj>[^\s\"']+)"
+        % (re.escape(bucket), re.escape(bucket)))
+    return pattern.sub(sub, text), len(seen)
 
 
 def _holdout_section(counter, args):
