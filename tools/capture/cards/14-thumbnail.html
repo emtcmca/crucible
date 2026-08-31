@@ -3,10 +3,26 @@
 <title>CRUCIBLE - Devpost gallery thumbnail</title>
 <!--
   THE DEVPOST GALLERY THUMBNAIL. 1920x1280 authored, rendered at 2x to
-  3840x2560. 3:2 ON PURPOSE - Devpost's gallery crops to 3:2, so a 16:9 plate
-  letterboxes and loses vertical space in the one frame every judge sees first.
+  3840x2560 by tools/capture/render-3x2.mjs. 3:2 ON PURPOSE - Devpost's gallery
+  crops to 3:2, so a 16:9 plate letterboxes in the one frame a judge sees
+  before deciding whether to open the project.
 
-  IT REPLACES A CARD THAT NAMED A SERVICE THIS PROJECT DOES NOT CLAIM.
+  DESIGNED AT THUMBNAIL SIZE FIRST, WHICH IS THE WHOLE BRIEF.
+  A gallery card renders around 400px wide, so everything here divides by
+  roughly 4.8. The first version put CRUCIBLE in a 30px eyebrow: six pixels on
+  screen, which is not a wordmark, it is texture. The rule that produced this
+  layout is that TYPE SIZE IS A RANKING, NOT A TASTE DECISION - whatever must
+  survive the shrink goes big, and everything that cannot survive it is there
+  for the judge who has already opened the image.
+
+    survives at 400px:      CRUCIBLE, and the two tagline lines
+    does not, and fine:     the strapline, the mechanism line, the strip
+
+  THE TAGLINE IS KEPT AND PROMOTED, not cut. It was the second line of a
+  headline before; it is now the hook, and the only text besides the wordmark
+  sized to survive the shrink.
+
+  IT ALSO REPLACES A CARD THAT NAMED A SERVICE THIS PROJECT DOES NOT CLAIM.
   The superseded thumbnail read "ADK / VERTEX AI / CLOUD RUN / FIRESTORE".
   Firestore is provisioned and NOTHING IN THIS REPOSITORY HOLDS A CLIENT FOR
   IT - the 2026-08-30 audit removed it from the disclosure, the "Built with"
@@ -21,22 +37,17 @@
   plate are the two frames a judge looks at longest and they must read as one
   piece of work.
 
-  READABILITY AT GALLERY SIZE IS THE CONSTRAINT. A Devpost card renders around
-  300px wide, so the headline is the only thing guaranteed to survive. One
-  short subline, one service strip, nothing else. A paragraph here is a grey
-  smear at the size it is actually seen.
-
   ACCURACY CONSTRAINTS THIS CARD IS WRITTEN UNDER:
     * "writes itself" names THE POLICY, which is the half that does. RED
       discovery is a DESIGN, not a shipped capability, and nothing in the tree
-      authors an attack - so the second line moves the emphasis onto the
-      output rather than leaving "writes itself" to be read as the attacks
-      discovering themselves;
+      authors an attack - so the turn line moves the emphasis onto the output
+      rather than leaving the phrase to be read as the attacks discovering
+      themselves;
     * no efficacy rate - the figures rule requires a denominator and an
       acceptance count beside every rate, and neither fits here, so the answer
       is not to put one on a thumbnail;
-    * "refuses to ship a patch it cannot prove" is the promotion gate, pure
-      code, and it is checkable by a stranger via scripts/w2-smoke.py.
+    * "what it CALLED, never what it said" is the tripwire, and it is literal:
+      the tripwire rules over TOOL_EXECUTED events and reads no prose.
 -->
 <style>
   :root {
@@ -55,71 +66,81 @@
     color: var(--ink);
     font-family: "Segoe UI", Inter, "Helvetica Neue", Arial, sans-serif;
     display: flex; flex-direction: column; justify-content: center;
-    padding: 0 132px;
+    padding: 0 128px;
     -webkit-font-smoothing: antialiased;
   }
-  .eyebrow {
+
+  /* THE WORDMARK. The one element that has to read at 400px wide, so it is
+     sized off that constraint and nothing else. The orange spine is the same
+     device the superseded card used, kept deliberately: it is the only shape
+     on an otherwise all-type plate, and a grid of screenshots is exactly
+     where an all-type plate needs one. */
+  .mark { display: flex; align-items: stretch; gap: 38px; }
+  .spine { width: 14px; background: var(--model); border-radius: 2px; flex: none; }
+  .mark h1 {
+    font-size: 214px; line-height: 0.98; font-weight: 700;
+    letter-spacing: -0.010em; color: var(--ink);
+  }
+  .strap {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-    font-size: 30px; letter-spacing: 0.30em; text-transform: uppercase;
-    color: var(--model); margin-bottom: 46px; font-weight: 600;
+    font-size: 29px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--model); font-weight: 600; margin: 24px 0 0 52px;
   }
-  .eyebrow span { color: var(--dim); font-weight: 400; }
-  h1 {
-    /* 104px IS A CEILING, NOT A PREFERENCE. At 118 the turn wraps to three
-       lines and the service strip orphans "CLOUD IAM" onto a second row -
-       tried, rendered, reverted. The card's vertical margins look generous
-       because the WRAP POINTS bound the type, not because the scale was
-       left small. Do not raise it without re-rendering both.
-       Set by the LONGER line: "Then ships a policy, not a report."
-       has to hold on ONE line, because the turn losing its own line is what
-       made the first render read as four unrelated fragments. */
-    font-size: 104px; line-height: 1.06; font-weight: 700;
-    letter-spacing: -0.028em; max-width: 1656px;
-  }
-  h1 .turn { display: block; color: var(--model); }
+
   .rule {
-    width: 100%; height: 3px; margin: 46px 0 38px;
-    background: linear-gradient(to right, var(--model) 0 260px,
-                                          var(--dim) 260px 100%);
+    width: 100%; height: 3px; margin: 46px 0 40px;
+    background: linear-gradient(to right, var(--model) 0 240px,
+                                          var(--dim) 240px 100%);
     opacity: .85;
   }
+
+  /* THE TAGLINE. Second in the ranking, so it is sized to survive the shrink
+     too. 74px is a CEILING set by the wrap point: the turn line must hold on
+     ONE line, and an earlier draft at 118px broke it onto three. Do not raise
+     it without re-rendering. */
   h2 {
-    font-size: 42px; line-height: 1.42; font-weight: 400;
-    color: var(--muted); max-width: 1560px; letter-spacing: -0.002em;
+    font-size: 74px; line-height: 1.08; font-weight: 700;
+    letter-spacing: -0.022em; max-width: 1664px;
   }
-  h2 b   { color: var(--ink);    font-weight: 600; }
-  h2 .rf { color: var(--refuse); font-weight: 600; }
+  h2 .turn { display: block; color: var(--model); }
+
+  .mech {
+    font-size: 36px; line-height: 1.4; font-weight: 400;
+    color: var(--muted); margin-top: 30px; letter-spacing: -0.002em;
+  }
+  .mech b   { color: var(--ink);    font-weight: 600; }
+  .mech .rf { color: var(--refuse); font-weight: 600; }
+
   .stack {
-    /* IN FLOW, not pinned to the bottom. Pinned, it left a dead band between
-       the subline and the strip: the text block centres in the space above a
-       fixed footer, so the emptier the card the wider that band gets. One
-       centred column has no gap to tune. */
-    margin-top: 92px;
+    margin-top: 62px;
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-    border-top: 1px solid #2A2521; padding-top: 30px;
+    border-top: 1px solid #2A2521; padding-top: 24px;
   }
   .svc {
-    font-size: 27px; letter-spacing: 0.16em; text-transform: uppercase;
+    font-size: 25px; letter-spacing: 0.14em; text-transform: uppercase;
     color: var(--code); font-weight: 600;
   }
   .svc i { color: var(--dim); font-style: normal; font-weight: 400; }
   .foot {
-    margin-top: 20px; display: flex; justify-content: space-between;
-    align-items: baseline; font-size: 26px; color: var(--dim);
+    margin-top: 16px; display: flex; justify-content: space-between;
+    align-items: baseline; font-size: 24px; color: var(--dim);
   }
 </style></head>
 <body>
 
-  <div class="eyebrow">CRUCIBLE <span>&middot; pre-deployment hardening</span></div>
-
-  <h1>A pen test that writes itself.
-      <span class="turn">Then ships a policy, not a report.</span></h1>
+  <div class="mark">
+    <div class="spine"></div>
+    <h1>CRUCIBLE</h1>
+  </div>
+  <div class="strap">Pre-deployment hardening for agents with real permissions</div>
 
   <div class="rule"></div>
 
-  <h2>It attacks an agent that can <b>move money</b>, rules on what the agent
-      actually <b>called</b> rather than anything it said, and
-      <span class="rf">refuses to promote a fix it cannot prove</span>.</h2>
+  <h2>A pen test that writes itself.
+      <span class="turn">Then ships a policy, not a report.</span></h2>
+
+  <div class="mech">It rules on what the agent <b>called</b>, never what it said,
+      and <span class="rf">refuses to promote a fix it cannot prove</span>.</div>
 
   <div class="stack">
     <div class="svc">Google ADK <i>&middot;</i> Vertex AI <i>&middot;</i> Gemini
