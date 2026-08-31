@@ -168,13 +168,21 @@ generation.
 Two frames, and **neither costs a word of narration**, because both illustrate
 lines the script already says:
 
+**SHOOT IT AS TWO TAKES.** Together the two frames run about 52 lines, which
+overflows a 1080p terminal at a legible font size and scrolls the head off — and
+the head is where the digest and the locks are. Each half fits on its own:
+
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\captureerify-proof.ps1 -Pause 2.0
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\captureerify-proof.ps1 -Pause 2.0 -Only replay
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\captureerify-proof.ps1 -Pause 2.0 -Only seal
 ```
+
+~32 lines and ~23 lines. `-Only both` still exists and is the thing that does
+not fit; it is kept for running the check outside a recording.
 
 | frame | the line it proves |
 |---|---|
-| `python -m crucible.replay evidence/batch-measure-2026-08-27/run-01.c6.json` | **N5** — *"the replay tool needs no credentials to check them."* It recomputes the digest from the bytes on disk and prints **HASH LOCKS — 5, across 6 fields** |
+| `python -m crucible.replay ...` (first 24 lines of 663) | **N5** — *"the replay tool needs no credentials to check them."* Recomputes the digest from the bytes on disk and prints **HASH LOCKS — 5, across 6 fields**. The script prints how many lines it is not showing, so the frame does not imply the output is short |
 | `python scripts/pre-read-seal-proof.py` | **N9** — *"the held-out family is still sealed."* Makes it a statement about this minute rather than the day it was written |
 
 **Point the replay at a real bundle, not the golden fixture.** The README's copy

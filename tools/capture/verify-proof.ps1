@@ -26,7 +26,15 @@
 
 param(
   [double]$Pause = 2.0,
-  [string]$Bundle = "evidence/batch-measure-2026-08-27/run-01.c6.json"
+  [string]$Bundle = "evidence/batch-measure-2026-08-27/run-01.c6.json",
+
+  # SHOOT THESE AS TWO TAKES. Together they are ~52 lines, which overflows a
+  # 1080p terminal at a legible font size and scrolls the head off - and the
+  # head is where the digest and the locks are. Each half fits on its own.
+  #   -Only replay   the offline reader, ~30 lines
+  #   -Only seal     the seal proof, ~18 lines
+  [ValidateSet("both", "replay", "seal")]
+  [string]$Only = "both"
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,7 +53,12 @@ function Beat($cmd) {
 }
 
 Clear-Host
-Write-Host "CRUCIBLE - the two things you can check without asking me" -ForegroundColor DarkYellow
+$banner = switch ($Only) {
+  "replay" { "CRUCIBLE - replay the evidence yourself, offline" }
+  "seal"   { "CRUCIBLE - is the held-out family still sealed?" }
+  default  { "CRUCIBLE - the two things you can check without asking me" }
+}
+Write-Host $banner -ForegroundColor DarkYellow
 Start-Sleep -Seconds $Pause
 
 # 1. THE OFFLINE REPLAY, ON A REAL BUNDLE - not the golden fixture.
@@ -54,17 +67,36 @@ Start-Sleep -Seconds $Pause
 #    the 08-27 measurement batch shows the same thing about REAL evidence: the
 #    digest is recomputed from the bytes on disk, and the five locks come back
 #    out of the file rather than out of a claim.
-Beat "python -m crucible.replay $Bundle"
+# THE FULL REPLAY IS 600+ LINES AND SCROLLS THE FRAME OFF THE TOP INSTANTLY.
+# Everything that matters for this beat is in the head: the digest recomputed
+# from the bytes on disk, the "no credentials, no network, no cloud project"
+# line, the run identity, and the five hash locks. The rest is per-round
+# detail nobody can read at speed anyway.
+#
+# The total is PRINTED, not hidden. Showing 24 of 663 lines without saying so
+# would be a frame that implies the output is short.
+if ($Only -ne "seal") {
+  $replay = python -m crucible.replay $Bundle
+  Beat "python -m crucible.replay $Bundle | Select-Object -First 24"
+  Write-Host ("      ... {0} more lines: per-round census, gate decisions, and the" -f ($replay.Count - 24)) -ForegroundColor DarkGray
+  Write-Host "      full episode ledger. All of it read from the same file." -ForegroundColor DarkGray
+  Start-Sleep -Seconds $Pause
+}
 
 # 2. THE SEAL, RIGHT NOW. This is what makes N9's "still sealed" a statement
 #    about this minute rather than about the day it was written. It refuses on
 #    a dirty tree, on a commitment that no longer recomputes, on a leak in a
 #    tracked file, and on HEAD moving while its own checks run.
-Beat "python scripts/pre-read-seal-proof.py"
-$sealOk = ($LASTEXITCODE -eq 0)
+$sealOk = $true
+if ($Only -ne "replay") {
+  Beat "python scripts/pre-read-seal-proof.py"
+  $sealOk = ($LASTEXITCODE -eq 0)
+}
 
 Write-Host ""
-Write-Host "No credentials. No network. No cloud project." -ForegroundColor DarkYellow
+if ($Only -ne "seal") {
+  Write-Host "No credentials. No network. No cloud project." -ForegroundColor DarkYellow
+}
 
 # THE CLOSING LINE READS THE VERDICT. IT DOES NOT ASSERT ONE.
 #
@@ -74,7 +106,9 @@ Write-Host "No credentials. No network. No cloud project." -ForegroundColor Dark
 # narrated a pass underneath it. That is a check that measures nothing wearing
 # a summary line, which is the defect this repository has published seventeen
 # instances of. It is not going on camera.
-if ($sealOk) {
+if ($Only -eq "replay") {
+  # nothing to say about the seal - this half did not check it
+} elseif ($sealOk) {
   Write-Host "The seal is intact and the check says so, not me." -ForegroundColor DarkYellow
 } else {
   Write-Host "THE PROOF FAILED. Do not use this take." -ForegroundColor Red
