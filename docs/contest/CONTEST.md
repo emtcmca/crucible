@@ -320,7 +320,7 @@ verification.
 
 **Rewritten 2026-08-22, because every specific in it had been overtaken.**
 
-**One mandatory deliverable does not exist: the video.** The architecture diagram
+**~~One mandatory deliverable does not exist: the video.~~ RECORDED AND UPLOADED 2026-08-31: https://youtu.be/tdro9Fs97mY** — the last mandatory Stage One deliverable, and the eight are now complete. The architecture diagram
 landed 2026-08-21; the Cloud Run deploy and both on-camera captures landed the
 same day. A full **1.0 bonus point** still sits unclaimed and almost none of it
 depends on the loop working. The strongest scoring surface is **architectural

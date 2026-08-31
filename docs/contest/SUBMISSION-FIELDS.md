@@ -16,7 +16,7 @@ replacement, no material changes, until winners are announced.
 | **Google SDK used** | **ADK** | `google-adk==2.1.0`, imported and load-bearing at `crucible/plugin/adk.py:78` |
 | **Project start date** | **2026-08-20** | `git log --reverse`, first commit `fc3a612` at 10:45:12 -0400. Submission period opened 08-03 |
 | **Repository** | https://github.com/emtcmca/crucible | public, Apache-2.0. **No `testing@devpost.com` share needed** |
-| **Video** | *(paste the YouTube link once processed)* | must be **public**, checked in an **incognito window**, **under 4:00** |
+| **Video** | **https://youtu.be/tdro9Fs97mY** | must be **public**, checked in an **incognito window**, **under 4:00** |
 | **Architecture diagram** | `docs/diagrams/loop.svg` | upload the rendered PNG from `tools/capture/out/cards/02-architecture.png` |
 | **Hosted project URL** | **see the ruling below** | |
 | **Startup Excellence opt-in** | **DO NOT OPT IN** | needs an incorporated organisation and a corporate email. Solo and unaffiliated is not eligible |

@@ -40,9 +40,11 @@ own, and step 5 of the tutorial says so rather than letting you discover it.
 
 ## Judge path: 90 seconds
 
-**1. The demo video** — *not yet recorded, as of 2026-08-26. Link goes here.*
-It is the only Stage One deliverable that does not exist
-(`docs/contest/CONTEST.md:66`).
+**1. The demo video** — **https://youtu.be/tdro9Fs97mY** *(3:34, recorded and
+uploaded 2026-08-31)*. It shows the loop, the architecture, the figures with
+their denominators, and a live terminal proving the backend runs on Google
+Cloud. **This line read "not yet recorded" until the day of submission**, which
+was true every time it was checked and is the reason it was checked so often.
 
 **2. The one end-to-end result you can verify yourself, in thirty seconds, from
 a clone:**
