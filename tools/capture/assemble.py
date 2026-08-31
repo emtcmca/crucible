@@ -33,6 +33,19 @@ OUT = HERE / "out"
 WORK = OUT / "beats"
 CAP_S = 240.0
 
+# A BEAT, THEN A BREATH.
+#
+# `prepare-audio` trims each take to 0.25s of padding a side, which is right for
+# the take and wrong for the cut: beats landed hard against each other and the
+# whole thing read breathless. The fix belongs here rather than in the trim -
+# the trim's job is to remove dead air the microphone recorded, and this is an
+# editing decision about pace.
+#
+# Each beat's LAST FRAME is held for GAP_S with silence under it, so the picture
+# settles instead of cutting. Cheap: 13 beats at 0.7s is 9.1s against a 240s cap
+# the cut clears by 35.
+GAP_S = 0.7
+
 
 def sh(args, **kw):
     return subprocess.run(args, capture_output=True, text=True, **kw)
@@ -148,7 +161,7 @@ def main():
                 "   <- " + b["live_alternative"] if b.get("live_alternative") else ""))
 
         if secs:
-            total += secs
+            total += secs + GAP_S
         rows.append((b, vis, aud, secs))
 
     print("BEATS")
@@ -160,6 +173,8 @@ def main():
     print()
     print("  running total  %.1fs of %.0fs cap%s"
           % (total, CAP_S, "   OVER THE CAP" if total > CAP_S else ""))
+    print("                 (includes %.1fs of inter-beat gap at %.2fs each)"
+          % (GAP_S * len([r for r in rows if r[3]]), GAP_S))
     if missing:
         print()
         print("MISSING - nothing was built:")
@@ -202,18 +217,27 @@ def main():
         # run with the one tool tolerant enough to hide what it was checking
         # for.
         muxed = WORK / (b["id"] + "-av.mp4")
+        total = secs + GAP_S
+        # tpad clones the final video frame; apad extends the audio with
+        # silence. Both to the SAME length, so the two streams cannot drift -
+        # and `-t` rather than `-shortest`, because -shortest would cut the
+        # gap back off at the end of the audio, which is the thing being added.
+        vpad = "tpad=stop_mode=clone:stop_duration=%.3f" % GAP_S
         if aud is not None:
-            # -shortest so a clip cannot outlive its narration.
             sh(["ffmpeg", "-y", "-i", str(dest), "-i", str(aud),
-                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                "-ar", "48000", "-ac", "2",
-                "-shortest", str(muxed)], check=False)
+                "-vf", vpad, "-af", "apad=pad_dur=%.3f" % GAP_S,
+                "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+                "-t", "%.3f" % total, str(muxed)], check=False)
         else:
             sh(["ffmpeg", "-y", "-i", str(dest), "-f", "lavfi",
                 "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
-                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                "-ar", "48000", "-ac", "2",
-                "-shortest", str(muxed)], check=False)
+                "-vf", vpad,
+                "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+                "-t", "%.3f" % total, str(muxed)], check=False)
         clips.append(muxed)
 
     # ---- REFUSE TO CONCAT MISMATCHED STREAMS ------------------------------
