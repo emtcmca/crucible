@@ -58,16 +58,17 @@
     },
     {
       "id": "N5",
-      "visual": "tools/capture/out/cards/05-N5-locks.png",
-      "audio": "audio/N5.wav"
+      "visual": "video/N5-replay.mp4",
+      "audio": "audio/N5.wav",
+      "was": "tools/capture/out/cards/05-N5-locks.png",
+      "how": "SHOT LIVE 2026-08-31 14:19. The offline reader on a real 08-27 bundle: digest recomputed from the bytes on disk, and HASH LOCKS - 5, across 6 fields. This is a BETTER N5 visual than the card it replaces, because the card asserted the five locks and this prints them out of the file."
     },
     {
       "id": "N6a",
-      "visual": "tools/capture/cards/12-gcp-terminal.html",
+      "visual": "video/N6a-gcp-terminal.mp4",
       "audio": "audio/N6a.wav",
-      "how": "REAL OUTPUT, RENDERED. Rebuild the transcript and the card with: powershell -NoProfile -ExecutionPolicy Bypass -File tools\\capture\\gcp-proof.ps1 -Pause 0.05 | Out-File -Encoding utf8 tools/capture/out/gcp-proof-transcript.txt ; then python tools/capture/build-terminal-view.py",
-      "player": "__termPlayer",
-      "prefer_live": "A SCREEN RECORDING IS STRICTLY BETTER AS PROOF and supersedes this. If you shoot one, drop it at video/N6a-gcp-terminal.mp4 and change this beat's `visual` to that path - assemble.py takes mp4 and fits it to the narration. Nothing else changes."
+      "how": "SHOT LIVE 2026-08-31 14:06. gcloud describe, enabled APIs, the three buckets, and a LIVE Gemma call returning http 200 with CAP_MOVES_MONEY. Supersedes the rendered transcript at cards/12-gcp-terminal.html, which stays in the tree as the fallback.",
+      "was": "tools/capture/cards/12-gcp-terminal.html"
     },
     {
       "id": "N6b",
@@ -88,8 +89,10 @@
     },
     {
       "id": "N9a",
-      "visual": "tools/capture/out/cards/08-N9-not.png",
-      "audio": "audio/N9a.wav"
+      "visual": "video/N9a-seal.mp4",
+      "audio": "audio/N9a.wav",
+      "was": "tools/capture/out/cards/08-N9-not.png",
+      "how": "SHOT LIVE 2026-08-31 14:20 at commit c6e4523. pre-read-seal-proof.py, VERDICT PASS. Makes 'the held-out family is still sealed' a statement about a recorded minute rather than about the day the line was written."
     },
     {
       "id": "N9b",

@@ -202,7 +202,7 @@ We found it by recounting a number we'd already published. It got worse.
 
 ---
 
-## N9 · what this is not, and the close
+## N9a · what this is not
 
 **STATE CHECK BEFORE THE TAKE.** The sealed line is a claim about machine state
 and it expires. Re-verify immediately before recording:
@@ -217,7 +217,17 @@ python scripts/pre-read-seal-proof.py     # must print VERDICT PASS
 What this is not. Eleven days, one person, one target agent. No users. Not
 reviewed or endorsed by Google. The held-out family is still sealed. I
 won't describe a result I don't have.
+```
 
+---
+
+## N9b · the close
+
+**ON SCREEN:** the close card.
+
+**SAY:**
+
+```
 Every boundary in here is a component deliberately blind to something. The
 coroner can't propose a fix. The armorer has no allow verb.
 

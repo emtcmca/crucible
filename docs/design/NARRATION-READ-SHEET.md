@@ -22,7 +22,7 @@ is a third thing that can drift.
 - `*(beat)*` between blocks means a pause, not a new file. All
   blocks under one heading are **one take**.
 
-**10 beats · 543 spoken words · roughly 3:37 at 150 wpm.**
+**11 beats · 543 spoken words · roughly 3:37 at 150 wpm.**
 
 Fits the 4:00 cap with 19s of headroom for pauses.
 
@@ -180,15 +180,23 @@ We found it by recounting a number we'd already published. It got worse.
 
 ---
 
-## N9 — `audio/N9.wav`
+## N9a — `audio/N9a.wav`
 
-*what this is not, and the close · — · 69 words, ~28s at 150 wpm*
+*what this is not · — · 33 words, ~13s at 150 wpm*
 
 ```
 What this is not. Eleven days, one person, one target agent. No users. Not
 reviewed or endorsed by Google. The held-out family is still sealed. I
 won't describe a result I don't have.
+```
 
+---
+
+## N9b — `audio/N9b.wav`
+
+*the close · — · 36 words, ~14s at 150 wpm*
+
+```
 Every boundary in here is a component deliberately blind to something. The
 coroner can't propose a fix. The armorer has no allow verb.
 
