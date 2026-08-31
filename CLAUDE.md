@@ -161,34 +161,32 @@ exit 2. Do not route around it.
 
 **Updated:** 2026-08-31 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**SUBMISSION CLOSES TODAY 17:00 PT AND EVERYTHING LOCKS THEN** - repo, video and
-linked materials, until winners are announced (~10-08). **THE VIDEO EXISTS:
-https://youtu.be/tdro9Fs97mY, 3:34** - the last mandatory Stage One deliverable,
-and all eight are now complete. **THE SEAL WAS NEVER OPENED, by decision**, and
-update 10 reports that rather than a transfer result. Suite green,
-contract-check eight passes, seal proof PASS. Counts are verify-on-use and
-deliberately not written here.
+**SUBMITTED 2026-08-31** to Google Cloud "All Things Agentic", track The
+Fortified Enterprise Fleet. Every field answered, both bonus fields verified.
+Video public at https://youtu.be/tdro9Fs97mY (3:34); case study at
+https://www.erictetzlaff.com/crucible.html — the `.html` matters, the
+extensionless path 404s. `origin/main` at `99a8caa`. **Update 10 is the final
+update, by decision. THE SEAL WAS NEVER OPENED** and no transfer result is
+claimed. Counts are verify-on-use and deliberately not written here.
 
 **Open threads**
-- **SUBMIT.** Every Devpost field is answered in
-  `docs/contest/SUBMISSION-FIELDS.md`; media staged at
-  `tools/capture/out/submission-media/`.
-- **Two bonus fields need Eric, not an agent**: the content link must SAY it was
-  made for this hackathon, and the social link needs the required hashtag.
-- **NOTHING MAY BE TORN DOWN BEFORE 2026-10-01** - availability runs through the
+- **NOTHING ACTIONABLE BEFORE JUDGING.** No commits, pushes, video replacement,
+  or edits to any linked material after 2026-08-31 17:00 PT, until winners are
+  announced (~10-08). Material changes to a submitted entry raise eligibility
+  questions.
+- **NOTHING MAY BE TORN DOWN BEFORE 2026-10-01** — availability runs through the
   Judging Period, not to the submission deadline.
 - Review 12's remaining P1s are open and recorded: the reader accepts a footer
   with no `episodes` field, and the recovery pins stay optional.
 - Eight contract reasons recorded NOT ENFORCED on a green PROVEN pass.
 
 **Watch out for**
-- **A CHECK RUN THROUGH THE ONLY INSTRUMENT BLIND TO THE DEFECT.** A finished
-  video measured -13.4 LUFS and played silence: stereo container, mono packets,
-  and ffmpeg decodes per packet so ffmpeg could not see it.
-- **A NARROW TRUE STATEMENT WIDENED INTO A FALSE ONE** - still the dominant
-  shape here. Latest: a card headline that overclaimed by sitting beside a body
-  that contradicted it.
-- **A FIXED THRESHOLD IS NOT A CHECK.** A -50 dB silence gate trimmed two takes
-  and silently did nothing to a third whose floor sat above it.
-- **Commit before running the seal proof on camera** - it refuses on a dirty tree.
+- **A CHECK RUN THROUGH THE ONLY INSTRUMENT BLIND TO THE DEFECT.** A video
+  measured -13.4 LUFS and played silence. Same shape: `pytest | tail` reports
+  the pipe's exit code, and a thumbnail judged at full resolution.
+- **A CORRECTION IS A SNAPSHOT, NOT A FIX.** Three CRUCIBLE facts rotted across
+  six canon files on 08-31; two were themselves corrections. One `fact-pack.md`
+  landmine row had inverted into forbidding a true statement, which the drift
+  gate cannot catch by construction.
+- **A NARROW TRUE STATEMENT WIDENED INTO A FALSE ONE** — still the dominant shape.
 <!-- VAULT:SESSION-STATE end -->
