@@ -95,7 +95,21 @@ if ($Only -ne "replay") {
 
 Write-Host ""
 if ($Only -ne "seal") {
-  Write-Host "No credentials. No network. No cloud project." -ForegroundColor DarkYellow
+  # NOT A RESTATEMENT OF WHAT THE TOOL JUST SAID.
+  #
+  # This line used to read "No credentials. No network. No cloud project.",
+  # which the replay ALREADY PRINTS on line 7 of its own output. Echoing it
+  # made this script the thing asserting the property, when the program under
+  # the lint is the thing that establishes it - the same pattern removed from
+  # the seal half, where a summary line narrated a verdict it had not checked.
+  #
+  # So this points at what ENFORCES the claim, which the replay output does not
+  # carry: an AST lint banning socket, ssl, urllib.request, requests and the os
+  # environment attributes, plus a test that runs the viewer with the
+  # environment stripped and the socket module replaced by something that
+  # raises.
+  Write-Host "That line is enforced, not asserted:" -ForegroundColor DarkYellow
+  Write-Host "  crucible/replay/offline_lint.py  +  tests/test_replay_offline.py" -ForegroundColor DarkGray
 }
 
 # THE CLOSING LINE READS THE VERDICT. IT DOES NOT ASSERT ONE.
