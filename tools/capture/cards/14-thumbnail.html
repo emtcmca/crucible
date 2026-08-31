@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>CRUCIBLE - Devpost gallery thumbnail</title>
+<!--
+  THE DEVPOST GALLERY THUMBNAIL. 1920x1280 authored, rendered at 2x to
+  3840x2560. 3:2 ON PURPOSE - Devpost's gallery crops to 3:2, so a 16:9 plate
+  letterboxes and loses vertical space in the one frame every judge sees first.
+
+  IT REPLACES A CARD THAT NAMED A SERVICE THIS PROJECT DOES NOT CLAIM.
+  The superseded thumbnail read "ADK / VERTEX AI / CLOUD RUN / FIRESTORE".
+  Firestore is provisioned and NOTHING IN THIS REPOSITORY HOLDS A CLIENT FOR
+  IT - the 2026-08-30 audit removed it from the disclosure, the "Built with"
+  tags omit it, the additional-info Google Cloud Services field omits it, and
+  card 13 (the outro) says so out loud on screen. A thumbnail claiming it
+  contradicted three other places in the same submission. Every service named
+  below is one the build actually calls.
+
+  PALETTE IS loop.svg's OWN, sampled rather than chosen, same as card 01:
+  #14110F ground, #EDE8E2 ink, #E8933A the [M] orange, #7FA0B0 the [C] blue,
+  #C23B44 the refusal red, #9A938B muted. The thumbnail and the architecture
+  plate are the two frames a judge looks at longest and they must read as one
+  piece of work.
+
+  READABILITY AT GALLERY SIZE IS THE CONSTRAINT. A Devpost card renders around
+  300px wide, so the headline is the only thing guaranteed to survive. One
+  short subline, one service strip, nothing else. A paragraph here is a grey
+  smear at the size it is actually seen.
+
+  ACCURACY CONSTRAINTS THIS CARD IS WRITTEN UNDER:
+    * "writes itself" names THE POLICY, which is the half that does. RED
+      discovery is a DESIGN, not a shipped capability, and nothing in the tree
+      authors an attack - so the second line moves the emphasis onto the
+      output rather than leaving "writes itself" to be read as the attacks
+      discovering themselves;
+    * no efficacy rate - the figures rule requires a denominator and an
+      acceptance count beside every rate, and neither fits here, so the answer
+      is not to put one on a thumbnail;
+    * "refuses to ship a patch it cannot prove" is the promotion gate, pure
+      code, and it is checkable by a stranger via scripts/w2-smoke.py.
+-->
+<style>
+  :root {
+    --ground: #14110F;
+    --ink:    #EDE8E2;
+    --muted:  #9A938B;
+    --dim:    #7C736B;
+    --model:  #E8933A;
+    --code:   #7FA0B0;
+    --refuse: #C23B44;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1280px; overflow: hidden; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Segoe UI", Inter, "Helvetica Neue", Arial, sans-serif;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 0 132px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 30px; letter-spacing: 0.30em; text-transform: uppercase;
+    color: var(--model); margin-bottom: 46px; font-weight: 600;
+  }
+  .eyebrow span { color: var(--dim); font-weight: 400; }
+  h1 {
+    /* 104px IS A CEILING, NOT A PREFERENCE. At 118 the turn wraps to three
+       lines and the service strip orphans "CLOUD IAM" onto a second row -
+       tried, rendered, reverted. The card's vertical margins look generous
+       because the WRAP POINTS bound the type, not because the scale was
+       left small. Do not raise it without re-rendering both.
+       Set by the LONGER line: "Then ships a policy, not a report."
+       has to hold on ONE line, because the turn losing its own line is what
+       made the first render read as four unrelated fragments. */
+    font-size: 104px; line-height: 1.06; font-weight: 700;
+    letter-spacing: -0.028em; max-width: 1656px;
+  }
+  h1 .turn { display: block; color: var(--model); }
+  .rule {
+    width: 100%; height: 3px; margin: 46px 0 38px;
+    background: linear-gradient(to right, var(--model) 0 260px,
+                                          var(--dim) 260px 100%);
+    opacity: .85;
+  }
+  h2 {
+    font-size: 42px; line-height: 1.42; font-weight: 400;
+    color: var(--muted); max-width: 1560px; letter-spacing: -0.002em;
+  }
+  h2 b   { color: var(--ink);    font-weight: 600; }
+  h2 .rf { color: var(--refuse); font-weight: 600; }
+  .stack {
+    /* IN FLOW, not pinned to the bottom. Pinned, it left a dead band between
+       the subline and the strip: the text block centres in the space above a
+       fixed footer, so the emptier the card the wider that band gets. One
+       centred column has no gap to tune. */
+    margin-top: 92px;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    border-top: 1px solid #2A2521; padding-top: 30px;
+  }
+  .svc {
+    font-size: 27px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--code); font-weight: 600;
+  }
+  .svc i { color: var(--dim); font-style: normal; font-weight: 400; }
+  .foot {
+    margin-top: 20px; display: flex; justify-content: space-between;
+    align-items: baseline; font-size: 26px; color: var(--dim);
+  }
+</style></head>
+<body>
+
+  <div class="eyebrow">CRUCIBLE <span>&middot; pre-deployment hardening</span></div>
+
+  <h1>A pen test that writes itself.
+      <span class="turn">Then ships a policy, not a report.</span></h1>
+
+  <div class="rule"></div>
+
+  <h2>It attacks an agent that can <b>move money</b>, rules on what the agent
+      actually <b>called</b> rather than anything it said, and
+      <span class="rf">refuses to promote a fix it cannot prove</span>.</h2>
+
+  <div class="stack">
+    <div class="svc">Google ADK <i>&middot;</i> Vertex AI <i>&middot;</i> Gemini
+      <i>&middot;</i> Gemma <i>&middot;</i> Cloud Run <i>&middot;</i> Cloud
+      Storage <i>&middot;</i> Cloud IAM</div>
+    <div class="foot">
+      <span>Google Cloud &middot; All Things Agentic</span>
+      <span>The Fortified Enterprise Fleet</span>
+    </div>
+  </div>
+
+</body></html>
