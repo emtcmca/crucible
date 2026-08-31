@@ -14,6 +14,15 @@ nothing, delete nothing. No command touches `gs://crucible-sealed-x7`.
 
 ## 1. Before you start recording
 
+**1.0 — COMMIT OR STASH FIRST.** The seal proof in the second script refuses on
+a dirty working tree, on purpose, so one uncommitted file anywhere in the repo
+puts a red **VERDICT FAIL** on camera. It happened on this script's very first
+run.
+
+```powershell
+git status --porcelain     # must print nothing
+```
+
 **1.1 — Authenticate off camera**, so no auth prompt can land inside the take:
 
 ```powershell
@@ -150,3 +159,29 @@ it classifies each tool the target holds into a capability class. `ADR-0018`
 withdrew the claim that Gemma generated the attack corpus and says that
 sentence *"may not be written or spoken anywhere"*. Classification, never
 generation.
+
+
+---
+
+## 6. The second beat — `verify-proof.ps1`
+
+Two frames, and **neither costs a word of narration**, because both illustrate
+lines the script already says:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\captureerify-proof.ps1 -Pause 2.0
+```
+
+| frame | the line it proves |
+|---|---|
+| `python -m crucible.replay evidence/batch-measure-2026-08-27/run-01.c6.json` | **N5** — *"the replay tool needs no credentials to check them."* It recomputes the digest from the bytes on disk and prints **HASH LOCKS — 5, across 6 fields** |
+| `python scripts/pre-read-seal-proof.py` | **N9** — *"the held-out family is still sealed."* Makes it a statement about this minute rather than the day it was written |
+
+**Point the replay at a real bundle, not the golden fixture.** The README's copy
+of that command uses `contracts/golden/`, which is a hand-authored schema
+instance and says so on its own face. A bundle from the 08-27 measurement batch
+proves the same property about real evidence.
+
+Use these under N5 and N9 instead of their cards, or cut between the two. A
+claim spoken over a card is a claim; the same claim spoken over the command that
+checks it is a demonstration.
