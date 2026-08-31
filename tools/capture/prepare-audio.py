@@ -91,10 +91,23 @@ def prepare(src, beat, denoise=True):
 
     # Denoise, then trim from BOTH ends against the now-lower floor. The
     # reverse-trim-reverse pair is how silenceremove trims a tail.
-    # Without denoise the floor is ~15 dB higher, so a -50 dB gate finds no
-    # silence and trims nothing. The threshold moves with the decision rather
-    # than staying a constant that only works in one mode.
-    thresh = "-50dB" if denoise else "-36dB"
+    # THE GATE IS RELATIVE TO THIS TAKE'S OWN PEAK, NOT A CONSTANT.
+    #
+    # A fixed -50 dB gate trimmed N2 and N3 and silently did nothing to N1,
+    # whose room floor sits above it. The result shipped: 1.75 s of dead air
+    # before the first word, which pushed the line past its beat boundary and
+    # ran it over the top of the next one. The trim reported success and
+    # changed nothing, which is the shape this repository keeps finding.
+    #
+    # peak - 30 dB tracks the take instead. A quiet take gets a quiet gate and
+    # a loud one a loud gate, and neither depends on the room being as quiet
+    # as some number written down in advance. Floored at -55 dB so a
+    # pathologically hot take cannot start clipping its own first syllable.
+    peak = before[1] if before and before[1] is not None else -3.0
+    gate = max(peak - 30.0, -55.0)
+    if not denoise:
+        gate = max(gate, -40.0)     # the floor is ~15 dB higher without it
+    thresh = "%.1fdB" % gate
     trim = ("silenceremove=start_periods=1:start_silence=%s:start_threshold=%s,"
             "areverse,"
             "silenceremove=start_periods=1:start_silence=%s:start_threshold=%s,"

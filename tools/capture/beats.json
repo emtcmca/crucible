@@ -98,6 +98,13 @@
       "id": "N9b",
       "visual": "tools/capture/out/cards/09-close.png",
       "audio": "audio/N9b.wav"
+    },
+    {
+      "id": "OUTRO",
+      "visual": "tools/capture/out/cards/13-outro.png",
+      "audio": null,
+      "hold_ms": 7000,
+      "note": "silent, like the title card. Every model pin and service on it was read from source 2026-08-31, and the services listed are the ones USED rather than the ones enabled - the project has ~40 APIs on, nearly all Google defaults."
     }
   ]
 }

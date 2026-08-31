@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>CRUCIBLE - built on Google Cloud</title>
+<!--
+  THE OUTRO CARD. Last frame of the video, and the one that has to make the
+  Google Cloud case in a single look.
+
+  EVERY VALUE READ FROM SOURCE 2026-08-31, not carried:
+    gemini-3.7-flash        crucible/armorer/armorer.py:47
+    gemini-3.6-flash        crucible/red/red.py:39
+    gemini-3.5-flash-lite   crucible/coroner/coroner.py:43
+    gemini-3.5-flash-lite   target/refund_agent/agent.py:53
+    gemma-4-26b-a4b-it-maas crucible/cartographer/vertex.py:94
+    google-adk==2.1.0       requirements.txt:12
+    Python 3.11.9           python --version
+
+  SERVICES LISTED ARE THE ONES USED, not the ones enabled. The project has ~40
+  APIs enabled, nearly all of them Google defaults; listing those would be
+  padding a credits card with things the build never touched.
+
+  WHAT IS DELIBERATELY ABSENT, AND SAID SO ON THE CARD. BigQuery is not created
+  and no client code exists. Firestore is provisioned and nothing in the
+  repository holds a client for it. `docs/devpost/third-party-disclosure.md`
+  had claimed both; the audit on 2026-08-30 removed them. A credits card is
+  exactly where an unearned service name goes unnoticed, so the absence is
+  printed rather than left out.
+
+  ROLE BESIDE EVERY MODEL. Five bare ids invite the reading that they are
+  interchangeable. They do different jobs and two share a pin.
+
+  GEMMA'S LINE SAYS WHAT IT DOES. ADR-0018 withdrew the corpus-generation claim
+  and ruled the sentence may not be written or spoken anywhere. Classification
+  is the whole of it.
+
+  NO EFFICACY FIGURE. The figures ruling requires a denominator and a
+  reader-acceptance count beside every rate; neither fits here. N7 carries them.
+-->
+<style>
+  :root{
+    --ground:#14110F; --panel:#1E1A17; --line:#2A2521;
+    --ink:#EDE8E2; --muted:#9A938B; --dim:#7C736B;
+    --model:#E8933A; --code:#7FA0B0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1920px;height:1080px;overflow:hidden}
+  body{background:var(--ground);color:var(--ink);
+       font-family:"Segoe UI",Inter,"Helvetica Neue",Arial,sans-serif;
+       -webkit-font-smoothing:antialiased;padding:44px 92px 0}
+
+  .kicker{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+          font-size:21px;letter-spacing:.30em;text-transform:uppercase;
+          color:var(--dim);font-weight:600;margin-bottom:14px}
+  h1{font-size:54px;line-height:1.06;font-weight:700;letter-spacing:-.026em}
+  h1 .hot{color:var(--model)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 76px;margin-top:34px}
+  h2{font-family:ui-monospace,Consolas,monospace;font-size:19px;
+     letter-spacing:.2em;text-transform:uppercase;color:var(--model);
+     padding-bottom:11px;border-bottom:2px solid var(--model);
+     margin-bottom:4px;font-weight:600}
+  h2.c{color:var(--code);border-bottom-color:var(--code)}
+  .row{display:flex;justify-content:space-between;align-items:baseline;
+       gap:18px;padding:9.5px 0;border-bottom:1px solid #221E1B;
+       font-family:ui-monospace,Consolas,monospace;font-size:21px}
+  .row .k{color:var(--dim);white-space:nowrap}
+  .row .v{color:var(--ink);text-align:right}
+  .row .v.m{color:var(--model)}
+  .row .v.c{color:var(--code)}
+
+  .absent{margin-top:26px;font-family:ui-monospace,Consolas,monospace;
+          font-size:19px;color:var(--dim);line-height:1.55;
+          border-left:3px solid var(--line);padding-left:18px}
+  .absent b{color:var(--muted);font-weight:400}
+
+  .runit{margin-top:30px;border:1px solid var(--code);border-radius:5px;
+         background:#171E22;padding:20px 26px}
+  .runit .hdr{font-family:ui-monospace,Consolas,monospace;font-size:20px;
+              letter-spacing:.16em;text-transform:uppercase;color:var(--code);
+              font-weight:600;margin-bottom:12px}
+  .runit .body{font-size:23px;line-height:1.5;color:var(--muted);
+               max-width:1660px}
+  .runit .body b{color:var(--ink);font-weight:600}
+  .runit .body .no{color:var(--code);font-weight:600}
+
+  .foot{position:absolute;left:92px;right:92px;bottom:44px;
+        border-top:1px solid var(--line);padding-top:20px;
+        display:flex;justify-content:space-between;align-items:baseline;
+        font-family:ui-monospace,Consolas,monospace;font-size:22px;
+        color:var(--dim)}
+  .foot b{color:var(--ink);font-weight:600}
+</style></head>
+<body>
+
+  <div class="kicker">CRUCIBLE</div>
+  <h1>Five models. Eight Google Cloud services.<br>
+      <span class="hot">One loop &mdash; and you can run it.</span></h1>
+
+  <div class="grid">
+    <div>
+      <h2>Models &mdash; by the job each one does</h2>
+      <div class="row"><span class="k">Red strategist &middot; attacks</span>
+        <span class="v m">gemini-3.6-flash</span></div>
+      <div class="row"><span class="k">Target agent &middot; under test</span>
+        <span class="v m">gemini-3.5-flash-lite</span></div>
+      <div class="row"><span class="k">Coroner &middot; autopsy, cannot fix</span>
+        <span class="v m">gemini-3.5-flash-lite</span></div>
+      <div class="row"><span class="k">Armorer &middot; writes the patch</span>
+        <span class="v m">gemini-3.7-flash</span></div>
+      <div class="row"><span class="k">Cartographer &middot; classifies tools</span>
+        <span class="v m">gemma-4-26b-a4b-it-maas</span></div>
+
+      <div class="absent">
+        <b>Not used, and not listed:</b> BigQuery is not created and no client
+        code exists. Firestore is provisioned and nothing here holds a client
+        for it. Both were claimed until an audit removed them.
+      </div>
+    </div>
+
+    <div>
+      <h2 class="c">Google Cloud &mdash; what the build actually runs on</h2>
+      <div class="row"><span class="k">Vertex AI</span>
+        <span class="v c">every model call &middot; global endpoint</span></div>
+      <div class="row"><span class="k">Vertex Model Garden</span>
+        <span class="v c">managed Gemma, per call</span></div>
+      <div class="row"><span class="k">Cloud Run</span>
+        <span class="v c">serving &middot; its own service account</span></div>
+      <div class="row"><span class="k">Cloud Storage</span>
+        <span class="v c">evidence &middot; policies &middot; the sealed holdout</span></div>
+      <div class="row"><span class="k">Cloud IAM</span>
+        <span class="v c">the blindness boundary, in code</span></div>
+      <div class="row"><span class="k">Cloud Logging</span>
+        <span class="v c">data-access audit &middot; the holdout counter</span></div>
+      <div class="row"><span class="k">Cloud Build &middot; Artifact Registry</span>
+        <span class="v c">adk deploy cloud_run</span></div>
+      <div class="row"><span class="k">Cloud Trace &middot; Billing budgets</span>
+        <span class="v c">bound to the target &middot; spend alert</span></div>
+    </div>
+  </div>
+
+  <div class="runit">
+    <div class="hdr">Run it yourself &mdash; four minutes, in your browser</div>
+    <div class="body">Click <b>Open in Cloud Shell</b> on the repository's front
+      page. It opens CRUCIBLE in your own Cloud Shell with a guided tutorial
+      pane and runs the three parts that are pure code: <b>the checker proving
+      it can fail</b>, <b>the policy language refusing to learn a string
+      filter</b>, and <b>the offline reader refusing a damaged bundle</b>.
+      <span class="no">No credential. No spend. No cloud project of your
+      own.</span><br>
+      The full attack loop is deliberately <b>not</b> run there. It needs Vertex
+      AI and a billing account, and step 5 of the tutorial says so rather than
+      letting you find out.</div>
+  </div>
+
+  <div class="foot">
+    <span><b>github.com/emtcmca/crucible</b> &nbsp;&middot;&nbsp; Apache-2.0</span>
+    <span>Agent Development Kit 2.1.0 &middot; Python 3.11 &middot; enforcement at before_tool</span>
+  </div>
+
+</body></html>
