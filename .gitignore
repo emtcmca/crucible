@@ -72,3 +72,8 @@ docs/diagrams/*.png
 docs/diagrams/*.render.log
 docs/diagrams/*.exitcode
 pptr-config.json
+
+# Video capture tooling: node deps and rendered frames are large and derived.
+tools/capture/node_modules/
+tools/capture/out/
+tools/capture/package-lock.json

@@ -1,0 +1,9 @@
+{
+  "name": "crucible-capture",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic 1920x1080 footage capture for the demo video. Scoped here so the repository root stays a Python project with no package.json.",
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>CRUCIBLE - title card</title>
+<!--
+  THE TITLE CARD. 1920x1080, captured by tools/capture/capture.mjs.
+
+  THE PALETTE IS loop.svg's OWN, sampled from the file rather than chosen:
+  #14110F ground, #EDE8E2 ink, #E8933A the [M] orange, #7FA0B0 the [C] blue,
+  #C23B44 the refusal red, #9A938B the muted rule text. The first version of
+  this card was light-on-cream and cut straight into a near-black diagram,
+  which is a flash in the middle of a four minute video. Matching the plate is
+  not decoration - the title and the architecture are the two frames a judge
+  looks at longest, and they should look like one piece of work.
+
+  THE [M]/[C] CHIPS ARE THE HOOK, and they are honest: they are the same two
+  legend chips the architecture plate uses, so the title card teaches the
+  legend three seconds before the diagram needs it.
+
+  SELF-CONTAINED - no CDN, no font request, no fetch. Same rule as
+  loop-player.html: a capture run that needs a network fails at 2am.
+
+  THE HEADLINE IS ONE EDIT. Alternates and their accuracy notes are in
+  tools/capture/SHOT-LIST.md.
+
+  ACCURACY CONSTRAINTS THIS CARD IS WRITTEN UNDER:
+    * no efficacy rate on a title card - the figures rule requires a
+      denominator and an acceptance count beside every rate, and that does not
+      fit on a title card, so the answer is not to put one here;
+    * never "discovers novel attacks" - RED discovery is a DESIGN, not shipped;
+    * "moves money" is literal and checkable - the target agent issues refunds
+      against a real ledger, and N2 shows the row.
+-->
+<style>
+  :root {
+    --ground: #14110F;
+    --panel:  #1E1A17;
+    --ink:    #EDE8E2;
+    --muted:  #9A938B;
+    --dim:    #7C736B;
+    --model:  #E8933A;   /* [M] contains a model */
+    --code:   #7FA0B0;   /* [C] pure code        */
+    --refuse: #C23B44;   /* refusal / rejection  */
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Segoe UI", Inter, "Helvetica Neue", Arial, sans-serif;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 0 118px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 25px; letter-spacing: 0.30em; text-transform: uppercase;
+    color: var(--model); margin-bottom: 40px; font-weight: 600;
+  }
+  .eyebrow span { color: var(--dim); font-weight: 400; }
+  h1 {
+    font-size: 128px; line-height: 1.03; font-weight: 700;
+    letter-spacing: -0.028em; max-width: 1560px;
+  }
+  h1 .turn { display: block; color: var(--model); }
+  .rule {
+    width: 100%; height: 3px; margin: 50px 0 42px;
+    background: linear-gradient(to right, var(--model) 0 240px,
+                                          var(--dim) 240px 100%);
+    opacity: .85;
+  }
+  h2 {
+    font-size: 38px; line-height: 1.46; font-weight: 400;
+    color: var(--muted); max-width: 1430px; letter-spacing: -0.002em;
+  }
+  h2 b     { color: var(--ink);    font-weight: 600; }
+  h2 .rf   { color: var(--refuse); font-weight: 600; }
+  .chips {
+    display: flex; gap: 30px; align-items: center; margin-top: 52px;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 23px; color: var(--muted);
+  }
+  .chip { display: flex; gap: 13px; align-items: center; }
+  .sw { width: 22px; height: 22px; border: 2.5px solid; border-radius: 2px; }
+  .sw.m { border-color: var(--model); }
+  .sw.c { border-color: var(--code); }
+  .foot {
+    position: absolute; left: 118px; right: 118px; bottom: 74px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 23px; color: var(--dim);
+    border-top: 1px solid #2A2521; padding-top: 24px;
+  }
+</style></head>
+<body>
+
+  <div class="eyebrow">CRUCIBLE <span>&middot; pre-deployment hardening</span></div>
+
+  <h1>Break the agent.
+      <span class="turn">Ship the policy.</span></h1>
+
+  <div class="rule"></div>
+
+  <h2>An adversarial harness for AI agents that hold real permissions. It attacks
+      the agent, rules on what it actually <b>called</b>, and compiles the fix
+      into an enforceable policy &mdash; then <span class="rf">refuses to ship a
+      patch it cannot prove</span>.</h2>
+
+  <div class="chips">
+    <div class="chip"><span class="sw m"></span>[M] contains a model</div>
+    <div class="chip"><span class="sw c"></span>[C] pure code &mdash; no model decides whether a breach happened</div>
+  </div>
+
+  <div class="foot">
+    <span>Google Cloud &middot; All Things Agentic</span>
+    <span>The Fortified Enterprise Fleet</span>
+  </div>
+
+</body></html>

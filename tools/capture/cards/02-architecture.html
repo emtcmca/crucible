@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>CRUCIBLE - architecture plate</title>
+<!--
+  THE STATIC ARCHITECTURE PLATE. loop.svg at full 1920x1080, no chrome.
+
+  This is the HOLD frame - the one that sits under the opening of N4 before the
+  animation starts, and the one to cut back to. The animated version is
+  docs/diagrams/loop-player.html, captured by `capture.mjs loop`.
+
+  THE SVG IS REFERENCED, NOT INLINED. loop-player.html inlines its copy for a
+  reason it documents (a file:// page cannot fetch), and it pays for that with
+  scripts/check-loop-cues.py diffing the copy against the source. This card has
+  no such constraint - Playwright loads it from disk over file:// with
+  --allow-file-access-from-files - so it uses the one true file and there is no
+  second copy to drift.
+-->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #f6f4ef; }
+  img { width: 1920px; height: 1080px; display: block; }
+</style></head>
+<body>
+  <img src="../../../docs/diagrams/loop.svg" alt="the CRUCIBLE hardening loop">
+</body></html>
