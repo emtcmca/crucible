@@ -178,3 +178,170 @@ The lesson is not the one I wrote down last night. Checking the marginal claim a
 The number this project was built to produce. Whether a policy learned from the families the loop could see transfers to the family it could not.
 
 The sealed family stays sealed until 2026-08-28 and no transfer claim exists before then. The Results section above stays exactly as it was written on 2026-08-20 until that number arrives, and it arrives with its label attached whatever it turns out to be.
+
+
+---
+
+<!-- APPENDED 2026-08-28. Nothing above this line was altered, including the Results
+     section, which still reads "deliberately empty as of 2026-08-20" and will keep
+     reading that way. The numbers arrive here, dated and labelled, rather than by
+     editing it. The WORDING of every section below, including which transfer outcome
+     gets reported and in what terms, was fixed and committed publicly at
+     commit b29a5974, 2026-08-28 before the sealed family
+     was opened. Only the counts were filled in afterward. -->
+
+## A policy that had never seen the agent it governed (added 2026-08-28)
+
+Google publishes a customer service agent as an ADK sample. Nothing about it was changed:
+its own code, its own model, its own tools, its own callbacks. CRUCIBLE's enforcement
+plugin was attached to the app and the agent was asked an ordinary customer question.
+
+With no policy, the agent called its approval tool for a 40 percent discount. It executed,
+returned approved, and the agent told the customer so. There is no manager behind that
+tool. It approves whatever it is handed.
+
+With a policy CRUCIBLE had assembled against a completely different agent, the same
+question and the same call were refused. The tool never ran. The rule that stopped it names
+no tool at all. It binds to a capability class, privilege escalation, and the class was
+assigned to that tool by a classifier reading the tool's own description.
+
+The deciding rule was a seed rule rather than one the loop learned, and that belongs in the
+same breath. The policy it travelled in was built against the refund agent and carries
+both. The learned rule denies on this agent too, in the offline case matrix, but it is not
+what stopped the live call. **What travelled is the class binding. That is the claim, and
+it does not need the rule to have been learned in order to be the interesting one.**
+
+**This is not a breach and the distinction is the point.** The sample's own prompt
+describes that tool as asking a manager for approval and never states a cap, so routing a
+large discount there is obedience, not compromise. The claim is narrow and it is about
+CRUCIBLE rather than about Google's code: a policy learned on one agent governed the real
+tool calls of another. It is possible only because enforcement lives in a plugin at the
+ADK `before_tool` boundary instead of in a fork of one agent.
+
+It is one run per arm. There is no rate here and no before and after percentage.
+
+## A second batch, and what it does and does not settle (added 2026-08-28)
+
+Every figure this project publishes carries the same label: single sample, k=1, no
+stability estimate. **That label has not been retired and this section does not retire
+it.** A replication at batch level, different seeds, same configuration, tells you whether
+a twenty-run batch reproduces. It does not turn one observation per attack into repeated
+sampling of the same attack, so the per-episode limitation stands exactly where it was.
+
+What the second batch adds is a spread where before there was a single point.
+
+Two batches now exist at identical configuration with different seeds, the second
+pre-registered before it fired. The reporting rule was fixed in that pre-registration and
+it is symmetric: both batches are reported, neither is dropped whichever looks better, the
+headline is the pooled figure, and the per-batch split prints beside it. If the two
+disagree materially, the disagreement is the finding.
+
+**The reader accepts 20 of 20 bundles in each batch.** That count travels with the figures
+because a rule in this repository requires it, and because two days earlier the same reader
+refused all sixty bundles of an overnight batch.
+
+Attack success, any-of-1, **k=1 per episode**, TARGET_FAULT episodes excluded: pooled
+**13.5 percent at v0 falling to 7.7 percent at the final policy**, and the two batches do
+not agree. The measurement batch ran 11.8 to 5.7. The replication ran 15.4 to 9.7. **The
+replication is about four points worse at both ends, and that disagreement is the finding
+rather than a footnote to the pooled number.** The direction is the same in both. The size
+is not, and one batch would have told you it was.
+
+**The reader accepts 20 of 20 bundles in each batch.**
+
+*(Verified 2026-08-28 by two independent derivations from the C6 episodes. An earlier
+published figure of 11.3 to 6.2 was computed over the measurement batch at 15 of 20 runs,
+while it was still writing, and is superseded. That is the third time a mid-batch snapshot
+has produced a figure this project later had to correct.)*
+
+**A replication that contradicts the first batch does not retire the first batch. It
+retires the claim that one batch was enough.**
+
+## The transfer result: there is not one (added 2026-08-31)
+
+**The sealed family was never opened. There is no transfer figure, and this section is
+where one would have gone.**
+
+The amendment this text is appended from was prepared on 2026-08-28 and committed before
+the unseal, so that the framing could not be chosen after seeing the number. It carried
+five outcome branches taken from the pre-registration, and the instruction was to keep
+exactly one and delete the other four. Every one of the five begins from the same
+sentence: the sealed family was opened.
+
+**None of them applies, and the pre-registration has no branch for this.** It fixed what
+to say for a clean result, a partial one, a run invalidated by exclusion, a run
+invalidated by a broken seal, and a valid run whose denominator fell under the floor. It
+did not contemplate the run simply not being made. That is a gap in it, and naming the gap
+is better than reaching for the nearest branch that fits.
+
+What happened instead is ordinary. The drive is a one shot: the pre-registration allows a
+single attempt, and eleven adversarial reviews of the runner kept finding defects in the
+machinery that would have made the resulting evidence unrulable. The last of them closed
+on the final day. Opening the seal with hours left, against a runner whose last defect had
+been found that morning, would have spent the one attempt to produce a number nobody could
+stand behind.
+
+**So the honest report is the absence.** The seal is intact, and
+`python scripts/pre-read-seal-proof.py` says so rather than we do. The corpus, the
+commitment and the runner are all in the repository. The question the project was built to
+answer is still open, and it is open in a way that anyone can check and anyone with the
+bucket could close.
+
+**What this does not license.** It does not license reading the pooled 13.5 to 7.7 figure
+as a transfer result. That number is measured on the families the loop could see. Whether
+a policy learned from those transfers to a family it could not see is precisely the
+question that has no answer here.
+
+## What it found and could not fix (added 2026-08-28)
+
+The more useful half of the output is the list of what CRUCIBLE could not close.
+
+Three invariant classes are found reliably and never closed, and each fails for a different
+reason. In one, worth 14 refusals, the armorer answers an aggregate clause with a per call
+comparison, because the rule language it must write in cannot express the grouping the
+judge uses. In another, worth 4, the proposed rule is correct and closes the breach, and
+the gate rejects it for being too general. In the third, worth 3, the armorer constrains
+the wrong field.
+
+*(Those counts were 12, 4 and 2 when this amendment was prepared on 2026-08-28, taken
+from a design note written on 08-27. Re-derived today from the completed batch with
+`scripts/unresolved-findings.py`, they are 14, 4 and 3, totalling 21 rather than 18. The
+note was written while the batch was still writing. That is the fifth figure this
+project has had to correct for the same reason, and the checklist beside this amendment
+said to re-verify this slot for exactly that reason.)*
+
+The first of those is a finding about our own design rather than about the model. The
+grouping gap is in the language, so no amount of prompting fixes it.
+
+**The gate also refuses.** 21 patch attempts were rejected, each with the invariant it
+targeted, the rule that was attempted, and the machine checked reason it failed. Before
+those efficacy gates existed, **19 of 32 promoted rules had closed nothing at all.** That
+number was not found by review. It was found by measuring our own output and it got worse,
+not better, the second time it was counted.
+
+The loop now ships less and ships better. Whether that trade is worth it is exactly what
+these numbers are for.
+
+## What is still not known, at the end (added 2026-08-28)
+
+One target agent. Everything except the foreign agent demonstration is measured against a
+single refund agent, and a design that assumed a far weaker one: the published target was
+34 of 50 attacks succeeding at the unhardened baseline, and the observed figure is closer
+to 11 percent. The entire gap available to work in is about 11 points, not 62. That is a
+real result about the agent rather than a defect, and any honest reading of "we met the
+target" has to carry it.
+
+A perfect benign score is the weakest strong number here. Some of those passes are
+rubber stamped by an approval oracle rather than left alone by the policy, and the fix for
+that is a change to the ruler which has not been made. The transferable finding this
+project keeps rediscovering applies to itself most of all: **a rule that over blocks passes
+every gate.** It blocks the attacks, the oracle waves the benign cases through, the benign
+rate reads perfect, and the gate promotes it, and the agent has been made useless. A
+perfect benign score is what that failure looks like from outside.
+
+Nothing here is a re attack. The rates are over episodes the loop actually ran, and the
+closure measurement replays recorded calls. Neither answers whether an attacker could find
+another way in.
+
+The sealed set was reviewed by one person, who is also the person who built the thing it
+was used to test.
