@@ -135,17 +135,7 @@ the testing instructions for a private site, and minting a credential for a
 harness whose whole subject is agents holding permissions they should not is the
 wrong trade for a field that is *highly encouraged* rather than mandatory.
 
-**What to say in the testing instructions instead:**
-
-> The project runs in a judge's own browser with no credential and no cloud
-> project: the README's **Open in Cloud Shell** button runs the pure-code
-> components end to end. Evidence bundles replay offline with
-> `python -m crucible.replay <bundle>`, which opens no socket and reads no
-> credential, enforced by an AST lint plus a test that runs the viewer with the
-> environment stripped and the socket module replaced by something that raises.
-> The Cloud Run service is deployed and serving under its own service account;
-> it is left unauthenticated-by-default because it drives a paid model behind a
-> budget alert that stops nothing, and the demo video shows it live instead.
+**What to say instead: the full block is the next section.**
 
 Full reasoning: `docs/contest/AUDIT-stage-one-2026-08-30.md`, Row 8.
 
@@ -203,3 +193,85 @@ LinkedIn post is at
 `https://www.linkedin.com/feed/update/urn:li:activity:7500205777584963584/`.
 **Open it and confirm the hashtag is in it before pasting.** I cannot read
 LinkedIn from here and will not assume a hashtag is present.
+
+
+---
+
+## Testing instructions - paste this
+
+**Devpost's Testing Instructions field.** Written 2026-08-31 against the commands in
+`README.md` "Spin it up", each of which is shown there with its real output so a judge
+can diff what they get against what was published.
+
+```
+No credential is required, and there is no login to hand you. Every path below runs
+with no API key, no cloud project and no environment variable.
+
+FASTEST PATH - runs in your browser, about three minutes
+
+Click "Open in Cloud Shell" on the repository's front page, or use this link:
+
+https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/emtcmca/crucible&cloudshell_git_branch=main&cloudshell_tutorial=docs/cloudshell-tutorial.md
+
+It opens the repository in your own Cloud Shell with a guided tutorial pane. The
+steps are chosen to show instruments FAILING, because a check that cannot fail is
+not a check: the contract gate refusing a mutated artifact, the policy compiler
+refusing a rule outside its three verbs, and the offline evidence reader refusing a
+damaged bundle. Step 5b makes one live Vertex call on your own project if you want
+one. Step 6 says plainly why the full attack loop is not offered to a third party.
+
+LOCAL PATH - about five minutes, Python 3.11
+
+  git clone https://github.com/emtcmca/crucible.git
+  cd crucible
+  python -m pip install -r requirements.txt
+
+  python -m pytest tests/ -p no:cacheprovider
+      The suite. tests/ deliberately keeps strawmen - wrong implementations
+      retained on purpose - so every check can be shown to fail.
+
+  python scripts/w2-smoke.py
+      The enforcement path end to end, no model called. An attack lands against an
+      empty policy and the refund executes; one hand-written rule stops it and the
+      tool does not execute; a legitimate episode survives both.
+
+  python -m crucible.conductor.campaign
+      The loop, offline. READ THE BANNER - it declares which components were real
+      and which were not exercised on this path, prints the six hash-locked fields
+      with their frozen values, and halts on ARMORER_EXHAUSTED rather than emitting
+      a canned patch that would make a degraded run look like a working one.
+
+  python -m crucible.replay contracts/golden/C6-evidence_bundle.valid.json
+      The offline evidence reader. It opens no socket and reads no credential,
+      which is enforced by an AST lint plus a test that runs the viewer with the
+      environment stripped and the socket module replaced by something that raises.
+
+Four more instruments, each pointed at something and shown refusing, are in
+MEASUREMENT.md.
+
+WHY THERE IS NO HOSTED URL
+
+The Cloud Run service was deployed and serving as of 2026-08-24, under its own
+service account, with --no-allow-unauthenticated and zero IAM bindings, so a URL would return 403 to you.
+The rules ask for login credentials when a submitted site is private. Minting a
+credential for a harness whose entire subject is agents holding permissions they
+should not have is the wrong trade, and the service drives a paid model behind a
+budget alert that stops nothing. The demo video shows that service live instead -
+the terminal beat is an unedited screen recording of gcloud against the real
+project.
+
+WHAT NOT TO EXPECT
+
+The full red-team loop needs Vertex credentials and writes to this project's own
+buckets and audit log, BECAUSE the promotion gates assert against them. It is not
+runnable by a third party and is not presented as though it were. The README has a
+section titled "what is not defensible today" that states every limit of the
+measurement, including that a held-out attack family is still sealed and no
+transfer result is claimed.
+
+Everything stays up through 2026-10-01.
+```
+
+**Two things this field must not do.** It must not claim the full loop is runnable by a
+judge, and it must not quote a test count - `README.md` marks that number verify-on-use
+because it has gone stale three times. The block above states neither.
