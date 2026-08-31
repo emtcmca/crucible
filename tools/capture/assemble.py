@@ -187,21 +187,57 @@ def main():
         else:
             build_still(vis, secs, dest)
 
+        # EVERY SEGMENT GETS IDENTICAL AUDIO PARAMETERS, AND THAT IS NOT
+        # TIDINESS.
+        #
+        # `concat -c copy` writes the container with the FIRST segment's stream
+        # parameters and then streams the rest in unchanged. The title card was
+        # stereo (from anullsrc) and every narrated beat was mono (from a mono
+        # WAV), so the finished file declared stereo and carried mono packets.
+        # ffmpeg decodes each packet by its own header and reported healthy
+        # audio at every timestamp; an ordinary player trusts the container and
+        # plays nothing. Eric heard silence on a file that measured -13.4 LUFS.
+        #
+        # The lesson is the one this repository keeps relearning: the check was
+        # run with the one tool tolerant enough to hide what it was checking
+        # for.
+        muxed = WORK / (b["id"] + "-av.mp4")
         if aud is not None:
-            muxed = WORK / (b["id"] + "-av.mp4")
-            # -shortest so a clip cannot outlive its narration, and AAC because
-            # it is what every upload path accepts without transcoding again.
+            # -shortest so a clip cannot outlive its narration.
             sh(["ffmpeg", "-y", "-i", str(dest), "-i", str(aud),
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                "-ar", "48000", "-ac", "2",
                 "-shortest", str(muxed)], check=False)
-            clips.append(muxed)
         else:
-            silent = WORK / (b["id"] + "-av.mp4")
             sh(["ffmpeg", "-y", "-i", str(dest), "-f", "lavfi",
                 "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
-                "-c:v", "copy", "-c:a", "aac", "-shortest", str(silent)],
-               check=False)
-            clips.append(silent)
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                "-ar", "48000", "-ac", "2",
+                "-shortest", str(muxed)], check=False)
+        clips.append(muxed)
+
+    # ---- REFUSE TO CONCAT MISMATCHED STREAMS ------------------------------
+    #
+    # The guard the last build did not have. `-c copy` cannot reconcile
+    # differing stream parameters and does not try; it takes the first and
+    # hopes. Checking here turns a silent wrong answer into a stopped build.
+    params = {}
+    for c in clips:
+        r = sh(["ffprobe", "-v", "error", "-select_streams", "a:0",
+                "-show_entries", "stream=codec_name,channels,sample_rate",
+                "-of", "csv=p=0", str(c)])
+        params.setdefault(r.stdout.strip(), []).append(c.name)
+    if len(params) > 1:
+        print()
+        print("REFUSING TO CONCAT - the segments do not share audio parameters.")
+        print("`-c copy` would write the first one's header over all of them,")
+        print("and the result plays silence in anything less tolerant than")
+        print("ffmpeg itself:")
+        for k, names in sorted(params.items()):
+            print("  %-28s %s" % (k, ", ".join(sorted(names))))
+        sys.exit(1)
+    print("  audio parameters identical across %d segments: %s"
+          % (len(clips), list(params)[0]))
 
     # ---- concat -----------------------------------------------------------
     lst = WORK / "concat.txt"
