@@ -201,12 +201,57 @@ fail, sweeps the documentation for values that have been corrected, and rejects 
 present-tense claim about an artifact that carries no date. It has a `--selftest` of
 its own that proves each of the five passes can still fail.
 
+## Step 5b — one live model call, on YOUR project
+
+Everything so far ran without a credential. This step does not: it makes one real
+call to Vertex AI, billed to whatever project your Cloud Shell is pointed at.
+**Skip it if you would rather not spend anything.** It is a few hundred tokens.
+
+Cloud Shell already has your credentials and a project set, so there is nothing
+to configure:
+
+```bash
+gcloud config get-value project
+python scripts/gemma-live-probe.py --project "$(gcloud config get-value project)"
+```
+
+That goes through `crucible/cartographer/vertex.py` — the same
+`make_completer` the Cartographer uses in a real run — so the endpoint, the
+model id, the seed and the temperature on your screen are the ones the project
+runs, not a demo path written to look like them.
+
+It asks Gemma to classify one tool into one capability class. That is the
+Cartographer's whole job: **it classifies tools, it does not author attacks.**
+`ADR-0018` withdrew the claim that Gemma generated the attack corpus and ruled
+that the sentence may not be written or spoken anywhere.
+
+**If it fails**, the two likely reasons are that `aiplatform.googleapis.com` is
+not enabled on your project, or that managed Gemma is not offered to it in Model
+Garden. Neither is a defect in CRUCIBLE and the probe prints the error rather
+than a traceback.
+
 ## Step 6 — what was deliberately not run here, and where the rest is
 
 The attack loop itself — red strategist, target agent, Coroner, Armorer — calls Gemini
 on Vertex AI. Running it needs a Google Cloud project with billing that belongs to
 you, so this tutorial does not ask you for one. A tutorial step that fails on your
 machine would be worse than no step at all.
+
+**And billing alone would not be enough, which is worth saying plainly.** `--live`
+does more than switch the models on. It points the policy store at a GCS bucket and
+wires the holdout counter to this project's Cloud Logging data-access records, and
+gates G7 and G8 assert against both. Those are *this* project's buckets and *this*
+project's audit log. Running the loop against yours would need three buckets, the
+IAM grant direction between them, and data-access logging enabled — which is a
+deployment, not a tutorial step.
+
+**The offline mode deliberately refuses to fake it.** Run without `--live` and the
+gate is constructed with `skip_cloud=True`, which records G7 and G8 as UNEVALUABLE
+rather than as passed, because an unevaluable gate is a check that cannot fail.
+Verified 2026-08-31 at `crucible/conductor/campaign.py:766`: the offline branch
+passes `holdout_touch=None`, and that argument has no default precisely so that
+"nothing computed this" cannot be read as "the count was zero". This step therefore
+ends with a limitation instead of a command.
 
 What to read instead:
 
