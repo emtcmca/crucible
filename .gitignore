@@ -82,3 +82,7 @@ tools/capture/package-lock.json
 # The README stays: it is how the next person knows what goes here.
 audio/*
 !audio/README.md
+
+# Live-shot footage: large binaries, not repo content. The README stays.
+video/*
+!video/README.md

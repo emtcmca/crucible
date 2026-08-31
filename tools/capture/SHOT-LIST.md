@@ -59,7 +59,8 @@ first, measure the take, then pass its real length here.
 | N3 | 0:25–0:50 | one slide: *find the breach · patch it · prove the patch didn't break the business* | Playwright (card) |
 | N4 | 0:50–1:35 | `02-architecture.png` as the hold, then `N4-architecture.mp4` | Playwright |
 | N5 | 1:35–1:43 | the five locks, on the plate or as a card | Playwright |
-| N6 | ~0:25 | terminal: `gcloud run services list`, then `cat evidence/batch-measure-2026-08-27/BATCH-DONE`; then Cloud Console on the `crucible` service | live |
+| N6a | ~0:20 | **LIVE TERMINAL.** `powershell -NoProfile -ExecutionPolicy Bypass -File tools\capture\gcp-proof.ps1 -Pause 2.0` &mdash; four read-only frames: Cloud Run + its own service account, the enabled APIs, the three buckets, Gemma at http 200 on Vertex Model Garden | **live** |
+| N6b | ~0:18 | the run view, `cards/03-run.html` | Playwright |
 | N7 | ~0:30 | the three-row pooled table, **all three rows visible at once** | Playwright (card) |
 | N8 | ~0:35 | `README.md:95-106`, the 13-closed / 19-no-op finding | Playwright (card) or screen |
 | N9 | ~0:20 | the README's *what is not defensible today* section, then `03-close.png` | Playwright |
@@ -108,10 +109,32 @@ carries the third act, which is the refusal.
 - **Public, and checked in an incognito window.** The organiser's checklist
   names this specifically.
 - **Under 4:00.**
-- **Visible proof the backend runs on Google Cloud** — that is N6, and it is why
-  N6 is recorded live.
+- **Visible proof the backend runs on Google Cloud** — that is **N6a**, and it is
+  why N6a is recorded live rather than rendered. `gcp-proof.ps1` runs it; every
+  command in it is read-only and none touches `gs://crucible-sealed-x7`.
+  **1920x1080, 18-20pt font** — default console text is illegible after
+  YouTube's compression, and a proof nobody can read is not a proof.
 - **Upload early.** YouTube and Vimeo processing runs from minutes to hours, and
   everything locks 2026-08-31 17:00 PT.
 - If the foreign-agent probe appears on screen, its `gemini-2.5-flash` string is
   the **sample agent's** pin. Say so in the same breath or a judge reads it as
   CRUCIBLE's.
+
+
+---
+
+## Gemma, and exactly how far the claim goes
+
+N6a puts Gemma on screen twice: the pin at `crucible/cartographer/vertex.py:94`
+and a live-run artifact recording **http 200** against Vertex Model Garden at
+`locations/global`.
+
+**It is the capability cartographer. It classifies each tool the target holds
+into a capability class. That is the whole claim.** `ADR-0018` withdrew the
+claim that Gemma generated the attack corpus, in terms — that sentence *"may
+not be written or spoken anywhere"* — and the corpus was authored by lane
+agents. Say classification, never generation.
+
+The artifact to show is `docs/proof/cartographer-live-run-2026-08-23.json`. The
+**08-22** file carries a `_superseded` block naming the 08-23 one as its
+replacement, so it is the wrong one to put on camera.

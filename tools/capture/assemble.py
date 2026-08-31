@@ -48,6 +48,39 @@ def duration(path):
         return None
 
 
+def build_clip(src, seconds, dest):
+    """A screen recording, fitted to its narration.
+
+    LONGER THAN THE TAKE: trimmed. SHORTER: it HOLDS ON ITS LAST FRAME rather
+    than the voice being cut off. That direction is deliberate - a beat whose
+    audio outlives its footage is a recoverable inconvenience, and a beat whose
+    footage outlives its audio silently eats the next line.
+
+    Also normalised to 1920x1080 at 30fps, because a screen recording arrives
+    at whatever the capture tool felt like and `concat -c copy` refuses to
+    join clips whose parameters differ.
+    """
+    have = duration(src) or seconds
+    if have >= seconds:
+        vf = ("scale=1920:1080:force_original_aspect_ratio=decrease,"
+              "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x14110F")
+        sh(["ffmpeg", "-y", "-i", str(src), "-t", "%.3f" % seconds,
+            "-r", "30", "-vf", vf, "-c:v", "libx264", "-preset", "medium",
+            "-crf", "18", "-pix_fmt", "yuv420p", "-an", str(dest)], check=False)
+    else:
+        # tpad clones the final frame for the shortfall.
+        pad = seconds - have
+        vf = ("scale=1920:1080:force_original_aspect_ratio=decrease,"
+              "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x14110F,"
+              "tpad=stop_mode=clone:stop_duration=%.3f" % pad)
+        sh(["ffmpeg", "-y", "-i", str(src), "-r", "30", "-vf", vf,
+            "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+            "-pix_fmt", "yuv420p", "-an", str(dest)], check=False)
+        print("    %s is %.1fs against %.1fs of narration - holding the last "
+              "frame for %.1fs" % (src.name, have, seconds, pad))
+    return dest
+
+
 def build_still(png, seconds, dest):
     """A held frame, encoded to match everything else in the timeline."""
     sh(["ffmpeg", "-y", "-loop", "1", "-i", str(png), "-t", "%.3f" % seconds,
@@ -134,6 +167,8 @@ def main():
         if vis.suffix == ".html":
             build_player(b["visual"], b.get("player", "__cuePlayer"),
                          secs, dest, b["id"])
+        elif vis.suffix.lower() in (".mp4", ".mov", ".mkv", ".webm"):
+            build_clip(vis, secs, dest)
         else:
             build_still(vis, secs, dest)
 

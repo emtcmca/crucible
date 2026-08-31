@@ -15,9 +15,13 @@
     "`live` marks the beats you shoot yourself. assemble.py will use the file",
     "at `visual` if it exists and tell you which ones are still missing.",
     "",
-    "Paths are relative to the repository root."
+    "Paths are relative to the repository root.",
+    "",
+    "`live: true` marks a beat you screen-record yourself. assemble.py accepts",
+    "an mp4 there and retimes it to the take like any other visual - a clip",
+    "shorter than its narration holds on its last frame rather than cutting",
+    "the voice off."
   ],
-
   "beats": [
     {
       "id": "TITLE",
@@ -58,11 +62,18 @@
       "audio": "audio/N5.wav"
     },
     {
-      "id": "N6",
+      "id": "N6a",
+      "visual": "video/N6a-gcp-terminal.mp4",
+      "live": true,
+      "audio": "audio/N6a.wav",
+      "how": "Screen-record this, do not fake it. powershell -NoProfile -ExecutionPolicy Bypass -File tools\\capture\\gcp-proof.ps1 -Pause 2.0 . 1920x1080, 18-20pt font. This is the contest's 'visible proof your backend runs on Google Cloud' and a live terminal is the only unambiguous form of it."
+    },
+    {
+      "id": "N6b",
       "visual": "tools/capture/cards/03-run.html",
       "player": "__runPlayer",
-      "audio": "audio/N6.wav",
-      "live_alternative": "terminal: gcloud run services list + BATCH-DONE. SHOOT THIS LIVE IF YOU CAN - it is the contest's visible proof the backend runs on Google Cloud."
+      "audio": "audio/N6b.wav",
+      "note": "the run view - what that infrastructure produced. Follows the terminal, which established that it is real."
     },
     {
       "id": "N7",

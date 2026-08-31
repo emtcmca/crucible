@@ -34,23 +34,65 @@ inventory being dropped rather than restated.
 
 ---
 
-## N6 · ~0:25 · it ran, and it ran on Google Cloud
+## N6a · ~0:20 · LIVE TERMINAL · the Google Cloud proof
 
-**ON SCREEN:** terminal. Run these two live — they are read-only and fast:
+**SHOOT THIS LIVE. Do not use a card for it.** It is the contest's *"visible
+proof your backend runs on Google Cloud"*, and a live terminal is the only
+unambiguous form of that. Everything the script runs is read-only.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\capture\gcp-proof.ps1 -Pause 2.0
+```
+
+**Set the terminal to 1920x1080 and the font to 18–20pt before you roll.**
+Default console text is illegible after YouTube's compression, and a proof
+nobody can read is not a proof. Run `gcloud auth list` first, off camera, so an
+auth prompt cannot land inside the take.
+
+The script types each command for the camera and shows its real output, in four
+frames: Cloud Run serving under its own service account · the enabled APIs ·
+the three buckets including the sealed one · Gemma's pin and a live-run
+artifact returning **http 200** against Vertex Model Garden.
+
+**SAY, over the four frames:**
 
 ```
-gcloud run services list --project=crucible-hack-2026 --region=us-central1
-cat evidence/batch-measure-2026-08-27/BATCH-DONE
+Cloud Run, serving, under its own service account - not the default one. The
+whole design rests on identities that differ from each other.
+
+Vertex AI, where every model call in the loop goes.
+
+Three buckets. Evidence, policies, and the sealed holdout - which is listed
+here and which the attacking identity cannot read.
 ```
 
-Then the Cloud Console on the `crucible` service, so a revision id and the
-service account are on screen.
+*(the Gemma frames land)*
+
+```
+And Gemma, on Vertex Model Garden, as a managed endpoint. It is the capability
+cartographer: it classifies every tool the target agent holds into a capability
+class, before any attack runs.
+```
+
+**GEMMA'S SCOPE, AND IT IS NARROW.** Classification. That is the whole claim.
+`ADR-0018` withdrew the claim that Gemma generated the attack corpus and says
+that sentence *"may not be written or spoken anywhere"* — the corpus was
+authored by lane agents. **Do not widen it on camera.**
+
+**The Cloud Run URL appears on screen and that is fine.** It is already public
+in six tracked files, and the service holds zero IAM bindings, so it is not a
+spend risk (`docs/contest/AUDIT-stage-one-2026-08-30.md`, Row 8).
+
+---
+
+## N6b · ~0:18 · what that infrastructure produced
+
+**ON SCREEN:** the run view — `tools/capture/cards/03-run.html`, a real bundle
+replayed. Or the terminal again for `cat evidence/batch-measure-2026-08-27/BATCH-DONE`.
 
 **SAY:**
 
 ```
-The loop runs on Vertex, deployed to Cloud Run, under its own service account.
-
 Two batches. Twenty runs each, identical configuration, one of them
 pre-registered as a replication of the other before it ran.
 
