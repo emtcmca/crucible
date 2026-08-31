@@ -63,10 +63,11 @@
     },
     {
       "id": "N6a",
-      "visual": "video/N6a-gcp-terminal.mp4",
-      "live": true,
+      "visual": "tools/capture/cards/12-gcp-terminal.html",
       "audio": "audio/N6a.wav",
-      "how": "Screen-record this, do not fake it. powershell -NoProfile -ExecutionPolicy Bypass -File tools\\capture\\gcp-proof.ps1 -Pause 2.0 . 1920x1080, 18-20pt font. This is the contest's 'visible proof your backend runs on Google Cloud' and a live terminal is the only unambiguous form of it."
+      "how": "REAL OUTPUT, RENDERED. Rebuild the transcript and the card with: powershell -NoProfile -ExecutionPolicy Bypass -File tools\\capture\\gcp-proof.ps1 -Pause 0.05 | Out-File -Encoding utf8 tools/capture/out/gcp-proof-transcript.txt ; then python tools/capture/build-terminal-view.py",
+      "player": "__termPlayer",
+      "prefer_live": "A SCREEN RECORDING IS STRICTLY BETTER AS PROOF and supersedes this. If you shoot one, drop it at video/N6a-gcp-terminal.mp4 and change this beat's `visual` to that path - assemble.py takes mp4 and fits it to the narration. Nothing else changes."
     },
     {
       "id": "N6b",
