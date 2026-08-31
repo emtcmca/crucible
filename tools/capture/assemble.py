@@ -61,18 +61,33 @@ def build_clip(src, seconds, dest):
     join clips whose parameters differ.
     """
     have = duration(src) or seconds
+    fit = ("scale=1920:1080:force_original_aspect_ratio=decrease,"
+           "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x14110F")
     if have >= seconds:
-        vf = ("scale=1920:1080:force_original_aspect_ratio=decrease,"
-              "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x14110F")
-        sh(["ffmpeg", "-y", "-i", str(src), "-t", "%.3f" % seconds,
-            "-r", "30", "-vf", vf, "-c:v", "libx264", "-preset", "medium",
+        # SPED UP TO FIT, NOT TRUNCATED.
+        #
+        # Truncation was the first behaviour and it throws away the END of the
+        # clip, which on every one of these takes is where the payoff is: the
+        # hash locks on the replay, VERDICT PASS on the seal proof, the Gemma
+        # http 200 on the cloud beat. A trim to length would have silently cut
+        # the frame the beat exists for. Terminal output reads fine a little
+        # fast; a missing conclusion does not read at all.
+        rate = have / seconds
+        vf = "setpts=PTS/%.6f,%s" % (rate, fit)
+        if rate > 2.0:
+            print("    %s is %.1fs against %.1fs of narration - speeding it "
+                  "%.2fx, which is a lot. Consider a longer take or a shorter "
+                  "line." % (src.name, have, seconds, rate))
+        elif rate > 1.05:
+            print("    %s sped %.2fx to fit %.1fs of narration (was %.1fs), so "
+                  "the end of the clip survives" % (src.name, rate, seconds, have))
+        sh(["ffmpeg", "-y", "-i", str(src), "-vf", vf, "-t", "%.3f" % seconds,
+            "-r", "30", "-c:v", "libx264", "-preset", "medium",
             "-crf", "18", "-pix_fmt", "yuv420p", "-an", str(dest)], check=False)
     else:
         # tpad clones the final frame for the shortfall.
         pad = seconds - have
-        vf = ("scale=1920:1080:force_original_aspect_ratio=decrease,"
-              "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x14110F,"
-              "tpad=stop_mode=clone:stop_duration=%.3f" % pad)
+        vf = "%s,tpad=stop_mode=clone:stop_duration=%.3f" % (fit, pad)
         sh(["ffmpeg", "-y", "-i", str(src), "-r", "30", "-vf", vf,
             "-c:v", "libx264", "-preset", "medium", "-crf", "18",
             "-pix_fmt", "yuv420p", "-an", str(dest)], check=False)
