@@ -199,9 +199,26 @@ LinkedIn from here and will not assume a hashtag is present.
 
 ## Testing instructions - paste this
 
-**Devpost's Testing Instructions field.** Written 2026-08-31 against the commands in
-`README.md` "Spin it up", each of which is shown there with its real output so a judge
-can diff what they get against what was published.
+**THE FIELD CAPS AT 255 CHARACTERS.** Discovered 2026-08-31 at the form, after a full
+block had been written for it. This is the version that fits, at exactly 255:
+
+```
+No credential needed. README's Open in Cloud Shell button runs it in your browser. Or clone, pip install -r requirements.txt, python scripts/w2-smoke.py, python -m crucible.conductor.campaign - read the banner. No hosted URL: Cloud Run has 0 IAM bindings.
+```
+
+**The Cloud Shell URL is deliberately not in it.** That URL is ~180 of the 255 and it is
+already the first "Try it out" link, so spending three quarters of the budget to repeat
+it would buy nothing. The README button at `README.md:29` is the same link, one click
+further away, and the characters it frees pay for four runnable commands instead.
+
+**The long version below is not dead.** It is what `README.md` "Spin it up" and the
+Cloud Shell tutorial already say at length, kept here because it is the source the 255
+was cut from - and because if any other field, an update, or a judge's question asks
+what a reviewer can run, this is the answer that does not have to be rewritten.
+
+**Written 2026-08-31** against the commands in `README.md` "Spin it up", each of which
+is shown there with its real output so a judge can diff what they get against what was
+published.
 
 ```
 No credential is required, and there is no login to hand you. Every path below runs
