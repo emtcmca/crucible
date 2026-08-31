@@ -159,40 +159,36 @@ exit 2. Do not route around it.
 <!-- VAULT:SESSION-STATE start -- autonomously maintained by /qsave, do not hand-edit -->
 ## Session State (auto-maintained)
 
-**Updated:** 2026-08-30 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
+**Updated:** 2026-08-31 · **Branch:** main · **Digest:** `claude-vault/sessions/crucible/_master.md`
 
-**SUBMISSION CLOSES 2026-08-31 17:00 PT AND EVERYTHING LOCKS THEN** - repo, video
-and linked materials, until winners are announced (~10-08). **THE SEAL IS
-UNOPENED.** Eight adversarial NO-GO verdicts; reviews 6-8 closed, review 9 with
-Codex. Suite exit 0, contract-check eight passes, `origin/main` current. Counts
-are verify-on-use and deliberately not written here.
-
-**The seal claim, scoped:** no F4 GCS object fetched inside the measurement
-window and no F4 content exposed to a human or a model. Local copies ARE opened
-and processed by programs. The flat "no F4 object has been read" is not
-literally true and was rejected on review.
+**SUBMISSION CLOSES TODAY 17:00 PT AND EVERYTHING LOCKS THEN** - repo, video and
+linked materials, until winners are announced (~10-08). **THE VIDEO EXISTS:
+https://youtu.be/tdro9Fs97mY, 3:34** - the last mandatory Stage One deliverable,
+and all eight are now complete. **THE SEAL WAS NEVER OPENED, by decision**, and
+update 10 reports that rather than a transfer result. Suite green,
+contract-check eight passes, seal proof PASS. Counts are verify-on-use and
+deliberately not written here.
 
 **Open threads**
-- **ERIC OWES:** record the video - the only mandatory Stage One deliverable that
-  does not exist - and walk the 24-instance adjudication.
-  `scripts/rehearse-adjudication.py --pause-drill` rehearses it safely.
-- **DECIDE the figures.** Four contradictory rates in judge-facing files; the
-  no-rate rule has three scopes, two in conflict.
-  `docs/contest/DECISION-figures-2026-08-30.md`.
-- **DECIDE the hosted URL.** Zero IAM bindings, so no judge can open it; rules
-  require credentials if a private URL is submitted.
+- **SUBMIT.** Every Devpost field is answered in
+  `docs/contest/SUBMISSION-FIELDS.md`; media staged at
+  `tools/capture/out/submission-media/`.
+- **Two bonus fields need Eric, not an agent**: the content link must SAY it was
+  made for this hackathon, and the social link needs the required hashtag.
 - **NOTHING MAY BE TORN DOWN BEFORE 2026-10-01** - availability runs through the
   Judging Period, not to the submission deadline.
+- Review 12's remaining P1s are open and recorded: the reader accepts a footer
+  with no `episodes` field, and the recovery pins stay optional.
 - Eight contract reasons recorded NOT ENFORCED on a green PROVEN pass.
 
 **Watch out for**
-- **A NARROW TRUE STATEMENT WIDENED INTO A FALSE ONE.** This session's dominant
-  defect: Gemma "never built", the architecture diagram claiming Stage One unmet
-  nine days after deploy. Write the scope onto every withdrawal.
-- **SUCCESS IS A PATH TOO.** A flag meaning "seal opened" stayed true after a
-  clean run, so finished drives stamped themselves terminal INVALID.
-- **TEST THE WIRING, NOT ONLY THE HELPER.** Three lifecycle calls were correct,
-  tested, and unreachable from `main()`. Only mutation found them.
-- **VERIFY THE MUTATION LANDED**, and that a fixture RESETS rather than only
-  restoring.
+- **A CHECK RUN THROUGH THE ONLY INSTRUMENT BLIND TO THE DEFECT.** A finished
+  video measured -13.4 LUFS and played silence: stereo container, mono packets,
+  and ffmpeg decodes per packet so ffmpeg could not see it.
+- **A NARROW TRUE STATEMENT WIDENED INTO A FALSE ONE** - still the dominant
+  shape here. Latest: a card headline that overclaimed by sitting beside a body
+  that contradicted it.
+- **A FIXED THRESHOLD IS NOT A CHECK.** A -50 dB silence gate trimmed two takes
+  and silently did nothing to a third whose floor sat above it.
+- **Commit before running the seal proof on camera** - it refuses on a dirty tree.
 <!-- VAULT:SESSION-STATE end -->
