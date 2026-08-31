@@ -24,6 +24,9 @@
  *   node tools/capture/capture.mjs card <file.html>      one card
  *   node tools/capture/capture.mjs loop                  the N4 animation
  *   node tools/capture/capture.mjs loop --duration 105000 --fps 30
+ *   node tools/capture/capture.mjs run                   the run-view beat
+ *   node tools/capture/capture.mjs player --url <f.html> --global <name>
+ *        --duration <ms> --frames <dir> --out <f.mp4>   generic, for assemble.py
  *   node tools/capture/capture.mjs encode <dir> <out.mp4>
  *
  * Output lands in tools/capture/out/ which is gitignored.
@@ -151,6 +154,21 @@ if (cmd === 'encode') {
                                                path.join(OUT, 'cards'));
     } else if (cmd === 'card') {
       await captureCard(p, process.argv[3], path.join(OUT, 'cards'));
+    } else if (cmd === 'player') {
+      // THE GENERIC PATH, used by assemble.py. Any seek-deterministic player,
+      // any duration, explicit frame and output directories - so the stitcher
+      // can retime a beat to its narration without this file knowing which
+      // beat it is.
+      const url = pathToFileURL(path.resolve(arg('--url'))).href;
+      const g = arg('--global', '__cuePlayer');
+      const frames = arg('--frames', path.join(OUT, 'frames-tmp'));
+      const out = arg('--out', path.join(OUT, 'beat.mp4'));
+      const durationMs = Number(arg('--duration', 0)) || 0;
+      const dir = await captureLoop(p, {
+        durationMs, fps, outDir: frames, url, global: g,
+      });
+      await encode(dir, out, fps);
+      console.log('wrote %s', out);
     } else if (cmd === 'run') {
       // THE RUN VIEW - a real bundle replayed. Build it first with
       // `python tools/capture/build-run-view.py --bundle <c6.json>`.

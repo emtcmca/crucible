@@ -77,3 +77,8 @@ pptr-config.json
 tools/capture/node_modules/
 tools/capture/out/
 tools/capture/package-lock.json
+
+# Narration takes are large binaries and are not repo content.
+# The README stays: it is how the next person knows what goes here.
+audio/*
+!audio/README.md

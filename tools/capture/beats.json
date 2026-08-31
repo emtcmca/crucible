@@ -1,0 +1,88 @@
+{
+  "_comment": [
+    "THE EDIT, AS DATA. One row per beat, in order.",
+    "",
+    "`audio` is the narration take for that beat. Record one file per beat -",
+    "the locked script already says one take per chunk, and this is why: a",
+    "fluffed line costs one beat and its visual retimes around it automatically.",
+    "",
+    "`visual` is either a still (png) or a player (html). A still is held for",
+    "exactly as long as its audio runs. A player is RE-CAPTURED at the audio's",
+    "measured length, so the animation stretches to the narration rather than",
+    "the narration being cut to the animation. That is the whole reason the",
+    "players are deterministic by seek.",
+    "",
+    "`live` marks the beats you shoot yourself. assemble.py will use the file",
+    "at `visual` if it exists and tell you which ones are still missing.",
+    "",
+    "Paths are relative to the repository root."
+  ],
+
+  "beats": [
+    {
+      "id": "TITLE",
+      "visual": "tools/capture/out/cards/01-title.png",
+      "audio": null,
+      "hold_ms": 3000,
+      "note": "cold, before N1. No narration."
+    },
+    {
+      "id": "N1",
+      "visual": "tools/capture/cards/10-agent.html",
+      "player": "__agentPlayer",
+      "audio": "audio/N1.wav",
+      "live_alternative": "screen recording of the agent, if you shoot it"
+    },
+    {
+      "id": "N2",
+      "visual": "tools/capture/cards/11-agent-escalation.html",
+      "player": "__agentPlayer",
+      "audio": "audio/N2.wav",
+      "live_alternative": "terminal: the sqlite3 ledger select"
+    },
+    {
+      "id": "N3",
+      "visual": "tools/capture/out/cards/04-N3-friction.png",
+      "audio": "audio/N3.wav"
+    },
+    {
+      "id": "N4",
+      "visual": "docs/diagrams/loop-player.html",
+      "player": "__cuePlayer",
+      "audio": "audio/N4.wav",
+      "note": "the architecture beat. Retimes to the take, which is what the cue file's own provenance says to do."
+    },
+    {
+      "id": "N5",
+      "visual": "tools/capture/out/cards/05-N5-locks.png",
+      "audio": "audio/N5.wav"
+    },
+    {
+      "id": "N6",
+      "visual": "tools/capture/cards/03-run.html",
+      "player": "__runPlayer",
+      "audio": "audio/N6.wav",
+      "live_alternative": "terminal: gcloud run services list + BATCH-DONE. SHOOT THIS LIVE IF YOU CAN - it is the contest's visible proof the backend runs on Google Cloud."
+    },
+    {
+      "id": "N7",
+      "visual": "tools/capture/out/cards/06-N7-figures.png",
+      "audio": "audio/N7.wav"
+    },
+    {
+      "id": "N8",
+      "visual": "tools/capture/out/cards/07-N8-finding.png",
+      "audio": "audio/N8.wav"
+    },
+    {
+      "id": "N9a",
+      "visual": "tools/capture/out/cards/08-N9-not.png",
+      "audio": "audio/N9a.wav"
+    },
+    {
+      "id": "N9b",
+      "visual": "tools/capture/out/cards/09-close.png",
+      "audio": "audio/N9b.wav"
+    }
+  ]
+}
