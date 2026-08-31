@@ -504,6 +504,28 @@ def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None,
 
     env = gcp_env(str(ROOT))
 
+    # A SECOND LIFECYCLE IS REFUSED HERE, BEFORE THE CALIBRATION CANARY FIRES.
+    #
+    # `mark_audit_window` returns early when a window already exists, which is
+    # right for preventing MUTATION of a run and wrong as an authorisation to
+    # start another one. A reviewer traced the consequence and it is worse than
+    # a duplicate: the second lifecycle performs its calibration read BEFORE it
+    # reaches `mark_audit_window`, so by the time the early return happens the
+    # canary has already been read - INSIDE the first lifecycle's still-open
+    # audit window. That contaminates the count used to adjudicate the first
+    # attempt, which is the one thing A3.11 turns on.
+    #
+    # So the refusal has to sit above the calibration, not inside the marker.
+    if audit_window() is not None:
+        raise TransferRunError(
+            "E_SECOND_LIFECYCLE",
+            "an audit window is already open in this process, so this is a "
+            "second sealed lifecycle. It is refused BEFORE calibrating: the "
+            "calibration canary is a real read, and firing it now would land "
+            "inside the first window and change the count that adjudicates the "
+            "first attempt. Nothing has been read and the first window is "
+            "untouched.")
+
     def gate(counter, expected):
         kw = dict(gate_kwargs or {})
         return RealGate(ledger=None, run_id=kw.pop("run_id", "transfer"),
@@ -1685,11 +1707,27 @@ def mark_audit_window(since, calibration_since=None,
         # A PROPERTY OF THE ROW - the row's presence on disk IS the durability,
         # and a field restating that can only ever contradict it. Process state
         # stays in the process.
+        # THE DOWNLOADER MUST BE A COMPLETED CALIBRATION, NOT MERELY AN OBJECT.
+        #
+        # A reviewer minted authority for a fake downloader and drove all
+        # twenty-four sealed URIs through it. Only the fingerprint stopped it,
+        # and only AFTER the objects had moved - which against a real GCS
+        # callable is the seal spent on an uncalibrated path.
+        #
+        # The check that was missing already existed: `require_calibrated`
+        # refuses a bare callable and refuses a wrapper whose `per_object` was
+        # never measured. It was simply never called here. Identity binding
+        # answered "the same object the caller named"; this answers "the object
+        # a completed calibration returned", which is the question.
+        from crucible.transfer.holdout_assert import require_calibrated
+        require_calibrated(downloader)
+
         _append(journal, dict(block, kind="window", at=_utc()))
         _WINDOW_BINDING[0] = {
             "token": secrets.token_hex(16),
             "bucket": bucket,
             "downloader": downloader,
+            "spent": False,
         }
 
 
@@ -1740,6 +1778,14 @@ def assert_read_is_bound_to_the_window(token, bucket, downloader):
             % ("no audit window at all" if audit_window() is None
                else "an audit window that was never written to disk"))
 
+    if binding.get("spent"):
+        raise TransferRunError(
+            "E_AUDIT_WINDOW_NOT_DURABLE",
+            "this window's token has already authorised a sealed read. It is "
+            "one-time because the holdout is: a second read against the same "
+            "window would be counted inside an interval already used to "
+            "adjudicate the first. Nothing has been read.")
+
     if token is None or not secrets.compare_digest(str(token),
                                                    str(binding["token"])):
         raise TransferRunError(
@@ -1766,6 +1812,18 @@ def assert_read_is_bound_to_the_window(token, bucket, downloader):
             "canary for this window. The calibration is what proves the read "
             "path leaves the audit entries the count depends on; a different "
             "object has not been shown to leave any. Nothing has been read.")
+
+    # AND IT IS SPENT HERE, WHICH IS WHAT "ONE-TIME" HAS TO MEAN.
+    #
+    # The token was described as one-time and was never consumed. A reviewer
+    # called the loader twice with the same token and got forty-eight
+    # downloader calls. A capability that survives its own use is a standing
+    # grant, and this one authorises reading a holdout that may be read once.
+    #
+    # Marked BEFORE the caller proceeds, for the same reason the attempt is
+    # marked spent before the read: a token cleared on the way out is a token
+    # that survives every path that does not reach the exit.
+    binding["spent"] = True
 
 
 def _audit_window_for_record():

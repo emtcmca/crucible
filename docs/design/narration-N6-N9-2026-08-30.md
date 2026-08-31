@@ -138,15 +138,27 @@ only ever runs when the number would improve is not a check.
 
 **ON SCREEN:** the README's *"what is not defensible today"* section.
 
+**STATE CHECK BEFORE THE TAKE — the line below is true as of 2026-08-30 and it
+is a claim about machine state, so it expires.** Re-verify the seal is unopened
+immediately before recording:
+
+```
+python scripts/pre-read-seal-proof.py     # must print VERDICT PASS
+```
+
+If the seal has been opened between now and the take, **this beat is rewritten,
+not re-read**. That is why the date is here rather than in the spoken line: a
+sentence Eric says aloud cannot carry a verification stamp, so the stamp sits
+next to it where the person holding the script will see it.
+
 **SAY:**
 
 ```
 What this is not.
 
 Eleven days, one person, one target agent. No users. Not reviewed or endorsed
-by Google. A held-out attack family exists and is still sealed — the sealed
-measurement has not been run, and I am not going to describe a result I do not
-have.
+by Google. A held-out attack family exists and is still sealed. I am not going
+to describe a result I do not have.
 ```
 
 *(beat)*

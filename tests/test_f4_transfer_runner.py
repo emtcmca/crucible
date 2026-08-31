@@ -214,6 +214,27 @@ def test_a_declared_set_of_the_wrong_size_is_refused_before_the_network():
     assert called == [], "the size check must fire before any request"
 
 
+def _calibrated(fn=None, canary="gs://invented-sealed/canary.json"):
+    """A genuine, completed `CalibratedDownloader` wrapping `fn`.
+
+    `mark_audit_window` now calls `require_calibrated`, which is an isinstance
+    check plus a `per_object` check - so a stand-in `object()` is refused, and
+    that refusal is the point of review 12's first finding. A test that wanted
+    to keep using a bare object would be asking the guard to be weaker than the
+    thing it guards.
+
+    `_complete` is the constructor's own completion path, so this builds the
+    same state `calibrate_on_canary` leaves behind rather than reaching in and
+    setting fields by hand.
+    """
+    from crucible.transfer.holdout_assert import CalibratedDownloader
+    d = CalibratedDownloader(fn or (lambda uri: b"{}"), canary)
+    d._complete(per_object=1, baseline_count=0,
+                calibration_since="2026-08-31T00:00:00Z",
+                finished_at="2026-08-31T00:00:01Z")
+    return d
+
+
 def _window_on_disk(tmp_path, downloader=None, bucket=None,
                     since="2026-08-31T00:00:02Z"):
     """Open a real, journalled audit window BOUND to this read. Returns the token.
@@ -225,6 +246,8 @@ def _window_on_disk(tmp_path, downloader=None, bucket=None,
     everything would be the ambient boolean again, wearing a fixture.
     """
     fh = open(tmp_path / "journal.jsonl", "a", encoding="utf-8", newline="")
+    if downloader is None:
+        downloader = _calibrated()
     rt.mark_audit_window(since,
                          calibration_since="2026-08-31T00:00:00Z",
                          calibration_finished_at="2026-08-31T00:00:01Z",
@@ -241,7 +264,7 @@ def test_a_fingerprint_that_does_not_match_the_commitment_halts(tmp_path):
     number derived from it describes a corpus nobody committed to."""
     names = _declared_names()
     payload = {n: b'{"family": "F4", "sealed": true}' for n in names}
-    download = _fake_downloader(payload)
+    download = _calibrated(_fake_downloader(payload))
     token = _window_on_disk(tmp_path, downloader=download)
     with pytest.raises(rt.TransferRunError) as exc:
         rt.load_sealed_instances(object_names=names, downloader=download,
@@ -259,10 +282,11 @@ def test_the_read_set_is_decided_before_the_network_not_after(tmp_path):
         asked.append(uri.rsplit("/", 1)[-1])
         return b'{"family": "F4", "sealed": true}'
 
-    token = _window_on_disk(tmp_path, downloader=download)
+    cal = _calibrated(download)
+    token = _window_on_disk(tmp_path, downloader=cal)
     with pytest.raises(rt.TransferRunError):
         rt.load_sealed_instances(object_names=_declared_names(),
-                                 downloader=download, window_token=token)
+                                 downloader=cal, window_token=token)
     assert sorted(asked) == sorted(_declared_names())
 
 
@@ -275,10 +299,11 @@ def test_every_object_is_read_exactly_once(tmp_path):
         seen.append(uri)
         return b'{"family": "F4", "sealed": true}'
 
-    token = _window_on_disk(tmp_path, downloader=download)
+    cal = _calibrated(download)
+    token = _window_on_disk(tmp_path, downloader=cal)
     with pytest.raises(rt.TransferRunError):
         rt.load_sealed_instances(object_names=_declared_names(),
-                                 downloader=download, window_token=token)
+                                 downloader=cal, window_token=token)
     assert len(seen) == len(set(seen)) == 24
 
 
@@ -2766,7 +2791,8 @@ def test_the_real_lifecycle_marks_both_flags_when_a_post_read_assertion_raises(
     monkeypatch.setattr(real_gate, "RealGate", lambda **kw: object())
     monkeypatch.setattr(ht, "open_audit_window", lambda: "t0")
     monkeypatch.setattr(ht, "make_counter", lambda *a, **k: object())
-    monkeypatch.setattr(gr, "open_calibrated_downloader", lambda *a, **k: object())
+    monkeypatch.setattr(gr, "open_calibrated_downloader",
+                        lambda *a, **k: _calibrated())
     monkeypatch.setattr(ha, "open_run_window_when_clear", lambda *a, **k: "t1")
     monkeypatch.setattr(ha, "make_run_counter", lambda *a, **k: object())
     monkeypatch.setattr(ha, "assert_clean_before_read", lambda *a, **k: None)
@@ -2821,7 +2847,8 @@ def test_the_real_lifecycle_leaves_read_returned_FALSE_when_the_read_itself_rais
     monkeypatch.setattr(real_gate, "RealGate", lambda **kw: object())
     monkeypatch.setattr(ht, "open_audit_window", lambda: "t0")
     monkeypatch.setattr(ht, "make_counter", lambda *a, **k: object())
-    monkeypatch.setattr(gr, "open_calibrated_downloader", lambda *a, **k: object())
+    monkeypatch.setattr(gr, "open_calibrated_downloader",
+                        lambda *a, **k: _calibrated())
     monkeypatch.setattr(ha, "open_run_window_when_clear", lambda *a, **k: "t1")
     monkeypatch.setattr(ha, "make_run_counter", lambda *a, **k: object())
     monkeypatch.setattr(ha, "assert_clean_before_read", lambda *a, **k: None)
@@ -2880,7 +2907,8 @@ def _lifecycle_stubs(monkeypatch, cal="2026-08-31T00:00:00Z",
     monkeypatch.setattr(real_gate, "RealGate", lambda **kw: object())
     monkeypatch.setattr(ht, "open_audit_window", lambda: cal)
     monkeypatch.setattr(ht, "make_counter", lambda *a, **k: object())
-    monkeypatch.setattr(gr, "open_calibrated_downloader", lambda *a, **k: object())
+    monkeypatch.setattr(gr, "open_calibrated_downloader",
+                        lambda *a, **k: _calibrated())
     monkeypatch.setattr(ha, "open_run_window_when_clear", lambda *a, **k: run)
     monkeypatch.setattr(ha, "make_run_counter", lambda *a, **k: object())
     monkeypatch.setattr(ha, "assert_clean_before_read", lambda *a, **k: None)
@@ -3201,7 +3229,7 @@ def test_a_primed_global_cannot_authorize_another_bucket(tmp_path):
 
     An ambient flag is not a capability. The authorisation now names the read.
     """
-    _window_on_disk(tmp_path, downloader=object(),
+    _window_on_disk(tmp_path, downloader=_calibrated(),
                     bucket="gs://crucible-sealed-x7")
 
     reached = []
@@ -3223,7 +3251,7 @@ def test_a_downloader_that_never_saw_the_canary_is_refused(tmp_path):
     A different object has not been shown to leave any, so a count taken over
     its reads is a number about an instrument nobody checked.
     """
-    calibrated = object()
+    calibrated = _calibrated()
     _window_on_disk(tmp_path, downloader=calibrated)
 
     reached = []
@@ -3238,7 +3266,7 @@ def test_a_downloader_that_never_saw_the_canary_is_refused(tmp_path):
 
 def test_a_read_with_no_token_is_refused_even_with_a_window_on_disk(tmp_path):
     """The token is what ties this read to the invocation that opened it."""
-    download = lambda uri: b"{}"
+    download = _calibrated()
     _window_on_disk(tmp_path, downloader=download)
 
     with pytest.raises(rt.TransferRunError) as caught:
@@ -3488,7 +3516,8 @@ def test_durability_is_claimed_only_AFTER_the_bytes_land(monkeypatch, tmp_path):
                              calibration_since="2026-08-31T00:00:00Z",
                              calibration_finished_at="2026-08-31T00:00:01Z",
                              env={"CRUCIBLE_PROJECT": "invented"},
-                             bucket="gs://invented", journal=handle)
+                             bucket="gs://invented", journal=handle,
+                             downloader=_calibrated())
 
     assert not rt.audit_window_is_durable(), (
         "the window claims to be durable after the write that would have made "
@@ -3585,14 +3614,18 @@ def test_the_record_carries_the_calibration_boundary_that_actually_excludes(
     """
     from crucible.transfer import holdout_assert as ha
 
-    class _Cal:
-        finished_at = "2026-08-31T00:00:01Z"
+    # A REAL calibrated downloader, whose `finished_at` is the one
+    # `_complete` set. A stand-in class with the attribute would satisfy the
+    # assertion below while being exactly the object `require_calibrated`
+    # exists to refuse.
+    cal = _calibrated()
+    assert cal.finished_at == "2026-08-31T00:00:01Z"
 
     _lifecycle_stubs(monkeypatch)
     monkeypatch.setattr(ha, "open_run_window_when_clear",
                         lambda *a, **k: "2026-08-31T00:00:02Z")
     from crucible.transfer import gcs_reader as gr
-    monkeypatch.setattr(gr, "open_calibrated_downloader", lambda *a, **k: _Cal())
+    monkeypatch.setattr(gr, "open_calibrated_downloader", lambda *a, **k: cal)
     monkeypatch.setattr(rt, "load_sealed_instances",
                         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no")))
 

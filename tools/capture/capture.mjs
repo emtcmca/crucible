@@ -75,16 +75,17 @@ async function captureCard(p, file, outDir) {
 }
 
 /** The N4 architecture beat, one PNG per frame, driven by seek(). */
-async function captureLoop(p, { durationMs, fps, outDir }) {
-  const url = pathToFileURL(path.join(ROOT, 'docs', 'diagrams',
+async function captureLoop(p, { durationMs, fps, outDir, url: pageUrl, global: g }) {
+  const url = pageUrl || pathToFileURL(path.join(ROOT, 'docs', 'diagrams',
                                       'loop-player.html')).href;
+  const G = g || '__cuePlayer';
   await p.goto(url, { waitUntil: 'load' });
 
   // FAIL LOUDLY IF THE PLAYER IS NOT THERE. A capture run that silently
   // screenshots a blank page 3000 times is worse than one that stops.
-  await p.waitForFunction(() => !!window.__cuePlayer, null, { timeout: 15000 });
+  await p.waitForFunction((n) => !!window[n], G, { timeout: 15000 });
 
-  const native = await p.evaluate(() => window.__cuePlayer.duration_ms);
+  const native = await p.evaluate((n) => window[n].duration_ms, G);
   const total = durationMs || native;
   const scale = total / native;
   console.log('  player duration %d ms; capturing %d ms (scale %s) at %d fps',
@@ -100,7 +101,7 @@ async function captureLoop(p, { durationMs, fps, outDir }) {
   for (let i = 0; i <= frames; i++) {
     const tOut = (i / fps) * 1000;          // position in the OUTPUT timeline
     const tCue = Math.min(native, tOut / scale);   // position in cue time
-    await p.evaluate((ms) => window.__cuePlayer.seek(ms), tCue);
+    await p.evaluate(([n, ms]) => window[n].seek(ms), [G, tCue]);
     const dest = path.join(dir, 'f' + String(i).padStart(5, '0') + '.png');
     await p.screenshot({ path: dest, animations: 'disabled' });
     if (i % 60 === 0) {
@@ -150,6 +151,21 @@ if (cmd === 'encode') {
                                                path.join(OUT, 'cards'));
     } else if (cmd === 'card') {
       await captureCard(p, process.argv[3], path.join(OUT, 'cards'));
+    } else if (cmd === 'run') {
+      // THE RUN VIEW - a real bundle replayed. Build it first with
+      // `python tools/capture/build-run-view.py --bundle <c6.json>`.
+      const card = path.join(HERE, 'cards', '03-run.html');
+      if (!fs.existsSync(card)) {
+        throw new Error('cards/03-run.html not built - run build-run-view.py');
+      }
+      const durationMs = Number(arg('--duration', 0)) || 0;
+      const dir = await captureLoop(p, {
+        durationMs, fps, outDir: path.join(OUT, 'run-frames'),
+        url: pathToFileURL(card).href, global: '__runPlayer',
+      });
+      const mp4 = path.join(ensure(OUT), 'N6-run.mp4');
+      await encode(dir, mp4, fps);
+      console.log('wrote %s', path.relative(ROOT, mp4));
     } else if (cmd === 'loop') {
       const durationMs = Number(arg('--duration', 0)) || 0;
       const dir = await captureLoop(p, {
