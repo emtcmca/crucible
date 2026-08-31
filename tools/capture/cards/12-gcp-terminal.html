@@ -70,7 +70,7 @@
 
 <script>
 const DATA = {
- "captured_at": "2026-08-31T14:56:59Z",
+ "captured_at": "2026-08-31T17:48:55Z",
  "command": "powershell -File tools\\capture\\gcp-proof.ps1",
  "lines": [
   {
@@ -159,31 +159,63 @@ const DATA = {
   },
   {
    "kind": "cmd",
-   "text": "PS> python -c \"import json;e=json.load(open(r'docs/proof/cartographer-live-run-2026-08-23.json'))['endpoint'];print(json.dumps({k:e[k] for k in ('model','url','http_status','traffic_type')},indent=2))\""
+   "text": "PS> python scripts/gemma-live-probe.py"
   },
   {
    "kind": "out",
-   "text": "{"
+   "text": "=========================================================================="
   },
   {
    "kind": "out",
-   "text": "  \"model\": \"google/gemma-4-26b-a4b-it-maas\","
+   "text": "LIVE CALL - Gemma on Vertex AI Model Garden, managed endpoint"
   },
   {
    "kind": "out",
-   "text": "  \"url\": \"https://aiplatform.googleapis.com/v1/projects/crucible-hack-2026/locations/global/endpoints/openapi/chat/completions\","
+   "text": "=========================================================================="
   },
   {
    "kind": "out",
-   "text": "  \"http_status\": 200,"
+   "text": "  model    : google/gemma-4-26b-a4b-it-maas"
   },
   {
    "kind": "out",
-   "text": "  \"traffic_type\": \"ON_DEMAND\""
+   "text": "  location : global"
   },
   {
    "kind": "out",
-   "text": "}"
+   "text": "  endpoint : https://aiplatform.googleapis.com/v1/projects/crucible-hack-2026/locations/global/endpoints/openapi/chat/completions"
+  },
+  {
+   "kind": "out",
+   "text": "  asking   : classify one tool into one capability class"
+  },
+  {
+   "kind": "blank",
+   "text": ""
+  },
+  {
+   "kind": "out",
+   "text": "  http 200 in 1770 ms"
+  },
+  {
+   "kind": "out",
+   "text": "  answer   : CAP_MOVES_MONEY"
+  },
+  {
+   "kind": "out",
+   "text": "  usage    : {\"completion_tokens\": 8, \"extra_properties\": {\"google\": {\"traffic_type\": \"ON_DEMAND\"}}, \"prompt_tokens\": 119, \"prompt_tokens_details\": {\"cached_tokens\": 5}, \"total_tokens\": 127}"
+  },
+  {
+   "kind": "blank",
+   "text": ""
+  },
+  {
+   "kind": "out",
+   "text": "  This is the capability cartographer. It classifies tools."
+  },
+  {
+   "kind": "out",
+   "text": "  It does not author attacks - ADR-0018."
   },
   {
    "kind": "blank",

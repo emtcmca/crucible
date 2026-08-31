@@ -37,13 +37,26 @@ Then maximise the window. If your display is 1080p, maximised is 1920×1080 and
 you are done. On a larger display, maximised is fine too — the assembler scales
 and pads to 1920×1080 either way.
 
-**1.3 — Clear the scrollback** so the take opens on a clean frame:
+**1.3 — Get the taskbar and everything else out of the frame.**
+
+| do this | why |
+|---|---|
+| **`F11`** (or `Alt+Enter`) — full screen | **this is the taskbar answer.** Full screen covers it entirely, no settings change needed |
+| **`Ctrl+Shift+P`** → *Toggle focus mode* | hides the tab bar and title bar too, so the frame is nothing but terminal |
+| **`Win+N`** → Do Not Disturb **on** | a notification toast landing mid-take costs you the whole take |
+
+If you would rather not go full screen, the settings route is Settings →
+Personalization → Taskbar → **Taskbar behaviors → Automatically hide the
+taskbar**. Full screen is faster and does not leave your desktop changed
+afterwards.
+
+**1.4 — Clear the scrollback** so the take opens on a clean frame:
 
 ```powershell
 Clear-Host
 ```
 
-**1.4 — Change into the repo** (do this before recording, so the take does not
+**1.5 — Change into the repo** (do this before recording, so the take does not
 open on a `cd`):
 
 ```powershell
@@ -70,7 +83,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\capture\gcp-proof.ps1 
 ```
 
 5. Let it finish. It types each command for the camera and prints real output —
-   about 25 seconds at `-Pause 2.0`. **Do not touch the keyboard while it runs.**
+   about 30 seconds at `-Pause 2.0`. **Do not touch the keyboard while it runs.**
+   The last frame makes a **live Gemma call** and waits ~2s for the response, so
+   do not mistake that pause for a hang.
 6. **Wait two seconds** after the last line, then press **`Win + Alt + R`** again
    to stop.
 
@@ -115,7 +130,8 @@ this beat exists to be read, and every one of them is the point of a frame:
   account. **Not the default compute identity**, which is the design point
 - `aiplatform.googleapis.com` — Vertex, where every model call in the loop goes
 - `crucible-sealed-x7` — the sealed bucket, present and unread
-- `google/gemma-4-26b-a4b-it-maas` and `"http_status": 200`
+- `google/gemma-4-26b-a4b-it-maas`, the endpoint URL, and the **live** result:
+  `http 200 in <n> ms` with the classification Gemma returned
 
 ---
 

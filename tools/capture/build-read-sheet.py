@@ -16,9 +16,12 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+# THE CUT IS THE READ-FROM COPY. The two files it supersedes stay on disk,
+# unchanged, as history and as the source of every claim in it - this project's
+# rule is that corrections leave the superseded text visible. They are NOT read
+# here: two scripts feeding one sheet would put every line in twice.
 SOURCES = [
-    ROOT / "docs" / "design" / "narration-LOCKED-2026-08-27.md",
-    ROOT / "docs" / "design" / "narration-N6-N9-2026-08-30.md",
+    ROOT / "docs" / "design" / "narration-CUT-2026-08-31.md",
 ]
 OUT = ROOT / "docs" / "design" / "NARRATION-READ-SHEET.md"
 

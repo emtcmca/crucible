@@ -22,27 +22,15 @@ is a third thing that can drift.
 - `*(beat)*` between blocks means a pause, not a new file. All
   blocks under one heading are **one take**.
 
-**10 beats · 988 spoken words · roughly 6:35 at 150 wpm.**
+**10 beats · 543 spoken words · roughly 3:37 at 150 wpm.**
 
-> ### THIS DOES NOT FIT. Read this before you record.
->
-> The cap is **4:00 and it is hard** - the submission form
-> rejects longer, and a judge does not watch the overflow.
-> Minus the 3s title card that leaves **237s** for speech.
->
-> This script runs **6:35**, which is **2:38 over**.
-> About **395 words** have to come out - roughly 40% of it.
->
-> The per-beat times below are measured, not guessed. The
-> longest beats are where the time is: cut there first.
-> **Do not try to read it faster.** 988 words in 237s is
-> 250 wpm, which is not a pace, it is a mumble.
+Fits the 4:00 cap with 19s of headroom for pauses.
 
 ---
 
 ## N1 — `audio/N1.wav`
 
-*0:00–0:12 · cold open, no title card · 11 words, ~4s at 150 wpm*
+*cold open · — · 11 words, ~4s at 150 wpm*
 
 ```
 This is a customer service agent with permission to move money.
@@ -52,86 +40,60 @@ This is a customer service agent with permission to move money.
 
 ## N2 — `audio/N2.wav`
 
-*0:12–0:25 · establish that it really moves money · 41 words, ~16s at 150 wpm*
+*it really moves money · — · 35 words, ~14s at 150 wpm*
 
 ```
 That's not a mock response. The ledger moved.
 
-Now the same agent on a nine hundred dollar claim.
-```
-
-*(pause — same take)*
-
-```
-It's a good agent. It follows its policy.
-
-Which is the problem. Its policy is a paragraph of English, and English is
-attackable.
+Same agent, nine hundred dollars. It escalates instead — it follows its
+policy. Which is the problem. That policy is a paragraph of English, and
+English is attackable.
 ```
 
 ---
 
 ## N3 — `audio/N3.wav`
 
-*0:25–0:50 · the friction · 58 words, ~23s at 150 wpm*
+*the friction · — · 50 words, ~20s at 150 wpm*
 
 ```
 Before you deploy an agent with real permissions, someone has to find out what
 it does under pressure.
 
-Today that's a person writing prompts by hand until they get bored. There's no
-regression suite, so last week's fix is untested this week.
+Today that's a person writing prompts by hand, with no regression suite. Last
+week's fix is untested this week.
 
-CRUCIBLE automates that loop. And more importantly, it refuses to ship a fix it
-can't prove.
+CRUCIBLE automates that loop, and refuses to ship a fix it can't prove.
 ```
 
 ---
 
 ## N4 — `audio/N4.wav`
 
-*0:50–1:35 · architecture · diagram on screen throughout · 261 words, ~104s at 150 wpm*
+*architecture · — · 122 words, ~49s at 150 wpm*
 
 ```
-A red team model writes six attacks a round against the target.
+A red team model writes six attacks a round, from a corpus sealed before the
+first patch existed.
 
-The attack corpus was authored, then sealed and committed before the first
-patch existed. That commitment is public and timestamped, and the identity that
-writes patches cannot read the sealed set.
+The tripwire is pure code. It rules from the actual tool-call trace, not from
+anything the agent said.
 
-The tripwire is pure code. No model. It rules from the actual tool call trace,
-not from anything the agent said, against eleven clauses.
-```
+The coroner writes the autopsy and structurally cannot propose a fix. No fix
+field in its schema, and no write access to the policy bucket. That's IAM, not
+a prompt.
 
-*(pause — same take)*
+The armorer patches in three verbs. Deny. Constrain argument. Require
+approval. No allow verb, so no patch can widen what the agent may do.
 
-```
-The coroner writes the autopsy and structurally cannot propose a fix. There is
-no fix field in its schema, its findings sit in a subtree the armorer's input
-adapter cannot address, and its service account has no write access to the
-policy bucket. That's an IAM policy, not a prompt instruction.
-
-The armorer gets structured fields only, and patches in three verbs. Deny.
-Constrain argument. Require approval. There is no allow verb, so no sequence of
-patches can widen what the agent is permitted to do. The predicates reference
-trace facts and never match strings. That constraint is the whole design.
-
-The compiled policy runs as a plugin callback, before the agent's own callbacks,
-and a non-None return skips execution. So the policy cannot be argued with by
-the agent it governs.
-
-Then the regression warden, also pure code. Twenty six benign fixtures, fourteen
-of them near misses, and the patch has to leave all twenty six passing.
-
-The gate promotes only if attack success falls AND benign is exactly one hundred
-percent.
+Then a pure-code warden replays twenty-six benign fixtures. All must pass.
 ```
 
 *(pause — same take)*
 
 ```
-Above this line is model generated and untrusted. Below it is
-deterministic code.
+Above this line is model generated and untrusted. Below it is deterministic
+code.
 
 No model ever decides whether a breach happened.
 ```
@@ -140,87 +102,59 @@ No model ever decides whether a breach happened.
 
 ## N5 — `audio/N5.wav`
 
-*1:35–1:43 · the honesty beat · 74 words, ~30s at 150 wpm*
+*the honesty beat · — · 29 words, ~12s at 150 wpm*
 
 ```
-Everything from here is replayed from stored evidence bundles, recorded
-offline.
+Everything from here is replayed from stored evidence bundles.
 
-Vertex runs on dynamic shared quota, so a multi-minute live loop on camera is a
-risk I'm not taking.
-
-Every bundle carries five locks. The gate rule, the frozen target agent, the
-capability manifest, the Objective Set that defines what counts as a breach,
-and the corpus. All committed before the first measurement, and the replay tool
-needs no credentials to check them.
+Every bundle carries five locks, all committed before the first measurement.
+The replay tool needs no credentials to check them.
 ```
 
 ---
 
 ## N6a — `audio/N6a.wav`
 
-*~0:20 · LIVE TERMINAL · the Google Cloud proof · 85 words, ~34s at 150 wpm*
+*the Google Cloud proof · — · 57 words, ~23s at 150 wpm*
 
 ```
-Cloud Run, serving, under its own service account - not the default one. The
-whole design rests on identities that differ from each other.
+Cloud Run, serving, under its own service account — not the default one.
 
-Vertex AI, where every model call in the loop goes.
+Vertex AI, where every model call in the loop goes. Three buckets: evidence,
+policies, and the sealed holdout the attacking identity cannot read.
 
-Three buckets. Evidence, policies, and the sealed holdout - which is listed
-here and which the attacking identity cannot read.
-```
-
-*(pause — same take)*
-
-```
-And Gemma, on Vertex Model Garden, as a managed endpoint. It is the capability
-cartographer: it classifies every tool the target agent holds into a capability
-class, before any attack runs.
+And Gemma, on Vertex Model Garden. It's the capability cartographer — it
+classifies every tool the target agent holds, before any attack runs.
 ```
 
 ---
 
 ## N6b — `audio/N6b.wav`
 
-*~0:18 · what that infrastructure produced · 59 words, ~24s at 150 wpm*
+*what that produced · — · 41 words, ~16s at 150 wpm*
 
 ```
-Two batches. Twenty runs each, identical configuration, one of them
-pre-registered as a replication of the other before it ran.
+Two batches. Twenty runs each, identical configuration, one pre-registered as
+a replication of the other before it ran. The offline reader accepts twenty of
+twenty bundles in both.
 
-The offline reader accepts twenty of twenty bundles in both.
-```
-
-*(pause — same take)*
-
-```
-That reader takes no credentials and no cloud project. It re-derives every
-frozen lock from the bundle bytes. You can run it against these bundles on your
-own machine.
+That reader takes no credentials. It re-derives every lock from the bundle
+bytes.
 ```
 
 ---
 
 ## N7 — `audio/N7.wav`
 
-*~0:30 · the efficacy figure, with its disagreement attached · 101 words, ~40s at 150 wpm*
+*the figure · — · 61 words, ~24s at 150 wpm*
 
 ```
 Pooled across both batches, attack success falls from thirteen and a half
 percent against the bare agent to seven point seven at the final policy.
-Seventy breaches in five hundred and twenty episodes, down to fifty six in
-seven hundred and twenty five.
-```
 
-*(pause — same take)*
-
-```
-And the two batches disagree. One ran eleven point eight down to five point
-seven. The other ran fifteen point four down to nine point seven.
-
-A replication that contradicts the first batch does not retire the first batch.
-It retires the claim that one batch was enough.
+And the two batches disagree. A replication that contradicts the first batch
+doesn't retire the first batch. It retires the claim that one batch was
+enough.
 
 One target agent. One sample per episode. No stability estimate.
 ```
@@ -229,65 +163,36 @@ One target agent. One sample per episode. No stability estimate.
 
 ## N8 — `audio/N8.wav`
 
-*~0:35 · the finding that is negative, and is the point · 175 words, ~70s at 150 wpm*
+*the negative finding · — · 68 words, ~27s at 150 wpm*
 
 ```
-The most substantive thing this project measured is negative, and it is about
-the harness rather than about the agent.
+The most substantive thing we measured is negative, and it's about the harness
+not the agent.
 
-Thirty two rules were promoted across the bundles the reader accepts. Thirteen
-of them closed the breach they were written for. Nineteen were no-ops on it.
-```
+Thirty-two rules promoted. Thirteen closed the breach they were written for.
+Nineteen were no-ops.
 
-*(pause — same take)*
+The gate promoted all nineteen. It checked the patch was well formed and that
+benign traffic survived. It never checked that it closed the breach.
 
-```
-The gate promoted every one of those nineteen, because it checked that the
-patch was well formed and that benign traffic survived it. It never checked
-that the patch closed the breach it was written for.
-
-And a rule that over-blocks passes every gate. It stops the attacks, the
-approval oracle rubber-stamps the benign cases, benign pass rate reads perfect,
-the gate promotes it — and the agent has been made useless.
-
-That is a measurement finding, not an agent finding. It is the one I would
-expect to transfer.
-```
-
-*(pause — same take)*
-
-```
-We found it by recounting a number that had already been published. It got
-worse: fifty eight point one percent to fifty nine point four. A recount that
-only ever runs when the number would improve is not a check.
+We found it by recounting a number we'd already published. It got worse.
 ```
 
 ---
 
 ## N9 — `audio/N9.wav`
 
-*~0:20 · what this is not, and the close · 123 words, ~49s at 150 wpm*
+*what this is not, and the close · — · 69 words, ~28s at 150 wpm*
 
 ```
-What this is not.
+What this is not. Eleven days, one person, one target agent. No users. Not
+reviewed or endorsed by Google. The held-out family is still sealed. I
+won't describe a result I don't have.
 
-Eleven days, one person, one target agent. No users. Not reviewed or endorsed
-by Google. A held-out attack family exists and is still sealed. I am not going
-to describe a result I do not have.
-```
+Every boundary in here is a component deliberately blind to something. The
+coroner can't propose a fix. The armorer has no allow verb.
 
-*(pause — same take)*
-
-```
-The repository says all of that on its own front page, in a section called
-what is not defensible today.
-
-The thing I would want you to take from this is the shape. Every boundary in
-here is a component deliberately blind to something. The coroner cannot propose
-a fix. The armorer has no allow verb. The gate reads the bytes back off disk
-before it promotes.
-
-None of that is a prompt. It is a schema, an IAM policy, and a grammar.
+That's not a prompt. It's a schema, an IAM policy, and a grammar.
 ```
 
 ---

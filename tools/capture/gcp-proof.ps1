@@ -75,9 +75,16 @@ Beat "gcloud storage buckets list --project=$Project --format=""table(name, loca
 #    lane agents. Classification is the claim; generation is not.
 Beat "Select-String -Path crucible/cartographer/vertex.py -Pattern 'DEFAULT_MODEL_ID =|DEFAULT_LOCATION ='"
 
-# The 08-23 artifact, NOT the 08-22 one - that one carries a `_superseded`
-# block naming this file as its replacement.
-Beat "python -c ""import json;e=json.load(open(r'docs/proof/cartographer-live-run-2026-08-23.json'))['endpoint'];print(json.dumps({k:e[k] for k in ('model','url','http_status','traffic_type')},indent=2))"""
+# AND ONE LIVE CALL, NOW, rather than a saved artifact that says a call
+# happened once. The earlier version read
+# docs/proof/cartographer-live-run-2026-08-23.json here, which is true and is
+# not the same sentence: "here is Gemma responding" and "here is a file saying
+# Gemma responded" differ, and only the second is what a saved JSON supports.
+#
+# It goes through the same make_completer the Cartographer uses, so the
+# endpoint, model id, seed and temperature on screen are the ones the project
+# actually runs. One question, ~24 tokens out.
+Beat "python scripts/gemma-live-probe.py"
 
 Write-Host ""
 Write-Host "Cloud Run - serving, own service account." -ForegroundColor DarkYellow
