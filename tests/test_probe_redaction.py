@@ -120,6 +120,75 @@ def test_the_module_says_out_loud_that_this_is_pseudonymisation():
     assert "not the ruling" in src or "NOT a substitute" in src
 
 
+class _Args:
+    """Just the two fields `_expectation_mismatch` reads."""
+
+    def __init__(self, digest=None, project=None):
+        self.expect_gcp_env_digest = digest
+        self.expect_project = project
+
+
+def _real_digest():
+    import hashlib
+    return "sha256:" + hashlib.sha256(
+        (ROOT / "scripts" / "gcp-env.sh").read_bytes()).hexdigest()
+
+
+def test_a_recovery_query_against_a_changed_config_is_refused():
+    """THE PIN HAS TO BE READ OR IT IS DECORATIVE.
+
+    The `window` row records the digest of `scripts/gcp-env.sh` as it was
+    during the run. The probe then reloaded the CURRENT file and verified
+    nothing, so a record that pinned its configuration and a procedure that
+    ignored the pin left the pin doing no work at all.
+    """
+    problem = probe._expectation_mismatch(
+        _Args(digest="sha256:" + "0" * 64), {"CRUCIBLE_PROJECT": "whatever"})
+    assert problem, "a changed configuration was accepted silently"
+    assert "different target" in problem
+
+
+def test_a_recovery_query_against_the_recorded_config_is_accepted():
+    """THE CONTROL. A check that refuses everything is not a check."""
+    assert probe._expectation_mismatch(
+        _Args(digest=_real_digest(), project="crucible-hack-2026"),
+        {"CRUCIBLE_PROJECT": "crucible-hack-2026"}) is None
+
+
+def test_a_project_mismatch_is_refused():
+    problem = probe._expectation_mismatch(
+        _Args(project="crucible-hack-2026"), {"CRUCIBLE_PROJECT": "somewhere-else"})
+    assert problem and "somewhere-else" in problem
+
+
+def test_the_probe_refuses_rather_than_warning_on_mismatch():
+    """WIRED, and wired to a REFUSAL. A warning printed above a wall of proof
+    text is a check nobody sees."""
+    src = (ROOT / "scripts" / "probe-g7-g8.py").read_text(encoding="utf-8")
+    assert "problem = _expectation_mismatch(args, env)" in src
+    assert 'print("REFUSED: %s" % problem)' in src
+    body = src.split("def _expectation_mismatch")[0]
+    assert body.index("_expectation_mismatch(args, env)") < body.index(
+        "HoldoutTouchCounter("), (
+        "the expectation check runs after the counter is built, so the query "
+        "is already pointed at the wrong target by the time it fires")
+
+
+def test_the_bare_name_pattern_is_derived_from_sealed_io():
+    """NOT A RETYPED COPY OF THE SAME REGEX.
+
+    The previous version consulted `_SAFE_NAME` but SCANNED with its own hand
+    written twin, so a change to the convention would have left the scanner
+    matching the old shape and finding nothing to consult it about. A reviewer
+    said "delegates the convention" was too broad, and it was.
+    """
+    src = (ROOT / "scripts" / "probe-g7-g8.py").read_text(encoding="utf-8")
+    assert "_SAFE_NAME.pattern" in src, (
+        "the scanning pattern is not derived from sealed_io's definition")
+    assert "F4-dest-" not in src.split("def _redact_sealed_objects")[1], (
+        "the convention is still retyped inside the redactor")
+
+
 def test_nothing_else_is_touched():
     """THE CONTROL. A function that redacted everything would pass the tests
     above and destroy the proof file."""

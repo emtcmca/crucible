@@ -89,6 +89,7 @@ def _isolate_seal_state():
     stage = list(rt._SEAL_STAGE)
     completed = list(rt._COMPLETED)
     window = list(rt._AUDIT_WINDOW)
+    binding = list(rt._WINDOW_BINDING)
 
     # RESET, NOT ONLY RESTORE. Restoring alone was not enough and the failure
     # was instructive: a broader-scoped fixture runs a full stand-in drive,
@@ -105,6 +106,7 @@ def _isolate_seal_state():
     rt._RUN_COMPLETED[:] = [False]
     # The audit window is one-way for the same reason and leaks the same way.
     rt._AUDIT_WINDOW[:] = [None]
+    rt._WINDOW_BINDING[:] = [None]
     yield
     rt._SEAL_OPENED[:] = opened
     rt._READ_RETURNED[:] = returned
@@ -112,6 +114,7 @@ def _isolate_seal_state():
     rt._SEAL_STAGE[:] = stage
     rt._COMPLETED[:] = completed
     rt._AUDIT_WINDOW[:] = window
+    rt._WINDOW_BINDING[:] = binding
 
 
 # --------------------------------------------------------------- the arms --
@@ -211,34 +214,38 @@ def test_a_declared_set_of_the_wrong_size_is_refused_before_the_network():
     assert called == [], "the size check must fire before any request"
 
 
-def _window_on_disk(tmp_path, since="2026-08-31T00:00:02Z"):
-    """Open a real, journalled audit window. Returns the open journal handle.
+def _window_on_disk(tmp_path, downloader=None, bucket=None,
+                    since="2026-08-31T00:00:02Z"):
+    """Open a real, journalled audit window BOUND to this read. Returns the token.
 
-    The door guard added after review 10 asks whether the boundary is BYTES ON
-    DISK, so this writes them. Setting the flag directly would test the stub
-    rather than the guard, and this suite has already been caught doing exactly
-    that once.
+    The door asks three questions, not one: is a window on disk, is this the
+    token that window minted, and are the bucket and downloader the ones it was
+    opened against. So the helper has to be told what read it is authorising -
+    which is the point of the finding it exists for. A helper that authorised
+    everything would be the ambient boolean again, wearing a fixture.
     """
     fh = open(tmp_path / "journal.jsonl", "a", encoding="utf-8", newline="")
     rt.mark_audit_window(since,
                          calibration_since="2026-08-31T00:00:00Z",
                          calibration_finished_at="2026-08-31T00:00:01Z",
                          env={"CRUCIBLE_PROJECT": "invented"},
-                         bucket="gs://invented-sealed",
-                         journal=fh)
-    return fh
+                         bucket=rt.SEALED_BUCKET if bucket is None else bucket,
+                         journal=fh,
+                         downloader=downloader)
+    return rt.audit_window_token()
 
 
 def test_a_fingerprint_that_does_not_match_the_commitment_halts(tmp_path):
     """THE CENTRAL GUARD. If the bytes on the wire do not hash to the published
     commitment, the set being measured is not the set that was sealed, and every
     number derived from it describes a corpus nobody committed to."""
-    _window_on_disk(tmp_path)
     names = _declared_names()
     payload = {n: b'{"family": "F4", "sealed": true}' for n in names}
+    download = _fake_downloader(payload)
+    token = _window_on_disk(tmp_path, downloader=download)
     with pytest.raises(rt.TransferRunError) as exc:
-        rt.load_sealed_instances(object_names=names,
-                                 downloader=_fake_downloader(payload))
+        rt.load_sealed_instances(object_names=names, downloader=download,
+                                 window_token=token)
     assert exc.value.code == "E_SEAL_FINGERPRINT_MISMATCH"
 
 
@@ -246,30 +253,32 @@ def test_the_read_set_is_decided_before_the_network_not_after(tmp_path):
     """The downloader is only ever asked for names the manifest declared. A run
     that read whatever the bucket happened to hold could not assert afterwards
     that it read only what it named."""
-    _window_on_disk(tmp_path)
     asked = []
 
     def download(uri):
         asked.append(uri.rsplit("/", 1)[-1])
         return b'{"family": "F4", "sealed": true}'
 
+    token = _window_on_disk(tmp_path, downloader=download)
     with pytest.raises(rt.TransferRunError):
-        rt.load_sealed_instances(object_names=_declared_names(), downloader=download)
+        rt.load_sealed_instances(object_names=_declared_names(),
+                                 downloader=download, window_token=token)
     assert sorted(asked) == sorted(_declared_names())
 
 
 def test_every_object_is_read_exactly_once(tmp_path):
     """A second read of one object makes the audit count right for the wrong
     reason, so the reader refuses a duplicate rather than tolerating it."""
-    _window_on_disk(tmp_path)
     seen = []
 
     def download(uri):
         seen.append(uri)
         return b'{"family": "F4", "sealed": true}'
 
+    token = _window_on_disk(tmp_path, downloader=download)
     with pytest.raises(rt.TransferRunError):
-        rt.load_sealed_instances(object_names=_declared_names(), downloader=download)
+        rt.load_sealed_instances(object_names=_declared_names(),
+                                 downloader=download, window_token=token)
     assert len(seen) == len(set(seen)) == 24
 
 
@@ -3057,7 +3066,7 @@ def test_a_footer_saying_completed_false_is_not_read_as_completed(tmp_path):
     measurement that is the single most consequential thing this reader says.
     """
     p = _log(tmp_path, _header(),
-             {"kind": "footer", "episodes": 3, "completed": False})
+             {"kind": "footer", "episodes": 0, "completed": False})
     with pytest.raises(rt.TransferRunError) as caught:
         rt.read_drive_file(p)
     assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
@@ -3066,7 +3075,7 @@ def test_a_footer_saying_completed_false_is_not_read_as_completed(tmp_path):
 
 def test_a_footer_with_no_completed_field_is_refused(tmp_path):
     """A missing field is not a true one. `bool(footer)` treated it as true."""
-    p = _log(tmp_path, _header(), {"kind": "footer", "episodes": 3})
+    p = _log(tmp_path, _header(), {"kind": "footer", "episodes": 0})
     with pytest.raises(rt.TransferRunError) as caught:
         rt.read_drive_file(p)
     assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
@@ -3180,6 +3189,232 @@ def test_the_window_is_on_disk_before_the_read_is_attempted(monkeypatch, tmp_pat
         "the A3.11 ruling is unrecoverable - which is the original P0.")
     assert rows[0]["kind"] == "window"
     assert rows[0]["opened_at"] == "2026-08-31T00:00:02Z"
+
+
+def test_a_primed_global_cannot_authorize_another_bucket(tmp_path):
+    """REVIEW 11'S REPRODUCTION, verbatim, and it is the whole finding.
+
+    Open a window through some journal, then call the sealed read with a
+    DIFFERENT bucket and a fake downloader. The ambient boolean said "a window
+    was written at some point", the door treated that as authorisation, and the
+    fake downloader was reached for `gs://other-bucket/...`.
+
+    An ambient flag is not a capability. The authorisation now names the read.
+    """
+    _window_on_disk(tmp_path, downloader=object(),
+                    bucket="gs://crucible-sealed-x7")
+
+    reached = []
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.load_sealed_instances(object_names=_declared_names(),
+                                 bucket="gs://other-bucket",
+                                 downloader=lambda uri: reached.append(uri),
+                                 window_token=rt.audit_window_token())
+    assert caught.value.code == "E_AUDIT_WINDOW_NOT_DURABLE"
+    assert reached == [], (
+        "an object was requested from a bucket the window was not opened "
+        "against, so the read is invisible to the counter that decides A3.11")
+    assert "other-bucket" in str(caught.value)
+
+
+def test_a_downloader_that_never_saw_the_canary_is_refused(tmp_path):
+    """The calibration is what proves the read path leaves audit entries.
+
+    A different object has not been shown to leave any, so a count taken over
+    its reads is a number about an instrument nobody checked.
+    """
+    calibrated = object()
+    _window_on_disk(tmp_path, downloader=calibrated)
+
+    reached = []
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.load_sealed_instances(object_names=_declared_names(),
+                                 downloader=lambda uri: reached.append(uri),
+                                 window_token=rt.audit_window_token())
+    assert caught.value.code == "E_AUDIT_WINDOW_NOT_DURABLE"
+    assert "calibrated on the canary" in str(caught.value)
+    assert reached == []
+
+
+def test_a_read_with_no_token_is_refused_even_with_a_window_on_disk(tmp_path):
+    """The token is what ties this read to the invocation that opened it."""
+    download = lambda uri: b"{}"
+    _window_on_disk(tmp_path, downloader=download)
+
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.load_sealed_instances(object_names=_declared_names(),
+                                 downloader=download)
+    assert caught.value.code == "E_AUDIT_WINDOW_NOT_DURABLE"
+    assert "no valid window token" in str(caught.value)
+
+
+def test_the_window_row_on_disk_does_not_contradict_the_process(monkeypatch,
+                                                                tmp_path):
+    """REVIEW 11'S SECOND REPRODUCTION: disk_durable=False, memory_durable=True.
+
+    The row was serialised before the flag was flipped, so the first and
+    authoritative evidence row permanently said the boundary was not durable
+    while the process said it was. The fix is not to write `true` earlier -
+    DURABILITY IS NOT A PROPERTY OF THE ROW. Its presence on disk IS the
+    durability, and a field restating that can only ever contradict it.
+    """
+    _lifecycle_stubs(monkeypatch)
+    out = tmp_path / "drive.jsonl"
+    handle = open(out, "x", encoding="utf-8", newline="")
+    monkeypatch.setattr(rt, "load_sealed_instances",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no")))
+
+    with pytest.raises(RuntimeError):
+        rt.sealed_drive_lifecycle(["n"], bucket="gs://invented", journal=handle)
+
+    row = json.loads(out.read_text(encoding="utf-8").splitlines()[0])
+    assert "durable" not in row, (
+        "the window row carries a `durable` field. Whatever value it holds it "
+        "is either redundant with the row's own existence or contradicts it, "
+        "and it was serialised as False on every run: %r" % row.get("durable"))
+    assert rt.audit_window_is_durable(), (
+        "the process does not believe the window is durable after writing it")
+
+
+# ------------------------------ the producer automaton ----------------------
+
+
+def test_a_footer_without_a_header_is_refused(tmp_path):
+    """REVIEW 11'S REPRODUCTION: `window -> footer` read as completed, 0 episodes.
+
+    Nondecreasing ranks accepted it. The header is written before the drive and
+    the footer after it, so a footer with no header is a completed drive that
+    never started.
+    """
+    p = _log(tmp_path,
+             {"kind": "window", "opened_at": "t1"},
+             {"kind": "footer", "episodes": 0, "completed": True})
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
+    assert "cannot emit" in str(caught.value)
+
+
+def test_a_crash_after_a_terminal_row_is_refused(tmp_path):
+    """REVIEW 11'S REPRODUCTION: `header -> terminal -> crash`.
+
+    The direction is the whole point. A crash is raised inside `drive`; the
+    terminal row is written by the exit hook, which runs last. So crash then
+    terminal is possible and the reverse is not - and equal ranks erased
+    exactly that distinction.
+    """
+    p = _log(tmp_path, _header(),
+             {"kind": "terminal", "stage": "adjudication"},
+             {"kind": "crash", "error": "invented"})
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
+
+
+def test_a_crash_THEN_a_terminal_row_is_accepted(tmp_path):
+    """THE CONTROL, and it is the same pair in the order unwinding produces.
+
+    Without it the test above is satisfied by a reader that refuses both, which
+    would reject a real artifact on the one day it matters.
+    """
+    p = _log(tmp_path, _header(),
+             {"kind": "crash", "error": "invented"},
+             {"kind": "terminal", "stage": "the drive raised"})
+    out = rt.read_drive_file(p)
+    assert out["completed"] is False
+    assert out["crash"]["error"] == "invented"
+    assert out["terminal"]["stage"] == "the drive raised"
+
+
+def test_a_footer_that_miscounts_its_own_episodes_is_refused(tmp_path):
+    """The declared count is the denominator.
+
+    A footer claiming three episodes over one row is a truncated file
+    describing itself as whole, and nothing checked it.
+    """
+    p = _log(tmp_path, _header(),
+             {"kind": "episode", "n": 1},
+             {"kind": "footer", "episodes": 3, "completed": True})
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
+    assert "denominator" in str(caught.value)
+
+
+def test_an_episode_before_the_header_is_refused(tmp_path):
+    p = _log(tmp_path, {"kind": "episode", "n": 1}, _header())
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
+
+
+def test_a_window_after_a_header_is_refused(tmp_path):
+    """The window is written before the read, and the header long after it."""
+    p = _log(tmp_path, _header(), {"kind": "window", "opened_at": "t1"},
+             {"kind": "footer", "episodes": 0, "completed": True})
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.read_drive_file(p)
+    assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
+
+
+# ------------------------------------ evidence identity fails CLOSED --------
+
+
+def test_an_unpinnable_commit_refuses_before_the_read(monkeypatch, tmp_path):
+    """REVIEW 11'S RULING, adopted. Refusing costs no sealed object.
+
+    `unavailable: ...` let a run proceed and produce evidence that cannot name
+    the code that made it. The failure happens before the read, so the cheap
+    refusal is available and is the right one.
+    """
+    class _Failed:
+        returncode = 128
+        stdout = ""
+        stderr = "not a git repository"
+
+    monkeypatch.setattr(rt.subprocess, "run", lambda *a, **k: _Failed())
+
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt.mark_audit_window("2026-08-31T00:00:02Z",
+                             env={"CRUCIBLE_PROJECT": "invented"},
+                             bucket="gs://invented")
+    assert caught.value.code == "E_EVIDENCE_UNPINNED"
+    assert not rt.audit_window_is_durable()
+
+
+def test_an_unreadable_gcp_env_refuses_before_the_read(monkeypatch):
+    real = pathlib.Path.read_bytes
+
+    def boom(self, *a, **k):
+        if self.name == "gcp-env.sh":
+            raise OSError("permission denied")
+        return real(self, *a, **k)
+
+    monkeypatch.setattr(pathlib.Path, "read_bytes", boom)
+    with pytest.raises(rt.TransferRunError) as caught:
+        rt._gcp_env_digest()
+    assert caught.value.code == "E_EVIDENCE_UNPINNED"
+
+
+def test_the_terminal_record_cites_the_boundary_the_invariant_uses(tmp_path):
+    """The runbook was corrected and the EVIDENCE was not.
+
+    `how_to_rule` still told an auditor that starting after
+    `calibration_opened_at` proved the canary was excluded. It does not - the
+    canary is read between opened and finished - and the evidence is the half
+    that travels.
+    """
+    rt.mark_seal_opened()
+    out = tmp_path / "drive.jsonl"
+    handle = open(out, "x", encoding="utf-8", newline="")
+    rt.release_reservation(out, handle)
+
+    row = json.loads(out.read_text(encoding="utf-8").splitlines()[0])
+    text = row["how_to_rule"]
+    assert "calibration_finished_at" in text, (
+        "the failure record cites the wrong calibration boundary, so an "
+        "auditor following it cannot show the canary was excluded")
+    assert "NOT `calibration_opened_at`" in text
 
 
 def test_main_hands_the_RESERVATION_HANDLE_to_the_lifecycle(monkeypatch, tmp_path):
@@ -3402,7 +3637,7 @@ def test_records_out_of_order_are_refused(tmp_path):
     with pytest.raises(rt.TransferRunError) as caught:
         rt.read_drive_file(p)
     assert caught.value.code == "E_DRIVE_LOG_MALFORMED"
-    assert "order this producer cannot emit" in str(caught.value)
+    assert "this producer cannot emit" in str(caught.value)
 
 
 def test_a_window_then_terminal_artifact_is_READABLE(tmp_path):

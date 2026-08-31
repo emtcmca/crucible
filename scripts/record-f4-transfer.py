@@ -47,6 +47,7 @@ import hashlib
 import json
 import os
 import pathlib
+import secrets
 import subprocess
 import sys
 
@@ -304,7 +305,7 @@ def _adapt_sealed(doc):
 
 
 def load_sealed_instances(object_names=None, downloader=None,
-                          bucket=SEALED_BUCKET):
+                          bucket=SEALED_BUCKET, window_token=None):
     """Read the holdout ONCE, assert its fingerprint, and adapt it.
 
     THE FINGERPRINT IS CHECKED BEFORE A SINGLE INSTANCE IS USED. The commitment
@@ -385,25 +386,24 @@ def load_sealed_instances(object_names=None, downloader=None,
     #     today's call graph rather than of the module. It is now a property of
     #     the module, because the door itself checks.
     #
-    # `sealed_drive_lifecycle` is what makes this true, by opening the window
-    # and journalling it through the reservation handle before it gets here.
-    if not audit_window_is_durable():
-        window = audit_window()
-        raise TransferRunError(
-            "E_AUDIT_WINDOW_NOT_DURABLE",
-            "the sealed read was reached with %s. A3.11 is decided by counting "
-            "granted reads over this run's audit window, and a window that is "
-            "not on disk before the first byte moves cannot be recovered from "
-            "a process that dies without running its exit hook. Sealed reads "
-            "go through `sealed_drive_lifecycle`, which opens the window, "
-            "calibrates on the canary and journals the boundary through the "
-            "reservation handle. Nothing has been read."
-            % ("no audit window at all" if window is None
-               else "an audit window that was never written to disk"))
-
+    # `sealed_drive_lifecycle` is what makes this true, by opening the window,
+    # journalling it through the reservation handle, and handing this call the
+    # token it minted.
+    #
+    # THE FLAG WAS NOT ENOUGH AND THE REVIEWER'S REPRODUCTION IS WHY. An
+    # ambient `audit_window_is_durable()` says only "some window was written at
+    # some point"; it is bound to no bucket, no downloader and no invocation.
+    # Prime it with an unrelated journal write and this function would read
+    # ANOTHER bucket through a FAKE downloader with nothing objecting. The
+    # authorisation now names the read it authorises.
+    #
+    # The downloader is resolved BEFORE the check, so that a defaulted
+    # downloader is checked too rather than slipping in behind it.
     if downloader is None:
         from crucible.transfer.gcs_reader import make_downloader
         downloader = make_downloader()
+
+    assert_read_is_bound_to_the_window(window_token, bucket, downloader)
 
     pairs = read_sealed_once(bucket, names, downloader)
     got = fingerprint_from_bytes(pairs)
@@ -533,7 +533,8 @@ def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None,
     mark_audit_window(since,
                       calibration_since=cal_since,
                       calibration_finished_at=getattr(cal, "finished_at", None),
-                      env=env, bucket=bucket, journal=journal)
+                      env=env, bucket=bucket, journal=journal,
+                      downloader=cal)
     counter = ha.make_run_counter(env, since)
     ha.assert_clean_before_read(counter)
 
@@ -573,7 +574,8 @@ def sealed_drive_lifecycle(object_names, bucket=SEALED_BUCKET, gate_kwargs=None,
     note_stage("about to read the sealed objects; the attempt is now spent")
     mark_seal_opened()
     seeds, instances, names = load_sealed_instances(
-        object_names=object_names, downloader=cal, bucket=bucket)
+        object_names=object_names, downloader=cal, bucket=bucket,
+        window_token=audit_window_token())
     mark_read_returned()
 
     # 8-10. Settle, then assert the STRUCTURED result: count, distinct reads and
@@ -644,28 +646,68 @@ def _refuse_duplicate(path, kind, already):
             "between them." % (path, kind))
 
 
-#: The only orders this producer can emit. `window` is written before the read,
-#: `header` before the first episode, and a run ends with EITHER a footer (it
-#: finished), a crash (it died inside `drive`), or a terminal row (it stopped
-#: before the header, or between the read and the header).
-_RECORD_RANK = {"window": 0, "header": 1, "episode": 2,
-                "footer": 3, "crash": 3, "terminal": 3}
+#: WHAT MAY FOLLOW WHAT. A producer prefix automaton, not a rank comparison.
+#:
+#: Ranks were the first attempt and a reviewer took them apart: nondecreasing
+#: ranks accept `window -> footer` (a completed drive that never wrote a
+#: header, reported with zero episodes) and `header -> terminal -> crash`
+#: (which inverts the only order exception unwinding can produce - a crash is
+#: raised inside `drive`, the terminal row is written by the exit hook, so
+#: crash-then-terminal is possible and the reverse is not). Equal ranks erase
+#: exactly the distinctions that matter.
+#:
+#: States are the last row seen. `START` is the empty file.
+_ALLOWED_NEXT = {
+    "START":    {"window", "header"},
+    # A sealed run journals its window first, then either reaches the header
+    # or stops - and stopping before the header is precisely the artifact the
+    # exit hook exists to write.
+    "window":   {"header", "terminal"},
+    "header":   {"episode", "footer", "crash", "terminal"},
+    "episode":  {"episode", "footer", "crash", "terminal"},
+    # A crash is raised inside `drive`; the exit hook may still add a terminal
+    # row afterwards. Nothing follows a footer, and nothing follows a terminal:
+    # the terminal row is the last thing this process ever writes.
+    "footer":   set(),
+    "crash":    {"terminal"},
+    "terminal": set(),
+}
 
 
-def _refuse_bad_order(path, order):
-    """Rows must be in an order the producer could have written.
+def _refuse_bad_order(path, order, episodes=None, footer=None):
+    """Rows must form a sequence this producer could actually emit.
+
+    Also reconciles the footer's declared episode count against the episode
+    rows present, which nothing checked: a footer claiming twenty-four
+    episodes over three rows is a truncated file describing itself as whole,
+    and the count is the denominator.
 
     Raises:
         TransferRunError: E_DRIVE_LOG_MALFORMED.
     """
-    ranks = [_RECORD_RANK[k] for k in order if k in _RECORD_RANK]
-    if ranks != sorted(ranks):
-        raise TransferRunError(
-            "E_DRIVE_LOG_MALFORMED",
-            "%s carries its records in an order this producer cannot emit: "
-            "%s. Every row may be well formed and the sequence still be "
-            "impossible, and a file like that is not evidence about a run."
-            % (path, " -> ".join(order)))
+    state = "START"
+    for kind in order:
+        if kind not in _ALLOWED_NEXT:
+            continue
+        if kind not in _ALLOWED_NEXT[state]:
+            raise TransferRunError(
+                "E_DRIVE_LOG_MALFORMED",
+                "%s carries a %r record after a %r record, which this producer "
+                "cannot emit. Full sequence: %s. Every row may be well formed "
+                "and the sequence still be impossible, and a file like that is "
+                "not evidence about a run."
+                % (path, kind, state.lower(), " -> ".join(order)))
+        state = kind
+
+    if footer is not None and episodes is not None:
+        declared = footer.get("episodes")
+        if declared is not None and declared != len(episodes):
+            raise TransferRunError(
+                "E_DRIVE_LOG_MALFORMED",
+                "%s carries a footer declaring %r episode(s) over %d episode "
+                "row(s). The declared count is the denominator, so a file that "
+                "disagrees with itself about it cannot be read as a run."
+                % (path, declared, len(episodes)))
 
 
 def read_drive_file(path):
@@ -780,7 +822,7 @@ def read_drive_file(path):
     # whose order its producer cannot have produced is not evidence about a
     # run, and picking a reading for it is the same mistake as picking between
     # two terminal rows.
-    _refuse_bad_order(path, order)
+    _refuse_bad_order(path, order, episodes=episodes, footer=footer)
 
     out = dict(header) if header is not None else {
         # THE PRE-HEADER FAILURE ARTIFACT. A run that stops between the window
@@ -1503,38 +1545,76 @@ _AUDIT_WINDOW = [None]
 
 
 def _repo_commit():
-    """HEAD, or a string saying why not. Never raises: this runs before the
-    read, and a git failure is not a reason to refuse an attempt that has cost
-    nothing yet - but it IS a reason to say so in the evidence."""
+    """HEAD, or REFUSE.
+
+    THE PREVIOUS VERSION RETURNED `"unavailable: ..."` AND LET THE RUN GO ON,
+    with a comment arguing that a git failure was not a reason to stop. A
+    reviewer ruled the other way and the ruling is right: this runs BEFORE the
+    read, so refusing costs no sealed object, and proceeding manufactures the
+    one thing this record exists to prevent - evidence that cannot pin the code
+    that produced it. An unpinned run is not independently auditable, and the
+    cheap failure is the one that happens before anything is spent.
+
+    Raises:
+        TransferRunError: E_EVIDENCE_UNPINNED.
+    """
     try:
         out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
                              capture_output=True, text=True, timeout=15)
-        if out.returncode == 0 and out.stdout.strip():
-            return out.stdout.strip()
-        return "unavailable: git rev-parse exited %d" % out.returncode
     except (OSError, subprocess.SubprocessError) as exc:
-        return "unavailable: %s" % exc
+        raise TransferRunError(
+            "E_EVIDENCE_UNPINNED",
+            "the commit this run would be attributed to could not be read: "
+            "%s. Refusing here costs no sealed object; proceeding would "
+            "produce evidence that cannot name the code that made it." % exc)
+    if out.returncode != 0 or not out.stdout.strip():
+        raise TransferRunError(
+            "E_EVIDENCE_UNPINNED",
+            "`git rev-parse HEAD` exited %d, so this run cannot pin the commit "
+            "it would be attributed to. Nothing has been read."
+            % out.returncode)
+    return out.stdout.strip()
 
 
 def _gcp_env_digest():
-    """sha256 of `scripts/gcp-env.sh` AS IT WAS during the run.
+    """sha256 of `scripts/gcp-env.sh` AS IT WAS during the run, or REFUSE.
 
     A path is a pointer and a pointer can be re-pointed. The digest is what
     makes "the project and bucket named in gcp-env.sh" a statement about a
     specific file rather than about whatever is at that path when someone
-    finally reads the record.
+    finally reads the record - which is worth nothing if it is allowed to say
+    `unavailable`. Same ruling as `_repo_commit`: refuse before the read.
+
+    Raises:
+        TransferRunError: E_EVIDENCE_UNPINNED.
     """
+    import hashlib
     try:
-        import hashlib
         return "sha256:" + hashlib.sha256(
             (ROOT / "scripts" / "gcp-env.sh").read_bytes()).hexdigest()
     except OSError as exc:
-        return "unavailable: %s" % exc
+        raise TransferRunError(
+            "E_EVIDENCE_UNPINNED",
+            "scripts/gcp-env.sh could not be read to pin the configuration "
+            "this run used: %s. Nothing has been read." % exc)
+
+
+#: NOT SERIALISED, AND NOT A BOOLEAN. What binds a sealed read to the window it
+#: is judged over: a one-time token, the bucket the window was opened against,
+#: and the identity of the calibrated downloader.
+#:
+#: A reviewer reproduced the reason this exists. The door used to consult an
+#: ambient `audit_window_is_durable()` flag, which is bound to nothing: prime it
+#: with any journal write and `load_sealed_instances` would then read a
+#: DIFFERENT bucket through a FAKE downloader, because the flag says only "some
+#: window was written at some point" and the door was treating that as
+#: authorisation for this read. An ambient boolean is not a capability.
+_WINDOW_BINDING = [None]
 
 
 def mark_audit_window(since, calibration_since=None,
                       calibration_finished_at=None, env=None, bucket=None,
-                      journal=None):
+                      journal=None, downloader=None):
     """Capture the run window AND PUT IT ON DISK. One-way, first write wins.
 
     "DURABLE" USED TO MEAN AN ASSIGNMENT TO THIS LIST, AND A REVIEWER CALLED
@@ -1586,16 +1666,31 @@ def mark_audit_window(since, calibration_since=None,
         "repo_commit": _repo_commit(),
         "gcp_env_digest": _gcp_env_digest(),
         "source_of_project_and_bucket": "scripts/gcp-env.sh",
-        "durable": False,
     }
     _AUDIT_WINDOW[0] = block
 
     if journal is not None:
-        # BYTES, THEN THE FLAG. If `_append` raises, `durable` stays false and
-        # the read is refused - which is the correct direction: an attempt that
+        # BYTES, THEN THE FLAG. If `_append` raises, the binding is never made
+        # and the read is refused - the correct direction: an attempt that
         # cannot record its own boundary must not spend the seal.
+        #
+        # `durable` IS NOT WRITTEN INTO THE ROW. It used to be, as `False`,
+        # because the row was serialised before the flag was flipped - so the
+        # first and authoritative evidence row permanently said the boundary
+        # was not durable while memory said it was, and later rows disagreed
+        # with it. A reviewer read the two back and got
+        # `disk_durable=False memory_durable=True`.
+        #
+        # The fix is not to write `True` earlier. It is that DURABILITY IS NOT
+        # A PROPERTY OF THE ROW - the row's presence on disk IS the durability,
+        # and a field restating that can only ever contradict it. Process state
+        # stays in the process.
         _append(journal, dict(block, kind="window", at=_utc()))
-        block["durable"] = True
+        _WINDOW_BINDING[0] = {
+            "token": secrets.token_hex(16),
+            "bucket": bucket,
+            "downloader": downloader,
+        }
 
 
 def audit_window():
@@ -1604,8 +1699,73 @@ def audit_window():
 
 
 def audit_window_is_durable():
-    """True only once the window is BYTES ON DISK, not merely remembered."""
-    return bool(_AUDIT_WINDOW[0]) and bool(_AUDIT_WINDOW[0].get("durable"))
+    """True only once the window is BYTES ON DISK, not merely remembered.
+
+    KEPT, BUT IT IS NO LONGER AUTHORISATION. It answers "did this process write
+    a window row", which is a necessary condition and nowhere near a sufficient
+    one - see `_WINDOW_BINDING`. `assert_read_is_bound_to_the_window` is the
+    check that actually authorises a read.
+    """
+    return _WINDOW_BINDING[0] is not None
+
+
+def audit_window_token():
+    """The one-time token minted when the window landed on disk, or None."""
+    binding = _WINDOW_BINDING[0]
+    return binding["token"] if binding else None
+
+
+def assert_read_is_bound_to_the_window(token, bucket, downloader):
+    """THIS read, against THIS bucket, through THE calibrated downloader.
+
+    Three questions the old ambient boolean could not answer, and a reviewer
+    walked through the gap they leave: prime the flag with any journal write,
+    then read another bucket through a downloader that never saw the canary,
+    and nothing objects. Each part below is one of those.
+
+    Raises:
+        TransferRunError: E_AUDIT_WINDOW_NOT_DURABLE, before any request.
+    """
+    binding = _WINDOW_BINDING[0]
+    if binding is None:
+        raise TransferRunError(
+            "E_AUDIT_WINDOW_NOT_DURABLE",
+            "the sealed read was reached with %s. A3.11 is decided by counting "
+            "granted reads over this run's audit window, and a window that is "
+            "not on disk before the first byte moves cannot be recovered from "
+            "a process that dies without running its exit hook. Sealed reads "
+            "go through `sealed_drive_lifecycle`, which opens the window, "
+            "calibrates on the canary and journals the boundary through the "
+            "reservation handle. Nothing has been read."
+            % ("no audit window at all" if audit_window() is None
+               else "an audit window that was never written to disk"))
+
+    if token is None or not secrets.compare_digest(str(token),
+                                                   str(binding["token"])):
+        raise TransferRunError(
+            "E_AUDIT_WINDOW_NOT_DURABLE",
+            "this read carries no valid window token. The token is minted when "
+            "the window lands on disk and handed to the read by the lifecycle "
+            "that opened it, so a read without it is a read some OTHER "
+            "invocation's window was going to be used to judge. Nothing has "
+            "been read.")
+
+    if bucket != binding["bucket"]:
+        raise TransferRunError(
+            "E_AUDIT_WINDOW_NOT_DURABLE",
+            "the window was opened against %r and this read targets %r. The "
+            "holdout counter counts reads of the bucket the window names, so a "
+            "read of any other bucket is invisible to the instrument that "
+            "decides A3.11. Nothing has been read."
+            % (binding["bucket"], bucket))
+
+    if downloader is not binding["downloader"]:
+        raise TransferRunError(
+            "E_AUDIT_WINDOW_NOT_DURABLE",
+            "this read uses a downloader that is not the one calibrated on the "
+            "canary for this window. The calibration is what proves the read "
+            "path leaves the audit entries the count depends on; a different "
+            "object has not been shown to leave any. Nothing has been read.")
 
 
 def _audit_window_for_record():
@@ -1813,9 +1973,12 @@ def _write_terminal_record(path, handle):
             "conservative process flag set before the download; it is not "
             "evidence that an object was fetched. Query the counter with "
             "`since` = `audit_window.opened_at` above, against the project and "
-            "sealed bucket named in `scripts/gcp-env.sh`; that window opens "
-            "STRICTLY AFTER `audit_window.calibration_opened_at`, so the "
-            "calibration canary is outside it by construction. Do NOT "
+            "sealed bucket recorded in the `window` row and repeated here; "
+            "that window opens STRICTLY AFTER "
+            "`audit_window.calibration_finished_at` - which is the boundary "
+            "the exclusion is defined against, NOT `calibration_opened_at`, "
+            "because the canary is read between the two - so the calibration "
+            "canary is outside the window by construction. Do NOT "
             "substitute this process's start time (it precedes the "
             "calibration, and would count the canary) or the header's "
             "`driven_at` (it is stamped after the sealed read, and does not "

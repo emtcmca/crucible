@@ -95,6 +95,15 @@ def main():
                     help="seconds to wait for Cloud Logging ingestion before "
                          "counting. 0 disables it and will UNDERCOUNT reads "
                          "made by this same probe run.")
+    ap.add_argument("--expect-gcp-env-digest",
+                    help="sha256:... from the drive log's `window` row. The "
+                         "probe recomputes the digest of scripts/gcp-env.sh "
+                         "and REFUSES if it differs, so a recovery query "
+                         "cannot silently run against a configuration the "
+                         "recorded run never used.")
+    ap.add_argument("--expect-project",
+                    help="the project from the drive log's `window` row. "
+                         "Refuses on mismatch, for the same reason.")
     ap.add_argument("--reveal-sealed-names", action="store_true",
                     help="write sealed OBJECT NAMES into the proof file "
                          "verbatim. Off by default: this script writes into "
@@ -108,6 +117,19 @@ def main():
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     env = rg.gcp_env(REPO)
+
+    # THE RECOVERY QUERY MUST STAY BOUND TO THE RUN IT IS ABOUT.
+    #
+    # A reviewer put it exactly: the `window` row identifies the historical
+    # target, and this script then reloaded the CURRENT `scripts/gcp-env.sh`
+    # and used whatever it said, verifying nothing. A record that pins its
+    # configuration and a procedure that ignores the pin leave the pin
+    # decorative - which is the same defect as the field that was never read.
+    problem = _expectation_mismatch(args, env)
+    if problem:
+        print("REFUSED: %s" % problem)
+        return 2
+
     counter = ht.HoldoutTouchCounter(env, since=args.holdout_since,
                                      settle_seconds=args.holdout_settle)
 
@@ -234,6 +256,34 @@ def main():
     return 1 if bad else 0
 
 
+def _expectation_mismatch(args, env):
+    """None if the run this query is about matches the environment here.
+
+    Returns a human-readable reason otherwise. Deliberately NOT silent when the
+    expectations are absent: a recovery query with no pins is a query nobody
+    can attach to a run, and the caller is told so rather than reassured.
+    """
+    import hashlib
+
+    if args.expect_gcp_env_digest:
+        want = args.expect_gcp_env_digest.strip()
+        got = "sha256:" + hashlib.sha256(
+            (REPO / "scripts" / "gcp-env.sh").read_bytes()).hexdigest()
+        if want != got:
+            return ("scripts/gcp-env.sh is %s and the run recorded %s. The "
+                    "configuration has changed since the run, so a count "
+                    "taken here is over a different target than the one the "
+                    "record names." % (got, want))
+
+    if args.expect_project:
+        got = env.get("CRUCIBLE_PROJECT")
+        if args.expect_project != got:
+            return ("this environment names project %r and the run recorded "
+                    "%r." % (got, args.expect_project))
+
+    return None
+
+
 def _redact_sealed_objects(text, env):
     """Replace sealed OBJECT names with stable digests. Returns (text, count).
 
@@ -280,25 +330,35 @@ def _redact_sealed_objects(text, env):
 
     # AND A BARE NAME, which a reviewer reproduced surviving untouched.
     #
-    # THE PATTERN IS SEALED_IO'S OWN, not one written again here. `_SAFE_NAME`
-    # is the regex that validates every name before it is requested, so it is
-    # the single definition of what a sealed object is called, and importing it
-    # means this cannot drift from the thing it is trying to match.
+    # THE PATTERN IS DERIVED FROM SEALED_IO'S OWN, not written again here.
+    # `_SAFE_NAME` is the regex that validates every name before it is
+    # requested, so it is the single definition of what a sealed object is
+    # called. The scanning pattern is built by stripping its anchors, so there
+    # is one place the convention lives.
     #
-    # A hand-rolled `F4-.*\.json` was tried first and its own control test
-    # caught it redacting `F4-MANIFEST.json` - a PUBLISHED artifact, the one
-    # that carries the `atk_` ids on purpose. Over-redaction is not the safe
-    # direction here: it corrupts the proof file while looking careful.
+    # THE PREVIOUS VERSION CONSULTED `_SAFE_NAME` BUT SCANNED WITH A RETYPED
+    # COPY OF THE SAME REGEX, which a reviewer correctly said made
+    # "delegates the convention" too broad a claim: a change to `_SAFE_NAME`
+    # would have left the scanner matching the old shape and finding nothing
+    # to consult it about.
+    #
+    # A hand-rolled `F4-.*\.json` was tried before that and its own control
+    # test caught it redacting `F4-MANIFEST.json` - a PUBLISHED artifact, the
+    # one that carries the `atk_` ids on purpose. Over-redaction is not the
+    # safe direction: it corrupts the proof file while looking careful.
     from crucible.transfer.sealed_io import _SAFE_NAME
 
     def sub_bare(match):
         obj = match.group(0)
-        if not _SAFE_NAME.match(obj):
-            return obj
         seen.add(obj)
         return "sha256-8:" + hashlib.sha256(obj.encode("utf-8")).hexdigest()[:8]
 
-    bare = re.compile(r"\bF4-dest-\d{2}-[a-z0-9-]+\.json\b")
+    body = _SAFE_NAME.pattern
+    if body.startswith("^"):
+        body = body[1:]
+    if body.endswith("$"):
+        body = body[:-1]
+    bare = re.compile(r"\b(?:%s)\b" % body)
     text = bare.sub(sub_bare, text)
     return text, len(seen)
 

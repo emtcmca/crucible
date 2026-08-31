@@ -430,8 +430,15 @@ if (-not $W) {
   $W = ($Rows | Where-Object { $_.audit_window } | Select-Object -First 1).audit_window
 }
 $Since  = $W.opened_at
-python scripts/probe-g7-g8.py --holdout-since $Since
+python scripts/probe-g7-g8.py --holdout-since $Since `
+  --expect-gcp-env-digest $W.gcp_env_digest --expect-project $W.project
 ```
+
+**Pass the pins.** The probe recomputes the digest of `scripts/gcp-env.sh` and
+refuses with exit 2 if it differs from what the run recorded, and does the same
+for the project. Without them it reloads whatever `gcp-env.sh` says *today* and
+verifies nothing - which would leave the record pinning a configuration the
+recovery query never checked it was using. A pin nobody reads is decorative.
 
 The row also carries what the query needs and what pins it: `project`,
 `bucket`, `repo_commit`, and `gcp_env_digest` - the sha256 of
@@ -497,9 +504,27 @@ instance content.
 
 ### Then apply the amendment yourself
 
-- **Zero sealed reads.** VOID, and **one retry remains**. An empty reservation
-  is handed back automatically when the read was never attempted, so the retry
-  is not refused by the guard that protects it.
+- **Zero sealed reads.** VOID, and **one retry remains**. **THE RETRY USES A
+  NEW `$Out` PATH. Do not reuse the old one.**
+
+  This changed on 2026-08-30 and the previous instruction is now false. It said
+  an empty reservation is handed back automatically, which was true when the
+  first bytes written were the header - a failure before that left a zero-byte
+  file and `release_reservation` deleted it. **The audit-window row is now
+  written before the preflight and before the read**, so any failure after the
+  window opens leaves a file with bytes in it, and bytes are never deleted.
+  That is the correct behaviour: the window row is the evidence the A3.11
+  ruling is made from, and a retry does not entitle anyone to erase the record
+  of the attempt that preceded it.
+
+  So on the retry, set a fresh `$Out` - the `$Stamp` at the top of this runbook
+  already makes a new directory per attempt, so re-running that block is
+  enough. Reusing the old path meets `E_SEALED_OUT_PATH` ("the target already
+  exists"), which is the guard doing its job at the worst possible moment.
+
+  The automatic hand-back still applies, and now covers only the case it can:
+  a failure BEFORE the window opened, which leaves nothing on disk and nothing
+  to keep.
 - **One or more sealed reads.** Terminal **INVALID**. No retry, at any stage,
   whether the failure landed in the read, in validation, in the adjudication,
   in model setup or in scoring. Publish the failure record. **No rate and no
