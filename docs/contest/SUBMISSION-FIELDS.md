@@ -163,3 +163,43 @@ Full reasoning: `docs/contest/AUDIT-stage-one-2026-08-30.md`, Row 8.
 
 **Nothing may be torn down before 2026-10-01.** Availability runs through the
 Judging Period, not to the submission deadline.
+
+---
+
+## The "Additional info" page, field by field
+
+Answers verified 2026-08-31. Where a field has a trap, the trap is named.
+
+| field | answer |
+|---|---|
+| **Sponsor / Special Prizes** | **Leave Startup Excellence UNCHECKED.** It needs an incorporated organisation and a corporate email address. Solo and unaffiliated is not eligible, and ticking it does not make it so |
+| **Submitter Type** | Individual |
+| **Country of residence** | United States |
+| **Category** | **The Fortified Enterprise Fleet** |
+| **Organization name** | *blank* — not submitting on behalf of one |
+| **Project start date (MM-DD-YY)** | **08-20-26** — first commit `fc3a612`, 2026-08-20 10:45:12 -0400, seventeen days inside a submission period that opened 08-03 |
+| **Code repo URL** | `https://github.com/emtcmca/crucible` — **public**, so no share with `testing@devpost.com` or `cloudhackathons@google.com` is needed |
+| **Reproducible testing instructions in README?** | **Yes.** `README.md` "Spin it up": requirements, install, run the tests, the enforcement smoke run, the campaign loop — every command executed and its real output shown, verified 2026-08-21. Four more instruments in `MEASUREMENT.md` |
+| **Hosted project URL** | *blank* — see the ruling above. Put the reasoning in Testing instructions instead |
+| **Google SDK** | **Agent Development Kit (ADK)** only. `google-adk==2.1.0`, imported and load-bearing at `crucible/plugin/adk.py:78`. Do not also tick GenAI SDK: it is a transitive dependency of ADK, not something this project calls |
+| **Google Cloud Service(s)** | **Cloud Run only**, from the five offered. **Do NOT tick Firestore** — it is provisioned and nothing in the repository holds a client for it, which the 08-30 audit established. Cloud SQL, GKE and Pub/Sub are not used at all. The services this project actually leans on (Vertex AI, Cloud Storage, IAM, Cloud Logging) are not on that list, so they go in the model and description fields instead |
+| **Architecture diagram** | upload `tools/capture/out/submission-media/01-architecture-THUMBNAIL.png` — PNG, 0.37 MB against a 35 MB cap |
+| **Startup Prize org / corporate email** | *blank*, both. Not opting in |
+| **Google AI Models** | `gemini-3.7-flash` (Armorer) · `gemini-3.6-flash` (Red strategist) · `gemini-3.5-flash-lite` (Coroner and target agent) · `google/gemma-4-26b-a4b-it-maas` (capability cartographer, via Vertex Model Garden). **All Gemini pins are 3.5 or newer, and Gemma is the additional model the bonus asks for** |
+
+### The two optional bonus fields — check before you answer
+
+**Link to a piece of content (blog, podcast, video).** The rule has two
+conditions: the content must be **public, not unlisted**, and it **must include
+language saying you created it for the purposes of entering this hackathon**.
+
+The demo video is public and is already the required video, but it does not
+carry that sentence. **Do not claim this field unless a piece of content
+actually says it.** An unmet condition on a bonus field is a worse trade than an
+unclaimed bonus.
+
+**Link to a social media post, with `#AllThingsAgentic Hackathon`.** Your
+LinkedIn post is at
+`https://www.linkedin.com/feed/update/urn:li:activity:7500205777584963584/`.
+**Open it and confirm the hashtag is in it before pasting.** I cannot read
+LinkedIn from here and will not assume a hashtag is present.
